@@ -5,6 +5,7 @@ import json
 import traceback
 from io import StringIO
 from dataclasses import dataclass
+from abc import ABC, abstractmethod
 
 @dataclass
 class Result:
@@ -32,17 +33,28 @@ class Result:
         return "\n\n".join(lines)
 
 
+class Runtime(ABC):
+    @abstractmethod
+    def install_packages(self, packages):
+        pass
+
+    
 class Runner(object):
-    def __init__(self, stmts=None):
-        self._globals = {}
+    def __init__(self, runtime, stmts=None):
+        self._globals = {'runtime': runtime}
         self._locals = {}
         self._stmts = stmts
+        self._runtime = runtime
         if stmts:
             exec(stmts, self._globals, self._locals)
 
     @property
     def locals(self):
         return self._locals
+    
+    @property
+    def globals(self):
+        return self._globals
     
     def __call__(self, code_str):
         old_stdout, old_stderr = sys.stdout, sys.stderr
@@ -66,10 +78,4 @@ class Runner(object):
         if '_' in self._locals:
             result.lastexpr = str(self._locals['_'])
         return result
-
- 
-    def reset(self):
-        self._globals = {}
-        self._locals = {}
-        if self._stmts:
-            exec(self._stmts, self._globals, self._locals)
+    

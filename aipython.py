@@ -11,7 +11,6 @@ from pygments.lexers.python import PythonLexer
 
 from agent import Agent
 
-# 自定义自动补全器（包含 Python 内置函数）
 class PythonCompleter(WordCompleter):
     def __init__(self):
         super().__init__([name for name in dir(builtins)], ignore_case=True)
@@ -40,11 +39,11 @@ def main(args):
             if user_input.strip() in {"exit()", "quit()"}:
                 break
             console.push(user_input)
-        except (EOFError, KeyboardInterrupt):  # 捕获 Ctrl-D 退出时显示消息，EOFError:
+        except EOFError:
             print("Exiting...")
             break
         except Exception as e:
-            print(f"错误: {e}")
+            print(f"Error: {e}")
 
 
 if __name__ == "__main__":

@@ -2,12 +2,15 @@
 # -*- coding: utf-8 -*-
 
 import os
+import sys
 
 from rich.console import Console
 from rich.markdown import Markdown
+from rich.prompt import Prompt
 
 from llm import LLM
-from run import Runner
+from run import Runner, Runtime
+from utils import restore_output
 
 STMTS = """
 import requests
@@ -48,6 +51,12 @@ SYS_PROMPT = f"""
 ### Python运行环境
 Python运行环境已经用下述代码初始化，你可以直接使用这些已经导入的模块：
 {STMTS}
+
+如果必须安装其他第三方库，请说明原因以及如何安装，并在 import 这些库前，
+调用运行环境提供的 runtime 对象的install_packages方法：
+- 参数为要安装的库的名称列表，如 ['numpy', 'pandas']
+- 返回 True 表示已安装，可以导入使用
+- 返回 False 表示安装被拒绝或安装失败
 
 ### 执行结果反馈
 用户每执行完一段Python代码后都会通过一个JSON字符串对象反馈执行结果，可能包括以下属性：
@@ -92,7 +101,7 @@ class Agent(object):
         self._console = Console()
 
     def reset(self):
-        self._runner = Runner(stmts=STMTS)
+        self._runner = Runner(self, stmts=STMTS)
         self._llm = LLM(
             api_key=os.getenv("OPENAI_API_KEY"),
             base_url=os.getenv("OPENAI_BASE_URL"),
@@ -178,10 +187,8 @@ class Agent(object):
 
     def __call__(self, instruction):
         self._inst = instruction
-        prompt = SYS_PROMPT + instruction
-
         print("📝 正在处理指令...")
-        response, ok = self._llm(prompt)
+        response, ok = self._llm(instruction, system_prompt=SYS_PROMPT)
         print("\n🤖 LLM 响应:")
         self._console.print(Markdown(response))
 
@@ -192,3 +199,13 @@ class Agent(object):
 
         results, ok = self.run_code_blocks(code_blocks)
         print(f"\n📋 处理{'成功' if ok else '失败'}，结果摘要:\n{'\n'.join(results)}")
+
+    @restore_output
+    def install_packages(self, packages):
+        self._console.print(f"\n📦 LLM 申请安装第三方包: {packages}")
+        while True:
+            response = Prompt.ask("如果同意且已安装，请输入 'y", choices=["y", "n"], default="n", console=self._console)
+            if response in ["y", "n"]:
+                break
+        return response == "y"
+        
