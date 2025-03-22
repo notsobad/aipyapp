@@ -11,13 +11,22 @@ class LLM:
         self._history = []
         self._client = openai.Client(api_key=self._api_key, base_url=self._base_url)
 
-    def __call__(self, prompt, max_tokens=4000):
+
+    @property
+    def history(self):
+        return self._history
+    
+
+    def __call__(self, prompt, system_prompt=None, max_tokens=4000):
         messages = []
         
         for msg in self._history:
             if msg["role"] not in ["user", "assistant", "system"]:
                 continue
             messages.append({"role": msg["role"], "content": msg["content"]})
+        
+        if not messages and system_prompt:
+            messages.append({"role": "system", "content": system_prompt})
         messages.append({"role": "user", "content": prompt})
 
         try:
