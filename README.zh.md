@@ -1,0 +1,42 @@
+# Python use
+Python use (aipython) 是一个集成 LLM 的 Python 命令行解释器。
+
+## What
+Python use 是把整个 Python 执行环境提供给 LLM 使用，可以想象为 LLM 坐在电脑前用键盘在 Python 命令行解释器里输入各种命令，按回车运行，然后观察执行结果，再输入代码和执行。
+
+和 Agent 的区别是 Python use 不定义任何 tools 接口，LLM 可以自由使用 Python 运行环境提供的所有功能。
+
+## Why
+加入你是一个数据工程师，你对下面的场景一定不陌生：
+- 处理各种不同格式的数据文件：csv/excel，json，html, sqlite, parquet ...
+- 对数据进行清洗，转换，计算，聚合，排序，分组，过滤，分析，可视化等操作
+
+这个过程经常需要：
+- 启动 Python，import pandas as pd，输入一堆命令处理数据
+- 生成一堆中间临时文件
+- 找 ChatGPT / Claude 描述你的需要，手工拷贝生成的数据处理代码运行。
+
+所以，为什么不启动 Python 命令行解释器后，直接描述你的数据处理需求，然后自动完成？好处是：
+- 无需手工临时输入一堆 Python 命令
+- 无需去找 GPT 描述需求，拷贝程序，然后手工运行
+
+这就是 Python use 要解决的问题！
+
+## How
+Python use (aipython) 是一个集成 LLM 的 Python 命令行解释器。你可以：
+- 像往常一样输入和执行 Python 命令
+- 用自然语言描述你的需求，aipython 会自动生成 Python 命令，然后执行
+
+而且，两种模式可以互相访问数据。例如，aipython 处理完你的自然语言命令后，你可以用标准 Python 命令查看各种数据。
+
+## TODO
+- 太多需要处理的问题
+
+## Thanks
+- Sonnet 3.7: 生成了第一版的代码，几乎无需修改就能使用。
+- ChatGPT: 提供了很多建议和代码片段，特别是命令行接口。
+- Codeium: 代码智能补齐
+- Copilot: 代码改进建议
+
+
+
