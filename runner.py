@@ -11,7 +11,7 @@ from abc import ABC, abstractmethod
 class Result:
     stdout: str = ''
     stderr: str = ''
-    lastexpr: str = ''
+    vars: str = ''
     errstr: str = ''
     traceback: str = ''
 
@@ -22,31 +22,19 @@ class Result:
                 d[field] = value
         return json.dumps(d, ensure_ascii=False)
 
-    def has_error(self):
-        return self.errstr or self.traceback
-    
-    def markdown(self) -> str:
-        lines = []
-        for field, value in self.__dict__.items():
-            if value:
-                lines.append(f"**{field}**:\n```\n{value}\n```")
-        return "\n\n".join(lines)
-
-
 class Runtime(ABC):
     @abstractmethod
     def install_packages(self, packages):
         pass
 
-    
 class Runner(object):
     def __init__(self, runtime, stmts=None):
-        self._globals = {'runtime': runtime}
+        self._globals = {'runtime': runtime, '__vars__': {}}
         self._locals = {}
         self._stmts = stmts
         self._runtime = runtime
         if stmts:
-            exec(stmts, self._globals, self._locals)
+            exec(stmts, self._globals)
 
     @property
     def locals(self):
@@ -75,7 +63,8 @@ class Runner(object):
         result.stdout = captured_stdout.getvalue().strip()
         result.stderr = captured_stderr.getvalue().strip()
 
-        if '_' in self._locals:
-            result.lastexpr = str(self._locals['_'])
+        vars = self._globals['__vars__']
+        if vars:
+            result.vars = str(vars)
         return result
     
