@@ -29,6 +29,44 @@ Python use (aipython) 是一个集成 LLM 的 Python 命令行解释器。你可
 
 而且，两种模式可以互相访问数据。例如，aipython 处理完你的自然语言命令后，你可以用标准 Python 命令查看各种数据。
 
+## Interfaces
+### ai 对象
+- chat(msg): 向 LLM 发送一条消息，并输出 LLM 的回复
+- step(): 处理 LLM 返回的最新一条消息，执行里面的代码
+- __call__(instruction, reset=False): 执行自动处理循环，直到 LLM 不再返回代码消息
+- save(path): 保存交互过程到 svg 或 html 文件
+- llm 属性： LLM 对象
+- runner 属性： Runner 对象
+
+### LLM 对象
+- history 属性： 用户和LLL交互过程的消息历史
+
+### Runner 对象
+- globals: 执行 LLM 返回代码的 Python 环境全局变量
+- locals: 执行 LLM 返回代码的 Python 环境局部变量
+
+### runtime 对象
+供 LLM 生成的代码调用，提供一下接口：
+- install_packages(packages): 申请安装第三方包
+
+## Usage
+### 基本用法
+自动任务处理：
+
+```
+>>> ai("获取Google官网首页标题")
+```
+
+### 自动申请安装第三方库
+```
+Python use - AIPython (Quit with 'exit()')
+>>> ai("使用psutil列出当前MacOS所有进程列表")
+
+📦 LLM 申请安装第三方包: ['psutil']
+如果同意且已安装，请输入 'y [y/n] (n): y
+
+```
+
 ## TODO
 - 太多需要处理的问题
 
@@ -36,7 +74,7 @@ Python use (aipython) 是一个集成 LLM 的 Python 命令行解释器。你可
 - Sonnet 3.7: 生成了第一版的代码，几乎无需修改就能使用。
 - ChatGPT: 提供了很多建议和代码片段，特别是命令行接口。
 - Codeium: 代码智能补齐
-- Copilot: 代码改进建议
+- Copilot: 代码改进建议和翻译 README
 
 
 
