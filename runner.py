@@ -30,12 +30,12 @@ class Runtime(ABC):
 class Runner(Runtime):
     def __init__(self, console):
         self._console = console
+        self.env = {}
         self.clear()
 
     def clear(self):
         self._globals = {'runtime': self, '__session__': {}}
         self.history = []
-        self.env = {}
         exec(INIT_IMPORTS, self._globals)
 
     @property
@@ -53,6 +53,7 @@ class Runner(Runtime):
         sys.stdout, sys.stderr = captured_stdout, captured_stderr
         result = {}
         gs = self._globals.copy()
+        gs['__result__'] = {}
         try:
             exec(code_str, gs)
         except Exception as e:

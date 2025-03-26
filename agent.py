@@ -26,7 +26,6 @@ class Agent(object):
         self._console = None
         self.path = path
         self.system_prompt = None
-        self.api_prompt = None
         self.max_tokens = None
         self._init()
 
@@ -48,7 +47,7 @@ class Agent(object):
 
         api = config.get('api')
         if api:
-            lines = ['# 可用的 API 信息']
+            lines = [self.system_prompt]
             for api_name, api_conf in api.items():
                 lines.append(f"## {api_name} API")
                 envs = api_conf.get('env', {})
@@ -58,13 +57,13 @@ class Agent(object):
                         value = value.strip()
                         if not value:
                             continue
-                        var_name = f'{api_name}-{name}'
+                        var_name = name
                         lines.append(f"- {var_name}: {desc}")
-                        self.runner.setenv(f'{var_name}', value, desc)
+                        self.runner.setenv(var_name, value, desc)
                 desc = api_conf.get('desc')
                 if desc: 
                     lines.append(f"### API 描述\n{desc}")
-            self.api_prompt = "\n".join(lines)
+            self.system_prompt = "\n".join(lines)
 
     def reset(self, path=None):
         """ 重新读取配置文件和初始化所有对象 """
@@ -130,13 +129,8 @@ class Agent(object):
         执行自动处理循环，直到 LLM 不再返回代码消息
         """
         self._console.print("▶ [yellow]开始处理指令:", f'[red]{instruction}\n')
-        if not self.llm.history:
-            system_prompt = self.system_prompt
-            instruction = f"# 任务: {instruction}\n\n{self.api_prompt}"
-            self._console.print("📩 发送任务:\n", Markdown(instruction))
-        else:
-            system_prompt = None
-        response = self.llm(instruction, system_prompt=system_prompt)
+        system_prompt = None if self.llm.history else self.system_prompt
+        response = self.llm(instruction, system_prompt=system_prompt, name=llm)
         while response:
             self._console.print("\n📥 LLM 响应:\n", Markdown(response))
             msg = self.parse_reply(response)

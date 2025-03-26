@@ -9,15 +9,22 @@ import requests
 from rich import print
 
 class History(list):
-    def add(self, role, content):
-        self.append({"role": role, "content": content})
+    def add(self, role, content, reason=None):
+        self.append((role, content, reason))
 
     def get_last_message(self, role='assistant'):
         for msg in reversed(self):
-            if msg['role'] == role:
-                return msg['content']
+            if msg[0] == role:
+                return msg[1]
         return None
     
+    def __iter__(self, skip=True):
+        for msg in super().__iter__():
+            if skip:
+                yield {"role": msg[0], "content": msg[1]}
+            else:
+                yield {"role": msg[0], "content": msg[1], "reason": msg[2]}
+
 class BaseClient(ABC):
     def __init__(self, model, max_tokens):
         self.name = None
@@ -32,13 +39,6 @@ class BaseClient(ABC):
         pass
         
     def __call__(self, history, prompt, system_prompt=None):
-        """ Call OpenAI API to generate a response.
-        Also update the history with the prompt and response.
-
-        Returns: 
-        - The response from OpenAI API
-        - None if OpenAI API call fails
-        """
         # We shall only send system prompt once
         if not history and system_prompt:
             history.add("system", system_prompt)
@@ -46,7 +46,12 @@ class BaseClient(ABC):
 
         content = self.get_completion(history)
         if content:
-            history.add("assistant", content)
+            if isinstance(content, str):
+                history.add("assistant", content)
+            else:
+                content, reason = content
+                history.add("assistant", content, reason)
+                content = f"Think:\n---\n{reason}\n---\n{content}"
         return content
     
 class OpenAIClient(BaseClient):
@@ -61,7 +66,11 @@ class OpenAIClient(BaseClient):
                 messages = messages,
                 max_tokens = self._max_tokens
             )
-            content = response.choices[0].message.content
+            msg = response.choices[0].message
+            content = msg.content
+            reason = getattr(msg, "reasoning_content", None)
+            if reason:
+                content = (content, reason)
         except Exception as e:
             print(f"❌ [bold red]OpenAI API 调用失败: [yellow]{str(e)}")
             content = None
@@ -131,7 +140,6 @@ class LLM(object):
     
     def clear(self):
         self.history = History()
-        self.current = self.default
 
     def get_client(self, config):
         proto = config.get("type", "openai")
