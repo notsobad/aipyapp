@@ -55,6 +55,9 @@ class Agent(object):
                 if envs:
                     lines.append("### 环境变量名称和意义")
                     for name, (value, desc) in envs.items():
+                        value = value.strip()
+                        if not value:
+                            continue
                         var_name = f'{api_name}-{name}'
                         lines.append(f"- {var_name}: {desc}")
                         self.runner.setenv(f'{var_name}', value, desc)

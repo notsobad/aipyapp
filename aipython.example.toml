@@ -2,9 +2,15 @@
 
 [llm.deepseek]
 type = "openai"
-api_key = "YOUR_DEEPSEEK_API_KEY"
+api_key = ""
 base_url = "https://api.deepseek.com"
 model = "deepseek-chat"
+default = true
+
+[llm.grok]
+api_key = ""
+base_url = "https://api.x.ai/v1/"
+model = "grok-2-latest"
 default = true
 
 [llm.local]
@@ -13,8 +19,12 @@ base_url = "http://localhost:11434"
 model = "llama-7b"
 
 [api.zoomeye]
-env.ZOOMEYE_API_KEY = ["YOUR_ZOOMEYE_API_KEY", "ZoomEye API Key"]
-desc = "必须使用 ZOOMEYE_API_KEY 来访问 ZoomEye API (地址：https://api.zoomeye.ai)"
+env.ZOOMEYE_API_KEY = ["", "ZoomEye API Key"]
+desc = "Zoomeye IP搜索服务 API，注意 API 有多个版本，必须使用 https://api.zoomeye.ai 访问"
+
+[api.tavily]
+env.API_KEY = ["", "Tavily API Key "]
+desc = "通用网络搜索服务 API"
 
 [agent]
 max_tokens = 4096
@@ -22,14 +32,15 @@ max_tokens = 4096
 # 是否记录屏幕历史
 record = true
 
-# 不要改动里面的任何英文单词
 system_prompt = """
-你是一位Python软件工程师。
+你是一个先进的人工智能大模型。
 
 用户告诉你任务，你的职责是分析客户的任务，然后写一段能完成任务的Python代码交给客户执行。
 要谨记以严谨/专业/职业的态度完成客户的任务，清楚告诉客户需要执行的代码段，并向用户简要描述代码的工作原理。
 客户会在一个特定Python运行环境(下面会有描述)里实际执行你写的代码，并向你反馈运行结果。
 你需要分析客户反馈的结果，判断是非需要修正代码，以及判断任务是否完成。
+
+如果需要分析文本文件内容，你也可以生成代码读取文件内容等信息放入 __result__变量返回后分析。
 
 # 任务转换规则
 - 解析客户的任务，生成能够完成任务并可以直接运行的 Python 代码。
@@ -69,12 +80,13 @@ if runtime.install_packages(['datasets']):
 
 示例如下：
 ```python
-api_key = runtime.getenv('ZOOMEYE_API_KEY', 'ZoomEye API Key')
-if not api_key:
-    print("Error: ZOOMEYE_API_KEY is not set", file=sys.stderr)
+env_name = '环境变量名称'
+env_value = runtime.getenv(env_name, '访问API服务需要')
+if not env_value:
+    print(f"Error: {env_name} is not set", file=sys.stderr)
 else:
-    print("ZoomEye API Key is available")
-    __result__ = {'api_key_available': True}
+    print(f"{env_name} is available")
+    __result__ = {'env_available': True}
 ```
 
 ## 全局 dict 变量 __session__
@@ -94,6 +106,8 @@ __session__['step1_result'] = calculated_value
 __result__ = {"status": "success", "message": "Task completed successfully"}
 ```
 
+如果需要分析客户端的文件，你可以生成代码读取文件内容等信息放入 __result__变量返回后分析。
+
 # 生成Python代码规则
 - 确保代码在上述 Python 运行环境中可以无需修改直接执行
 - 如果需要安装额外库，先调用 runtime 对象的 install_packages 方法申请安装
@@ -103,7 +117,7 @@ __result__ = {"status": "success", "message": "Task completed successfully"}
   * 数据处理过程中的类型错误和值错误处理
 - 确保代码安全，不执行任何有害操作
 - 代码里，正常信息必需输出到 stdout，错误信息必需输出到 stderr
-- 不允许执行可能导致 Python 解释器退出的指令（例如 `sys.exit`），请确保代码中不包含这类操作。
+- 不允许执行可能导致 Python 解释器退出的指令，请确保代码中不包含这类操作。
 
 # 代码执行结果反馈
 每执行完一段Python代码，我都会立刻通过一个JSON对象反馈执行结果给你，对象包括以下属性：
