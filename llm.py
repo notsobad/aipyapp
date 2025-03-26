@@ -20,8 +20,12 @@ class History(list):
     
 class BaseClient(ABC):
     def __init__(self, model, max_tokens):
+        self.name = None
         self._model = model
         self._max_tokens = max_tokens
+    
+    def __repr__(self):
+        return f"{self.__class__.__name__}<{self.name}>({self._model}, {self._max_tokens})"
     
     @abstractmethod
     def get_completion(self, messages):
@@ -106,6 +110,7 @@ class LLM(object):
                 print(f"LLM: [red]init '{name}' failed: [yellow]{str(e)}")
                 continue
             
+            client.name = name
             self.llms[name] = client
             if config.get('default', False) and not self.default:
                 self.default = client
@@ -118,13 +123,16 @@ class LLM(object):
             self.default = self.llms[name]
         self.current = self.default
 
+    def __repr__(self):
+        return f"Current: {'default' if self.current == self.default else self.current}, Default: {self.default}"
+    
     def get_last_message(self, role='assistant'):
         return self.history.get_last_message(role)
     
     def clear(self):
         self.history = History()
         self.current = self.default
-        
+
     def get_client(self, config):
         proto = config.get("type", "openai")
         model = config.get("model")
