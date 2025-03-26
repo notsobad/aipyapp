@@ -4,6 +4,8 @@
 import sys
 from functools import wraps
 
+from rich.prompt import Prompt
+
 def restore_output(func):
     @wraps(func)
     def wrapper(self, *args, **kwargs):
@@ -15,3 +17,11 @@ def restore_output(func):
         finally:
             sys.stdout, sys.stderr = old_stdout, old_stderr
     return wrapper
+
+def confirm(console, msg, prompt, default="n"):
+    console.print(msg)
+    while True:
+        response = Prompt.ask(prompt, choices=["y", "n"], default=default, console=console)
+        if response in ["y", "n"]:
+            break
+    return response == "y"

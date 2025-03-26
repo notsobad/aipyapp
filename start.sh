@@ -1,3 +1,3 @@
 #!/bin/bash
 
-docker run -it --rm --env-file .env -v $(pwd)/work:/app/work aipython
+docker run -it --rm --name aipython -v $(pwd)/aipython.toml:/app/aipython.toml -v $(pwd)/work:/app/work lgxz/aipython
