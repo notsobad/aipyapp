@@ -6,11 +6,13 @@ import builtins
 from pathlib import Path
 
 from rich import print
-from prompt_toolkit import prompt
+from rich.console import Console
+from prompt_toolkit import PromptSession
+from prompt_toolkit.formatted_text import HTML
 from prompt_toolkit.auto_suggest import AutoSuggestFromHistory
 from prompt_toolkit.completion import WordCompleter
 from prompt_toolkit.lexers import PygmentsLexer
-from prompt_toolkit.history import InMemoryHistory
+from prompt_toolkit.history import FileHistory
 from pygments.lexers.python import PythonLexer
 
 from agent import Agent
@@ -23,32 +25,33 @@ class PythonCompleter(WordCompleter):
         super().__init__(names, ignore_case=True)
 
 def main(args):
-    print("[bold cyan]🚀 Python use - AIPython ([red]Quit with 'exit()'[/red])")
+    console = Console(record=True)
+    home = Path(__file__).resolve().parent
+    console.print("[bold cyan]🚀 Python use - AIPython ([red]Quit with 'exit()'[/red])")
+
     if not args.config:
-        path = Path(__file__).resolve().parent / 'aipython.toml'
+        path = home / 'aipython.toml'
     else:
         path = Path(args.config)
-    ai = Agent(path)
-    console = code.InteractiveConsole({'ai': ai})
-    history = InMemoryHistory()
+    ai = Agent(path, console=console)
+    interp = code.InteractiveConsole({'ai': ai})
 
+    completer = PythonCompleter(ai)
+    lexer = PygmentsLexer(PythonLexer)
+    auto_suggest = AutoSuggestFromHistory()
+    history = FileHistory(str(Path.cwd() / 'history.txt'))
+    session = PromptSession(history=history, completer=completer, lexer=lexer, auto_suggest=auto_suggest)
     while True:
         try:
-            user_input = prompt(
-                '>>> ',
-                completer=PythonCompleter(ai),
-                auto_suggest=AutoSuggestFromHistory(),
-                lexer=PygmentsLexer(PythonLexer),
-                history=history,
-            )
+            user_input = session.prompt(HTML('<ansiblue>>> </ansiblue>'))
             if user_input.strip() in {"exit()", "quit()"}:
                 break
-            console.push(user_input)
+            interp.push(user_input)
         except EOFError:
-            print("[bold yellow]Exiting...")
+            console.print("[bold yellow]Exiting...")
             break
         except Exception as e:
-            print(f"[bold red]Error: {e}")
+            console.print(f"[bold red]Error: {e}")
 
 if __name__ == "__main__":
     def parse_args():

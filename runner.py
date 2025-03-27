@@ -38,6 +38,9 @@ class Runner(Runtime):
         self.history = []
         exec(INIT_IMPORTS, self._globals)
 
+    def __repr__(self):
+        return f"<Runner history={len(self.history)}, env={len(self.env)}>"
+    
     @property
     def globals(self):
         return self._globals

@@ -20,10 +20,10 @@ class MsgType(Enum):
 class Agent(object):
     MAX_TOKENS = 4096
 
-    def __init__(self, path):
+    def __init__(self, path, console=None):
         self.llm = None
         self.runner = None
-        self._console = None
+        self._console = console
         self.path = path
         self.system_prompt = None
         self.max_tokens = None
@@ -38,7 +38,7 @@ class Agent(object):
     def _init(self):
         config = self.load_config()
         config_agent = config.get('agent', {})
-        self._console = Console(record=config_agent.get('record', True))
+        self._console = self._console or Console(record=config_agent.get('record', True))
         self.max_tokens = config_agent.get('max_tokens', self.MAX_TOKENS)
         self.system_prompt = config_agent.get('system_prompt')
         self.runner = Runner(self._console)
@@ -76,7 +76,6 @@ class Agent(object):
 
     def clear(self):
         """ 清除上一个任务的所有数据
-        - console 历史
         - 清除 llm 历史，设置 current llm 为 default
         - 清除 runner 历史，清除 env, 清除全局变量
         """
@@ -84,9 +83,8 @@ class Agent(object):
         if True:
             self.llm.clear()
             self.runner.clear()        
-            self._console._record_buffer.clear()
 
-    def save(self, path, clear=False):
+    def save(self, path, clear=True):
         path = Path(path)
         if path.suffix == '.svg':
             self._console.save_svg(path, clear=clear)
