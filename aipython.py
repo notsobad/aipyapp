@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+import os
+import sys
 import code
 import builtins
 from pathlib import Path
@@ -24,13 +26,20 @@ class PythonCompleter(WordCompleter):
         names += [f"ai.{attr}" for attr in dir(ai) if not attr.startswith('_')]
         super().__init__(names, ignore_case=True)
 
+def get_base_path():
+    if getattr(sys, 'frozen', False):
+        path = Path(sys.executable)
+    else:
+        path = Path(__file__)
+    return path.parent
+
 def main(args):
     console = Console(record=True)
-    home = Path(__file__).resolve().parent
     console.print("[bold cyan]🚀 Python use - AIPython ([red]Quit with 'exit()'[/red])")
 
+    home = get_base_path()
     if not args.config:
-        path = home / 'aipython.toml'
+        path = 'aipython.toml'
     else:
         path = Path(args.config)
     ai = Agent(path, console=console)

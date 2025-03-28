@@ -1,23 +1,27 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+import os
 import json
 import tomllib
+import requests
 from enum import Enum
 from pathlib import Path
 
 from rich.console import Console
 from rich.markdown import Markdown
 
+import i18n
 import utils
+from i18n import T
 from llm import LLM
 from runner import Runner
 
 class MsgType(Enum):
-    CODE = "代码"
-    TEXT = "文本"
+    CODE = "CODE"
+    TEXT = "TEXT"
 
-class Agent(object):
+class Agent():
     MAX_TOKENS = 4096
 
     def __init__(self, path, console=None):
@@ -37,6 +41,9 @@ class Agent(object):
     
     def _init(self):
         config = self.load_config()
+        lang = config.get('lang')
+        if lang:
+            i18n.lang = lang
         config_agent = config.get('agent', {})
         self._console = self._console or Console(record=config_agent.get('record', True))
         self.max_tokens = config_agent.get('max_tokens', self.MAX_TOKENS)
@@ -52,7 +59,7 @@ class Agent(object):
                 lines.append(f"## {api_name} API")
                 envs = api_conf.get('env', {})
                 if envs:
-                    lines.append("### 环境变量名称和意义")
+                    lines.append(f"### {T('env_description')}")
                     for name, (value, desc) in envs.items():
                         value = value.strip()
                         if not value:
@@ -62,12 +69,16 @@ class Agent(object):
                         self.runner.setenv(var_name, value, desc)
                 desc = api_conf.get('desc')
                 if desc: 
-                    lines.append(f"### API 描述\n{desc}")
+                    lines.append(f"### API {T('description')}\n{desc}")
             self.system_prompt = "\n".join(lines)
 
     def reset(self, path=None):
         """ 重新读取配置文件和初始化所有对象 """
-        yes = utils.confirm(self._console, "\n☠️⚠️💀 严重警告：这将重新初始化❗❗❗", "🔥 如果你确定要继续，请输入 'y")
+        yes = utils.confirm(
+            self._console, 
+            f"\n☠️⚠️💀 {T('reset_warning')}", 
+            f"🔥 {T('reset_confirm')}"
+        )
         if not yes:
             return
         if path:
@@ -91,7 +102,7 @@ class Agent(object):
         elif path.suffix in ('.html', '.htm'):
             self._console.save_html(path, clear=clear)
         else:
-            self._console.print(f"不支持的文件格式：{path}")
+            self._console.print(f"{T('unknown_format')}：{path}")
 
     def parse_reply(self, text):
         lines = text.split('\n')
@@ -114,11 +125,11 @@ class Agent(object):
         
     def process_code_reply(self, msg):
         code_block = msg['code']
-        self._console.print(f"\n⚡ 开始执行代码块:", Markdown(f"```python\n{code_block}\n```"))
+        self._console.print(f"\n⚡ {T('start_execute')}:", Markdown(f"```python\n{code_block}\n```"))
         result = self.runner(code_block)
         result = json.dumps(result, ensure_ascii=False)
-        self._console.print("✅ 执行结果:\n", Markdown(f"```json\n{result}\n```"))
-        self._console.print("\n📤 开始反馈结果")
+        self._console.print(f"✅ {T('execute_result')}:\n", Markdown(f"```json\n{result}\n```"))
+        self._console.print(f"\n📤 {T('start_feedback')}")
         feedback_response = self.llm(result)
         return feedback_response
 
@@ -126,16 +137,16 @@ class Agent(object):
         """
         执行自动处理循环，直到 LLM 不再返回代码消息
         """
-        self._console.print("▶ [yellow]开始处理指令:", f'[red]{instruction}\n')
+        self._console.print("▶ [yellow]" + T('start_instruction') + ":", f'[red]{instruction}\n')
         system_prompt = None if self.llm.history else self.system_prompt
         response = self.llm(instruction, system_prompt=system_prompt, name=llm)
         while response:
-            self._console.print("\n📥 LLM 响应:\n", Markdown(response))
+            self._console.print(f"\n📥 {T('llm_response')}:\n", Markdown(response))
             msg = self.parse_reply(response)
             if msg['type'] != MsgType.CODE:
                 break
             response = self.process_code_reply(msg)
-        self._console.print("\n⏹ 结束处理指令")
+        self._console.print(f"\n⏹ {T('end_instruction')}")
 
     def chat(self, prompt):
         system_prompt = None if self.llm.history else self.system_prompt
@@ -145,6 +156,22 @@ class Agent(object):
     def step(self):
         response = self.llm.get_last_message()
         if not response:
-            self._console.print("❌ 未找到上下文信息")
+            self._console.print(f"❌ {T('no_context')}")
             return
         self.process_reply(response)
+
+    def publish(self, title):
+        meta = {'author': os.getlogin()}
+        files = {'content': self._console.export_html(clear=False)}
+        data = {'title': title, 'metadata': json.dumps(meta)}
+        try:
+            response = requests.post("https://ai.xxyy.eu.org/api/articles", files=files, data=data, verify=True)
+        except Exception as e:
+            self._console.print_exception(e)
+            return
+        
+        status_code = response.status_code
+        if status_code == 201:
+            self._console.print(f"[green]{T('upload_success')}:", response.json()['url'])
+        else:
+            self._console.print(f"[red]{T('upload_failed', status_code)}:", response.text)

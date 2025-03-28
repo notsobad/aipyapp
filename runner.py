@@ -7,6 +7,7 @@ from io import StringIO
 from abc import ABC, abstractmethod
 
 import utils
+from i18n import T
 
 INIT_IMPORTS = """
 import os
@@ -80,16 +81,16 @@ class Runner(Runtime):
     
     @utils.restore_output
     def install_packages(self, packages):
-        return utils.confirm(self._console, f"\n⚠️ LLM 申请安装第三方包: {packages}", "💬 如果同意且已安装，请输入 'y")
+        return utils.confirm(self._console, f"\n⚠️ LLM {T('ask_for_packages')}: {packages}", f"💬 {T('agree_packages')} 'y")
     
     @utils.restore_output
     def getenv(self, name, desc=None):
-        self._console.print(f"\n⚠️ LLM 申请获取环境变量 {name}，用途: {desc}")
+        self._console.print(f"\n⚠️ LLM {T('ask_for_env', name)}: {desc}")
         try:
             value = self.env[name][0]
-            self._console.print(f"✅ 环境变量 {name} 存在，返回给代码使用")
+            self._console.print(f"✅ {T('env_exist', name)}")
         except KeyError:
-            value = self._console.input(f"💬 未找到环境变量 {name}，请输入: ")
+            value = self._console.input(f"💬 {T('input_env', name)}: ")
             value = value.strip()
             if value:
                 self.setenv(name, value, desc)

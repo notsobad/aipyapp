@@ -8,6 +8,8 @@ import openai
 import requests
 from rich import print
 
+from i18n import T
+
 class History(list):
     def add(self, role, content, reason=None):
         self.append((role, content, reason))
@@ -51,7 +53,7 @@ class BaseClient(ABC):
             else:
                 content, reason = content
                 history.add("assistant", content, reason)
-                content = f"Think:\n---\n{reason}\n---\n{content}"
+                content = f"{T('think')}:\n---\n{reason}\n---\n{content}"
         return content
     
 class OpenAIClient(BaseClient):
@@ -72,7 +74,7 @@ class OpenAIClient(BaseClient):
             if reason:
                 content = (content, reason)
         except Exception as e:
-            print(f"❌ [bold red]OpenAI API 调用失败: [yellow]{str(e)}")
+            print(f"❌ [bold red]{self.name} API {T('call_failed')}: [yellow]{str(e)}")
             content = None
 
         return content
@@ -97,7 +99,7 @@ class OllamaClient(BaseClient):
             response.raise_for_status()
             return response.json()["message"]["content"]
         except Exception as e:
-            print(f"❌ [bold red]Ollama API 调用失败: [yellow]{str(e)}")
+            print(f"❌ [bold red]{self.name} API {T('call_failed')}: [yellow]{str(e)}")
             content = None
 
         return content
