@@ -17,6 +17,10 @@ from i18n import T
 from llm import LLM
 from runner import Runner
 
+CERT_PATH = Path(__file__).parent
+CLIENT_CERT = CERT_PATH / "client.pem"
+CLIENT_KEY = CERT_PATH / "client.key"
+
 class MsgType(Enum):
     CODE = "CODE"
     TEXT = "TEXT"
@@ -25,6 +29,7 @@ class Agent():
     MAX_TOKENS = 4096
 
     def __init__(self, path, console=None):
+        self.instruction = None
         self.llm = None
         self.runner = None
         self._console = console
@@ -139,6 +144,8 @@ class Agent():
         """
         self._console.print("▶ [yellow]" + T('start_instruction') + ":", f'[red]{instruction}\n')
         system_prompt = None if self.llm.history else self.system_prompt
+        if system_prompt:
+            self.instruction = instruction
         response = self.llm(instruction, system_prompt=system_prompt, name=llm)
         while response:
             self._console.print(f"\n📥 {T('llm_response')}:\n", Markdown(response))
@@ -160,12 +167,14 @@ class Agent():
             return
         self.process_reply(response)
 
-    def publish(self, title):
-        meta = {'author': os.getlogin()}
+    def publish(self, title=None, author=None):
+        title = title or self.instruction
+        author = author or os.getlogin()
+        meta = {'author': author}
         files = {'content': self._console.export_html(clear=False)}
         data = {'title': title, 'metadata': json.dumps(meta)}
         try:
-            response = requests.post("https://ai.xxyy.eu.org/api/articles", files=files, data=data, verify=True)
+            response = requests.post("https://ai.xxyy.eu.org/api/publish", files=files, data=data, cert=(str(CLIENT_CERT), str(CLIENT_KEY)), verify=True)
         except Exception as e:
             self._console.print_exception(e)
             return
