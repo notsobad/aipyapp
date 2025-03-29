@@ -3,7 +3,7 @@
 
 import os
 
-lang = os.environ.get('LANG', 'en_US.UTF-8').split('.')[0].split('_')[0]
+lang = 'zh' #os.environ.get('LANG', 'en_US.UTF-8').split('.')[0].split('_')[0]
 
 MESSAGES = {
     'zh': {

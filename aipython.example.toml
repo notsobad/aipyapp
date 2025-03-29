@@ -9,6 +9,7 @@ model = "deepseek-chat"
 api_key = ""
 base_url = "https://api.deepseek.com"
 model = "deepseek-reasoner"
+enable = false
 
 [llm.grok]
 api_key = ""
