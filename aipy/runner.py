@@ -75,7 +75,7 @@ class Runner(Runtime):
     
     @utils.restore_output
     def install_packages(self, packages):
-        return utils.confirm(self._console, f"\n⚠️ LLM {T('ask_for_packages')}: {packages}", f"💬 {T('agree_packages')} 'y'")
+        return utils.confirm(self._console, f"\n⚠️ LLM {T('ask_for_packages')}: {packages}", f"💬 {T('agree_packages')} 'y'> ", auto=self._auto_install)
     
     @utils.restore_output
     def getenv(self, name, desc=None):
