@@ -111,7 +111,7 @@ class LLM(object):
         self.history = History()
         self.max_tokens = max_tokens
         for name, config in configs.items():
-            if config.get('enable', True) is False:
+            if not config.get('enable', True):
                 print(f"LLM: [yellow]ignore '{name}'")
                 continue
 
@@ -128,6 +128,8 @@ class LLM(object):
                 print(f"LLM: [green]init '{name}' success ([yellow]default)")
             else:
                 print(f"LLM: [green]init '{name}' success")
+        if not self.llms:
+            raise Exception("No available LLM")
         if not self.default:
             name = list(self.llms.keys())[0]
             print(f"LLM: [yellow]use '{name}' as default")

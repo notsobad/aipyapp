@@ -13,6 +13,4 @@ ADD . /app
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --no-dev
 
-WORKDIR /app/work
-
 CMD ["uv", "run", "/app/aipython.py"]

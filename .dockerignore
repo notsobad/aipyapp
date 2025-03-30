@@ -4,7 +4,5 @@ aipython.toml
 dist/
 work/
 build/
-client.pem
-client.key
-history.txt
+client.crt
 

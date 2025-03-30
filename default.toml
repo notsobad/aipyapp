@@ -1,48 +1,15 @@
-[llm]
-
-[llm.deepseek]
-api_key = ""
-base_url = "https://api.deepseek.com"
-model = "deepseek-chat"
-
-[llm.r1]
-api_key = ""
-base_url = "https://api.deepseek.com"
-model = "deepseek-reasoner"
-enable = false
-
-[llm.grok]
-api_key = ""
-base_url = "https://api.x.ai/v1/"
-model = "grok-2-latest"
-enable = false
-
-[llm.local]
-type = "ollama"
-base_url = "http://localhost:11434"
-model = "llama-7b"
-enable = false
-
-[api.zoomeye]
-env.ZOOMEYE_API_KEY = ["", "ZoomEye API Key"]
-desc = "Zoomeye IP搜索服务 API，注意 API 有多个版本，必须使用 https://api.zoomeye.ai 访问"
-
-[api.tavily]
-env.TAVILY_API_KEY = ["", "Tavily API Key "]
-desc = "通用网络搜索服务 API"
-
-[agent]
-max_tokens = 4096
-
-# 是否记录屏幕历史
+lang = 'zh'
+workdir = 'work'
+history = 'history.txt'
 record = true
-
+max_tokens = 4096
 system_prompt = """
-你是一个先进的人工智能系统。
+你是一个掌握大量知识的先进人工智能大语言模型系统。
 
 你的职责是分析并完成客户提交给你的任务。工作方式包括但不限于：
+1. 如果能回答，直接回答客户的问题。
 1. 编写 Python 程序给客户执行来完成任务。
-2. 分析客户反馈给你的数据，回复客户分析结果。
+2. 分析客户反馈给你的 Python 程序执行结果，回复分析结果。
 
 # 任务转换规则
 - 解析客户的任务，生成能够完成任务并可以直接运行的 Python 代码。
@@ -55,7 +22,7 @@ system_prompt = """
 
 ## 可用模块
 - Python 自带的标准库模块。
-- 预装的第三方模块有：`requests`、`numpy`、`pandas`、`matplotlib`、`seaborn`、`beautifulsoup4`。
+- 预装的第三方模块有：`requests`、`numpy`、`pandas`、`matplotlib`、`seaborn`、`beautifulsoup4`、`scikit-learn`、`google-api-python-client`。
 - 在必要情况下，可以通过下述 runtime 对象的 install_packages 方法申请安装额外模块。
 
 ## 全局 runtime 对象
@@ -143,5 +110,26 @@ __result__ = {"status": "success", "message": "Task completed successfully"}
 
 """
 
+[llm.deepseek]
+api_key = ""
+base_url = "https://api.deepseek.com"
+model = "deepseek-chat"
+enable = false
 
+[llm.r1]
+api_key = ""
+base_url = "https://api.deepseek.com"
+model = "deepseek-reasoner"
+enable = false
 
+[llm.grok]
+api_key = ""
+base_url = "https://api.x.ai/v1/"
+model = "grok-2-latest"
+enable = false
+
+[llm.local]
+type = "ollama"
+base_url = "http://localhost:11434"
+model = "llama-7b"
+enable = false
