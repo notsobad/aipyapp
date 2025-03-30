@@ -28,31 +28,24 @@ class MsgType(Enum):
 class Agent():
     MAX_TOKENS = 4096
 
-    def __init__(self, path, console=None):
+    def __init__(self, settings, console=None):
+        self.settings = settings
         self.instruction = None
         self.llm = None
         self.runner = None
         self._console = console
-        self.path = path
         self.system_prompt = None
         self.max_tokens = None
         self._init()
 
-    def load_config(self):
-        config = tomllib.load(open(self.path, 'rb'))
-        if 'llm' not in config or not config['llm']:
-            raise ValueError("Invalid config file (no llm provider)")
-        return config
-    
     def _init(self):
-        config = self.load_config()
+        config = self.settings
         lang = config.get('lang')
         if lang:
             i18n.lang = lang
-        config_agent = config.get('agent', {})
-        self._console = self._console or Console(record=config_agent.get('record', True))
-        self.max_tokens = config_agent.get('max_tokens', self.MAX_TOKENS)
-        self.system_prompt = config_agent.get('system_prompt')
+        self._console = self._console or Console(record=config.get('record', True))
+        self.max_tokens = config.get('max_tokens', self.MAX_TOKENS)
+        self.system_prompt = config.get('system_prompt')
         self.runner = Runner(self._console)
         self.llm = LLM(config['llm'], self.max_tokens)
         self.use = self.llm.use

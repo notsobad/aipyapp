@@ -1,13 +1,12 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-
-import sys
+import os
 import code
 import builtins
 from pathlib import Path
 
-from rich import print
 from rich.console import Console
+from dynaconf import Dynaconf
 from prompt_toolkit import PromptSession
 from prompt_toolkit.filters import Condition
 from prompt_toolkit.formatted_text import HTML
@@ -26,29 +25,27 @@ class PythonCompleter(WordCompleter):
         names += [f"ai.{attr}" for attr in dir(ai) if not attr.startswith('_')]
         super().__init__(names, ignore_case=True)
 
-def get_base_path():
-    if getattr(sys, 'frozen', False):
-        path = Path(sys.executable)
-    else:
-        path = Path(__file__)
-    return path.parent.resolve()
-
 def main(args):
+    from pprint import pprint
     console = Console(record=True)
     console.print("[bold cyan]🚀 Python use - AIPython ([red]Quit with 'exit()'[/red])")
 
-    home = get_base_path()
-    if not args.config:
-        path = home / 'aipython.toml'
-    else:
-        path = Path(args.config)
-    ai = Agent(path, console=console)
+    path = args.config if args.config else 'aipython.toml'
+    settings = Dynaconf(settings_files=['default.toml', path], envvar_prefix="AIPY", merge_enabled=True)
+    try:
+        ai = Agent(settings, console=console)
+    except Exception as e:
+        console.print_exception(e)
+        console.print(f"[bold red]Error: {e}")
+        return
+    
+    os.chdir(Path.cwd() / settings.workdir)
     interp = code.InteractiveConsole({'ai': ai})
 
     completer = PythonCompleter(ai)
     lexer = PygmentsLexer(PythonLexer)
     auto_suggest = AutoSuggestFromHistory()
-    history = FileHistory(str(Path.cwd() / 'history.txt'))
+    history = FileHistory(str(Path.cwd() / settings.history))
     session = PromptSession(history=history, completer=completer, lexer=lexer, auto_suggest=auto_suggest)
     while True:
         try:
