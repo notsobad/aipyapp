@@ -8,7 +8,7 @@ import openai
 import requests
 from rich import print
 
-from i18n import T
+from .i18n import T
 
 class History(list):
     def add(self, role, content, reason=None):

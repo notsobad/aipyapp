@@ -1,0 +1,27 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+import sys
+from functools import wraps
+
+from rich.prompt import Prompt
+
+def restore_output(func):
+    @wraps(func)
+    def wrapper(self, *args, **kwargs):
+        old_stdout, old_stderr = sys.stdout, sys.stderr
+        sys.stdout, sys.stderr = sys.__stdout__, sys.__stderr__
+
+        try:
+            return func(self, *args, **kwargs)
+        finally:
+            sys.stdout, sys.stderr = old_stdout, old_stderr
+    return wrapper
+
+def confirm(console, msg, prompt, default="n"):
+    console.print(msg)
+    while True:
+        response = Prompt.ask(prompt, choices=["y", "n"], default=default, console=console)
+        if response in ["y", "n"]:
+            break
+    return response == "y"

@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import os
 import sys
 import code
 import builtins
@@ -10,6 +9,7 @@ from pathlib import Path
 from rich import print
 from rich.console import Console
 from prompt_toolkit import PromptSession
+from prompt_toolkit.filters import Condition
 from prompt_toolkit.formatted_text import HTML
 from prompt_toolkit.auto_suggest import AutoSuggestFromHistory
 from prompt_toolkit.completion import WordCompleter
@@ -17,7 +17,7 @@ from prompt_toolkit.lexers import PygmentsLexer
 from prompt_toolkit.history import FileHistory
 from pygments.lexers.python import PythonLexer
 
-from agent import Agent
+from aipy import Agent
 
 class PythonCompleter(WordCompleter):
     def __init__(self, ai):
@@ -31,7 +31,7 @@ def get_base_path():
         path = Path(sys.executable)
     else:
         path = Path(__file__)
-    return path.parent
+    return path.parent.resolve()
 
 def main(args):
     console = Console(record=True)
@@ -39,7 +39,7 @@ def main(args):
 
     home = get_base_path()
     if not args.config:
-        path = 'aipython.toml'
+        path = home / 'aipython.toml'
     else:
         path = Path(args.config)
     ai = Agent(path, console=console)

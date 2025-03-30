@@ -11,11 +11,11 @@ from pathlib import Path
 from rich.console import Console
 from rich.markdown import Markdown
 
-import i18n
-import utils
-from i18n import T
-from llm import LLM
-from runner import Runner
+from . import i18n
+from . import utils
+from .i18n import T
+from .llm import LLM
+from .runner import Runner
 
 CERT_PATH = Path(__file__).parent
 CLIENT_CERT = CERT_PATH / "client.pem"
