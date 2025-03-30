@@ -4,10 +4,10 @@
 import sys
 import traceback
 from io import StringIO
-from abc import ABC, abstractmethod
 
 from . import utils
 from .i18n import T
+from .interface import Runtime
 
 INIT_IMPORTS = """
 import os
@@ -19,19 +19,13 @@ import random
 import traceback
 """
 
-class Runtime(ABC):
-    @abstractmethod
-    def install_packages(self, packages):
-        pass
-
-    @abstractmethod
-    def getenv(self, name, desc=None):
-        pass
-
 class Runner(Runtime):
-    def __init__(self, console):
+    def __init__(self, console, settings):
         self._console = console
+        self._settings = settings
         self.env = {}
+        self._auto_install = settings.get('auto_install')
+        self._auto_getenv = settings.get('auto_getenv')
         self.clear()
 
     def clear(self):
@@ -81,7 +75,7 @@ class Runner(Runtime):
     
     @utils.restore_output
     def install_packages(self, packages):
-        return utils.confirm(self._console, f"\n⚠️ LLM {T('ask_for_packages')}: {packages}", f"💬 {T('agree_packages')} 'y")
+        return utils.confirm(self._console, f"\n⚠️ LLM {T('ask_for_packages')}: {packages}", f"💬 {T('agree_packages')} 'y'")
     
     @utils.restore_output
     def getenv(self, name, desc=None):
@@ -90,8 +84,12 @@ class Runner(Runtime):
             value = self.env[name][0]
             self._console.print(f"✅ {T('env_exist', name)}")
         except KeyError:
-            value = self._console.input(f"💬 {T('input_env', name)}: ")
-            value = value.strip()
+            if self._auto_getenv:
+                self._console.print(f"✅ {T('auto_confirm')}")
+                value = ''
+            else:
+                value = self._console.input(f"💬 {T('input_env', name)}: ")
+                value = value.strip()
             if value:
                 self.setenv(name, value, desc)
         return value

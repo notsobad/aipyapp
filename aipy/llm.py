@@ -30,6 +30,7 @@ class History(list):
 class BaseClient(ABC):
     def __init__(self, model, max_tokens):
         self.name = None
+        self.console = None
         self._model = model
         self._max_tokens = max_tokens
     
@@ -74,7 +75,7 @@ class OpenAIClient(BaseClient):
             if reason:
                 content = (content, reason)
         except Exception as e:
-            print(f"❌ [bold red]{self.name} API {T('call_failed')}: [yellow]{str(e)}")
+            self.console.print(f"❌ [bold red]{self.name} API {T('call_failed')}: [yellow]{str(e)}")
             content = None
 
         return content
@@ -99,40 +100,43 @@ class OllamaClient(BaseClient):
             response.raise_for_status()
             return response.json()["message"]["content"]
         except Exception as e:
-            print(f"❌ [bold red]{self.name} API {T('call_failed')}: [yellow]{str(e)}")
+            self.console.print(f"❌ [bold red]{self.name} API {T('call_failed')}: [yellow]{str(e)}")
             content = None
 
         return content
 
 class LLM(object):
-    def __init__(self, configs, max_tokens=None):
+    def __init__(self, console, configs, max_tokens=None):
         self.llms = {}
+        self.console = console
         self.default = None
         self.history = History()
         self.max_tokens = max_tokens
         for name, config in configs.items():
             if not config.get('enable', True):
-                print(f"LLM: [yellow]ignore '{name}'")
+                console.print(f"LLM: [yellow]ignore '{name}'")
                 continue
 
             try:
                 client = self.get_client(config)
             except Exception as e:
-                print(f"LLM: [red]init '{name}' failed: [yellow]{str(e)}")
+                console.print(f"LLM: [red]init '{name}' failed: [yellow]{str(e)}")
                 continue
             
             client.name = name
+            client.console = console
             self.llms[name] = client
+
             if config.get('default', False) and not self.default:
                 self.default = client
-                print(f"LLM: [green]init '{name}' success ([yellow]default)")
+                console.print(f"LLM: [green]init '{name}' success ([yellow]default)")
             else:
-                print(f"LLM: [green]init '{name}' success")
+                console.print(f"LLM: [green]init '{name}' success")
         if not self.llms:
             raise Exception("No available LLM")
         if not self.default:
             name = list(self.llms.keys())[0]
-            print(f"LLM: [yellow]use '{name}' as default")
+            console.print(f"LLM: [yellow]use '{name}' as default")
             self.default = self.llms[name]
         self.current = self.default
 
@@ -171,10 +175,10 @@ class LLM(object):
     def use(self, name):
         llm = self.llms.get(name)
         if not llm:
-            print(f"[red]LLM: {name} not found")
+            self.console.print(f"[red]LLM: {name} not found")
         else:
             self.current = llm
-            print(f"[green]LLM: use {name}")
+            self.console.print(f"[green]LLM: use {name}")
 
     def __call__(self, instruction, system_prompt=None, name=None):
         """ LLM 选择规则

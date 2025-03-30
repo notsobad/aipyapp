@@ -28,6 +28,8 @@ MESSAGES = {
         'input_env': '未找到环境变量 {}，请输入',
         'call_failed': '调用失败',
         'think': '思考',
+        'publish_disabled': "当前环境不支持发布",
+        'auto_confirm': '自动确认',
     },
     'en': {
         'start_instruction': 'Start processing instruction',
@@ -51,6 +53,8 @@ MESSAGES = {
         'input_env': 'Environment variable {} not found, please enter',
         'call_failed': 'Call failed',
         'think': 'Think',
+        'publish_disabled': "Current environment does not support publishing",
+        'auto_confirm': 'Auto confirm',
     }
 }
 

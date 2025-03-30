@@ -3,7 +3,6 @@
 
 import os
 import json
-import tomllib
 import requests
 from enum import Enum
 from pathlib import Path
@@ -17,16 +16,13 @@ from .i18n import T
 from .llm import LLM
 from .runner import Runner
 
-CERT_PATH = Path(__file__).parent
-CLIENT_CERT = CERT_PATH / "client.pem"
-CLIENT_KEY = CERT_PATH / "client.key"
-
 class MsgType(Enum):
     CODE = "CODE"
     TEXT = "TEXT"
 
 class Agent():
     MAX_TOKENS = 4096
+    CERT_PATH = Path('/tmp/aipy_client.crt')
 
     def __init__(self, settings, console=None):
         self.settings = settings
@@ -46,8 +42,8 @@ class Agent():
         self._console = self._console or Console(record=config.get('record', True))
         self.max_tokens = config.get('max_tokens', self.MAX_TOKENS)
         self.system_prompt = config.get('system_prompt')
-        self.runner = Runner(self._console)
-        self.llm = LLM(config['llm'], self.max_tokens)
+        self.runner = Runner(self._console, config)
+        self.llm = LLM(self._console,config['llm'], self.max_tokens)
         self.use = self.llm.use
 
         api = config.get('api')
@@ -161,13 +157,22 @@ class Agent():
         self.process_reply(response)
 
     def publish(self, title=None, author=None):
+        url = self.settings.get('publish.url')
+        cert = self.settings.get('publish.cert')
+        if not (url and cert):
+            self._console.print(f"[red]{T('publish_disabled')}")
+            return
         title = title or self.instruction
         author = author or os.getlogin()
         meta = {'author': author}
         files = {'content': self._console.export_html(clear=False)}
         data = {'title': title, 'metadata': json.dumps(meta)}
+
+        if not (self.CERT_PATH.exists() and self.CERT_PATH.stat().st_size  > 0):
+            self.CERT_PATH.write_text(cert)
+
         try:
-            response = requests.post("https://ai.xxyy.eu.org/api/publish", files=files, data=data, cert=(str(CLIENT_CERT), str(CLIENT_KEY)), verify=True)
+            response = requests.post(url, files=files, data=data, cert=str(self.CERT_PATH), verify=True)
         except Exception as e:
             self._console.print_exception(e)
             return
