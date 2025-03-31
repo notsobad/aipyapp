@@ -1,5 +1,7 @@
 FROM ghcr.io/astral-sh/uv:alpine
 
+RUN apk add --no-cache ttyd
+
 WORKDIR /app
 ENV UV_COMPILE_BYTECODE=1
 ENV UV_LINK_MODE=copy
@@ -13,4 +15,6 @@ ADD . /app
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --no-dev
 
-CMD ["uv", "run", "/app/aipython.py"]
+EXPOSE 80
+
+ENTRYPOINT ["/app/entrypoint.sh"]
