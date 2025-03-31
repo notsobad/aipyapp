@@ -143,6 +143,7 @@ class Agent():
                 break
             response = self.process_code_reply(msg)
         self._console.print(f"\n⏹ {T('end_instruction')}")
+        os.write(1, b'\a\a\a')
 
     def chat(self, prompt):
         system_prompt = None if self.llm.history else self.system_prompt

@@ -26,7 +26,6 @@ class PythonCompleter(WordCompleter):
         super().__init__(names, ignore_case=True)
 
 def main(args):
-    from pprint import pprint
     console = Console(record=True)
     console.print("[bold cyan]🚀 Python use - AIPython ([red]Quit with 'exit()'[/red])")
 
