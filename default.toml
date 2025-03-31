@@ -1,6 +1,6 @@
 lang = 'zh'
 workdir = 'work'
-history = 'history.txt'
+history = '.history.txt'
 record = true
 max_tokens = 4096
 system_prompt = """
