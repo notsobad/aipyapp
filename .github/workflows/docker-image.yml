@@ -26,9 +26,18 @@ jobs:
         username: ${{ secrets.DOCKERHUB_USERNAME }}
         password: ${{ secrets.DOCKERHUB_PASSWORD }}
 
-    - name: Build and Push
+    - name: Build and Push adm64
       uses: docker/build-push-action@v3
       with:
-        platforms: linux/amd64,linux/arm64
+        platforms: linux/amd64
         push: true
+        file: Dockerfile
+        tags: ${{ secrets.DOCKERHUB_USERNAME }}/aipython:latest
+
+    - name: Build and Push arm64
+      uses: docker/build-push-action@v3
+      with:
+        platforms: linux/arm64
+        push: true
+        file: Dockerfile.deb
         tags: ${{ secrets.DOCKERHUB_USERNAME }}/aipython:latest
