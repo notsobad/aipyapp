@@ -1,5 +1,10 @@
 # Features
 
+## check-result
+### 需求
+- 确保 __result__ 可以 json 序列化
+- 替换 __result__ 里 api key 的值
+
 ## add-llm-claude
 ### 需求
 - 支持配置和使用 Claude API

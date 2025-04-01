@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import sys
+import json
 import traceback
 from io import StringIO
 
@@ -18,6 +19,13 @@ import time
 import random
 import traceback
 """
+
+def is_json_serializable(obj):
+    try:
+        json.dumps(obj)  # 尝试序列化对象
+        return True
+    except (TypeError, OverflowError):
+        return False
 
 class Runner(Runtime):
     def __init__(self, console, settings):
@@ -61,7 +69,6 @@ class Runner(Runtime):
         finally:
             sys.stdout = old_stdout
             sys.stderr = old_stderr
-            self.history.append({'code': code_str, 'result': result, 'session': self._globals['__session__']})
 
         s = captured_stdout.getvalue().strip()
         if s: result['stdout'] = s
@@ -70,7 +77,8 @@ class Runner(Runtime):
 
         vars = gs.get('__result__')
         if vars:
-            result['__result__'] = vars
+            result['__result__'] = self.filter_result(vars)
+        self.history.append({'code': code_str, 'result': result, 'session': self._globals['__session__']})
         return result
     
     @utils.restore_output
@@ -96,3 +104,17 @@ class Runner(Runtime):
     
     def setenv(self, name, value, desc):
         self.env[name] = (value, desc)
+
+    def filter_result(self, vars):
+        if isinstance(vars, dict):
+            for key in vars.keys():
+                if key in self.env:
+                    vars[key] = '<masked>'
+                else:
+                    vars[key] = self.filter_result(vars[key])
+        elif isinstance(vars, list):
+            vars = [self.filter_result(v) for v in vars]
+        else:
+            vars = vars if is_json_serializable(vars) else '<filtered>'
+        return vars
+    
