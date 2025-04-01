@@ -6,6 +6,7 @@ from abc import ABC, abstractmethod
 
 import openai
 import requests
+import anthropic
 from rich import print
 
 from .i18n import T
@@ -13,6 +14,10 @@ from .i18n import T
 class History(list):
     def add(self, role, content, reason=None):
         self.append((role, content, reason))
+
+    def __getitem__(self, index):
+        result = super().__getitem__(index)
+        return History(result) if isinstance(index, slice) else result
 
     def get_last_message(self, role='assistant'):
         for msg in reversed(self):
@@ -58,9 +63,9 @@ class BaseClient(ABC):
         return content
     
 class OpenAIClient(BaseClient):
-    def __init__(self, model, api_key, base_url=None, max_tokens=None):
+    def __init__(self, model, api_key, base_url=None, max_tokens=None, timeout=None):
         super().__init__(model, max_tokens)
-        self._client = openai.Client(api_key=api_key, base_url=base_url)
+        self._client = openai.Client(api_key=api_key, base_url=base_url, timeout=timeout)
 
     def get_completion(self, messages):
         try:
@@ -81,7 +86,7 @@ class OpenAIClient(BaseClient):
         return content
     
 class OllamaClient(BaseClient):
-    def __init__(self, model, base_url, max_tokens=None):
+    def __init__(self, model, base_url, max_tokens=None, timeout=None):
         super().__init__(model, max_tokens)
         self._session = requests.Session()
         self._base_url = base_url
@@ -105,6 +110,27 @@ class OllamaClient(BaseClient):
 
         return content
 
+class ClausdeClient(BaseClient):
+    def __init__(self, model, api_key, max_tokens=None, timeout=None):
+        super().__init__(model, max_tokens)
+        self._client = anthropic.Anthropic(api_key=api_key, timeout=timeout)
+
+    def get_completion(self, messages):
+        system_prompt = messages[0][1]
+        try:
+            message = self._client.messages.create(
+                model = self._model,
+                messages = messages[1:],
+                system=system_prompt,
+                max_tokens = self._max_tokens
+            )
+            content = message.content[0].text
+        except Exception as e:
+            self.console.print(f"❌ [bold red]{self.name} API {T('call_failed')}: [yellow]{str(e)}")
+            content = None
+
+        return content
+    
 class LLM(object):
     def __init__(self, console, configs, max_tokens=None):
         self.llms = {}
@@ -153,18 +179,29 @@ class LLM(object):
         proto = config.get("type", "openai")
         model = config.get("model")
         max_tokens = config.get("max_tokens") or self.max_tokens
+        timeout = config.get("timeout")
+
         if proto == "openai":
             return OpenAIClient(
                 model,
                 config.get("api_key"),
                 base_url = config.get("base_url"),
-                max_tokens = max_tokens
+                max_tokens = max_tokens,
+                timeout=timeout
             )
         elif proto == "ollama":
             return OllamaClient(
                 model,
                 config.get("base_url"),
-                max_tokens = max_tokens
+                max_tokens = max_tokens,
+                timeout=timeout
+            )
+        elif proto == "claude":
+            return ClausdeClient(
+                model,
+                config.get("api_key"),
+                max_tokens = max_tokens,
+                timeout=timeout
             )
         else:
             raise ValueError(f"Unsupported LLM provider: {proto}")
