@@ -1,5 +1,9 @@
 # Features
 
+## add-llm-claude
+### 需求
+- 支持配置和使用 Claude API
+
 ## io-yes-now
 ### 需求
 - 自动确认 LLM 申请安装 package 或获取 env 的申请

@@ -122,6 +122,11 @@ base_url = "https://api.deepseek.com"
 model = "deepseek-reasoner"
 enable = false
 
+[llm.claude]
+type = "claude"
+api_key = ""
+model = "claude-3-7-sonnet-latest"
+
 [llm.grok]
 api_key = ""
 base_url = "https://api.x.ai/v1/"
