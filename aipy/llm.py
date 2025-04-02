@@ -136,6 +136,7 @@ class LLM(object):
         self.llms = {}
         self.console = console
         self.default = None
+        self._last = None
         self.history = History()
         self.max_tokens = max_tokens
         for name, config in configs.items():
@@ -168,6 +169,10 @@ class LLM(object):
 
     def __repr__(self):
         return f"Current: {'default' if self.current == self.default else self.current}, Default: {self.default}"
+    
+    @property
+    def last(self):
+        return self._last.name if self._last else None
     
     def get_last_message(self, role='assistant'):
         return self.history.get_last_message(role)
@@ -227,5 +232,6 @@ class LLM(object):
             llm = self.current
         else:
             llm = self.llms.get(name, self.default)
+        self._last = llm
         return llm(self.history, instruction, system_prompt=system_prompt)
     

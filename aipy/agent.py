@@ -117,17 +117,17 @@ class Agent():
             ret = {'type': MsgType.TEXT, 'code': None}
         return ret
         
-    def process_code_reply(self, msg):
+    def process_code_reply(self, msg, llm=None):
         code_block = msg['code']
         self._console.print(f"\n⚡ {T('start_execute')}:", Markdown(f"```python\n{code_block}\n```"))
         result = self.runner(code_block)
         result = json.dumps(result, ensure_ascii=False)
         self._console.print(f"✅ {T('execute_result')}:\n", Markdown(f"```json\n{result}\n```"))
         self._console.print(f"\n📤 {T('start_feedback')}")
-        feedback_response = self.llm(result)
+        feedback_response = self.llm(result, name=llm)
         return feedback_response
 
-    def __call__(self, instruction, api=None, llm=None):
+    def __call__(self, instruction, llm=None):
         """
         执行自动处理循环，直到 LLM 不再返回代码消息
         """
@@ -137,11 +137,11 @@ class Agent():
             self.instruction = instruction
         response = self.llm(instruction, system_prompt=system_prompt, name=llm)
         while response:
-            self._console.print(f"📥 {T('llm_response')}:\n", Markdown(response))
+            self._console.print(f"\n📥 {self.llm.last} {T('llm_response')}:\n", Markdown(response))
             msg = self.parse_reply(response)
             if msg['type'] != MsgType.CODE:
                 break
-            response = self.process_code_reply(msg)
+            response = self.process_code_reply(msg, llm)
         self._console.print(f"\n⏹ {T('end_instruction')}")
         os.write(1, b'\a\a\a')
 
