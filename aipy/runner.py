@@ -1,10 +1,13 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+import os
 import sys
 import json
 import traceback
 from io import StringIO
+
+from term_image.image import from_file, from_url
 
 from . import utils
 from .i18n import T
@@ -34,6 +37,11 @@ class Runner(Runtime):
         self.env = {}
         self._auto_install = settings.get('auto_install')
         self._auto_getenv = settings.get('auto_getenv')
+        for key, value in os.environ.items():
+            if key == 'LC_TERMINAL':
+                self.setenv(key, value, '终端应用程序')
+            elif key == 'TERM':
+                self.setenv(key, value, '终端类型')
         self.clear()
 
     def clear(self):
@@ -104,6 +112,15 @@ class Runner(Runtime):
                 self.setenv(name, value, desc)
         return value
     
+    @utils.restore_output
+    def display(self, path=None, url=None):
+        if path:
+            image = from_file(path)
+            image.draw()
+        elif url:
+            image = from_url(url)
+            image.draw()
+            
     def setenv(self, name, value, desc):
         self.env[name] = (value, desc)
 

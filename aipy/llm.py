@@ -52,7 +52,7 @@ class BaseClient(ABC):
         self._base_url = config.get("base_url")
 
     def __repr__(self):
-        return f"{self.__class__.__name__}<{self.name}>({self._model}, {self._max_tokens})"
+        return f"{self.__class__.__name__}<{self.name}>({self._model}, {self.max_tokens})"
     
     @abstractmethod
     def get_completion(self, messages):

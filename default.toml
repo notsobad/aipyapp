@@ -55,6 +55,14 @@ else:
     __result__ = {'env_available': True}
 ```
 
+### runtime.display 方法
+如果 LC_TERMINAL 环境变量为 iTerm2，你可以用使用这个方法在终端上显示图片。
+示例：
+```python
+runtime.display(path="path/to/image.png")
+runtime.display(url="https://www.example.com/image.png")
+```
+
 ## 全局 dict 变量 __session__
 - 类型：字典。
 - 有效期：整个会话过程始终有效
