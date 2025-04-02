@@ -1,7 +1,8 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import os
+from collections import Counter
+from dataclasses import dataclass, field
 from abc import ABC, abstractmethod
 
 import openai
@@ -11,34 +12,45 @@ from rich import print
 
 from .i18n import T
 
-class History(list):
-    def add(self, role, content, reason=None):
-        self.append((role, content, reason))
+@dataclass
+class ChatMessage:
+    role: str
+    content: str
+    reason: str = None
+    usage: Counter = field(default_factory=Counter)
 
-    def __getitem__(self, index):
-        result = super().__getitem__(index)
-        return History(result) if isinstance(index, slice) else result
+class ChatHistory:
+    def __init__(self):
+        self.messages = []
+        self._total_tokens = 0
 
-    def get_last_message(self, role='assistant'):
-        for msg in reversed(self):
-            if msg[0] == role:
-                return msg[1]
-        return None
+    def __len__(self):
+        return len(self.messages)
     
-    def __iter__(self, skip=True):
-        for msg in super().__iter__():
-            if skip:
-                yield {"role": msg[0], "content": msg[1]}
-            else:
-                yield {"role": msg[0], "content": msg[1], "reason": msg[2]}
+    def add(self, role, content):
+        self.add_message(ChatMessage(role=role, content=content))
+
+    def add_message(self, message: ChatMessage):
+        self.messages.append(message)
+        self._total_tokens += message.usage["total_tokens"]
+
+    @property
+    def total_tokens(self):
+        return self._total_tokens
+
+    def get_messages(self):
+        return [{"role": msg.role, "content": msg.content} for msg in self.messages]
 
 class BaseClient(ABC):
-    def __init__(self, model, max_tokens):
+    def __init__(self, config):
         self.name = None
         self.console = None
-        self._model = model
-        self._max_tokens = max_tokens
-    
+        self.max_tokens = config.get("max_tokens")
+        self._model = config["model"]
+        self._timeout = config.get("timeout")
+        self._api_key = config.get("api_key")
+        self._base_url = config.get("base_url")
+
     def __repr__(self):
         return f"{self.__class__.__name__}<{self.name}>({self._model}, {self._max_tokens})"
     
@@ -46,51 +58,69 @@ class BaseClient(ABC):
     def get_completion(self, messages):
         pass
         
+    def add_system_prompt(self, history, system_prompt):
+        history.add("system", system_prompt)
+
+    @abstractmethod
+    def parse_response(self, response):
+        pass
+
     def __call__(self, history, prompt, system_prompt=None):
         # We shall only send system prompt once
         if not history and system_prompt:
-            history.add("system", system_prompt)
+            self.add_system_prompt(history, system_prompt)
         history.add("user", prompt)
 
-        content = self.get_completion(history)
-        if content:
-            if isinstance(content, str):
-                history.add("assistant", content)
+        response = self.get_completion(history.get_messages())
+        if response:
+            msg = self.parse_response(response)
+            history.add_message(msg)
+            if msg.reason:
+                response = f"{T('think')}:\n---\n{msg.reason}\n---\n{msg.content}"
             else:
-                content, reason = content
-                history.add("assistant", content, reason)
-                content = f"{T('think')}:\n---\n{reason}\n---\n{content}"
-        return content
+                response = msg.content
+        return response
     
 class OpenAIClient(BaseClient):
-    def __init__(self, model, api_key, base_url=None, max_tokens=None, timeout=None):
-        super().__init__(model, max_tokens)
-        self._client = openai.Client(api_key=api_key, base_url=base_url, timeout=timeout)
+    def __init__(self, config):
+        super().__init__(config)
+        self._client = openai.Client(api_key=self._api_key, base_url=self._base_url, timeout=self._timeout)
+
+    def add_system_prompt(self, history, system_prompt):
+        history.add("system", system_prompt)
+
+    def parse_response(self, response):
+        usage = response.usage.model_dump()
+        message = response.choices[0].message
+        reason = getattr(message, "reasoning_content", None)
+        return ChatMessage(
+            role=message.role,
+            content=message.content,
+            reason=reason,
+            usage=Counter(usage))
 
     def get_completion(self, messages):
         try:
             response = self._client.chat.completions.create(
                 model = self._model,
                 messages = messages,
-                max_tokens = self._max_tokens
+                stream=False,
+                max_tokens = self.max_tokens
             )
-            msg = response.choices[0].message
-            content = msg.content
-            reason = getattr(msg, "reasoning_content", None)
-            if reason:
-                content = (content, reason)
         except Exception as e:
             self.console.print(f"❌ [bold red]{self.name} API {T('call_failed')}: [yellow]{str(e)}")
-            content = None
-
-        return content
+            response = None
+        return response
     
 class OllamaClient(BaseClient):
-    def __init__(self, model, base_url, max_tokens=None, timeout=None):
-        super().__init__(model, max_tokens)
+    def __init__(self, config):
+        super().__init__(config)
         self._session = requests.Session()
-        self._base_url = base_url
 
+    def parse_response(self, response):
+        msg = response["message"]
+        return ChatMessage(role=msg['role'], content=msg['content'])
+    
     def get_completion(self, messages):
         try:
             response = self._session.post(
@@ -99,45 +129,60 @@ class OllamaClient(BaseClient):
                     "model": self._model,
                     "messages": messages,
                     "stream": False,
-                    "options": {"num_predict": self._max_tokens}
-                }
+                    "options": {"num_predict": self.max_tokens}
+                },
+                timeout=self._timeout
             )
             response.raise_for_status()
-            return response.json()["message"]["content"]
+            response = response.json()
         except Exception as e:
             self.console.print(f"❌ [bold red]{self.name} API {T('call_failed')}: [yellow]{str(e)}")
-            content = None
+            response = None
+        return response
 
-        return content
+class ClaudeClient(BaseClient):
+    def __init__(self, config):
+        super().__init__(config)
+        self._client = anthropic.Anthropic(api_key=self._api_key, timeout=self._timeout)
 
-class ClausdeClient(BaseClient):
-    def __init__(self, model, api_key, max_tokens=None, timeout=None):
-        super().__init__(model, max_tokens)
-        self._client = anthropic.Anthropic(api_key=api_key, timeout=timeout)
+    def parse_response(self, response):
+        usage = Counter(response.usage)
+        content = response.content[0].text
+        role = response.role
+        return ChatMessage(
+            role=role,
+            content=content,
+            usage=usage)
+    
+    def add_system_prompt(self, history, system_prompt):
+        self._system_prompt = system_prompt
 
     def get_completion(self, messages):
-        system_prompt = messages[0][1]
         try:
             message = self._client.messages.create(
                 model = self._model,
-                messages = messages[1:],
-                system=system_prompt,
-                max_tokens = self._max_tokens
+                messages = messages,
+                system=self._system_prompt,
+                max_tokens = self.max_tokens
             )
-            content = message.content[0].text
         except Exception as e:
             self.console.print(f"❌ [bold red]{self.name} API {T('call_failed')}: [yellow]{str(e)}")
-            content = None
-
-        return content
+            message = None
+        return message
     
 class LLM(object):
+    CLIENTS = {
+        "openai": OpenAIClient,
+        "ollama": OllamaClient,
+        "claude": ClaudeClient
+    }
+
     def __init__(self, console, configs, max_tokens=None):
         self.llms = {}
         self.console = console
         self.default = None
         self._last = None
-        self.history = History()
+        self.history = ChatHistory()
         self.max_tokens = max_tokens
         for name, config in configs.items():
             if not config.get('enable', True):
@@ -152,6 +197,8 @@ class LLM(object):
             
             client.name = name
             client.console = console
+            if not client.max_tokens:
+                client.max_tokens = self.max_tokens
             self.llms[name] = client
 
             if config.get('default', False) and not self.default:
@@ -178,7 +225,7 @@ class LLM(object):
         return self.history.get_last_message(role)
     
     def clear(self):
-        self.history = History()
+        self.history = ChatHistory()
 
     def get_client(self, config):
         proto = config.get("type", "openai")
@@ -186,31 +233,11 @@ class LLM(object):
         max_tokens = config.get("max_tokens") or self.max_tokens
         timeout = config.get("timeout")
 
-        if proto == "openai":
-            return OpenAIClient(
-                model,
-                config.get("api_key"),
-                base_url = config.get("base_url"),
-                max_tokens = max_tokens,
-                timeout=timeout
-            )
-        elif proto == "ollama":
-            return OllamaClient(
-                model,
-                config.get("base_url"),
-                max_tokens = max_tokens,
-                timeout=timeout
-            )
-        elif proto == "claude":
-            return ClausdeClient(
-                model,
-                config.get("api_key"),
-                max_tokens = max_tokens,
-                timeout=timeout
-            )
-        else:
+        client = self.CLIENTS.get(proto.lower())
+        if not client:
             raise ValueError(f"Unsupported LLM provider: {proto}")
-        
+        return client(config)
+    
     def __contains__(self, name):
         return name in self.llms
     

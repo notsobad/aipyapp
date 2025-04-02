@@ -126,6 +126,7 @@ enable = false
 type = "claude"
 api_key = ""
 model = "claude-3-7-sonnet-latest"
+max_tokens = 8192
 
 [llm.grok]
 api_key = ""
