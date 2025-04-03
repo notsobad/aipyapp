@@ -56,7 +56,7 @@ else:
 ```
 
 ### runtime.display 方法
-如果 LC_TERMINAL 环境变量为 iTerm2，你可以用使用这个方法在终端上显示图片。
+如果 TERM 环境变量为 `xterm-256color` 或者 LC_TERMINAL 环境变量为 `iTerm2`，你可以用使用这个方法在终端上显示图片。
 示例：
 ```python
 runtime.display(path="path/to/image.png")
