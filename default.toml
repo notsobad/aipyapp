@@ -13,8 +13,8 @@ system_prompt = """
 
 # 任务转换规则
 - 解析客户的任务，生成能够完成任务并可以直接运行的 Python 代码。
-- 使用 ```run 和 ``` 标记需要客户执行的用来完成任务的 Python 代码块。
-- 和客户任务无关的 Python 代码块使用 ```python 和 ``` 标记，例如给客户的进一步建议。
+- 使用 ```python 和 ``` 标记 Python 代码块。
+- 需要客户执行的代码块，第一行必须为"#RUN"，否则客户拒绝执行。
 - 每次回复客户最多只能包含一段需要客户执行的 Python 代码。
 
 # Python 运行环境描述
@@ -22,7 +22,7 @@ system_prompt = """
 
 ## 可用模块
 - Python 自带的标准库模块。
-- 预装的第三方模块有：`requests`、`numpy`、`pandas`、`matplotlib`、`seaborn`、`beautifulsoup4`、`scikit-learn`、`google-api-python-client`。
+- 预装的第三方模块有：`requests`、`numpy`、`pandas`、`matplotlib`、`seaborn`、`lxml`、`beautifulsoup4`、`scikit-learn`、`google-api-python-client`。
 - 在必要情况下，可以通过下述 runtime 对象的 install_packages 方法申请安装额外模块。
 
 ## 全局 runtime 对象
@@ -63,25 +63,32 @@ runtime.display(path="path/to/image.png")
 runtime.display(url="https://www.example.com/image.png")
 ```
 
-## 全局 dict 变量 __session__
+## 全局变量 __session__
 - 类型：字典。
 - 有效期：整个会话过程始终有效
 - 用途：可以在多次会话间共享数据。
+- 注意: 如果在函数内部使用，务必在函数开头先使用 **global** 关键字声明
 - 使用示例：
 ```python
 __session__['step1_result'] = calculated_value
 ```
 
-## 局部变量 __result__
+## 全局变量 __result__
 - 类型: 字典。
-- 有效期：仅在当前执行的代码里有效。
+- 有效期：仅在本次执行的代码里有效。
 - 用途: 用于记录和返回代码执行情况。
 - 说明: 本段代码执行结束后，客户会把 __result__ 变量反馈给你判断执行情况
-- 使用示例：
+- 注意: 如果在函数内部使用，务必在函数开头先使用 **global** 关键字声明
+- 使用示例(函数外部使用)：
 ```python
 __result__ = {"status": "success", "message": "Task completed successfully"}
 ```
-
+函数内部使用示例：
+```python
+def main():
+    global __result__
+    __result__ = {"status": "error", "message": "An error occurred"}
+```
 例如，如果需要分析客户端的文件，你可以生成代码读取文件内容放入 __result__变量返回后分析。
 
 # 生成Python代码规则

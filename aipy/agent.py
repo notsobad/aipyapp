@@ -2,11 +2,16 @@
 # -*- coding: utf-8 -*-
 
 import os
+import time
 import json
 import requests
 from enum import Enum
 from pathlib import Path
 
+from rich.live import Live
+from rich.panel import Panel
+from rich.align import Align
+from rich.syntax import Syntax
 from rich.console import Console
 from rich.markdown import Markdown
 
@@ -98,19 +103,56 @@ class Agent():
         else:
             self._console.print(f"{T('unknown_format')}：{path}")
 
+    def render_code(self, logs, language="python", max_lines=3, delay=0.1):
+        console = self._console
+        display_lines = []
+
+        console.record = False
+        with Live(console=console, refresh_per_second=10, vertical_overflow="crop") as live:
+            for line in logs:
+                display_lines.append(line)
+                if len(display_lines) > max_lines:
+                    display_lines.pop(0)
+
+                code_block = "\n".join(display_lines)
+                syntax = Syntax(code_block, language, theme="monokai", line_numbers=False, word_wrap=True)
+                live.update(syntax)
+                time.sleep(delay)
+        console.record = True
+        
     def parse_reply(self, text):
+        self._console.print(f"\n📥 {self.llm.last} {T('llm_response')}:\n")
         lines = text.split('\n')
         code_block = []
         in_code_block = False
-        for line in lines:
-            if line.strip().startswith('```run'):
+        in_run_block = False
+        start = 0
+        end = 0
+        for i, line in enumerate(lines):
+            if line.strip().startswith('```run'): 
                 in_code_block = True
+                in_run_block = True
+                start = i
                 continue
-            elif line.strip().startswith('```') and in_code_block:
+            elif line.strip().lower().startswith('```python'):
+                in_code_block = True
+                start = i
+                continue
+            elif line.strip().startswith('```') and in_run_block:
+                end = i
                 break
-            if in_code_block:
-                code_block.append(line)
-        
+            if in_code_block and line.find('#RUN') >= 0:
+                in_run_block = True
+
+        if start > 0:
+            self._console.print(Markdown('\n'.join(lines[:start])))
+        if end > 0:
+            code_block = lines[start+1:end]
+            self.render_code(code_block)
+            self._console.print(Markdown('\n'.join(lines[end+1:])))
+        else:
+            self._console.print(Markdown(text))
+
         if code_block:
             ret = {'type': MsgType.CODE, 'code': '\n'.join(code_block)}
         else:
@@ -119,7 +161,7 @@ class Agent():
         
     def process_code_reply(self, msg, llm=None):
         code_block = msg['code']
-        self._console.print(f"\n⚡ {T('start_execute')}:", Markdown(f"```python\n{code_block}\n```"))
+        self.box(f"\n⚡ {T('start_execute')}:", code_block, lang='python')
         result = self.runner(code_block)
         result = json.dumps(result, ensure_ascii=False)
         self._console.print(f"✅ {T('execute_result')}:\n", Markdown(f"```json\n{result}\n```"))
@@ -127,22 +169,30 @@ class Agent():
         feedback_response = self.llm(result, name=llm)
         return feedback_response
 
+    def box(self, title, content, align=None, lang=None):
+        if lang:
+            content = Syntax(content, lang)
+        if align:
+            content = Align(content, align=align)
+        self._console.print(Panel(content, title=title))
+
     def __call__(self, instruction, llm=None):
         """
         执行自动处理循环，直到 LLM 不再返回代码消息
         """
-        self._console.print("▶ [yellow]" + T('start_instruction') + ":", f'[red]{instruction}')
+        self.box(f"[yellow]{T('start_instruction')}", f'[red]{instruction}', align="center")
         system_prompt = None if self.llm.history else self.system_prompt
         if system_prompt:
             self.instruction = instruction
         response = self.llm(instruction, system_prompt=system_prompt, name=llm)
         while response:
-            self._console.print(f"\n📥 {self.llm.last} {T('llm_response')}:\n", Markdown(response))
+            #self._console.print(f"\n📥 {self.llm.last} {T('llm_response')}:\n", Markdown(response))
             msg = self.parse_reply(response)
             if msg['type'] != MsgType.CODE:
                 break
             response = self.process_code_reply(msg, llm)
-        self._console.print(f"\n⏹ {T('end_instruction')}")
+        total_token = self.llm.history.total_tokens
+        self._console.print(f"\n⏹ {T('end_instruction')} | Tokens: {total_token}")
         os.write(1, b'\a\a\a')
 
     def chat(self, prompt):
