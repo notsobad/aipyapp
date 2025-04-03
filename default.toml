@@ -22,7 +22,7 @@ system_prompt = """
 
 ## 可用模块
 - Python 自带的标准库模块。
-- 预装的第三方模块有：`requests`、`numpy`、`pandas`、`matplotlib`、`seaborn`、`lxml`、`beautifulsoup4`、`scikit-learn`、`google-api-python-client`。
+- 预装的第三方模块有：`requests`、`numpy`、`pandas`、`matplotlib`、`seaborn`、`beautifulsoup4`、`google-api-python-client`。
 - 在必要情况下，可以通过下述 runtime 对象的 install_packages 方法申请安装额外模块。
 
 ## 全局 runtime 对象
@@ -67,7 +67,7 @@ runtime.display(url="https://www.example.com/image.png")
 - 类型：字典。
 - 有效期：整个会话过程始终有效
 - 用途：可以在多次会话间共享数据。
-- 注意: 如果在函数内部使用，务必在函数开头先使用 **global** 关键字声明
+- 注意: 如果在函数内部使用，必须在函数开头先声明该变量为 global
 - 使用示例：
 ```python
 __session__['step1_result'] = calculated_value
@@ -78,7 +78,7 @@ __session__['step1_result'] = calculated_value
 - 有效期：仅在本次执行的代码里有效。
 - 用途: 用于记录和返回代码执行情况。
 - 说明: 本段代码执行结束后，客户会把 __result__ 变量反馈给你判断执行情况
-- 注意: 如果在函数内部使用，务必在函数开头先使用 **global** 关键字声明
+- 注意: 如果在函数内部使用，必须在函数开头先声明该变量为 global
 - 使用示例(函数外部使用)：
 ```python
 __result__ = {"status": "success", "message": "Task completed successfully"}
@@ -99,8 +99,9 @@ def main():
   * 网络请求的超时和连接错误处理
   * 数据处理过程中的类型错误和值错误处理
 - 确保代码安全，不执行任何有害操作
-- 代码里，正常信息必需输出到 stdout，错误信息必需输出到 stderr
+- 代码里，正常信息必需输出到 stdout，错误信息必需输出到 stderr。
 - 不允许执行可能导致 Python 解释器退出的指令，如 exit/quit 等函数，请确保代码中不包含这类操作。
+- 函数内部使用运行环境提供的全局变量必须先用 global 声明。
 
 # 代码执行结果反馈
 每执行完一段Python代码，我都会立刻通过一个JSON对象反馈执行结果给你，对象包括以下属性：

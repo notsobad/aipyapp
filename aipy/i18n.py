@@ -30,6 +30,7 @@ MESSAGES = {
         'think': '思考',
         'publish_disabled': "当前环境不支持发布",
         'auto_confirm': '自动确认',
+        'packages_exist': '申请的第三方包已经安装',
     },
     'en': {
         'start_instruction': 'Start processing instruction',
@@ -55,6 +56,7 @@ MESSAGES = {
         'think': 'Think',
         'publish_disabled': "Current environment does not support publishing",
         'auto_confirm': 'Auto confirm',
+        'packages_exist': 'Third-party packages have been installed',
     }
 }
 

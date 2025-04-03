@@ -73,11 +73,8 @@ class Agent():
 
     def reset(self, path=None):
         """ 重新读取配置文件和初始化所有对象 """
-        yes = utils.confirm(
-            self._console, 
-            f"\n☠️⚠️💀 {T('reset_warning')}", 
-            f"🔥 {T('reset_confirm')}"
-        )
+        self._console.print(f"\n☠️⚠️💀 {T('reset_warning')}")
+        yes = utils.confirm(self._console, f"🔥 {T('reset_confirm')}")
         if not yes:
             return
         if path:

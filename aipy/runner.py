@@ -6,6 +6,7 @@ import sys
 import json
 import traceback
 from io import StringIO
+from importlib.util import find_spec
 
 from term_image.image import from_file, from_url
 
@@ -91,9 +92,17 @@ class Runner(Runtime):
     
     @utils.restore_output
     def install_packages(self, packages):
-        ok = utils.confirm(self._console, f"\n⚠️ LLM {T('ask_for_packages')}: {packages}", f"💬 {T('agree_packages')} 'y'> ", auto=self._auto_install)
+        self._console.print(f"\n⚠️ LLM {T('ask_for_packages')}: {packages}")
+        need_install = []
+        for package in packages:
+            if not find_spec(package):
+                need_install.append(package)
+        if not need_install:
+            self._console.print(f"✅ {T('packages_exist')}")
+            return True
+        ok = utils.confirm(self._console, f"💬 {T('agree_packages')} 'y'> ", auto=self._auto_install)
         if ok:
-            return utils.uv_install_packages(self._console, packages)
+            return utils.uv_install_packages(self._console, need_install)
         
     @utils.restore_output
     def getenv(self, name, desc=None):

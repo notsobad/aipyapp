@@ -20,8 +20,7 @@ def restore_output(func):
             sys.stdout, sys.stderr = old_stdout, old_stderr
     return wrapper
 
-def confirm(console, msg, prompt, default="n", auto=None):
-    console.print(msg)
+def confirm(console, prompt, default="n", auto=None):
     if auto in (True, False):
         console.print(f"✅ {T('auto_confirm')}")
         return auto
