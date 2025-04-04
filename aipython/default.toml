@@ -130,7 +130,7 @@ def main():
 api_key = ""
 base_url = "https://api.deepseek.com"
 model = "deepseek-chat"
-enable = false
+default = true
 
 [llm.r1]
 api_key = ""
@@ -143,6 +143,7 @@ type = "claude"
 api_key = ""
 model = "claude-3-7-sonnet-latest"
 max_tokens = 8192
+enable = false
 
 [llm.grok]
 api_key = ""

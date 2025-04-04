@@ -4,6 +4,8 @@ import os
 import code
 import builtins
 from pathlib import Path
+import importlib.metadata
+import importlib.resources as resources
 
 from rich.console import Console
 from dynaconf import Dynaconf
@@ -16,7 +18,9 @@ from prompt_toolkit.lexers import PygmentsLexer
 from prompt_toolkit.history import FileHistory
 from pygments.lexers.python import PythonLexer
 
-from aipy import Agent
+from .aipy import Agent
+
+__PACKAGE_NAME__ = "aipython"
 
 class PythonCompleter(WordCompleter):
     def __init__(self, ai):
@@ -25,12 +29,22 @@ class PythonCompleter(WordCompleter):
         names += [f"ai.{attr}" for attr in dir(ai) if not attr.startswith('_')]
         super().__init__(names, ignore_case=True)
 
+def get_version():
+    try:
+        return importlib.metadata.version('__PACKAGE_NAME__')
+    except importlib.metadata.PackageNotFoundError:
+        return "unknown"
+    
+def get_default_config():
+    default_config_path = resources.files(__PACKAGE_NAME__) / "default.toml"
+    return str(default_config_path)
+
 def main(args):
     console = Console(record=True)
-    console.print("[bold cyan]🚀 Python use - AIPython ([red]Quit with 'exit()'[/red])")
+    console.print(f"[bold cyan]🚀 Python use - AIPython v{get_version()} ([red]Quit with 'exit()'[/red])")
 
     path = args.config if args.config else 'aipython.toml'
-    settings = Dynaconf(settings_files=['default.toml', path], envvar_prefix="AIPY", merge_enabled=True)
+    settings = Dynaconf(settings_files=[get_default_config(), path], envvar_prefix="AIPY", merge_enabled=True)
     try:
         ai = Agent(settings, console=console)
     except Exception as e:
@@ -58,7 +72,7 @@ def main(args):
         except Exception as e:
             console.print(f"[bold red]Error: {e}")
 
-if __name__ == "__main__":
+def run():
     def parse_args():
         import argparse
         parser = argparse.ArgumentParser(description="Python use - AIPython")

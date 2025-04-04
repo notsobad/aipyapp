@@ -1,5 +1,8 @@
 # Features
 
+## shiv
+支持 shiv 打包
+
 ## check-result
 ### 需求
 - 确保 __result__ 可以 json 序列化
