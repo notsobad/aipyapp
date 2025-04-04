@@ -4,7 +4,8 @@ on:
   push:
     branches:
       - main
-      - release/*
+    tags:
+      - "v*"
   workflow_dispatch:
 
 jobs:
@@ -34,3 +35,8 @@ jobs:
           name: python-package
           path: dist/*
 
+      - name: Upload to GitHub Releases
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+          token: ${{ secrets.GITHUB_TOKEN }}
