@@ -43,12 +43,18 @@ class InteractiveConsole():
 
     def run_ai_mode(self, initial_text):
         ai = self.ai
-        self.console.print("[进入 AI 模式，开始处理任务，输入 /done 结束任务]", style="cyan")
+        self.console.print("[进入 AI 模式，开始处理任务，输入 Ctrl+d 或 /done 结束任务]", style="cyan")
         ai(initial_text)
         while True:
-            user_input = self.input_with_possible_multiline(">>> ", is_ai=True).strip()
+            try:
+                user_input = self.input_with_possible_multiline(">>> ", is_ai=True).strip()
+            except (EOFError, KeyboardInterrupt):
+                break
             if user_input == "/done":
                 break
+            elif user_input.startswith("/use "):
+                llm = user_input[5:].strip()
+                if llm: ai.use(llm)
             elif user_input.startswith("/"):
                 self.console.print("[AI 模式] 未知命令", style="cyan")
             else:
@@ -56,6 +62,7 @@ class InteractiveConsole():
         try:
             ai.publish(verbose=False)
         except Exception as e:
+            self.console.print(f"[AI 模式] 发布失败: {e}")
             pass
         try:
             ai.save(f'{uuid.uuid4().hex}.html')
@@ -65,19 +72,23 @@ class InteractiveConsole():
         self.console.print("[退出 AI 模式]", style="cyan")
 
     def run(self):
+        self.console.print("请输入需要 AI 处理的任务 (输入 /use llm 切换 LLM)", style="green")
         while True:
-            self.console.print("请输入需要 AI 处理的任务", style="green")
             try:
                 user_input = self.input_with_possible_multiline(">> ").strip()
                 if len(user_input) < 2:
                     continue
-                self.run_ai_mode(user_input)
+                if user_input.startswith("/use "):
+                    llm = user_input[5:].strip()
+                    if llm: self.ai.use(llm)
+                else:
+                    self.run_ai_mode(user_input)
             except (EOFError, KeyboardInterrupt):
                 break
 
 def main(args):
     console = Console(record=True)
-    console.print("[bold cyan]🚀 Python use - AIPython ([red]Quit with 'exit()'[/red])")
+    console.print("[bold cyan]🚀 Python use - AIPython ([red]SaaS mode[/red])")
 
     path = args.config if args.config else 'aipython.toml'
     default_config_path = resources.files(__PACKAGE_NAME__) / "default.toml"

@@ -204,11 +204,11 @@ class Agent():
             return
         self.process_reply(response)
 
-    def publish(self, title=None, author=None, vebose=True):
+    def publish(self, title=None, author=None, verbose=True):
         url = self.settings.get('publish.url')
         cert = self.settings.get('publish.cert')
         if not (url and cert) or self.settings.get('publish.disable'):
-            if vebose: self._console.print(f"[red]{T('publish_disabled')}")
+            if verbose: self._console.print(f"[red]{T('publish_disabled')}")
             return False
         title = title or self.instruction
         author = author or os.getlogin()
@@ -227,8 +227,8 @@ class Agent():
         
         status_code = response.status_code
         if status_code in (200, 201):
-            if vebose: self._console.print(f"[green]{T('upload_success')}:", response.json())
+            if verbose: self._console.print(f"[green]{T('upload_success')}:", response.json())
             return response.json()
         else:
-            if vebose: self._console.print(f"[red]{T('upload_failed', status_code)}:", response.text)
+            if verbose: self._console.print(f"[red]{T('upload_failed', status_code)}:", response.text)
             return False
