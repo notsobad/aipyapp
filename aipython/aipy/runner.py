@@ -71,7 +71,7 @@ class Runner(Runtime):
         gs['__result__'] = {}
         try:
             exec(code_str, gs)
-        except Exception as e:
+        except (SystemExit, Exception) as e:
             result['errstr'] = str(e)
             result['traceback'] = traceback.format_exc()
             return result
