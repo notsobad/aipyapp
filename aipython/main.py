@@ -65,11 +65,3 @@ def main(args):
             break
         except Exception as e:
             console.print(f"[bold red]Error: {e}")
-
-def run():
-    def parse_args():
-        import argparse
-        parser = argparse.ArgumentParser(description="Python use - AIPython")
-        parser.add_argument("-c", '--config', type=str, default=None, help="Toml config file")
-        return parser.parse_args()
-    main(parse_args())
