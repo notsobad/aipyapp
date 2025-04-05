@@ -4,7 +4,6 @@ import os
 import code
 import builtins
 from pathlib import Path
-import importlib.metadata
 import importlib.resources as resources
 
 from rich.console import Console

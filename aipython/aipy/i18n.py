@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import os
+import locale
 
 MESSAGES = {
     'zh': {
@@ -76,9 +76,12 @@ MESSAGES = {
     }
 }
 
-lang = os.environ.get('LANG', 'en_US.UTF-8').split('.')[0].split('_')[0]
-if lang not in MESSAGES:
-    lang = 'en'
+lang = 'en'
+language, _ = locale.getlocale()
+if language:
+    language = language.lower()
+    if language.find('china') >=0 or language.find('chinese') >= 0 or language.find('zh_') >= 0:
+        lang = 'zh'
 
 def T(key, *args):
     msg = MESSAGES[lang][key]

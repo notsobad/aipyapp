@@ -8,7 +8,6 @@ from abc import ABC, abstractmethod
 import openai
 import requests
 import anthropic
-from rich import print
 
 from .i18n import T
 
