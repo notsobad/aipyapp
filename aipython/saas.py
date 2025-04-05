@@ -50,13 +50,17 @@ class InteractiveConsole():
                 user_input = self.input_with_possible_multiline(">>> ", is_ai=True).strip()
             except (EOFError, KeyboardInterrupt):
                 break
-            if user_input == "/done":
-                break
-            elif user_input.startswith("/use "):
-                llm = user_input[5:].strip()
-                if llm: ai.use(llm)
-            elif user_input.startswith("/"):
-                self.console.print("[AI 模式] 未知命令", style="cyan")
+            if not user_input:
+                continue
+
+            if user_input.startswith("/"):
+                if user_input.startswith("/done"):
+                    break
+                elif user_input.startswith("/use "):
+                    llm = user_input[5:].strip()
+                    if llm: ai.use(llm)
+                else:
+                    self.console.print("[AI 模式] 未知命令", style="cyan")
             else:
                 ai(user_input)
         try:
