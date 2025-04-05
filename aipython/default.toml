@@ -1,4 +1,3 @@
-lang = 'zh'
 workdir = 'work'
 history = '.history.txt'
 record = true

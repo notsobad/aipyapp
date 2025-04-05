@@ -19,6 +19,7 @@ from prompt_toolkit.history import FileHistory
 from pygments.lexers.python import PythonLexer
 
 from .aipy import Agent
+from .aipy.i18n import T
 
 __PACKAGE_NAME__ = "aipython"
 
@@ -35,7 +36,7 @@ def get_default_config():
 
 def main(args):
     console = Console(record=True)
-    console.print("[bold cyan]🚀 Python use - AIPython ([red]Quit with 'exit()'[/red])")
+    console.print("[bold cyan]🚀 Python use - AIPython ([red]Python mode, Quit with 'exit()'[/red])")
 
     path = args.config if args.config else 'aipython.toml'
     settings = Dynaconf(settings_files=[get_default_config(), path], envvar_prefix="AIPY", merge_enabled=True)
@@ -45,7 +46,15 @@ def main(args):
         console.print_exception(e)
         console.print(f"[bold red]Error: {e}")
         return
+
+    if not ai.llm:
+        console.print(f"[bold red]{T('no_available_llm')}")
+        return
     
+    names = ai.llm.names
+    console.print(f"{T('banner1_python')}", style="green")
+    console.print(f"[cyan]{T('default')}: [green]{names['default']}，[cyan]{T('available')}: [yellow]{' '.join(names['available'])}")
+            
     os.chdir(Path.cwd() / settings.workdir)
     interp = code.InteractiveConsole({'ai': ai})
 

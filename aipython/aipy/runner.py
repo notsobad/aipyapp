@@ -46,7 +46,7 @@ class Runner(Runtime):
         self.clear()
 
     def clear(self):
-        self._globals = {'runtime': self, '__session__': {}, '__name__': '__main__'}
+        self._globals = {'runtime': self, '__session__': {}, '__name__': '__main__', 'input': self.input}
         self.history = []
         exec(INIT_IMPORTS, self._globals)
 
@@ -129,7 +129,11 @@ class Runner(Runtime):
         elif url:
             image = from_url(url)
             image.draw()
-            
+
+    @utils.restore_output
+    def input(self, prompt=''):
+        return self._console.input(prompt)
+      
     def setenv(self, name, value, desc):
         self.env[name] = (value, desc)
 

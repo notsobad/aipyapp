@@ -3,8 +3,6 @@
 
 import os
 
-lang = 'zh' #os.environ.get('LANG', 'en_US.UTF-8').split('.')[0].split('_')[0]
-
 MESSAGES = {
     'zh': {
         'start_instruction': '开始处理指令',
@@ -31,7 +29,15 @@ MESSAGES = {
         'publish_disabled': "当前环境不支持发布",
         'auto_confirm': '自动确认',
         'packages_exist': '申请的第三方包已经安装',
-        'thinking': '正在努力思考中，请稍等',
+        'thinking': '正在努力思考中，请稍等6-60秒',
+        'no_available_llm': '没有可用的 LLM，请检查配置文件',
+        'banner1_python': "请用 ai('任务') 输入需要 AI 处理的任务 (输入 ai.use(llm) 切换 下述 LLM：",
+        'banner1': "请输入需要 AI 处理的任务 (输入 /use llm 切换 下述LLM)",
+        'default': '默认',
+        'available': '可用',
+        'ai_mode_enter': '进入 AI 模式，开始处理任务，输入 Ctrl+d 或 /done 结束任务',
+        'ai_mode_exit': "[退出 AI 模式]",
+        'ai_mode_unknown_command': "[AI 模式] 未知命令",
     },
     'en': {
         'start_instruction': 'Start processing instruction',
@@ -58,9 +64,21 @@ MESSAGES = {
         'publish_disabled': "Current environment does not support publishing",
         'auto_confirm': 'Auto confirm',
         'packages_exist': 'Third-party packages have been installed',
-        'thinking': 'Thinking hard, please wait',
+        'thinking': 'is thinking hard, please wait 6-60 seconds',
+        'no_available_llm': 'No available LLM, please check the configuration file',
+        'banner1_python': "Please use ai('task') to enter the task to be processed by AI (enter ai.use(llm) to switch to the following LLM:",
+        'banner1': "Please enter the task to be processed by AI (enter /use llm to switch to the following LLM)",
+        'default': 'Default',
+        'available': 'Available',
+        'ai_mode_enter': 'Enter AI mode, start processing tasks, enter Ctrl+d or /done to end the task',
+        'ai_mode_exit': "[Exit AI mode]",
+        'ai_mode_unknown_command': "[AI mode] Unknown command",
     }
 }
+
+lang = os.environ.get('LANG', 'en_US.UTF-8').split('.')[0].split('_')[0]
+if lang not in MESSAGES:
+    lang = 'en'
 
 def T(key, *args):
     msg = MESSAGES[lang][key]

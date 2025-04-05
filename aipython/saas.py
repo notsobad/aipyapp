@@ -12,6 +12,7 @@ from prompt_toolkit.history import FileHistory
 from prompt_toolkit.styles import Style
 
 from .aipy import Agent
+from .aipy.i18n import T
 
 __PACKAGE_NAME__ = "aipython"
 
@@ -43,7 +44,7 @@ class InteractiveConsole():
 
     def run_ai_mode(self, initial_text):
         ai = self.ai
-        self.console.print("[进入 AI 模式，开始处理任务，输入 Ctrl+d 或 /done 结束任务]", style="cyan")
+        self.console.print(f"{T('ai_mode_enter')}", style="cyan")
         ai(initial_text)
         while True:
             try:
@@ -60,23 +61,24 @@ class InteractiveConsole():
                     llm = user_input[5:].strip()
                     if llm: ai.use(llm)
                 else:
-                    self.console.print("[AI 模式] 未知命令", style="cyan")
+                    self.console.print(f"{T('ai_mode_unknown_command')}", style="cyan")
             else:
                 ai(user_input)
         try:
             ai.publish(verbose=False)
         except Exception as e:
-            self.console.print(f"[AI 模式] 发布失败: {e}")
             pass
         try:
             ai.save(f'{uuid.uuid4().hex}.html')
         except Exception as e:
             pass
         ai.clear()
-        self.console.print("[退出 AI 模式]", style="cyan")
+        self.console.print(f"{T('ai_mode_exit')}", style="cyan")
 
     def run(self):
-        self.console.print("请输入需要 AI 处理的任务 (输入 /use llm 切换 LLM)", style="green")
+        names = self.ai.llm.names
+        self.console.print(f"{T('banner1')}", style="green")
+        self.console.print(f"[cyan]{T('default')}: [green]{names['default']}，[cyan]{T('available')}: [yellow]{' '.join(names['available'])}")
         while True:
             try:
                 user_input = self.input_with_possible_multiline(">> ").strip()
@@ -92,7 +94,7 @@ class InteractiveConsole():
 
 def main(args):
     console = Console(record=True)
-    console.print("[bold cyan]🚀 Python use - AIPython ([red]SaaS mode[/red])")
+    console.print("[bold cyan]🚀 Python use - AIPython ([red]Task mode[/red])")
 
     path = args.config if args.config else 'aipython.toml'
     default_config_path = resources.files(__PACKAGE_NAME__) / "default.toml"
@@ -102,6 +104,10 @@ def main(args):
     except Exception as e:
         console.print_exception(e)
         console.print(f"[bold red]Error: {e}")
+        return
+    
+    if not ai.llm:
+        console.print(f"[bold red]{T('no_available_llm')}")
         return
     
     os.chdir(Path.cwd() / settings.workdir)

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-from collections import Counter
+from collections import Counter, defaultdict
 from dataclasses import dataclass, field
 from abc import ABC, abstractmethod
 
@@ -184,17 +184,19 @@ class LLM(object):
         self._last = None
         self.history = ChatHistory()
         self.max_tokens = max_tokens
+        names = defaultdict(set)
         for name, config in configs.items():
             if not config.get('enable', True):
-                console.print(f"LLM: [yellow]ignore '{name}'")
+                names['disabled'].add(name)
                 continue
 
             try:
                 client = self.get_client(config)
             except Exception as e:
-                console.print(f"LLM: [red]init '{name}' failed: [yellow]{str(e)}")
+                names['error'].add(name)
                 continue
             
+            names['available'].add(name)
             client.name = name
             client.console = console
             if not client.max_tokens:
@@ -203,17 +205,18 @@ class LLM(object):
 
             if config.get('default', False) and not self.default:
                 self.default = client
-                console.print(f"LLM: [green]init '{name}' success ([yellow]default)")
-            else:
-                console.print(f"LLM: [green]init '{name}' success")
-        if not self.llms:
-            raise Exception("No available LLM")
+                names['default'] = name
+
         if not self.default:
             name = list(self.llms.keys())[0]
-            console.print(f"LLM: [yellow]use '{name}' as default")
             self.default = self.llms[name]
+            names['default'] = name
         self.current = self.default
+        self.names = names
 
+    def __len__(self):
+        return len(self.llms)
+    
     def __repr__(self):
         return f"Current: {'default' if self.current == self.default else self.current}, Default: {self.default}"
     

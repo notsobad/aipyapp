@@ -9,13 +9,13 @@ def main():
         import argparse
         parser = argparse.ArgumentParser(description="Python use - AIPython")
         parser.add_argument("-c", '--config', type=str, default=None, help="Toml config file")
-        parser.add_argument('--saas', default=False, action='store_true', help="SAAS mode")
+        parser.add_argument('--python', default=False, action='store_true', help="Python mode")
         return parser.parse_args()
     args = parse_args()
-    if args.saas:
-        main2(args)
-    else:
+    if args.python:
         main1(args)
+    else:
+        main2(args)
 
 if __name__ == '__main__':
     main()
