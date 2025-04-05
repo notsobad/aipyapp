@@ -20,3 +20,7 @@ class ConsoleInterface(ABC):
     @abstractmethod
     def input(self, prompt=''):
         pass
+
+    @abstractmethod
+    def status(self, msg):
+        pass

@@ -260,5 +260,7 @@ class LLM(object):
         else:
             llm = self.llms.get(name, self.default)
         self._last = llm
-        return llm(self.history, instruction, system_prompt=system_prompt)
+        with self.console.status(f"[dim white]{llm.name} {T('thinking')}..."):
+            ret = llm(self.history, instruction, system_prompt=system_prompt)
+        return ret
     
