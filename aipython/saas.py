@@ -115,6 +115,9 @@ def main(args):
     if not ai.llm:
         console.print(f"[bold red]{T('no_available_llm')}")
         return
-    
-    os.chdir(Path.cwd() / settings.workdir)
+
+    if settings.workdir:
+        workdir = Path.cwd() / settings.workdir
+        workdir.mkdir(parents=True, exist_ok=True)
+        os.chdir(workdir)    
     InteractiveConsole(ai, console, settings).run()
