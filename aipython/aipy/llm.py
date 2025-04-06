@@ -27,6 +27,9 @@ class ChatHistory:
     def __len__(self):
         return len(self.messages)
     
+    def json(self):
+        return [msg.__dict__ for msg in self.messages]
+    
     def add(self, role, content):
         self.add_message(ChatMessage(role=role, content=content))
 
@@ -86,7 +89,7 @@ class BaseClient(ABC):
             msg = self.parse_response(response)
             usage = self.parse_usage(response)
             usage['time'] = round(end - start, 3)
-            msg.usage = usage
+            msg.usage = Counter(usage)
             history.add_message(msg)
             if msg.reason:
                 response = f"{T('think')}:\n---\n{msg.reason}\n---\n{msg.content}"
@@ -106,9 +109,9 @@ class OpenAIClient(BaseClient):
 
     def parse_usage(self, response):
         usage = response.usage
-        return Counter({'total_tokens': usage.total_tokens,
+        return {'total_tokens': usage.total_tokens,
                 'input_tokens': usage.prompt_tokens,
-                'output_tokens': usage.completion_tokens})
+                'output_tokens': usage.completion_tokens}
     
     def parse_response(self, response):
         message = response.choices[0].message
@@ -139,7 +142,7 @@ class OllamaClient(BaseClient):
         self._session = requests.Session()
 
     def parse_usage(self, response):
-        ret = Counter({'input_tokens': response['prompt_eval_count'], 'output_tokens': response['eval_count']})
+        ret = {'input_tokens': response['prompt_eval_count'], 'output_tokens': response['eval_count']}
         ret['total_tokens'] = ret['input_tokens'] + ret['output_tokens']
         return ret
     
@@ -174,7 +177,7 @@ class ClaudeClient(BaseClient):
 
     def parse_usage(self, response):
         usage = response.usage
-        ret = Counter({'input_tokens': usage.input_tokens, 'output_tokens': usage.output_tokens})
+        ret = {'input_tokens': usage.input_tokens, 'output_tokens': usage.output_tokens}
         ret['total_tokens'] = ret['input_tokens'] + ret['output_tokens']
         return ret
     

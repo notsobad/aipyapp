@@ -1,7 +1,5 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-import os
-import uuid
 from pathlib import Path
 import importlib.resources as resources
 
@@ -75,10 +73,10 @@ class InteractiveConsole():
         except Exception as e:
             pass
         try:
-            ai.save(f'{uuid.uuid4().hex}.html')
+            ai.done()
         except Exception as e:
+            self.console.print_exception()
             pass
-        ai.clear()
         self.console.print(f"{T('ai_mode_exit')}", style="cyan")
 
     def run(self):
@@ -115,9 +113,5 @@ def main(args):
     if not ai.llm:
         console.print(f"[bold red]{T('no_available_llm')}")
         return
-
-    if settings.workdir:
-        workdir = Path.cwd() / settings.workdir
-        workdir.mkdir(parents=True, exist_ok=True)
-        os.chdir(workdir)    
+  
     InteractiveConsole(ai, console, settings).run()

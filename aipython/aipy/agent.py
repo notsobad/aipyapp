@@ -4,6 +4,7 @@
 import os
 import time
 import json
+import uuid
 import requests
 from enum import Enum
 from pathlib import Path
@@ -38,6 +39,8 @@ class Agent():
         self._console = console
         self.system_prompt = None
         self.max_tokens = None
+        self._cwd = None
+        self.task_id = None
         self._init()
 
     def _init(self):
@@ -51,6 +54,13 @@ class Agent():
         self.runner = Runner(self._console, config)
         self.llm = LLM(self._console,config['llm'], self.max_tokens)
         self.use = self.llm.use
+        if config.workdir:
+            workdir = Path.cwd() / config.workdir
+            workdir.mkdir(parents=True, exist_ok=True)
+            os.chdir(workdir)
+            self._cwd = workdir
+        else:
+            self._cwd = Path.cwd()
 
         api = config.get('api')
         if api:
@@ -72,35 +82,21 @@ class Agent():
                     lines.append(f"### API {T('description')}\n{desc}")
             self.system_prompt = "\n".join(lines)
 
-    def reset(self, path=None):
-        """ 重新读取配置文件和初始化所有对象 """
-        self._console.print(f"\n☠️⚠️💀 {T('reset_warning')}")
-        yes = utils.confirm(self._console, f"🔥 {T('reset_confirm')}")
-        if not yes:
-            return
-        if path:
-            self.path = path
-        self._init()
-
-    def clear(self):
-        """ 清除上一个任务的所有数据
-        - 清除 llm 历史，设置 current llm 为 default
-        - 清除 runner 历史，清除 env, 清除全局变量
-        """
-        #yes = utils.confirm(self._console, "\n☠️⚠️💀 严重警告：这将清除上一个任务的所有数据❗❗❗", "🔥 如果你确定要继续，请输入 'y")
-        if True:
-            self.llm.clear()
-            self.runner.clear()        
-
-    def save(self, path, clear=True):
-        path = Path(path)
-        if path.suffix == '.svg':
-            self._console.save_svg(path, clear=clear)
-        elif path.suffix in ('.html', '.htm'):
-            self._console.save_html(path, clear=clear)
-        else:
-            self._console.print(f"{T('unknown_format')}：{path}")
-
+    def done(self):
+        #self._console.save_svg('console.svg', clear=False)
+        self._console.save_html('console.html', clear=True)
+        task = {'instruction': self.instruction}
+        task['llm'] = self.llm.history.json()
+        task['runner'] = self.runner.history
+        try:
+            json.dump(task, open('task.json', 'w'), ensure_ascii=False, indent=4)
+        except Exception as e:
+            self._console.print_exception()
+        self.llm.clear()
+        self.runner.clear()
+        self.task_id = None
+        self.instruction = None
+            
     def render_code(self, logs, language="python", max_lines=3, delay=0.1):
         console = self._console
         display_lines = []
@@ -169,7 +165,7 @@ class Agent():
 
     def box(self, title, content, align=None, lang=None):
         if lang:
-            content = Syntax(content, lang)
+            content = Syntax(content, lang, line_numbers=True)
         if align:
             content = Align(content, align=align)
         self._console.print(Panel(content, title=title))
@@ -197,7 +193,7 @@ class Agent():
         self._console.print("\n")
         self._console.print(table)
         summary = history.get_summary()
-        summary = "{rounds} | {time}s | Tokens: {input_tokens}/{output_tokens}/{total_tokens}".format(**summary)
+        summary = "{rounds} | {time:.3f}s | Tokens: {input_tokens}/{output_tokens}/{total_tokens}".format(**summary)
         self._console.print(f"\n⏹ [cyan]{T('end_instruction')} | {summary}")
     
     def __call__(self, instruction, llm=None):
@@ -207,7 +203,11 @@ class Agent():
         self.box(f"[yellow]{T('start_instruction')}", f'[red]{instruction}', align="center")
         system_prompt = None if self.llm.history else self.system_prompt
         if system_prompt:
+            self.task_id = uuid.uuid4().hex
             self.instruction = instruction
+            path = self._cwd / self.task_id
+            path.mkdir(parents=True, exist_ok=False)
+            os.chdir(path)
         response = self.llm(instruction, system_prompt=system_prompt, name=llm)
         while response:
             #self._console.print(f"\n📥 {self.llm.last} {T('llm_response')}:\n", Markdown(response))

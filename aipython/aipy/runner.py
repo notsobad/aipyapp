@@ -31,6 +31,13 @@ def is_json_serializable(obj):
     except (TypeError, OverflowError):
         return False
 
+def diff_dicts(dict1, dict2):
+    diff = {}
+    for key, value in dict1.items():
+        if key not in dict2 or dict2[key] != value:
+            diff[key] = value
+    return diff
+
 class Runner(Runtime):
     def __init__(self, console, settings):
         self._console = console
@@ -47,7 +54,7 @@ class Runner(Runtime):
 
     def clear(self):
         self._globals = {'runtime': self, '__session__': {}, '__name__': '__main__', 'input': self.input}
-        self.history = []
+        self.history = [{'env': self.env}]
         exec(INIT_IMPORTS, self._globals)
 
     def __repr__(self):
@@ -57,16 +64,14 @@ class Runner(Runtime):
     def globals(self):
         return self._globals
     
-    @property
-    def session(self):
-        return self._globals['__session__']
-    
     def __call__(self, code_str):
         old_stdout, old_stderr = sys.stdout, sys.stderr
         captured_stdout = StringIO()
         captured_stderr = StringIO()
         sys.stdout, sys.stderr = captured_stdout, captured_stderr
         result = {}
+        env = self.env.copy()
+        session = self._globals['__session__'].copy()
         gs = self._globals.copy()
         gs['__result__'] = {}
         try:
@@ -74,7 +79,6 @@ class Runner(Runtime):
         except (SystemExit, Exception) as e:
             result['errstr'] = str(e)
             result['traceback'] = traceback.format_exc()
-            return result
         finally:
             sys.stdout = old_stdout
             sys.stderr = old_stderr
@@ -87,7 +91,17 @@ class Runner(Runtime):
         vars = gs.get('__result__')
         if vars:
             result['__result__'] = self.filter_result(vars)
-        self.history.append({'code': code_str, 'result': result, 'session': self._globals['__session__']})
+
+        history = {'code': code_str, 'result': result}
+
+        diff = diff_dicts(env, self.env)
+        if diff:
+            history['env'] = diff
+        diff = diff_dicts(gs['__session__'], session)
+        if diff:
+            history['session'] = diff
+
+        self.history.append(history)
         return result
     
     @utils.restore_output
