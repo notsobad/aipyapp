@@ -29,7 +29,7 @@ MESSAGES = {
         'publish_disabled': "当前环境不支持发布",
         'auto_confirm': '自动确认',
         'packages_exist': '申请的第三方包已经安装',
-        'thinking': '正在努力思考中，请稍等6-60秒',
+        'thinking': '正在绞尽脑汁思考中，请稍等6-60秒',
         'no_available_llm': '没有可用的 LLM，请检查配置文件',
         'banner1_python': "请用 ai('任务') 输入需要 AI 处理的任务 (输入 ai.use(llm) 切换 下述 LLM：",
         'banner1': "请输入需要 AI 处理的任务 (输入 /use llm 切换 下述LLM)",
@@ -38,6 +38,12 @@ MESSAGES = {
         'ai_mode_enter': '进入 AI 模式，开始处理任务，输入 Ctrl+d 或 /done 结束任务',
         'ai_mode_exit': "[退出 AI 模式]",
         'ai_mode_unknown_command': "[AI 模式] 未知命令",
+        'Task Summary': '任务总结',
+        'Round': '轮次',
+        'Time(s)': '时间(秒)',
+        'In Tokens': '输入令牌数',
+        'Out Tokens': '输出令牌数',
+        'Total Tokens': '总令牌数',
     },
     'en': {
         'start_instruction': 'Start processing instruction',
@@ -73,6 +79,12 @@ MESSAGES = {
         'ai_mode_enter': 'Enter AI mode, start processing tasks, enter Ctrl+d or /done to end the task',
         'ai_mode_exit': "[Exit AI mode]",
         'ai_mode_unknown_command': "[AI mode] Unknown command",
+        'Task Summary': 'Task Summary',
+        'Round': 'Round',
+        'Time(s)': 'Time(s)',
+        'In Tokens': 'In Tokens',
+        'Out Tokens': 'Out Tokens',
+        'Total Tokens': 'Total Tokens',
     }
 }
 

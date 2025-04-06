@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+import time
 from collections import Counter, defaultdict
 from dataclasses import dataclass, field
 from abc import ABC, abstractmethod
@@ -21,7 +22,7 @@ class ChatMessage:
 class ChatHistory:
     def __init__(self):
         self.messages = []
-        self._total_tokens = 0
+        self._total_tokens = Counter()
 
     def __len__(self):
         return len(self.messages)
@@ -31,11 +32,15 @@ class ChatHistory:
 
     def add_message(self, message: ChatMessage):
         self.messages.append(message)
-        self._total_tokens += message.usage["total_tokens"]
+        self._total_tokens += message.usage
 
-    @property
-    def total_tokens(self):
-        return self._total_tokens
+    def get_usage(self):
+        return iter(row.usage for row in self.messages if row.role == "assistant")
+    
+    def get_summary(self):
+        summary = dict(self._total_tokens)
+        summary['rounds'] = sum(1 for row in self.messages if row.role == "assistant")
+        return summary
 
     def get_messages(self):
         return [{"role": msg.role, "content": msg.content} for msg in self.messages]
@@ -61,6 +66,10 @@ class BaseClient(ABC):
         history.add("system", system_prompt)
 
     @abstractmethod
+    def parse_usage(self, response):
+        pass
+
+    @abstractmethod
     def parse_response(self, response):
         pass
 
@@ -70,16 +79,23 @@ class BaseClient(ABC):
             self.add_system_prompt(history, system_prompt)
         history.add("user", prompt)
 
+        start = time.time()
         response = self.get_completion(history.get_messages())
+        end = time.time()
         if response:
             msg = self.parse_response(response)
+            usage = self.parse_usage(response)
+            usage['time'] = round(end - start, 3)
+            msg.usage = usage
             history.add_message(msg)
             if msg.reason:
                 response = f"{T('think')}:\n---\n{msg.reason}\n---\n{msg.content}"
             else:
                 response = msg.content
         return response
-    
+
+# https://platform.openai.com/docs/api-reference/chat/create
+# https://api-docs.deepseek.com/api/create-chat-completion
 class OpenAIClient(BaseClient):
     def __init__(self, config):
         super().__init__(config)
@@ -88,15 +104,20 @@ class OpenAIClient(BaseClient):
     def add_system_prompt(self, history, system_prompt):
         history.add("system", system_prompt)
 
+    def parse_usage(self, response):
+        usage = response.usage
+        return Counter({'total_tokens': usage.total_tokens,
+                'input_tokens': usage.prompt_tokens,
+                'output_tokens': usage.completion_tokens})
+    
     def parse_response(self, response):
-        usage = response.usage.model_dump()
         message = response.choices[0].message
         reason = getattr(message, "reasoning_content", None)
         return ChatMessage(
             role=message.role,
             content=message.content,
-            reason=reason,
-            usage=Counter(usage))
+            reason=reason
+        )
 
     def get_completion(self, messages):
         try:
@@ -110,12 +131,18 @@ class OpenAIClient(BaseClient):
             self.console.print(f"❌ [bold red]{self.name} API {T('call_failed')}: [yellow]{str(e)}")
             response = None
         return response
-    
+
+# https://github.com/ollama/ollama/blob/main/docs/api.md
 class OllamaClient(BaseClient):
     def __init__(self, config):
         super().__init__(config)
         self._session = requests.Session()
 
+    def parse_usage(self, response):
+        ret = Counter({'input_tokens': response['prompt_eval_count'], 'output_tokens': response['eval_count']})
+        ret['total_tokens'] = ret['input_tokens'] + ret['output_tokens']
+        return ret
+    
     def parse_response(self, response):
         msg = response["message"]
         return ChatMessage(role=msg['role'], content=msg['content'])
@@ -139,19 +166,22 @@ class OllamaClient(BaseClient):
             response = None
         return response
 
+# https://docs.anthropic.com/en/api/messages
 class ClaudeClient(BaseClient):
     def __init__(self, config):
         super().__init__(config)
         self._client = anthropic.Anthropic(api_key=self._api_key, timeout=self._timeout)
 
+    def parse_usage(self, response):
+        usage = response.usage
+        ret = Counter({'input_tokens': usage.input_tokens, 'output_tokens': usage.output_tokens})
+        ret['total_tokens'] = ret['input_tokens'] + ret['output_tokens']
+        return ret
+    
     def parse_response(self, response):
-        usage = Counter(response.usage)
         content = response.content[0].text
         role = response.role
-        return ChatMessage(
-            role=role,
-            content=content,
-            usage=usage)
+        return ChatMessage(role=role, content=content)
     
     def add_system_prompt(self, history, system_prompt):
         self._system_prompt = system_prompt

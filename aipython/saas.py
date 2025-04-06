@@ -42,10 +42,16 @@ class InteractiveConsole():
                 break
         return "\n".join(lines)
 
+    def run_ai_task(self, task):
+        try:
+            self.ai(task)
+        except Exception as e:
+            self.console.print(f"[bold red]Error: {e}")
+
     def run_ai_mode(self, initial_text):
         ai = self.ai
         self.console.print(f"{T('ai_mode_enter')}", style="cyan")
-        ai(initial_text)
+        self.run_ai_task(initial_text)
         while True:
             try:
                 user_input = self.input_with_possible_multiline(">>> ", is_ai=True).strip()
@@ -63,7 +69,7 @@ class InteractiveConsole():
                 else:
                     self.console.print(f"{T('ai_mode_unknown_command')}", style="cyan")
             else:
-                ai(user_input)
+                self.run_ai_task(user_input)
         try:
             ai.publish(verbose=False)
         except Exception as e:

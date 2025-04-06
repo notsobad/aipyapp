@@ -11,6 +11,7 @@ from pathlib import Path
 from rich.live import Live
 from rich.panel import Panel
 from rich.align import Align
+from rich.table import Table
 from rich.syntax import Syntax
 from rich.console import Console
 from rich.markdown import Markdown
@@ -173,6 +174,32 @@ class Agent():
             content = Align(content, align=align)
         self._console.print(Panel(content, title=title))
 
+    def print_summary(self):
+        history = self.llm.history
+        table = Table(title=T("Task Summary"), show_lines=True)
+
+        table.add_column(T("Round"), justify="center", style="bold cyan", no_wrap=True)
+        table.add_column(T("Time(s)"), justify="right")
+        table.add_column(T("In Tokens"), justify="right")
+        table.add_column(T("Out Tokens"), justify="right")
+        table.add_column(T("Total Tokens"), justify="right", style="bold magenta")
+
+        round = 1
+        for row in history.get_usage():
+            table.add_row(
+                str(round),
+                str(row["time"]),
+                str(row["input_tokens"]),
+                str(row["output_tokens"]),
+                str(row["total_tokens"]),
+            )
+            round += 1
+        self._console.print("\n")
+        self._console.print(table)
+        summary = history.get_summary()
+        summary = "{rounds} | {time}s | Tokens: {input_tokens}/{output_tokens}/{total_tokens}".format(**summary)
+        self._console.print(f"\n⏹ [cyan]{T('end_instruction')} | {summary}")
+    
     def __call__(self, instruction, llm=None):
         """
         执行自动处理循环，直到 LLM 不再返回代码消息
@@ -188,8 +215,7 @@ class Agent():
             if msg['type'] != MsgType.CODE:
                 break
             response = self.process_code_reply(msg, llm)
-        total_token = self.llm.history.total_tokens
-        self._console.print(f"\n⏹ {T('end_instruction')} | Tokens: {total_token}")
+        self.print_summary()
         os.write(1, b'\a\a\a')
 
     def chat(self, prompt):
