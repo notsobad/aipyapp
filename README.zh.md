@@ -7,7 +7,7 @@ Python use 是把整个 Python 执行环境提供给 LLM 使用，可以想象�
 和 Agent 的区别是 Python use 不定义任何 tools 接口，LLM 可以自由使用 Python 运行环境提供的所有功能。
 
 ## Why
-加入你是一个数据工程师，你对下面的场景一定不陌生：
+假如你是一个数据工程师，你对下面的场景一定不陌生：
 - 处理各种不同格式的数据文件：csv/excel，json，html, sqlite, parquet ...
 - 对数据进行清洗，转换，计算，聚合，排序，分组，过滤，分析，可视化等操作
 
@@ -31,9 +31,7 @@ Python use (aipython) 是一个集成 LLM 的 Python 命令行解释器。你可
 
 ## Interfaces
 ### ai 对象
-- chat(msg): 向 LLM 发送一条消息，并输出 LLM 的回复
-- step(): 处理 LLM 返回的最新一条消息，执行里面的代码
-- __call__(instruction, reset=False): 执行自动处理循环，直到 LLM 不再返回代码消息
+- __call__(instruction): 执行自动处理循环，直到 LLM 不再返回代码消息
 - save(path): 保存交互过程到 svg 或 html 文件
 - llm 属性： LLM 对象
 - runner 属性： Runner 对象
@@ -46,18 +44,35 @@ Python use (aipython) 是一个集成 LLM 的 Python 命令行解释器。你可
 - locals: 执行 LLM 返回代码的 Python 环境局部变量
 
 ### runtime 对象
-供 LLM 生成的代码调用，提供一下接口：
+供 LLM 生成的代码调用，提供以下接口：
 - install_packages(packages): 申请安装第三方包
+- getenv(name, desc=None): 获取环境变量
+- display(path=None, url=None): 在终端显示图片
 
 ## Usage
-### 基本用法
+AIPython 有两种运行模式：
+- 任务模式：非常简单易用，直接输入你的任务即可，适合不熟悉 Python 的用户。
+- Python模式：适合熟悉 Python 的用户，既可以输入任务也可以输入 Python 命令，适合高级用户。
+
+默认运行模式是任务模式，可以通过 `--python` 参数切换到 Python 模式。
+
+### 任务模式
+```
+>>> 获取Reddit r/LocalLLaMA 最新帖子
+......
+......
+>>> /done
+```
+
+### Python 模式
+#### 基本用法
 自动任务处理：
 
 ```
 >>> ai("获取Google官网首页标题")
 ```
 
-### 自动申请安装第三方库
+#### 自动申请安装第三方库
 ```
 Python use - AIPython (Quit with 'exit()')
 >>> ai("使用psutil列出当前MacOS所有进程列表")
@@ -68,9 +83,10 @@ Python use - AIPython (Quit with 'exit()')
 ```
 
 ## TODO
-- 太多需要处理的问题
+- 使用 AST 自动检测和修复 LLM 返回的 Python 代码
 
 ## Thanks
+- 黑哥: 产品经理/资深用户/首席测试官
 - Sonnet 3.7: 生成了第一版的代码，几乎无需修改就能使用。
 - ChatGPT: 提供了很多建议和代码片段，特别是命令行接口。
 - Codeium: 代码智能补齐
