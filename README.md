@@ -57,6 +57,7 @@ AIPython has two running modes:
 The default running mode is task mode, which can be switched to Python mode using the `--python` parameter.
 
 ### Task Mode
+`uv run aipython`
 ```
 >>> Get the latest posts from Reddit r/LocalLLaMA
 ......

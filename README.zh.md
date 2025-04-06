@@ -57,6 +57,8 @@ AIPython 有两种运行模式：
 默认运行模式是任务模式，可以通过 `--python` 参数切换到 Python 模式。
 
 ### 任务模式
+`uv run aipython`
+
 ```
 >>> 获取Reddit r/LocalLLaMA 最新帖子
 ......
