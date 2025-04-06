@@ -31,7 +31,7 @@ Python use (aipython) 是一个集成 LLM 的 Python 命令行解释器。你可
 
 ## Interfaces
 ### ai 对象
-- __call__(instruction): 执行自动处理循环，直到 LLM 不再返回代码消息
+- \_\_call\_\_(instruction): 执行自动处理循环，直到 LLM 不再返回代码消息
 - save(path): 保存交互过程到 svg 或 html 文件
 - llm 属性： LLM 对象
 - runner 属性： Runner 对象

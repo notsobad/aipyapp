@@ -31,7 +31,7 @@ Moreover, the two modes can access data interchangeably. For example, after aipy
 
 ## Interfaces
 ### ai Object
-- __call__(instruction): Execute the automatic processing loop until LLM no longer returns code messages
+- \_\_call\_\_(instruction): Execute the automatic processing loop until LLM no longer returns code messages
 - save(path): Save the interaction process to an svg or html file
 - llm Property: LLM object
 - runner Property: Runner object
