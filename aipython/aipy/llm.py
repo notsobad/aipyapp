@@ -9,6 +9,10 @@ from abc import ABC, abstractmethod
 import openai
 import requests
 import anthropic
+from rich.live import Live
+from rich.panel import Panel
+from rich.text import Text
+from rich.markdown import Markdown
 
 from .i18n import T
 
@@ -57,6 +61,7 @@ class BaseClient(ABC):
         self._timeout = config.get("timeout")
         self._api_key = config.get("api_key")
         self._base_url = config.get("base_url")
+        self._stream = config.get("stream", False)
 
     def __repr__(self):
         return f"{self.__class__.__name__}<{self.name}>({self._model}, {self.max_tokens})"
@@ -69,13 +74,24 @@ class BaseClient(ABC):
         history.add("system", system_prompt)
 
     @abstractmethod
-    def parse_usage(self, response):
+    def _parse_usage(self, response):
         pass
 
     @abstractmethod
-    def parse_response(self, response):
+    def _parse_stream_response(self, response):
         pass
 
+    @abstractmethod
+    def _parse_response(self, response):
+        pass
+
+    def parse_response(self, response):
+        if self._stream:
+            response = self._parse_stream_response(response)
+        else:
+            response = self._parse_response(response)
+        return response
+    
     def __call__(self, history, prompt, system_prompt=None):
         # We shall only send system prompt once
         if not history and system_prompt:
@@ -83,18 +99,16 @@ class BaseClient(ABC):
         history.add("user", prompt)
 
         start = time.time()
-        response = self.get_completion(history.get_messages())
+        self.console.record = False
+        with self.console.status(f"[dim white]{T('sending_task', self.name)} ..."):
+            response = self.get_completion(history.get_messages())
+        self.console.record = True
         end = time.time()
         if response:
             msg = self.parse_response(response)
-            usage = self.parse_usage(response)
-            usage['time'] = round(end - start, 3)
-            msg.usage = Counter(usage)
+            msg.usage['time'] = round(end - start, 3)
             history.add_message(msg)
-            if msg.reason:
-                response = f"{T('think')}:\n---\n{msg.reason}\n---\n{msg.content}"
-            else:
-                response = msg.content
+            response = msg.content
         return response
 
 # https://platform.openai.com/docs/api-reference/chat/create
@@ -107,19 +121,50 @@ class OpenAIClient(BaseClient):
     def add_system_prompt(self, history, system_prompt):
         history.add("system", system_prompt)
 
-    def parse_usage(self, response):
-        usage = response.usage
-        return {'total_tokens': usage.total_tokens,
+    def _parse_usage(self, usage):
+        usage = Counter({'total_tokens': usage.total_tokens,
                 'input_tokens': usage.prompt_tokens,
-                'output_tokens': usage.completion_tokens}
+                'output_tokens': usage.completion_tokens})
+        return usage
     
-    def parse_response(self, response):
+    def _parse_stream_response(self, response):
+        full_response = ""
+        
+        title = f"{self.name} {T('llm_response')}"
+        with Live(auto_refresh=True) as live:
+            status = self.console.status(f"[dim white]{self.name} {T('thinking')}...", spinner='runner')
+            response_panel = Panel(status, title=title, border_style="blue")
+            live.update(response_panel)
+            
+            for chunk in response:
+                if hasattr(chunk, 'usage') and chunk.usage is not None:
+                    usage = self._parse_usage(chunk.usage)
+
+                if chunk.choices[0].delta.content:
+                    content = chunk.choices[0].delta.content
+                    full_response += content
+                    
+                    try:
+                        md = Markdown(full_response)
+                        response_panel = Panel(md, title=title, border_style="green")
+                    except Exception:
+                        text = Text(full_response)
+                        response_panel = Panel(text, title=title, border_style="yellow")
+                    
+                    live.update(response_panel)
+                    
+        segments = self.console.render(response_panel)
+        self.console._record_buffer.extend(segments)
+        return ChatMessage(role="assistant", content=full_response, usage=usage)
+
+    def _parse_response(self, response):
         message = response.choices[0].message
         reason = getattr(message, "reasoning_content", None)
         return ChatMessage(
             role=message.role,
             content=message.content,
-            reason=reason
+            reason=reason,
+            usage=self._parse_usage(response.usage)
         )
 
     def get_completion(self, messages):
@@ -127,7 +172,7 @@ class OpenAIClient(BaseClient):
             response = self._client.chat.completions.create(
                 model = self._model,
                 messages = messages,
-                stream=False,
+                stream=self._stream,
                 max_tokens = self.max_tokens
             )
         except Exception as e:
@@ -141,12 +186,15 @@ class OllamaClient(BaseClient):
         super().__init__(config)
         self._session = requests.Session()
 
-    def parse_usage(self, response):
+    def _parse_usage(self, response):
         ret = {'input_tokens': response['prompt_eval_count'], 'output_tokens': response['eval_count']}
         ret['total_tokens'] = ret['input_tokens'] + ret['output_tokens']
         return ret
-    
-    def parse_response(self, response):
+
+    def _parse_stream_response(self, response):
+        pass
+
+    def _parse_response(self, response):
         msg = response["message"]
         return ChatMessage(role=msg['role'], content=msg['content'])
     
@@ -175,13 +223,16 @@ class ClaudeClient(BaseClient):
         super().__init__(config)
         self._client = anthropic.Anthropic(api_key=self._api_key, timeout=self._timeout)
 
-    def parse_usage(self, response):
+    def _parse_usage(self, response):
         usage = response.usage
         ret = {'input_tokens': usage.input_tokens, 'output_tokens': usage.output_tokens}
         ret['total_tokens'] = ret['input_tokens'] + ret['output_tokens']
         return ret
-    
-    def parse_response(self, response):
+
+    def _parse_stream_response(self, response):
+        pass
+
+    def _parse_response(self, response):
         content = response.content[0].text
         role = response.role
         return ChatMessage(role=role, content=content)
@@ -295,9 +346,5 @@ class LLM(object):
         else:
             llm = self.llms.get(name, self.default)
         self._last = llm
-        self.console.record = False
-        with self.console.status(f"[dim white]{llm.name} {T('thinking')}..."):
-            ret = llm(self.history, instruction, system_prompt=system_prompt)
-        self.console.record = True
-        return ret
-    
+        return llm(self.history, instruction, system_prompt=system_prompt)
+        

@@ -44,6 +44,7 @@ MESSAGES = {
         'In Tokens': '输入令牌数',
         'Out Tokens': '输出令牌数',
         'Total Tokens': '总令牌数',
+        'sending_task': '正在向 {} 下达任务',
     },
     'en': {
         'start_instruction': 'Start processing instruction',
@@ -85,6 +86,7 @@ MESSAGES = {
         'In Tokens': 'In Tokens',
         'Out Tokens': 'Out Tokens',
         'Total Tokens': 'Total Tokens',
+        'sending_task': 'Sending task to {}',
     }
 }
 

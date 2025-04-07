@@ -115,7 +115,6 @@ class Agent():
         console.record = True
         
     def parse_reply(self, text):
-        self._console.print(f"\n📥 {self.llm.last} {T('llm_response')}:\n")
         lines = text.split('\n')
         code_block = []
         in_code_block = False
@@ -138,16 +137,8 @@ class Agent():
             if in_code_block and line.find('#RUN') >= 0:
                 in_run_block = True
 
-        if start > 0:
-            self._console.print(Markdown('\n'.join(lines[:start])))
         if end > 0:
             code_block = lines[start+1:end]
-            self.render_code(code_block)
-            self._console.print(Markdown('\n'.join(lines[end+1:])))
-        else:
-            self._console.print(Markdown(text))
-
-        if code_block:
             ret = {'type': MsgType.CODE, 'code': '\n'.join(code_block)}
         else:
             ret = {'type': MsgType.TEXT, 'code': None}
@@ -210,7 +201,6 @@ class Agent():
             os.chdir(path)
         response = self.llm(instruction, system_prompt=system_prompt, name=llm)
         while response:
-            #self._console.print(f"\n📥 {self.llm.last} {T('llm_response')}:\n", Markdown(response))
             msg = self.parse_reply(response)
             if msg['type'] != MsgType.CODE:
                 break
