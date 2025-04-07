@@ -140,7 +140,7 @@ class OpenAIClient(BaseClient):
                 if hasattr(chunk, 'usage') and chunk.usage is not None:
                     usage = self._parse_usage(chunk.usage)
 
-                if chunk.choices[0].delta.content:
+                if chunk.choices and chunk.choices[0].delta.content:
                     content = chunk.choices[0].delta.content
                     full_response += content
                     
@@ -168,11 +168,13 @@ class OpenAIClient(BaseClient):
         )
 
     def get_completion(self, messages):
+        stream_options = {'include_usage': True} if self._stream else None
         try:
             response = self._client.chat.completions.create(
                 model = self._model,
                 messages = messages,
                 stream=self._stream,
+                stream_options = stream_options,
                 max_tokens = self.max_tokens
             )
         except Exception as e:
@@ -192,11 +194,41 @@ class OllamaClient(BaseClient):
         return ret
 
     def _parse_stream_response(self, response):
-        pass
+        full_response = ""
+        
+        title = f"{self.name} {T('llm_response')}"
+        with Live(auto_refresh=True) as live:
+            status = self.console.status(f"[dim white]{self.name} {T('thinking')}...", spinner='runner')
+            response_panel = Panel(status, title=title, border_style="blue")
+            live.update(response_panel)
+            
+            for chunk in response:
+                msg = chunk.json()
+                if msg['done']:
+                    usage = self._parse_usage(chunk.usage)
+                    break
+
+                if 'message' in msg and 'content' in msg['message'] and msg['message']['content']:
+                    content = msg['message']['content']
+                    full_response += content
+                    
+                    try:
+                        md = Markdown(full_response)
+                        response_panel = Panel(md, title=title, border_style="green")
+                    except Exception:
+                        text = Text(full_response)
+                        response_panel = Panel(text, title=title, border_style="yellow")
+                    
+                    live.update(response_panel)
+                    
+        segments = self.console.render(response_panel)
+        self.console._record_buffer.extend(segments)
+        return ChatMessage(role="assistant", content=full_response, usage=usage)
 
     def _parse_response(self, response):
+        response = response.json()
         msg = response["message"]
-        return ChatMessage(role=msg['role'], content=msg['content'])
+        return ChatMessage(role=msg['role'], content=msg['content'], usage=self._parse_usage(response))
     
     def get_completion(self, messages):
         try:
@@ -205,13 +237,12 @@ class OllamaClient(BaseClient):
                 json={
                     "model": self._model,
                     "messages": messages,
-                    "stream": False,
+                    "stream": self._stream,
                     "options": {"num_predict": self.max_tokens}
                 },
                 timeout=self._timeout
             )
             response.raise_for_status()
-            response = response.json()
         except Exception as e:
             self.console.print(f"❌ [bold red]{self.name} API {T('call_failed')}: [yellow]{str(e)}")
             response = None
@@ -222,6 +253,7 @@ class ClaudeClient(BaseClient):
     def __init__(self, config):
         super().__init__(config)
         self._client = anthropic.Anthropic(api_key=self._api_key, timeout=self._timeout)
+        self._system_prompt = None
 
     def _parse_usage(self, response):
         usage = response.usage
@@ -230,12 +262,43 @@ class ClaudeClient(BaseClient):
         return ret
 
     def _parse_stream_response(self, response):
-        pass
+        usage = Counter()    
+        full_response = ""
+        
+        title = f"{self.name} {T('llm_response')}"
+        with Live(auto_refresh=True) as live:
+            status = self.console.status(f"[dim white]{self.name} {T('thinking')}...", spinner='runner')
+            response_panel = Panel(status, title=title, border_style="blue")
+            live.update(response_panel)
+            
+            for event in response:
+                if hasattr(event, 'delta') and hasattr(event.delta, 'text') and event.delta.text:
+                    content = event.delta.text
+                    full_response += content
+                    
+                    try:
+                        md = Markdown(full_response)
+                        response_panel = Panel(md, title=title, border_style="green")
+                    except Exception:
+                        text = Text(full_response)
+                        response_panel = Panel(text, title=title, border_style="yellow")
+                    live.update(response_panel)
+                elif hasattr(event, 'message') and hasattr(event.message, 'usage') and event.message.usage:
+                    usage['input_tokens'] += getattr(event.message.usage, 'input_tokens', 0)
+                    usage['output_tokens'] += getattr(event.message.usage, 'output_tokens', 0)
+                elif hasattr(event, 'usage') and event.usage:
+                    usage['input_tokens'] += getattr(event.usage, 'input_tokens', 0)
+                    usage['output_tokens'] += getattr(event.usage, 'output_tokens', 0)
+
+        usage['total_tokens'] = usage['input_tokens'] + usage['output_tokens']          
+        segments = self.console.render(response_panel)
+        self.console._record_buffer.extend(segments)
+        return ChatMessage(role="assistant", content=full_response, usage=usage)
 
     def _parse_response(self, response):
         content = response.content[0].text
         role = response.role
-        return ChatMessage(role=role, content=content)
+        return ChatMessage(role=role, content=content, usage=self._parse_usage(response))
     
     def add_system_prompt(self, history, system_prompt):
         self._system_prompt = system_prompt
@@ -245,6 +308,7 @@ class ClaudeClient(BaseClient):
             message = self._client.messages.create(
                 model = self._model,
                 messages = messages,
+                stream=self._stream,
                 system=self._system_prompt,
                 max_tokens = self.max_tokens
             )

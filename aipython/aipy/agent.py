@@ -82,6 +82,9 @@ class Agent():
                     lines.append(f"### API {T('description')}\n{desc}")
             self.system_prompt = "\n".join(lines)
 
+    def save(self, path):
+        self._console.save_html(path, clear=False)
+        
     def done(self):
         #self._console.save_svg('console.svg', clear=False)
         self._console.save_html('console.html', clear=True)
@@ -163,6 +166,7 @@ class Agent():
 
     def print_summary(self):
         history = self.llm.history
+        """
         table = Table(title=T("Task Summary"), show_lines=True)
 
         table.add_column(T("Round"), justify="center", style="bold cyan", no_wrap=True)
@@ -183,9 +187,13 @@ class Agent():
             round += 1
         self._console.print("\n")
         self._console.print(table)
+        """
         summary = history.get_summary()
-        summary = "{rounds} | {time:.3f}s | Tokens: {input_tokens}/{output_tokens}/{total_tokens}".format(**summary)
-        self._console.print(f"\n⏹ [cyan]{T('end_instruction')} | {summary}")
+        if 'time' in summary:
+            summary = "| {rounds} | {time:.3f}s | Tokens: {input_tokens}/{output_tokens}/{total_tokens}".format(**summary)
+        else:
+            summary = ''
+        self._console.print(f"\n⏹ [cyan]{T('end_instruction')} {summary}")
     
     def __call__(self, instruction, llm=None):
         """
