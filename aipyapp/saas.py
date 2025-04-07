@@ -12,7 +12,7 @@ from prompt_toolkit.styles import Style
 from .aipy import Agent
 from .aipy.i18n import T
 
-__PACKAGE_NAME__ = "aipython"
+__PACKAGE_NAME__ = "aipyapp"
 
 class InteractiveConsole():
     def __init__(self, ai, console, settings):
