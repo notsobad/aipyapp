@@ -84,9 +84,9 @@ class Runner(Runtime):
             sys.stderr = old_stderr
 
         s = captured_stdout.getvalue().strip()
-        if s: result['stdout'] = s
+        if s: result['stdout'] = s if is_json_serializable(s) else '<filtered: cannot json-serialize>'
         s = captured_stderr.getvalue().strip()
-        if s: result['stderr'] = s         
+        if s: result['stderr'] = s if is_json_serializable(s) else '<filtered: cannot json-serialize>'        
 
         vars = gs.get('__result__')
         if vars:
