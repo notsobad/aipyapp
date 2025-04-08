@@ -11,7 +11,7 @@ from prompt_toolkit.styles import Style
 
 from .aipy import Agent
 from .aipy.i18n import T
-
+from .aipy.config import ConfigManager
 __PACKAGE_NAME__ = "aipyapp"
 
 class InteractiveConsole():
@@ -102,7 +102,10 @@ def main(args):
 
     path = args.config if args.config else 'aipython.toml'
     default_config_path = resources.files(__PACKAGE_NAME__) / "default.toml"
-    settings = Dynaconf(settings_files=[str(default_config_path), path], envvar_prefix="AIPY", merge_enabled=True)
+    conf = ConfigManager(default_config_path, path)
+    conf.check_config()
+    settings = conf.get_config()
+
     try:
         ai = Agent(settings, console=console)
     except Exception as e:
