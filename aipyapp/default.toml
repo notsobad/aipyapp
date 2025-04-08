@@ -130,6 +130,7 @@ api_key = ""
 base_url = "https://api.deepseek.com"
 model = "deepseek-chat"
 default = true
+enable = false
 
 [llm.r1]
 api_key = ""

@@ -45,6 +45,23 @@ MESSAGES = {
         'Out Tokens': '输出令牌数',
         'Total Tokens': '总令牌数',
         'sending_task': '正在向 {} 下达任务',
+        'error_loading_config': "加载配置时出错: {}",
+        'config_file_error': "请检查配置文件路径和格式。",
+        'config_not_loaded': "配置尚未加载。",
+        'llm_config_not_found': "缺少 'llm' 配置。",
+        'trustoken_register_instruction': (
+            "当前环境缺少配置文件，请注册一个trustoken账号，可以使用免费赠送的API账号。\n"
+            "浏览器打开 https://api.trustoken.ai/register ， 进行账号注册。\n"
+            "注册后进行登录，访问页面顶部的“令牌”页面，或者点击这个地址：https://api.trustoken.ai/token \n"
+            "点击“复制”按钮，复制令牌到剪贴板。在下面进行粘贴。\n"
+            "另外，也可以选择退出，然后手动编辑配置文件 {}，配置自己已有的其他大模型令牌"
+        ),
+        'prompt_token_input': "请粘贴令牌并按 Enter 键 (输入 'exit' 退出): ",
+        'exit_token_prompt': "退出令牌输入流程。",
+        'no_token_detected': "未检测到令牌输入。",
+        'invalid_token': "输入的令牌不合法，请确保令牌正确，格式为‘sk-xxxxxx……’，或输入 'exit' 退出。",
+        'token_saved': "令牌已保存到 {}",
+        'token_save_error': "保存令牌时出错: {}"
     },
     'en': {
         'start_instruction': 'Start processing instruction',
@@ -87,6 +104,23 @@ MESSAGES = {
         'Out Tokens': 'Out Tokens',
         'Total Tokens': 'Total Tokens',
         'sending_task': 'Sending task to {}',
+        'error_loading_config': "Error loading configuration: {}",
+        'config_file_error': "Please check the configuration file path and format.",
+        'config_not_loaded': "Configuration not loaded.",
+        'llm_config_not_found': "Missing 'llm' configuration.",
+        'trustoken_register_instruction': (
+            "The current environment lacks a configuration file. Please register for a Trustoken account to use the free API token.\n"
+            "Open https://api.trustoken.ai/register to register.\n"
+            "After registration, log in and visit the 'Token' page at the top, or navigate to: https://api.trustoken.ai/token\n"
+            "Click the 'copy' button to copy your token to the clipboard and paste it here.\n"
+            "Alternatively, you can exit now, and manually edit the configuration file {} to configure your existing LLM token."
+        ),
+        'prompt_token_input': "Please paste the token and press Enter (type 'exit' to quit): ",
+        'exit_token_prompt': "Exiting token input process.",
+        'no_token_detected': "No token detected.",
+        'invalid_token': "The entered token is invalid. Ensure it starts with 'sk-' followed by the correct characters, or type 'exit' to quit.",
+        'token_saved': "Token saved to {}",
+        'token_save_error': "Error saving token: {}"
     }
 }
 

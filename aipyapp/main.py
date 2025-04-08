@@ -19,6 +19,7 @@ from pygments.lexers.python import PythonLexer
 
 from .aipy import Agent
 from .aipy.i18n import T
+from .aipy.config import ConfigManager
 
 __PACKAGE_NAME__ = "aipyapp"
 
@@ -38,7 +39,9 @@ def main(args):
     console.print("[bold cyan]🚀 Python use - AIPython ([red]Python mode, Quit with 'exit()'[/red])")
 
     path = args.config if args.config else 'aipython.toml'
-    settings = Dynaconf(settings_files=[get_default_config(), path], envvar_prefix="AIPY", merge_enabled=True)
+    conf = ConfigManager(get_default_config(), path)
+    conf.check_config()
+    settings = conf.get_config()
     try:
         ai = Agent(settings, console=console)
     except Exception as e:
