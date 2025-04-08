@@ -168,14 +168,14 @@ class OpenAIClient(BaseClient):
         )
 
     def get_completion(self, messages):
-        stream_options = {'include_usage': True} if self._stream else None
+        kws = {'stream_options': {'include_usage': True}} if self._stream and not self._base_url else {}
         try:
             response = self._client.chat.completions.create(
                 model = self._model,
                 messages = messages,
                 stream=self._stream,
-                stream_options = stream_options,
-                max_tokens = self.max_tokens
+                max_tokens = self.max_tokens,
+                **kws
             )
         except Exception as e:
             self.console.print(f"❌ [bold red]{self.name} API {T('call_failed')}: [yellow]{str(e)}")
