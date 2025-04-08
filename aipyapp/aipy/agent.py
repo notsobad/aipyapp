@@ -28,7 +28,7 @@ class MsgType(Enum):
     TEXT = "TEXT"
 
 class Agent():
-    MAX_TOKENS = 4096
+    MAX_TOKENS = 8192
     CERT_PATH = Path('/tmp/aipy_client.crt')
 
     def __init__(self, settings, console=None):

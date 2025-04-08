@@ -131,7 +131,7 @@ class OpenAIClient(BaseClient):
         full_response = ""
         
         title = f"{self.name} {T('llm_response')}"
-        with Live(auto_refresh=True) as live:
+        with Live(auto_refresh=True, vertical_overflow='visible') as live:
             status = self.console.status(f"[dim white]{self.name} {T('thinking')}...", spinner='runner')
             response_panel = Panel(status, title=title, border_style="blue")
             live.update(response_panel)
@@ -197,7 +197,7 @@ class OllamaClient(BaseClient):
         full_response = ""
         
         title = f"{self.name} {T('llm_response')}"
-        with Live(auto_refresh=True) as live:
+        with Live(auto_refresh=True, vertical_overflow='visible') as live:
             status = self.console.status(f"[dim white]{self.name} {T('thinking')}...", spinner='runner')
             response_panel = Panel(status, title=title, border_style="blue")
             live.update(response_panel)
@@ -266,7 +266,7 @@ class ClaudeClient(BaseClient):
         full_response = ""
         
         title = f"{self.name} {T('llm_response')}"
-        with Live(auto_refresh=True) as live:
+        with Live(auto_refresh=True, vertical_overflow='visible') as live:
             status = self.console.status(f"[dim white]{self.name} {T('thinking')}...", spinner='runner')
             response_panel = Panel(status, title=title, border_style="blue")
             live.update(response_panel)

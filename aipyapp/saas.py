@@ -43,8 +43,10 @@ class InteractiveConsole():
     def run_ai_task(self, task):
         try:
             self.ai(task)
+        except (EOFError, KeyboardInterrupt):
+            pass
         except Exception as e:
-            self.console.print(f"[bold red]Error: {e}")
+            self.console.print_exception()
 
     def run_ai_mode(self, initial_text):
         ai = self.ai
