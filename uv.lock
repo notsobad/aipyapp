@@ -11,7 +11,7 @@ resolution-markers = [
 
 [[package]]
 name = "aipyapp"
-version = "0.1.12"
+version = "0.1.13"
 source = { editable = "." }
 dependencies = [
     { name = "anthropic" },

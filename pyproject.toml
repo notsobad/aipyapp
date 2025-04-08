@@ -1,6 +1,6 @@
 [project]
 name = "aipyapp"
-version = "0.1.12"
+version = "0.1.13"
 description = "AIPyApp: AI-Powered Python & Python-Powered AI"
 readme = "README.md"
 requires-python = ">=3.9"
