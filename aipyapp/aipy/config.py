@@ -59,7 +59,7 @@ class ConfigManager:
             self._init_llm()
 
     def _init_llm(self):
-        print(T('trustoken_register_instruction'))
+        print(T('trustoken_register_instruction').format(self.user_config))
 
         while True:
             user_token = input(T('prompt_token_input')).strip()

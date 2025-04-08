@@ -53,7 +53,8 @@ MESSAGES = {
             "当前环境缺少配置文件，请注册一个trustoken账号，可以使用免费赠送的API账号。\n"
             "浏览器打开 https://api.trustoken.ai/register ， 进行账号注册。\n"
             "注册后进行登录，访问页面顶部的“令牌”页面，或者点击这个地址：https://api.trustoken.ai/token \n"
-            "点击“复制”按钮，复制令牌到剪贴板。\n在此执行粘贴。"
+            "点击“复制”按钮，复制令牌到剪贴板。在下面进行粘贴。\n"
+            "另外，也可以选择退出，然后手动编辑配置文件 {}，配置自己已有的其他大模型令牌"
         ),
         'prompt_token_input': "请粘贴令牌并按 Enter 键 (输入 'exit' 退出): ",
         'exit_token_prompt': "退出令牌输入流程。",
@@ -111,7 +112,8 @@ MESSAGES = {
             "The current environment lacks a configuration file. Please register for a Trustoken account to use the free API token.\n"
             "Open https://api.trustoken.ai/register to register.\n"
             "After registration, log in and visit the 'Token' page at the top, or navigate to: https://api.trustoken.ai/token\n"
-            "Click the 'copy' button to copy your token to the clipboard and paste it here."
+            "Click the 'copy' button to copy your token to the clipboard and paste it here.\n"
+            "Alternatively, you can exit now, and manually edit the configuration file {} to configure your existing LLM token."
         ),
         'prompt_token_input': "Please paste the token and press Enter (type 'exit' to quit): ",
         'exit_token_prompt': "Exiting token input process.",
