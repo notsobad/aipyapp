@@ -85,7 +85,7 @@ class ConfigManager:
                 f.write("\n[llm.trustoken]\n")
                 f.write(f'api_key = "{token}"\n')
                 f.write('base_url = "https://api.trustoken.ai/v1"\n')
-                f.write('model = "deepseek/deepseek-chat-v3-0324"\n')
+                f.write('model = "auto"\n')
                 f.write("default = true\n")
             print(T('token_saved').format(config_file))
         except Exception as e:
