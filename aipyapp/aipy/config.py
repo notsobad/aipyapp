@@ -63,7 +63,7 @@ class ConfigManager:
     def _init_llm(self):
         print(
             """当前环境缺少配置文件，请注册一个trustoken账号，可以使用免费赠送的API账号。
-浏览器打开https://api.trustoken.ai/register ， 进行账号注册。
+浏览器打开 https://api.trustoken.ai/register ， 进行账号注册。
 注册后进行登录，访问页面顶部的“令牌”页面，或者点击这个地址：https://api.trustoken.ai/token 
 点击“复制”按钮，复制令牌到剪贴板。
 在此执行粘贴。"""
@@ -84,6 +84,9 @@ class ConfigManager:
                 continue
 
             self.save_trustoken(user_token)
+
+            # reload config
+            self.config = self._load_config()
             break
 
     def save_trustoken(self, token):
@@ -98,8 +101,6 @@ class ConfigManager:
                 f.write('model = "deepseek/deepseek-chat-v3-0324"\n')
                 f.write("default = true\n")
             print(f"令牌已保存到 {config_file}")
-            print("请重新运行程序以加载新的配置。")
-            sys.exit(0)
         except Exception as e:
             print(f"保存令牌时出错: {e}")
 
