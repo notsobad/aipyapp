@@ -8,6 +8,7 @@ from rich.console import Console
 from prompt_toolkit import PromptSession
 from prompt_toolkit.history import FileHistory
 from prompt_toolkit.styles import Style
+from prompt_toolkit.completion import WordCompleter
 
 from .aipy import Agent
 from .aipy.i18n import T
@@ -17,12 +18,14 @@ __PACKAGE_NAME__ = "aipyapp"
 class InteractiveConsole():
     def __init__(self, ai, console, settings):
         self.ai = ai
+        self.llms = ai.llm.names
+        completer = WordCompleter(['/use', 'use', '/done','done'] + list(self.llms['available']), ignore_case=True)
         self.history = FileHistory(str(Path.cwd() / settings.history))
-        self.session = PromptSession(history=self.history)
+        self.session = PromptSession(history=self.history, completer=completer)
         self.console = console
         self.style_main = Style.from_dict({"prompt": "green"})
         self.style_ai = Style.from_dict({"prompt": "cyan"})
-
+        
     def input_with_possible_multiline(self, prompt_text, is_ai=False):
         prompt_style = self.style_ai if is_ai else self.style_main
 
@@ -57,19 +60,17 @@ class InteractiveConsole():
                 user_input = self.input_with_possible_multiline(">>> ", is_ai=True).strip()
             except (EOFError, KeyboardInterrupt):
                 break
+
             if not user_input:
                 continue
-
-            if user_input.startswith("/"):
-                if user_input.startswith("/done"):
-                    break
-                elif user_input.startswith("/use "):
-                    llm = user_input[5:].strip()
-                    if llm: ai.use(llm)
-                else:
-                    self.console.print(f"{T('ai_mode_unknown_command')}", style="cyan")
+            if user_input in ('/done', 'done'):
+                break
+            name = self.parse_use_command(user_input, ai.llm.names['available'])
+            if name != None:
+                if name: ai.use(name)
             else:
                 self.run_ai_task(user_input)
+
         try:
             ai.publish(verbose=False)
         except Exception as e:
@@ -81,6 +82,14 @@ class InteractiveConsole():
             pass
         self.console.print(f"{T('ai_mode_exit')}", style="cyan")
 
+    def parse_use_command(self, user_input, llms):
+        words = user_input.split()
+        if len(words) > 2:
+            return None
+        if words[0] in ('/use', 'use'):
+            return words[1] if len(words) > 1 else ''
+        return words[0] if len(words) == 1 and words[0] in llms else None
+    
     def run(self):
         names = self.ai.llm.names
         self.console.print(f"{T('banner1')}", style="green")
@@ -90,9 +99,9 @@ class InteractiveConsole():
                 user_input = self.input_with_possible_multiline(">> ").strip()
                 if len(user_input) < 2:
                     continue
-                if user_input.startswith("/use "):
-                    llm = user_input[5:].strip()
-                    if llm: self.ai.use(llm)
+                name = self.parse_use_command(user_input, names['available'])
+                if name != None:
+                    if name: self.ai.use(name)
                 else:
                     self.run_ai_mode(user_input)
             except (EOFError, KeyboardInterrupt):
