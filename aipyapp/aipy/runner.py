@@ -116,7 +116,7 @@ class Runner(Runtime):
             return True
         ok = utils.confirm(self._console, f"💬 {T('agree_packages')} 'y'> ", auto=self._auto_install)
         if ok:
-            return utils.uv_install_packages(self._console, need_install)
+            return utils.install_packages(self._console, need_install)
         
     @utils.restore_output
     def getenv(self, name, desc=None):

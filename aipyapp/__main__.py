@@ -9,7 +9,7 @@ def main():
         import argparse
         parser = argparse.ArgumentParser(description="Python use - AIPython")
         parser.add_argument("-c", '--config', type=str, default=None, help="Toml config file")
-        parser.add_argument('--python', default=False, action='store_true', help="Python mode")
+        parser.add_argument('-p', '--python', default=False, action='store_true', help="Python mode")
         return parser.parse_args()
     args = parse_args()
     if args.python:

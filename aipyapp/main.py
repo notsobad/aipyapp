@@ -17,6 +17,7 @@ from prompt_toolkit.lexers import PygmentsLexer
 from prompt_toolkit.history import FileHistory
 from pygments.lexers.python import PythonLexer
 
+from . import __version__
 from .aipy import Agent
 from .aipy.i18n import T
 from .aipy.config import ConfigManager
@@ -36,7 +37,7 @@ def get_default_config():
 
 def main(args):
     console = Console(record=True)
-    console.print("[bold cyan]🚀 Python use - AIPython ([red]Python mode, Quit with 'exit()'[/red])")
+    console.print(f"[bold cyan]🚀 Python use - AIPython ({__version__}) [[red]Python mode, Quit with 'exit()'[/red]]")
 
     path = args.config if args.config else 'aipython.toml'
     conf = ConfigManager(get_default_config(), path)

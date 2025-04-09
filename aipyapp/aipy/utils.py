@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import os
 import sys
 import subprocess
 from functools import wraps
@@ -32,33 +31,7 @@ def confirm(console, prompt, default="n", auto=None):
             break
     return response == "y"
 
-def get_uv_from_venv():
-    venv_path = os.getenv("VIRTUAL_ENV")
-    if not venv_path:
-        print("VIRTUAL_ENV is not set.")
-        return None
-    
-    cfg_path = os.path.join(venv_path, "pyvenv.cfg")
-    if not os.path.exists(cfg_path):
-        print(f"pyvenv.cfg not found in {venv_path}")
-        return None
-    
-    uv_value = None
-    with open(cfg_path, "r", encoding="utf-8") as f:
-        for line in f:
-            line = line.strip()
-            if line.startswith("uv ="):
-                _, uv_value = map(str.strip, line.split("=", 1))
-                break
-    
-    return uv_value
-
-def uv_install_packages(console, packages):
-    uvv = get_uv_from_venv()
-    if not uvv:
-        console.print("[red]Not in uv venv, can't install packages")
-        return False
-    
-    console.print(f"[green]Install packages: {', '.join(packages)} with uv {uvv}")
-    cp = subprocess.run(['uv', "add"] + packages)
+def install_packages(console, packages):
+    console.print(f"[green]Install packages: {', '.join(packages)} with pip")
+    cp = subprocess.run([sys.executable, "-m", "pip", "install"] + packages)
     return cp.returncode == 0

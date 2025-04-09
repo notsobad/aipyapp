@@ -45,7 +45,8 @@ class ChatHistory:
         return iter(row.usage for row in self.messages if row.role == "assistant")
     
     def get_summary(self):
-        summary = dict(self._total_tokens)
+        summary = {'time': 0, 'input_tokens': 0, 'output_tokens': 0, 'total_tokens': 0}
+        summary.update(dict(self._total_tokens))
         summary['rounds'] = sum(1 for row in self.messages if row.role == "assistant")
         return summary
 
@@ -53,14 +54,17 @@ class ChatHistory:
         return [{"role": msg.role, "content": msg.content} for msg in self.messages]
 
 class BaseClient(ABC):
+    MODEL = None
+    BASE_URL = None
+
     def __init__(self, config):
         self.name = None
         self.console = None
         self.max_tokens = config.get("max_tokens")
-        self._model = config["model"]
+        self._model = config.get("model") or self.MODEL
         self._timeout = config.get("timeout")
         self._api_key = config.get("api_key")
-        self._base_url = config.get("base_url")
+        self._base_url = config.get("base_url") or self.BASE_URL
         self._stream = config.get("stream", True)
 
     def __repr__(self):
@@ -131,7 +135,8 @@ class OpenAIClient(BaseClient):
         full_response = ""
         
         title = f"{self.name} {T('llm_response')}"
-        with Live(auto_refresh=True) as live:
+        usage = Counter()
+        with Live(auto_refresh=True, vertical_overflow='visible') as live:
             status = self.console.status(f"[dim white]{self.name} {T('thinking')}...", spinner='runner')
             response_panel = Panel(status, title=title, border_style="blue")
             live.update(response_panel)
@@ -197,7 +202,7 @@ class OllamaClient(BaseClient):
         full_response = ""
         
         title = f"{self.name} {T('llm_response')}"
-        with Live(auto_refresh=True) as live:
+        with Live(auto_refresh=True, vertical_overflow='visible') as live:
             status = self.console.status(f"[dim white]{self.name} {T('thinking')}...", spinner='runner')
             response_panel = Panel(status, title=title, border_style="blue")
             live.update(response_panel)
@@ -266,7 +271,7 @@ class ClaudeClient(BaseClient):
         full_response = ""
         
         title = f"{self.name} {T('llm_response')}"
-        with Live(auto_refresh=True) as live:
+        with Live(auto_refresh=True, vertical_overflow='visible') as live:
             status = self.console.status(f"[dim white]{self.name} {T('thinking')}...", spinner='runner')
             response_panel = Panel(status, title=title, border_style="blue")
             live.update(response_panel)
@@ -316,12 +321,32 @@ class ClaudeClient(BaseClient):
             self.console.print(f"❌ [bold red]{self.name} API {T('call_failed')}: [yellow]{str(e)}")
             message = None
         return message
-    
+
+class GeminiClient(OpenAIClient): 
+    BASE_URL = 'https://generativelanguage.googleapis.com/v1beta/'
+    MODEL = 'gemini-2.5-pro-exp-03-25'
+
+class DeepSeekClient(OpenAIClient): 
+    BASE_URL = 'https://api.deepseek.com'
+    MODEL = 'deepseek-chat'
+
+class GrokClient(OpenAIClient): 
+    BASE_URL = 'https://api.x.ai/v1/'
+    MODEL = 'grok-2-latest'
+
+class TrustClient(OpenAIClient): 
+    BASE_URL = 'https://api.trustoken.ai/v1'
+    MODEL = 'auto'
+
 class LLM(object):
     CLIENTS = {
         "openai": OpenAIClient,
         "ollama": OllamaClient,
-        "claude": ClaudeClient
+        "claude": ClaudeClient,
+        "gemini": GeminiClient,
+        "deepseek": DeepSeekClient,
+        'grok': GrokClient,
+        'trust': TrustClient
     }
 
     def __init__(self, console, configs, max_tokens=None):
@@ -340,6 +365,7 @@ class LLM(object):
             try:
                 client = self.get_client(config)
             except Exception as e:
+                self.console.print_exception()
                 names['error'].add(name)
                 continue
             
