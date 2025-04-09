@@ -72,6 +72,17 @@ runtime.display(url="https://www.example.com/image.png")
 __session__['step1_result'] = calculated_value
 ```
 
+## 全局变量 __history__
+- 类型：字典。
+- 有效期：整个会话过程始终有效
+- 用途：保存代码执行历史。即，每次执行的代码和执行结果
+- 注意: 如果在函数内部使用，必须在函数开头先声明该变量为 global
+- 使用示例：
+```python
+# 获取上一次执行的 Python 代码源码
+last_python_code = __history__[-1]['code']
+```
+
 ## 全局变量 __result__
 - 类型: 字典。
 - 有效期：仅在本次执行的代码里有效。

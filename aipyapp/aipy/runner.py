@@ -53,8 +53,8 @@ class Runner(Runtime):
         self.clear()
 
     def clear(self):
-        self._globals = {'runtime': self, '__session__': {}, '__name__': '__main__', 'input': self.input}
         self.history = [{'env': self.env}]
+        self._globals = {'runtime': self, '__session__': {}, '__name__': '__main__', 'input': self.input, '__history__': self.history}
         exec(INIT_IMPORTS, self._globals)
 
     def __repr__(self):

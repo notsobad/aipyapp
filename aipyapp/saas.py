@@ -111,7 +111,7 @@ class InteractiveConsole():
 
 def main(args):
     console = Console(record=True)
-    console.print(f"[bold cyan]🚀 Python use - AIPython ({__version__}) [[red]Task mode[/red]]")
+    console.print(f"[bold cyan]🚀 Python use - AIPython ({__version__}) [[green]https://www.aipy.app[/green]]")
 
     path = args.config if args.config else 'aipython.toml'
     default_config_path = resources.files(__PACKAGE_NAME__) / "default.toml"

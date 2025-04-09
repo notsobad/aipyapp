@@ -37,7 +37,7 @@ def get_default_config():
 
 def main(args):
     console = Console(record=True)
-    console.print(f"[bold cyan]🚀 Python use - AIPython ({__version__}) [[red]Python mode, Quit with 'exit()'[/red]]")
+    console.print(f"[bold cyan]🚀 Python use - AIPython ({__version__}) [[green]https://www.aipy.app[/green]]")
 
     path = args.config if args.config else 'aipython.toml'
     conf = ConfigManager(get_default_config(), path)

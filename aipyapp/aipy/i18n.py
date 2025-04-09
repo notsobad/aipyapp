@@ -31,7 +31,7 @@ MESSAGES = {
         'packages_exist': '申请的第三方包已经安装',
         'thinking': '正在绞尽脑汁思考中，请稍等6-60秒',
         'no_available_llm': '没有可用的 LLM，请检查配置文件',
-        'banner1_python': "请用 ai('任务') 输入需要 AI 处理的任务 (输入 ai.use(llm) 切换 下述 LLM：",
+        'banner1_python': "请用 ai('任务') 输入需要 AI 处理的任务 (输入 ai.use(llm) 切换下述 LLM：",
         'banner1': "请输入需要 AI 处理的任务 (输入 /use 切换 下述LLM)",
         'default': '默认',
         'available': '可用',
