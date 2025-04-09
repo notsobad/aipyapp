@@ -5,12 +5,12 @@ from .i18n import T
 
 def is_valid_openai_api_key(api_key):
     """
-    校验是否为有效的 OpenAI API Key 格式。
-    OpenAI API Key 格式通常以 "sk-" 开头，后面是 48 个字母或数字，总长度为 51
+    校验是否为有效的 API Key 格式。
+    API Key 格式为字母、数字、减号、下划线的组合，长度在 8 到 128 之间
     :param api_key: 待校验的 API Key 字符串
     :return: 如果格式有效返回 True，否则返回 False
     """
-    pattern = r"^sk-[A-Za-z0-9]{48}$"
+    pattern = r"^[A-Za-z0-9_-]{8,128}$"
     return bool(re.match(pattern, api_key))
 
 
@@ -87,6 +87,7 @@ class ConfigManager:
                 f.write('base_url = "https://api.trustoken.ai/v1"\n')
                 f.write('model = "auto"\n')
                 f.write("default = true\n")
+                f.write("enable = true\n")
             print(T('token_saved').format(config_file))
         except Exception as e:
             print(T('token_save_error').format(e))
