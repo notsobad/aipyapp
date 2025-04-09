@@ -10,9 +10,11 @@ from prompt_toolkit.history import FileHistory
 from prompt_toolkit.styles import Style
 from prompt_toolkit.completion import WordCompleter
 
+from . import __version__
 from .aipy import Agent
 from .aipy.i18n import T
 from .aipy.config import ConfigManager
+
 __PACKAGE_NAME__ = "aipyapp"
 
 class InteractiveConsole():
@@ -109,7 +111,7 @@ class InteractiveConsole():
 
 def main(args):
     console = Console(record=True)
-    console.print("[bold cyan]🚀 Python use - AIPython ([red]Task mode[/red])")
+    console.print(f"[bold cyan]🚀 Python use - AIPython ({__version__}) [[red]Task mode[/red]]")
 
     path = args.config if args.config else 'aipython.toml'
     default_config_path = resources.files(__PACKAGE_NAME__) / "default.toml"

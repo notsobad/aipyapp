@@ -1,6 +1,7 @@
 [project]
 name = "aipyapp"
-version = "0.1.15"
+#version = "0.1.15"
+dynamic = ["version"]
 description = "AIPyApp: AI-Powered Python & Python-Powered AI"
 readme = "README.md"
 requires-python = ">=3.9"
@@ -19,9 +20,13 @@ dependencies = [
     "seaborn>=0.13.2",
     "term-image>=0.7.2",
 ]
+
 [project.scripts]
 aipy = "aipyapp.__main__:main"
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[tool.hatch.version]
+path = "aipyapp/__init__.py"
