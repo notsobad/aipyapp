@@ -344,7 +344,9 @@ class LLM(object):
         "ollama": OllamaClient,
         "claude": ClaudeClient,
         "gemini": GeminiClient,
-        "deepseek": DeepSeekClient
+        "deepseek": DeepSeekClient,
+        'grok': GrokClient,
+        'trust': TrustClient
     }
 
     def __init__(self, console, configs, max_tokens=None):
