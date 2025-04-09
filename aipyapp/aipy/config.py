@@ -3,7 +3,7 @@ import re
 from dynaconf import Dynaconf
 from .i18n import T
 
-def is_valid_openai_api_key(api_key):
+def is_valid_api_key(api_key):
     """
     校验是否为有效的 API Key 格式。
     API Key 格式为字母、数字、减号、下划线的组合，长度在 8 到 128 之间
@@ -69,7 +69,7 @@ class ConfigManager:
             if not user_token:
                 print(T('no_token_detected'))
                 continue
-            if not is_valid_openai_api_key(user_token):
+            if not is_valid_api_key(user_token):
                 print(T('invalid_token'))
                 continue
 
