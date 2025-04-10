@@ -3,6 +3,7 @@
 
 import os
 import time
+import re
 import json
 import uuid
 import requests
@@ -68,6 +69,37 @@ body {{
 </html>
 """
 
+EXTRA_HTML = f"""
+<script>
+    // Hide code blocks by default and add a toggle reminder.
+    document.addEventListener("DOMContentLoaded", function() {{
+        document.querySelectorAll('.ks-code').forEach(function(codeBlock) {{
+            // Create a clickable reminder element.
+            const toggleBtn = document.createElement('div');
+            toggleBtn.textContent = "{T("toggle_expand_code")}";
+            toggleBtn.style.background = "#eee";
+            toggleBtn.style.padding = "20px";
+            toggleBtn.style.cursor = "pointer";
+            toggleBtn.style.margin = "5px 20px";
+            // Hide the code block by default.
+            codeBlock.style.display = "none";
+            // Toggle visibility on click.
+            toggleBtn.addEventListener("click", function() {{
+                if (codeBlock.style.display === "none") {{
+                    codeBlock.style.display = "block";
+                    toggleBtn.textContent = "{T("toggle_collapse_code")}";
+                }} else {{
+                    codeBlock.style.display = "none";
+                    toggleBtn.textContent = "{T("toggle_expand_code")}";
+                }}
+            }});
+            // Insert the button before the code block.
+            codeBlock.parentNode.insertBefore(toggleBtn, codeBlock);
+        }});
+    }});
+</script>
+"""
+
 class Agent():
     MAX_TOKENS = 8192
     CERT_PATH = Path('/tmp/aipy_client.crt')
@@ -124,11 +156,28 @@ class Agent():
             self.system_prompt = "\n".join(lines)
 
     def save(self, path):
-        self._console.save_html(path, clear=False, code_format=CONSOLE_HTML_FORMAT)
+        html = self._console.export_html(clear=True, code_format=CONSOLE_HTML_FORMAT)
+
+        open_div = False
+        new_lines = []
+        for line in html.splitlines():
+            if re.match(rf'^(╭.*{re.escape(T("start_execute"))}.*)$', line):
+                line = line + '<div class="ks-code">'
+                open_div = True
+            elif re.match(r'^(╰.*)$', line) and open_div:
+                line = '<!--EOF ks-code---></div>' + line
+                open_div = False
+            new_lines.append(line)
+        html = "\n".join(new_lines)
+
+        html += EXTRA_HTML
+        with open(path, 'w', encoding='utf-8') as f:
+            f.write(html)
         
     def done(self):
         #self._console.save_svg('console.svg', clear=False)
-        self._console.save_html('console.html', clear=True, code_format=CONSOLE_HTML_FORMAT)
+        #self._console.save_html('console.html', clear=True, code_format=CONSOLE_HTML_FORMAT)
+        self.save('console.html')
         task = {'instruction': self.instruction}
         task['llm'] = self.llm.history.json()
         task['runner'] = self.runner.history

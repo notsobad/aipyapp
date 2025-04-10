@@ -61,7 +61,9 @@ MESSAGES = {
         'no_token_detected': "未检测到令牌输入。",
         'invalid_token': "输入的令牌不合法，请确保令牌正确，格式为‘sk-xxxxxx……’，或输入 'exit' 退出。",
         'token_saved': "令牌已保存到 {}",
-        'token_save_error': "保存令牌时出错: {}"
+        'token_save_error': "保存令牌时出错: {}",
+        'toggle_expand_code': '点击展开代码块',
+        'toggle_collapse_code': '点击折叠代码块',
     },
     'en': {
         'start_instruction': 'Start processing instruction',
@@ -120,7 +122,9 @@ MESSAGES = {
         'no_token_detected': "No token detected.",
         'invalid_token': "The entered token is invalid. Ensure it starts with 'sk-' followed by the correct characters, or type 'exit' to quit.",
         'token_saved': "Token saved to {}",
-        'token_save_error': "Error saving token: {}"
+        'token_save_error': "Error saving token: {}",
+        'toggle_expand_code': 'Click to expand code block',
+        'toggle_collapse_code': 'Click to collapse code block',
     }
 }
 
