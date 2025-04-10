@@ -161,11 +161,11 @@ class Agent():
         open_div = False
         new_lines = []
         for line in html.splitlines():
-            if re.match(rf'^(╭.*{re.escape(T("start_execute"))}.*)$', line):
-                line = line + '<div class="ks-code">'
+            if re.search(r'<span[^>]*>#RUN</span>', line.strip()):
+                line = '<div class="ks-code">' + line
                 open_div = True
-            elif re.match(r'^(╰.*)$', line) and open_div:
-                line = '<!--EOF ks-code---></div>' + line
+            elif re.search(r'<span[^>]*>#EOF_RUN</span>', line.strip()) and open_div:
+                line = line + '<!--EOF ks-code---></div>'
                 open_div = False
             new_lines.append(line)
         html = "\n".join(new_lines)
