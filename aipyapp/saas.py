@@ -129,5 +129,8 @@ def main(args):
     if not ai.llm:
         console.print(f"[bold red]{T('no_available_llm')}")
         return
-  
+    
+    if args.cmd:
+        ai(args.cmd)
+        return
     InteractiveConsole(ai, console, settings).run()

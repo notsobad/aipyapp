@@ -10,6 +10,7 @@ def main():
         parser = argparse.ArgumentParser(description="Python use - AIPython")
         parser.add_argument("-c", '--config', type=str, default=None, help="Toml config file")
         parser.add_argument('-p', '--python', default=False, action='store_true', help="Python mode")
+        parser.add_argument('cmd', nargs='?', default=None, help="Command to execute")
         return parser.parse_args()
     args = parse_args()
     if args.python:
