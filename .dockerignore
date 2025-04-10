@@ -1,5 +1,6 @@
 .venv
 __pycache__
+aipy.toml
 aipython.toml
 dist/
 work/

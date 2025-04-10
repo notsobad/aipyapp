@@ -32,7 +32,7 @@ MESSAGES = {
         'thinking': '正在绞尽脑汁思考中，请稍等6-60秒',
         'no_available_llm': '没有可用的 LLM，请检查配置文件',
         'banner1_python': "请用 ai('任务') 输入需要 AI 处理的任务 (输入 ai.use(llm) 切换下述 LLM：",
-        'banner1': "请输入需要 AI 处理的任务 (输入 /use <下述LLM> 切换 )",
+        'banner1': "请输入需要 AI 处理的任务 (输入 /use <下述 LLM> 切换)",
         'default': '默认',
         'available': '可用',
         'ai_mode_enter': '进入 AI 模式，开始处理任务，输入 Ctrl+d 或 /done 结束任务',

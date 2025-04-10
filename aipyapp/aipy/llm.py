@@ -255,6 +255,8 @@ class OllamaClient(BaseClient):
 
 # https://docs.anthropic.com/en/api/messages
 class ClaudeClient(BaseClient):
+    MODEL = "claude-3-7-sonnet-20250219"
+    
     def __init__(self, config):
         super().__init__(config)
         self._client = anthropic.Anthropic(api_key=self._api_key, timeout=self._timeout)
@@ -332,7 +334,7 @@ class DeepSeekClient(OpenAIClient):
 
 class GrokClient(OpenAIClient): 
     BASE_URL = 'https://api.x.ai/v1/'
-    MODEL = 'grok-2-latest'
+    MODEL = 'grok-3-mini'
 
 class TrustClient(OpenAIClient): 
     BASE_URL = 'https://api.trustoken.ai/v1'

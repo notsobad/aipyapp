@@ -1,6 +1,9 @@
 import sys
 import re
+from pathlib import Path
+
 from dynaconf import Dynaconf
+
 from .i18n import T
 
 def is_valid_api_key(api_key):
@@ -15,7 +18,7 @@ def is_valid_api_key(api_key):
 
 
 class ConfigManager:
-    def __init__(self, default_config="default.toml", user_config="aipython.toml"):
+    def __init__(self, default_config="default.toml", user_config="aipy.toml"):
         self.default_config = default_config
         self.user_config = user_config
         self.config = self._load_config()
@@ -23,7 +26,7 @@ class ConfigManager:
     def _load_config(self):
         try:
             config = Dynaconf(
-                settings_files=[self.default_config, self.user_config],
+                settings_files=[self.default_config, Path.home() / '.aipy.toml', 'aipython.toml', '.aipy.toml', self.user_config],
                 envvar_prefix="AIPY", merge_enabled=True
             )
         except Exception as e:
