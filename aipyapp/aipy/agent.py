@@ -165,7 +165,7 @@ class Agent():
                 line = '<div class="ks-code">' + line
                 open_div = True
             elif re.search(r'<span[^>]*>#EOF_RUN</span>', line.strip()) and open_div:
-                line = line + '<!--EOF ks-code---></div>'
+                line = line + '<!--EOF ks-code--></div>'
                 open_div = False
             new_lines.append(line)
         html = "\n".join(new_lines)
