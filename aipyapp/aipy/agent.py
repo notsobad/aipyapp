@@ -123,12 +123,38 @@ class Agent():
                     lines.append(f"### API {T('description')}\n{desc}")
             self.system_prompt = "\n".join(lines)
 
-    def save(self, path):
-        self._console.save_html(path, clear=False, code_format=CONSOLE_HTML_FORMAT)
+    def save(self, path, task):
+        # 获取当前代码所在目录下的template.html作为模版文件
+        # 读取模版文件
+        # 将模版文件中的{{code}}替换为task转换为json
+        # 保存为新的html文件
+        template_path = Path(__file__).resolve().parent / 'template.html'
+        try:
+            with open(template_path, 'r') as f:
+                template_content = f.read()
+        except FileNotFoundError:
+            self._console.print(f"[red]Error: template.html not found at {template_path}[/red]")
+            return
+        except Exception as e:
+            self._console.print_exception()
+            return
+
+        if 'llm' in task and isinstance(task['llm'], list) and len(task['llm']) > 0:
+            if task['llm'][0]['role'] == 'system':
+                task['llm'].pop(0)
+        
+        task_json = json.dumps(task, ensure_ascii=False)
+        html_content = template_content.replace('{{code}}', task_json)
+
+        try:
+            with open(path, 'w', encoding='utf-8') as f:
+                f.write(html_content)
+                self._console.print(f"[green]Task saved to {path}[/green]")
+        except Exception as e:
+            self._console.print_exception()
+            return
         
     def done(self):
-        #self._console.save_svg('console.svg', clear=False)
-        self._console.save_html('console.html', clear=True, code_format=CONSOLE_HTML_FORMAT)
         task = {'instruction': self.instruction}
         task['llm'] = self.llm.history.json()
         task['runner'] = self.runner.history
@@ -136,6 +162,8 @@ class Agent():
             json.dump(task, open('task.json', 'w'), ensure_ascii=False, indent=4)
         except Exception as e:
             self._console.print_exception()
+
+        self.save('console.html', task)
         self.llm.clear()
         self.runner.clear()
         self.task_id = None
