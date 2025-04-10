@@ -29,17 +29,17 @@ import traceback
 def set_chinese_font():
     system = platform.system().lower()
     font_options = {
-        'windows': 'Microsoft YaHei',
-        'darwin': 'PingFang HK',
-        'linux': 'Noto Sans CJK SC'
+        'windows': ['Microsoft YaHei', 'SimHei'],
+        'darwin': ['Kai', 'Hei'],
+        'linux': ['Noto Sans CJK SC', 'WenQuanYi Micro Hei', 'Source Han Sans SC']
     }
     
-    font = font_options.get(system, font_options['windows'])
+    fonts = font_options.get(system, font_options['windows'])
     plt.rcParams['font.family'] = 'sans-serif'
-    plt.rcParams['font.sans-serif'] = [font]
+    plt.rcParams['font.sans-serif'] = fonts
     plt.rcParams['font.size'] = 12
     plt.rcParams['axes.unicode_minus'] = False
-
+    
 set_chinese_font()
 
 def is_json_serializable(obj):
