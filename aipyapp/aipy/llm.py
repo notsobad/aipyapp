@@ -65,7 +65,7 @@ class BaseClient(ABC):
         self._timeout = config.get("timeout")
         self._api_key = config.get("api_key")
         self._base_url = config.get("base_url") or self.BASE_URL
-        self._stream = config.get("stream", False)
+        self._stream = config.get("stream", True)
 
     def __repr__(self):
         return f"{self.__class__.__name__}<{self.name}>({self._model}, {self.max_tokens})"
@@ -148,7 +148,12 @@ class OpenAIClient(BaseClient):
                 if chunk.choices and chunk.choices[0].delta.content:
                     content = chunk.choices[0].delta.content
                     full_response += content
-                    
+
+                    if hasattr(self._console, 'gui'):
+                        # Using Mocked console. Dont use Panel
+                        self.console.print(content, end="", highlight=False)
+                        return
+
                     try:
                         md = Markdown(full_response)
                         response_panel = Panel(md, title=title, border_style="green")

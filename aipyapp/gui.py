@@ -119,36 +119,29 @@ class AIAppGUI:
         self.root.grid_columnconfigure(1, weight=1)
         self.root.grid_rowconfigure(1, weight=1)
 
+        self.print_output(f"Python use - AIPython ({__version__}) [https://www.aipy.app]\n")
+
     def handle_ai_output(self, output):
         print("*"*10, "handle_ai_output", "*"*10)
         print("GUI got output", output)
         print("*"*10, "handle_ai_output EOF", "*"*10)
-
-
+        #output = output.strip()
         if "#RUN" in output:
             self.print_code(output)
         else:
             self.print_output(output)
 
-        #for line in output.splitlines():
-        #    line = line.strip()
-        #    if T('start_execute') in line:
-        #        in_code = True
-        #        print("GOT CODE")
-        #        continue
-
-        #    if in_code:
-        #        self.print_code(line)
-        #    else:
-        #        self.print_output(line)
     def print_code(self, code):
-        self.code_text.insert(tk.END, code + "\n")
+        self.code_text.insert(tk.END, code)
         self.code_text.see(tk.END)
+        self.code_text.update_idletasks()  # 添加此行以强制刷新 GUI
+        self.code_text.update()  # Force the GUI to refresh
     
     def print_output(self, output):
-        self.output_text.insert(tk.END, "> " + output + "\n")
+        self.output_text.insert(tk.END, output)
         self.output_text.see(tk.END)
-
+        self.output_text.update_idletasks()  # 添加此行以强制刷新 GUI
+        self.output_text.update()  # Force the GUI to refresh
 
     def parse_use_command(self, user_input, llms):
         words = user_input.split()
@@ -201,7 +194,6 @@ class AIAppGUI:
         self.root.mainloop()
 
 def main(args):
-    print("IN GUI")
 
     path = args.config if args.config else 'aipython.toml'
     default_config_path = resources.files(__PACKAGE_NAME__) / "default.toml"
@@ -217,7 +209,7 @@ def main(args):
         #console.print(f"[bold red]Error: {e}")
         print(e)
         return
-    
+   
     gui = AIAppGUI(ai, settings)  # Replace None with actual AI instance
     console.set_gui(gui)
     gui.run()

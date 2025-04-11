@@ -1,6 +1,8 @@
 import sys
 import re
 from dynaconf import Dynaconf
+from rich import print
+
 from .i18n import T
 
 def is_valid_api_key(api_key):
