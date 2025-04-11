@@ -203,7 +203,8 @@ class Agent():
     def box(self, title, content, align=None, lang=None):
         if hasattr(self._console, 'gui'):
             # Using Mocked console. Dont use Panel
-            self._console.print("\n".join([title, content]))
+            self._console.print(f"\n{title}")
+            self._console.print(content)
             return
 
         if lang:

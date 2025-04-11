@@ -123,19 +123,24 @@ class AIAppGUI:
         print("*"*10, "handle_ai_output", "*"*10)
         print("GUI got output", output)
         print("*"*10, "handle_ai_output EOF", "*"*10)
-        in_code = False
-        for line in output.splitlines():
-            line = line.strip()
-            if T('start_execute') in line:
-                in_code = True
-                print("GOT CODE")
-                continue
 
-            if in_code:
-                self.print_code(line)
-            else:
-                self.print_output(line)
 
+        if "#RUN" in output:
+            self.print_code(output)
+        else:
+            self.print_output(output)
+
+        #for line in output.splitlines():
+        #    line = line.strip()
+        #    if T('start_execute') in line:
+        #        in_code = True
+        #        print("GOT CODE")
+        #        continue
+
+        #    if in_code:
+        #        self.print_code(line)
+        #    else:
+        #        self.print_output(line)
     def print_code(self, code):
         self.code_text.insert(tk.END, code + "\n")
         self.code_text.see(tk.END)
