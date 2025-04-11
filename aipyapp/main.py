@@ -56,7 +56,7 @@ def main(args):
     
     names = ai.llm.names
     console.print(f"{T('banner1_python')}", style="green")
-    console.print(f"[cyan]{T('default')}: [green]{names['default']}，[cyan]{T('available')}: [yellow]{' '.join(names['available'])}")
+    console.print(f"[cyan]{T('default')}: [green]{names['default']}，[cyan]{T('enabled')}: [yellow]{' '.join(names['enabled'])}")
 
     interp = code.InteractiveConsole({'ai': ai})
 

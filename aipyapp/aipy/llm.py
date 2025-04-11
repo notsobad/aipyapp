@@ -8,7 +8,6 @@ from abc import ABC, abstractmethod
 
 import openai
 import requests
-import anthropic
 from rich.live import Live
 from rich.panel import Panel
 from rich.text import Text
@@ -66,9 +65,16 @@ class BaseClient(ABC):
         self._api_key = config.get("api_key")
         self._base_url = config.get("base_url") or self.BASE_URL
         self._stream = config.get("stream", True)
+        self._client = None
 
     def __repr__(self):
         return f"{self.__class__.__name__}<{self.name}>({self._model}, {self.max_tokens})"
+    
+    def usable(self):
+        return self._model
+    
+    def _get_client(self):
+        return self._client
     
     @abstractmethod
     def get_completion(self, messages):
@@ -118,10 +124,12 @@ class BaseClient(ABC):
 # https://platform.openai.com/docs/api-reference/chat/create
 # https://api-docs.deepseek.com/api/create-chat-completion
 class OpenAIClient(BaseClient):
-    def __init__(self, config):
-        super().__init__(config)
-        self._client = openai.Client(api_key=self._api_key, base_url=self._base_url, timeout=self._timeout)
-
+    def usable(self):
+        return super().usable() and self._api_key
+    
+    def _get_client(self):
+        return openai.Client(api_key=self._api_key, base_url=self._base_url, timeout=self._timeout)
+    
     def add_system_prompt(self, history, system_prompt):
         history.add("system", system_prompt)
 
@@ -133,7 +141,6 @@ class OpenAIClient(BaseClient):
     
     def _parse_stream_response(self, response):
         full_response = ""
-        
         title = f"{self.name} {T('llm_response')}"
         usage = Counter()
         with Live(auto_refresh=True, vertical_overflow='visible') as live:
@@ -177,6 +184,8 @@ class OpenAIClient(BaseClient):
         )
 
     def get_completion(self, messages):
+        if not self._client:
+            self._client = self._get_client()
         kws = {'stream_options': {'include_usage': True}} if self._stream and not self._base_url else {}
         try:
             response = self._client.chat.completions.create(
@@ -197,6 +206,9 @@ class OllamaClient(BaseClient):
         super().__init__(config)
         self._session = requests.Session()
 
+    def usable(self):
+        return super().usable() and self._base_url
+    
     def _parse_usage(self, response):
         ret = {'input_tokens': response['prompt_eval_count'], 'output_tokens': response['eval_count']}
         ret['total_tokens'] = ret['input_tokens'] + ret['output_tokens']
@@ -263,9 +275,15 @@ class ClaudeClient(BaseClient):
     
     def __init__(self, config):
         super().__init__(config)
-        self._client = anthropic.Anthropic(api_key=self._api_key, timeout=self._timeout)
         self._system_prompt = None
 
+    def _get_client(self):
+        import anthropic
+        return anthropic.Anthropic(api_key=self._api_key, timeout=self._timeout)
+    
+    def usable(self):
+        return super().usable() and self._api_key
+    
     def _parse_usage(self, response):
         usage = response.usage
         ret = {'input_tokens': usage.input_tokens, 'output_tokens': usage.output_tokens}
@@ -315,6 +333,8 @@ class ClaudeClient(BaseClient):
         self._system_prompt = system_prompt
 
     def get_completion(self, messages):
+        if not self._client:
+            self._client = self._get_client()
         try:
             message = self._client.messages.create(
                 model = self._model,
@@ -344,6 +364,20 @@ class TrustClient(OpenAIClient):
     BASE_URL = 'https://api.trustoken.ai/v1'
     MODEL = 'auto'
 
+class AzureOpenAIClient(OpenAIClient): 
+    MODEL = 'gpt-4o'
+
+    def __init__(self, config):
+        super().__init__(config)
+        self._end_point = config.get('endpoint')
+
+    def usable(self):
+        return super().usable() and self._end_point
+    
+    def _get_client(self):
+        from openai import AzureOpenAI
+        return AzureOpenAI(azure_endpoint=self._end_point, api_key=self._api_key, api_version="2024-02-01")
+            
 class LLM(object):
     CLIENTS = {
         "openai": OpenAIClient,
@@ -352,7 +386,8 @@ class LLM(object):
         "gemini": GeminiClient,
         "deepseek": DeepSeekClient,
         'grok': GrokClient,
-        'trust': TrustClient
+        'trust': TrustClient,
+        'azure': AzureOpenAIClient
     }
 
     def __init__(self, console, configs, max_tokens=None):
@@ -375,7 +410,7 @@ class LLM(object):
                 names['error'].add(name)
                 continue
             
-            names['available'].add(name)
+            names['enabled'].add(name)
             client.name = name
             client.console = console
             if not client.max_tokens:
@@ -427,9 +462,11 @@ class LLM(object):
         llm = self.llms.get(name)
         if not llm:
             self.console.print(f"[red]LLM: {name} not found")
-        else:
+        elif llm.usable():
             self.current = llm
             self.console.print(f"[green]LLM: use {name}")
+        else:
+            self.console.print(f"[red]LLM: {name} {T('not usable')}")
 
     def __call__(self, instruction, system_prompt=None, name=None):
         """ LLM 选择规则
@@ -441,6 +478,11 @@ class LLM(object):
             llm = self.current
         else:
             llm = self.llms.get(name, self.default)
+
+        if not llm.usable():
+            self.console.print(f"[red]LLM: {name} {T('not usable')}")
+            return None
+        
         self._last = llm
         return llm(self.history, instruction, system_prompt=system_prompt)
         

@@ -21,7 +21,7 @@ class InteractiveConsole():
     def __init__(self, ai, console, settings):
         self.ai = ai
         self.llms = ai.llm.names
-        completer = WordCompleter(['/use', 'use', '/done','done'] + list(self.llms['available']), ignore_case=True)
+        completer = WordCompleter(['/use', 'use', '/done','done'] + list(self.llms['enabled']), ignore_case=True)
         self.history = FileHistory(str(Path.cwd() / settings.history))
         self.session = PromptSession(history=self.history, completer=completer)
         self.console = console
@@ -67,7 +67,7 @@ class InteractiveConsole():
                 continue
             if user_input in ('/done', 'done'):
                 break
-            name = self.parse_use_command(user_input, ai.llm.names['available'])
+            name = self.parse_use_command(user_input, self.llms['enabled'])
             if name != None:
                 if name: ai.use(name)
             else:
@@ -93,15 +93,15 @@ class InteractiveConsole():
         return words[0] if len(words) == 1 and words[0] in llms else None
     
     def run(self):
-        names = self.ai.llm.names
+        names = self.llms
         self.console.print(f"{T('banner1')}", style="green")
-        self.console.print(f"[cyan]{T('default')}: [green]{names['default']}，[cyan]{T('available')}: [yellow]{' '.join(names['available'])}")
+        self.console.print(f"[cyan]{T('default')}: [green]{names['default']}，[cyan]{T('enabled')}: [yellow]{' '.join(names['enabled'])}")
         while True:
             try:
                 user_input = self.input_with_possible_multiline(">> ").strip()
                 if len(user_input) < 2:
                     continue
-                name = self.parse_use_command(user_input, names['available'])
+                name = self.parse_use_command(user_input, names['enabled'])
                 if name != None:
                     if name: self.ai.use(name)
                 else:
@@ -112,7 +112,7 @@ class InteractiveConsole():
 def main(args):
     console = Console(record=True)
     console.print(f"[bold cyan]🚀 Python use - AIPython ({__version__}) [[green]https://aipy.app[/green]]")
-
+    
     path = args.config if args.config else 'aipy.toml'
     default_config_path = resources.files(__PACKAGE_NAME__) / "default.toml"
     conf = ConfigManager(default_config_path, path)

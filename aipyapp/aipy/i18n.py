@@ -34,7 +34,7 @@ MESSAGES = {
         'banner1_python': "请用 ai('任务') 输入需要 AI 处理的任务 (输入 ai.use(llm) 切换下述 LLM：",
         'banner1': "请输入需要 AI 处理的任务 (输入 /use <下述 LLM> 切换)",
         'default': '默认',
-        'available': '可用',
+        'enabled': '已启用',
         'ai_mode_enter': '进入 AI 模式，开始处理任务，输入 Ctrl+d 或 /done 结束任务',
         'ai_mode_exit': "[退出 AI 模式]",
         'ai_mode_unknown_command': "[AI 模式] 未知命令",
@@ -61,7 +61,8 @@ MESSAGES = {
         'no_token_detected': "未检测到令牌输入。",
         'invalid_token': "输入的令牌不合法，请确保令牌正确，格式为‘sk-xxxxxx……’，或输入 'exit' 退出。",
         'token_saved': "令牌已保存到 {}",
-        'token_save_error': "保存令牌时出错: {}"
+        'token_save_error': "保存令牌时出错: {}",
+        'not usable': "不可用",
     },
     'en': {
         'start_instruction': 'Start processing instruction',
@@ -93,7 +94,7 @@ MESSAGES = {
         'banner1_python': "Please use ai('task') to enter the task to be processed by AI (enter ai.use(llm) to switch to the following LLM:",
         'banner1': "Please enter the task to be processed by AI (enter /use <following LLM> to switch)",
         'default': 'Default',
-        'available': 'Available',
+        'enabled': 'Enabled',
         'ai_mode_enter': 'Enter AI mode, start processing tasks, enter Ctrl+d or /done to end the task',
         'ai_mode_exit': "[Exit AI mode]",
         'ai_mode_unknown_command': "[AI mode] Unknown command",
@@ -120,7 +121,8 @@ MESSAGES = {
         'no_token_detected': "No token detected.",
         'invalid_token': "The entered token is invalid. Ensure it starts with 'sk-' followed by the correct characters, or type 'exit' to quit.",
         'token_saved': "Token saved to {}",
-        'token_save_error': "Error saving token: {}"
+        'token_save_error': "Error saving token: {}",
+        'not usable': "Not usable",
     }
 }
 

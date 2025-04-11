@@ -12,8 +12,9 @@ def main():
         parser.add_argument("-c", '--config', type=str, default=None, help="Toml config file")
         parser.add_argument('-p', '--python', default=False, action='store_true', help="Python mode")
         parser.add_argument('-g', '--gui', default=False, action='store_true', help="GUI mode")
-        parser.add_argument('cmd', nargs='?', default=None, help="Command to execute")
+        parser.add_argument('cmd', nargs='?', default=None, help="Task to execute, e.g. 'Who are you?'")
         return parser.parse_args()
+    
     args = parse_args()
     if args.python:
         main1(args)
