@@ -70,6 +70,7 @@ desc = "Google Custom Search API"
 | 配置 | 描述 |
 | --- | --- |
 | max_tokens | 全局最大 token 数 |
+| max_rounds | 自动执行的最大轮数，默认 16 |
 | lang | 默认语言，取值为 `en` 或 `zh` |
 | workdir | 工作目录，默认为当前目录下的 `work` 子目录 |
 

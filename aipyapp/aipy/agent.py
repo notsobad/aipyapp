@@ -207,7 +207,7 @@ class Agent():
             summary = ''
         self._console.print(f"\n⏹ [cyan]{T('end_instruction')} {summary}")
     
-    def __call__(self, instruction, llm=None):
+    def __call__(self, instruction, llm=None, max_rounds=None):
         """
         执行自动处理循环，直到 LLM 不再返回代码消息
         """
@@ -219,11 +219,16 @@ class Agent():
             path = self._cwd / self.task_id
             path.mkdir(parents=True, exist_ok=False)
             os.chdir(path)
+        rounds = 1
+        max_rounds = max_rounds or self.settings.get('max_rounds')
+        if not max_rounds or max_rounds < 1:
+            max_rounds = 16
         response = self.llm(instruction, system_prompt=system_prompt, name=llm)
-        while response:
+        while response and rounds <= max_rounds:
             msg = self.parse_reply(response)
             if msg['type'] != MsgType.CODE:
                 break
+            rounds += 1
             response = self.process_code_reply(msg, llm)
         self.print_summary()
         os.write(1, b'\a\a\a')
