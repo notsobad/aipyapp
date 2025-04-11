@@ -108,7 +108,7 @@ class AIAppGUI:
 
         self.input_label = ttk.Label(self.root, text="Enter your prompt:")
         self.input_label.grid(row=2, column=0, sticky="w", padx=5, pady=2)
-        self.input_entry = tk.Entry(self.root, width=60)
+        self.input_entry = tk.Text(self.root, width=60, height=5)
         self.input_entry.grid(row=3, column=0, padx=5, pady=2, sticky="ew")
 
         self.submit_button = ttk.Button(self.root, text="提交", command=self.submit_prompt)
@@ -159,12 +159,12 @@ class AIAppGUI:
 
 
     def handle_ai_output(self, output):
-        print("*"*10, "handle_ai_output", "*"*10)
-        print("GUI got output", output)
-        print("*"*10, "handle_ai_output EOF", "*"*10)
+        #print("*"*10, "handle_ai_output", "*"*10)
+        #print("GUI got output", output)
+        #print("*"*10, "handle_ai_output EOF", "*"*10)
         #output = output.strip()
         if "#RUN" in output:
-            self.print_code(output)
+            self.print_code("\n" + output)
         else:
             self.print_output(output)
 
@@ -189,7 +189,7 @@ class AIAppGUI:
         return words[0] if len(words) == 1 and words[0] in llms else None
     
     def submit_prompt(self):
-        prompt = self.input_entry.get()
+        prompt = self.input_entry.get("1.0", tk.END)
 
         # check use command
         names = self.ai.llm.names
@@ -204,7 +204,7 @@ class AIAppGUI:
             self.run_ai_task(prompt)
 
         # clear
-        self.input_entry.delete(0, tk.END)
+        self.input_entry.delete("1.0", tk.END)
 
 
     def _run_ai_task(self, task):
