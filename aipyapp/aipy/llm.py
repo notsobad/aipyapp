@@ -152,7 +152,6 @@ class OpenAIClient(BaseClient):
                     if hasattr(self.console, 'gui'):
                         # Using Mocked console. Dont use Panel
                         self.console.print(content, end="", highlight=False)
-                        return
 
                     try:
                         md = Markdown(full_response)
