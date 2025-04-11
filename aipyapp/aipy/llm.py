@@ -65,7 +65,7 @@ class BaseClient(ABC):
         self._timeout = config.get("timeout")
         self._api_key = config.get("api_key")
         self._base_url = config.get("base_url") or self.BASE_URL
-        self._stream = config.get("stream", True)
+        self._stream = config.get("stream", False)
 
     def __repr__(self):
         return f"{self.__class__.__name__}<{self.name}>({self._model}, {self.max_tokens})"

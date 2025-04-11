@@ -22,28 +22,6 @@ from .aipy.config import ConfigManager
 
 __PACKAGE_NAME__ = "aipyapp"
 
-"""
-class GUIConsole():
-    def __init__(self):
-        self.gui = None
-
-    def set_gui(self, gui):
-        self.gui = gui
-
-    def print(self, *args, **kwargs):
-        # This is a placeholder for the GUI console print method
-        print(*args, **kwargs)
-
-        if self.gui:
-            pass
-            #self.gui.handle_ai_output(raw_output)
-        pass
-    def print_exception(self, *args, **kwargs):
-        # This is a placeholder for the GUI console print_exception method
-        print(*args, **kwargs)
-        pass
-
-"""
 
 class GUIConsole(Console):
     def __init__(self, *args, **kwargs):
@@ -73,48 +51,22 @@ class GUIConsole(Console):
         new_line_start: bool = False,
     ) -> None:
         """Print to the console and send the output to a GUI handler."""
+        message = ""
         # if the first argument is a string, use it as the message
         if len(objects) == 1 and isinstance(objects[0], str):
             message = objects[0]
         else:
             # Otherwise, join all objects into a single string
-            message = sep.join(str(_object) for _object in objects)
+            #message = sep.join(str(_object) for _object in objects)
+            pass
         # If the message is empty, return
         if not message:
             return
         print("message", message)
-        #import pdb;pdb.set_trace()
-        '''
-        super().print(
-            *objects,
-            sep=sep,
-            end=end,
-            style=style,
-            justify=justify,
-            overflow=overflow,
-            no_wrap=no_wrap,
-            emoji=emoji,
-            markup=markup,
-            highlight=highlight,
-            width=width,
-            height=height,
-            crop=crop,
-            soft_wrap=soft_wrap,
-            new_line_start=new_line_start,
-        )
-        '''
+
         if self.gui:
             self.gui.handle_ai_output(message)
 
-    def print2(self, *args, **kwargs):
-        #raw_output: str = sep.join(str(_object) for _object in objects)
-        message = self.render(*args, **kwargs)
-        message_str = str(message)
-        __import__("pdb").set_trace()
-        #super().print(message_str, *args, **kwargs)
-        print("message_str", message_str)
-        if self.gui:
-            self.gui.handle_ai_output(message_str)
 
     def print_exception(self, *args, **kwargs):
         super().print_exception(*args, **kwargs)
@@ -168,9 +120,30 @@ class AIAppGUI:
         self.root.grid_rowconfigure(1, weight=1)
 
     def handle_ai_output(self, output):
+        print("*"*10, "handle_ai_output", "*"*10)
         print("GUI got output", output)
-        self.output_text.insert(tk.END, output + "\n")
+        print("*"*10, "handle_ai_output EOF", "*"*10)
+        in_code = False
+        for line in output.splitlines():
+            line = line.strip()
+            if T('start_execute') in line:
+                in_code = True
+                print("GOT CODE")
+                continue
+
+            if in_code:
+                self.print_code(line)
+            else:
+                self.print_output(line)
+
+    def print_code(self, code):
+        self.code_text.insert(tk.END, code + "\n")
+        self.code_text.see(tk.END)
+    
+    def print_output(self, output):
+        self.output_text.insert(tk.END, "> " + output + "\n")
         self.output_text.see(tk.END)
+
 
     def parse_use_command(self, user_input, llms):
         words = user_input.split()
