@@ -3,6 +3,7 @@
 
 from .main import main as main1
 from .saas import main as main2
+from .gui import main as main3
 
 def main():
     def parse_args():
@@ -10,10 +11,13 @@ def main():
         parser = argparse.ArgumentParser(description="Python use - AIPython")
         parser.add_argument("-c", '--config', type=str, default=None, help="Toml config file")
         parser.add_argument('-p', '--python', default=False, action='store_true', help="Python mode")
+        parser.add_argument('-g', '--gui', default=False, action='store_true', help="GUI mode")
         return parser.parse_args()
     args = parse_args()
     if args.python:
         main1(args)
+    elif args.gui:
+        main3(args)
     else:
         main2(args)
 

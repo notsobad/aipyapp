@@ -1,0 +1,245 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+from pathlib import Path
+import importlib.resources as resources
+from typing import Any, Optional, Union
+
+import tkinter as tk
+from tkinter import ttk
+import tkinter.scrolledtext as scrolledtext
+
+from dynaconf import Dynaconf
+from rich.console import Console,JustifyMethod, OverflowMethod
+from prompt_toolkit import PromptSession
+from prompt_toolkit.history import FileHistory
+from prompt_toolkit.styles import Style
+from prompt_toolkit.completion import WordCompleter
+
+from . import __version__
+from .aipy import Agent
+from .aipy.i18n import T
+from .aipy.config import ConfigManager
+
+__PACKAGE_NAME__ = "aipyapp"
+
+"""
+class GUIConsole():
+    def __init__(self):
+        self.gui = None
+
+    def set_gui(self, gui):
+        self.gui = gui
+
+    def print(self, *args, **kwargs):
+        # This is a placeholder for the GUI console print method
+        print(*args, **kwargs)
+
+        if self.gui:
+            pass
+            #self.gui.handle_ai_output(raw_output)
+        pass
+    def print_exception(self, *args, **kwargs):
+        # This is a placeholder for the GUI console print_exception method
+        print(*args, **kwargs)
+        pass
+
+"""
+
+class GUIConsole(Console):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.gui = None
+
+    def set_gui(self, gui):
+        self.gui = gui
+
+
+    def print(
+        self,
+        *objects: Any,
+        sep: str = " ",
+        end: str = "\n",
+        style: Optional[Union[str, Style]] = None,
+        justify: Optional[JustifyMethod] = None,
+        overflow: Optional[OverflowMethod] = None,
+        no_wrap: Optional[bool] = None,
+        emoji: Optional[bool] = None,
+        markup: Optional[bool] = None,
+        highlight: Optional[bool] = None,
+        width: Optional[int] = None,
+        height: Optional[int] = None,
+        crop: bool = True,
+        soft_wrap: Optional[bool] = None,
+        new_line_start: bool = False,
+    ) -> None:
+        """Print to the console and send the output to a GUI handler."""
+        # if the first argument is a string, use it as the message
+        if len(objects) == 1 and isinstance(objects[0], str):
+            message = objects[0]
+        else:
+            # Otherwise, join all objects into a single string
+            message = sep.join(str(_object) for _object in objects)
+        # If the message is empty, return
+        if not message:
+            return
+        print("message", message)
+        #import pdb;pdb.set_trace()
+        '''
+        super().print(
+            *objects,
+            sep=sep,
+            end=end,
+            style=style,
+            justify=justify,
+            overflow=overflow,
+            no_wrap=no_wrap,
+            emoji=emoji,
+            markup=markup,
+            highlight=highlight,
+            width=width,
+            height=height,
+            crop=crop,
+            soft_wrap=soft_wrap,
+            new_line_start=new_line_start,
+        )
+        '''
+        if self.gui:
+            self.gui.handle_ai_output(message)
+
+    def print2(self, *args, **kwargs):
+        #raw_output: str = sep.join(str(_object) for _object in objects)
+        message = self.render(*args, **kwargs)
+        message_str = str(message)
+        __import__("pdb").set_trace()
+        #super().print(message_str, *args, **kwargs)
+        print("message_str", message_str)
+        if self.gui:
+            self.gui.handle_ai_output(message_str)
+
+    def print_exception(self, *args, **kwargs):
+        super().print_exception(*args, **kwargs)
+        # Optionally, capture the formatted exception and display in the text_widget
+        # This requires capturing the output of super().print_exception
+        # and redirecting it to the text_widget.  A full implementation is
+                # beyond the scope of this example.
+
+
+class AIAppGUI:
+    def __init__(self, ai, settings):
+        self.ai = ai
+        self.settings = settings
+
+        # init llm
+        self.llms = ai.llm.names
+        completer = WordCompleter(['/use', 'use', '/done','done'] + list(self.llms['available']), ignore_case=True)
+        self.history = FileHistory(str(Path.cwd() / settings.history))
+        self.session = PromptSession(history=self.history, completer=completer)
+        self.style_main = Style.from_dict({"prompt": "green"})
+        self.style_ai = Style.from_dict({"prompt": "cyan"})
+        # EOF
+        
+        # GUI staff
+        self.root = tk.Tk()
+        self.root.title("AI Assistant")
+
+        self.code_label = ttk.Label(self.root, text="Code:")
+        self.code_label.grid(row=0, column=0, sticky="w")
+        self.code_text = scrolledtext.ScrolledText(self.root, width=60, height=20)
+        self.code_text.grid(row=1, column=0, padx=5, pady=5, sticky="nsew")
+
+        self.output_label = ttk.Label(self.root, text="AI Output:")
+        self.output_label.grid(row=0, column=1, sticky="w")
+        self.output_text = scrolledtext.ScrolledText(self.root, width=60, height=20)
+        self.output_text.grid(row=1, column=1, padx=5, pady=5, sticky="nsew")
+
+        self.input_label = ttk.Label(self.root, text="Enter your prompt:")
+        self.input_label.grid(row=2, column=0, sticky="w", padx=5, pady=2)
+        self.input_entry = tk.Entry(self.root, width=60)
+        self.input_entry.grid(row=3, column=0, padx=5, pady=2, sticky="ew")
+
+        self.submit_button = ttk.Button(self.root, text="Submit", command=self.submit_prompt)
+        self.submit_button.grid(row=3, column=1, padx=5, pady=2, sticky="w")
+
+        self.end_button = ttk.Button(self.root, text="End Session", command=self.end_session)
+        self.end_button.grid(row=3, column=1, padx=80, pady=2, sticky="e")
+
+        self.root.grid_columnconfigure(0, weight=1)
+        self.root.grid_columnconfigure(1, weight=1)
+        self.root.grid_rowconfigure(1, weight=1)
+
+    def handle_ai_output(self, output):
+        print("GUI got output", output)
+        self.output_text.insert(tk.END, output + "\n")
+        self.output_text.see(tk.END)
+
+    def parse_use_command(self, user_input, llms):
+        words = user_input.split()
+        if len(words) > 2:
+            return None
+        if words[0] in ('/use', 'use'):
+            return words[1] if len(words) > 1 else ''
+        return words[0] if len(words) == 1 and words[0] in llms else None
+    
+    def submit_prompt(self):
+        prompt = self.input_entry.get()
+
+        # check use command
+        names = self.ai.llm.names
+        name = self.parse_use_command(prompt, names['available'])
+        if name is not None:
+            if name:
+                self.ai.use(name)
+        elif prompt in ('/done', 'done'):
+            self.end_session()
+            return
+        else:
+            self.run_ai_task(prompt)
+
+        # clear
+        self.input_entry.delete(0, tk.END)
+
+
+    def run_ai_task(self, task):
+        print("run ai task")
+        try:
+            self.ai(task)
+        except Exception as e:
+            print(f"Error: {e}")
+
+    def end_session(self):
+        try:
+            self.ai.publish(verbose=False)
+        except Exception as e:
+            pass
+
+        try:
+            self.ai.done()
+        except Exception as e:
+            #self.console.print_exception()
+            pass
+        self.root.destroy()
+
+    def run(self):
+        self.root.mainloop()
+
+def main(args):
+    print("IN GUI")
+
+    path = args.config if args.config else 'aipython.toml'
+    default_config_path = resources.files(__PACKAGE_NAME__) / "default.toml"
+    conf = ConfigManager(default_config_path, path)
+    conf.check_config()
+    settings = conf.get_config()
+
+    console = GUIConsole()
+    try:
+        ai = Agent(settings, console=console)
+    except Exception as e:
+        #console.print_exception(e)
+        #console.print(f"[bold red]Error: {e}")
+        print(e)
+        return
+    
+    gui = AIAppGUI(ai, settings)  # Replace None with actual AI instance
+    console.set_gui(gui)
+    gui.run()
