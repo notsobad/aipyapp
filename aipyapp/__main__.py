@@ -1,10 +1,6 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-from .main import main as main1
-from .saas import main as main2
-from .gui import main as main3
-
 def main():
     def parse_args():
         import argparse
@@ -17,11 +13,12 @@ def main():
     
     args = parse_args()
     if args.python:
-        main1(args)
+        from .main import main as aipy_main
     elif args.gui:
-        main3(args)
+        from .gui import main as aipy_main
     else:
-        main2(args)
+        from .saas import main as aipy_main
+    aipy_main(args)
 
 if __name__ == '__main__':
     main()
