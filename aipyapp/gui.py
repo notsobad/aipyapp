@@ -19,6 +19,8 @@ from . import __version__
 from .aipy import Agent
 from .aipy.i18n import T
 from .aipy.config import ConfigManager
+import os
+import subprocess
 
 __PACKAGE_NAME__ = "aipyapp"
 
@@ -109,17 +111,52 @@ class AIAppGUI:
         self.input_entry = tk.Entry(self.root, width=60)
         self.input_entry.grid(row=3, column=0, padx=5, pady=2, sticky="ew")
 
-        self.submit_button = ttk.Button(self.root, text="Submit", command=self.submit_prompt)
+        self.submit_button = ttk.Button(self.root, text="提交", command=self.submit_prompt)
         self.submit_button.grid(row=3, column=1, padx=5, pady=2, sticky="w")
 
-        self.end_button = ttk.Button(self.root, text="End Session", command=self.end_session)
-        self.end_button.grid(row=3, column=1, padx=80, pady=2, sticky="e")
+        self.continue_button = ttk.Button(self.root, text="结束会话并继续", command=self.continue_session)
+        self.continue_button.grid(row=4, column=1, padx=5, pady=2, sticky="w")
+        self.end_button = ttk.Button(self.root, text="结束会话并退出", command=self.end_session)
+        self.end_button.grid(row=4, column=1, padx=60, pady=2, sticky="e")
+
+
+
+        self.open_work_button = ttk.Button(self.root, text="打开工作目录", command=self.open_work_dir)
+        self.open_work_button.grid(row=4, column=0, padx=5, pady=2, sticky="w")
+
+        self.open_config_button = ttk.Button(self.root, text="打开配置文件", command=self.open_config_file)
+
+        self.open_config_button.grid(row=4, column=0, padx=10, pady=2, sticky="e")
 
         self.root.grid_columnconfigure(0, weight=1)
         self.root.grid_columnconfigure(1, weight=1)
         self.root.grid_rowconfigure(1, weight=1)
 
         self.print_output(f"Python use - AIPython ({__version__}) [https://www.aipy.app]\n")
+
+    def open_work_dir(self):
+        #path = self.settings.workdir
+        path = Path.cwd()
+        if os.path.exists(path):
+            if os.name == 'nt':  # Windows
+                os.startfile(path)
+            elif os.name == 'posix':  # macOS or Linux
+                subprocess.Popen(['open', path])  # macOS
+                # For Linux, you might want to use 'xdg-open' instead of 'open'
+                # subprocess.Popen(['xdg-open', path])
+        else:
+            print(f"Directory not found: {path}")
+
+    def open_config_file(self):
+        path = self.settings.user_config_path
+        if os.path.exists(path):
+            if os.name == 'nt':  # Windows
+                os.startfile(path)
+            elif os.name == 'posix':  # macOS or Linux
+                subprocess.Popen(['open', path])
+        else:
+            print(f"File not found: {path}")
+
 
     def handle_ai_output(self, output):
         print("*"*10, "handle_ai_output", "*"*10)
@@ -194,16 +231,34 @@ class AIAppGUI:
             pass
         self.root.destroy()
 
+    def continue_session(self):
+        try:
+            self.ai.publish(verbose=False)
+        except Exception as e:
+            pass
+
+        try:
+            self.ai.done()
+        except Exception as e:
+            #self.console.print_exception()
+            pass
+        self.input_entry.delete(0, tk.END)
+        self.code_text.delete(1.0, tk.END)
+        self.output_text.delete(1.0, tk.END)
+
     def run(self):
         self.root.mainloop()
 
 def main(args):
 
     path = args.config if args.config else 'aipython.toml'
+    user_config_path = Path(path).resolve()
     default_config_path = resources.files(__PACKAGE_NAME__) / "default.toml"
     conf = ConfigManager(default_config_path, path)
     conf.check_config()
     settings = conf.get_config()
+
+    settings.user_config_path = user_config_path
 
     console = GUIConsole()
     try:
