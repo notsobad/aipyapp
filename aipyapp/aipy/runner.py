@@ -5,9 +5,11 @@ import os
 import sys
 import json
 import traceback
+import platform
 from io import StringIO
 from importlib.util import find_spec
 
+import matplotlib.pyplot as plt
 from term_image.image import from_file, from_url
 
 from . import utils
@@ -23,6 +25,22 @@ import time
 import random
 import traceback
 """
+
+def set_chinese_font():
+    system = platform.system().lower()
+    font_options = {
+        'windows': ['Microsoft YaHei', 'SimHei'],
+        'darwin': ['Kai', 'Hei'],
+        'linux': ['Noto Sans CJK SC', 'WenQuanYi Micro Hei', 'Source Han Sans SC']
+    }
+    
+    fonts = font_options.get(system, font_options['windows'])
+    plt.rcParams['font.family'] = 'sans-serif'
+    plt.rcParams['font.sans-serif'] = fonts
+    plt.rcParams['font.size'] = 12
+    plt.rcParams['axes.unicode_minus'] = False
+    
+set_chinese_font()
 
 def is_json_serializable(obj):
     try:

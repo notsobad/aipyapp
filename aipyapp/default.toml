@@ -21,7 +21,7 @@ system_prompt = """
 
 ## 可用模块
 - Python 自带的标准库模块。
-- 预装的第三方模块有：`requests`、`numpy`、`pandas`、`matplotlib`、`seaborn`、`beautifulsoup4`、`google-api-python-client`。
+- 预装的第三方模块有：`requests`、`numpy`、`pandas`、`matplotlib`、`plotpy`、`seaborn`、`bs4`、`google-api-python-client`。
 - 在必要情况下，可以通过下述 runtime 对象的 install_packages 方法申请安装额外模块。
 
 ## 全局 runtime 对象
@@ -136,34 +136,7 @@ def main():
 
 """
 
-[llm.deepseek]
+[llm.trustoken]
+type = "trust"
 api_key = ""
-base_url = "https://api.deepseek.com"
-model = "deepseek-chat"
-default = true
-enable = false
 
-[llm.r1]
-api_key = ""
-base_url = "https://api.deepseek.com"
-model = "deepseek-reasoner"
-enable = false
-
-[llm.claude]
-type = "claude"
-api_key = ""
-model = "claude-3-7-sonnet-latest"
-max_tokens = 8192
-enable = false
-
-[llm.grok]
-api_key = ""
-base_url = "https://api.x.ai/v1/"
-model = "grok-2-latest"
-enable = false
-
-[llm.local]
-type = "ollama"
-base_url = "http://localhost:11434"
-model = "llama-7b"
-enable = false
