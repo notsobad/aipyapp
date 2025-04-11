@@ -3,6 +3,8 @@ import re
 from pathlib import Path
 
 from dynaconf import Dynaconf
+from rich import print
+
 
 from .i18n import T
 

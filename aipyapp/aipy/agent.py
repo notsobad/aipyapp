@@ -163,10 +163,17 @@ class Agent():
         return feedback_response
 
     def box(self, title, content, align=None, lang=None):
+        if hasattr(self._console, 'gui'):
+            # Using Mocked console. Dont use Panel
+            self._console.print(f"\n{title}")
+            self._console.print(content)
+            return
+
         if lang:
             content = Syntax(content, lang, line_numbers=True, word_wrap=True)
         if align:
             content = Align(content, align=align)
+        
         self._console.print(Panel(content, title=title))
 
     def print_summary(self):

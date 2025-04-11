@@ -148,7 +148,11 @@ class OpenAIClient(BaseClient):
                 if chunk.choices and chunk.choices[0].delta.content:
                     content = chunk.choices[0].delta.content
                     full_response += content
-                    
+
+                    if hasattr(self.console, 'gui'):
+                        # Using Mocked console. Dont use Panel
+                        self.console.print(content, end="", highlight=False)
+
                     try:
                         md = Markdown(full_response)
                         response_panel = Panel(md, title=title, border_style="green")
