@@ -3,7 +3,7 @@
 from pathlib import Path
 import importlib.resources as resources
 from typing import Any, Optional, Union
-
+import threading
 import tkinter as tk
 from tkinter import ttk
 import tkinter.scrolledtext as scrolledtext
@@ -170,12 +170,16 @@ class AIAppGUI:
         self.input_entry.delete(0, tk.END)
 
 
-    def run_ai_task(self, task):
+    def _run_ai_task(self, task):
         print("run ai task")
         try:
             self.ai(task)
         except Exception as e:
             print(f"Error: {e}")
+
+    def run_ai_task(self, task):
+        thread = threading.Thread(target=self._run_ai_task, args=(task,))
+        thread.start()
 
     def end_session(self):
         try:

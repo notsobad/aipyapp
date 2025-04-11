@@ -163,7 +163,6 @@ class Agent():
         return feedback_response
 
     def box(self, title, content, align=None, lang=None):
-        print("in box", dir(self._console))
         if hasattr(self._console, 'gui'):
             # Using Mocked console. Dont use Panel
             self._console.print(f"\n{title}")

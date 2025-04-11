@@ -149,7 +149,7 @@ class OpenAIClient(BaseClient):
                     content = chunk.choices[0].delta.content
                     full_response += content
 
-                    if hasattr(self._console, 'gui'):
+                    if hasattr(self.console, 'gui'):
                         # Using Mocked console. Dont use Panel
                         self.console.print(content, end="", highlight=False)
                         return
