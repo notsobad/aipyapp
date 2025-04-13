@@ -251,7 +251,7 @@ class AIAppGUI:
 
 def main(args):
 
-    path = args.config if args.config else 'aipython.toml'
+    path = args.config if args.config else 'aipy.toml'
     user_config_path = Path(path).resolve()
     default_config_path = resources.files(__PACKAGE_NAME__) / "default.toml"
     conf = ConfigManager(default_config_path, path)
@@ -269,6 +269,7 @@ def main(args):
         print(e)
         return
    
+    console.print(f"{T('user_config_path')} {conf.user_config}", style="green")
     gui = AIAppGUI(ai, settings)  # Replace None with actual AI instance
     console.set_gui(gui)
     gui.run()

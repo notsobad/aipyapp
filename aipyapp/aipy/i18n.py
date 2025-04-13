@@ -46,7 +46,6 @@ MESSAGES = {
         'Total Tokens': '总令牌数',
         'sending_task': '正在向 {} 下达任务',
         'error_loading_config': "加载配置时出错: {}",
-        'config_file_error': "请检查配置文件路径和格式。",
         'config_not_loaded': "配置尚未加载。",
         'llm_config_not_found': "缺少 'llm' 配置。",
         'trustoken_register_instruction': (
@@ -63,6 +62,7 @@ MESSAGES = {
         'token_saved': "令牌已保存到 {}",
         'token_save_error': "保存令牌时出错: {}",
         'not usable': "不可用",
+        'user_config_path': '用户配置文件存储在：'
     },
     'en': {
         'start_instruction': 'Start processing instruction',
@@ -106,7 +106,6 @@ MESSAGES = {
         'Total Tokens': 'Total Tokens',
         'sending_task': 'Sending task to {}',
         'error_loading_config': "Error loading configuration: {}",
-        'config_file_error': "Please check the configuration file path and format.",
         'config_not_loaded': "Configuration not loaded.",
         'llm_config_not_found': "Missing 'llm' configuration.",
         'trustoken_register_instruction': (
@@ -123,6 +122,7 @@ MESSAGES = {
         'token_saved': "Token saved to {}",
         'token_save_error': "Error saving token: {}",
         'not usable': "Not usable",
+        'user_config_path': 'User configuration file stored at:'
     }
 }
 

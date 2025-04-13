@@ -22,7 +22,7 @@ def is_valid_api_key(api_key):
 class ConfigManager:
     def __init__(self, default_config="default.toml", user_config="aipy.toml"):
         self.default_config = default_config
-        self.user_config = user_config
+        self.user_config = str(Path(user_config).resolve())
         self.config = self._load_config()
 
     def _load_config(self):

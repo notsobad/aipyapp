@@ -133,4 +133,6 @@ def main(args):
     if args.cmd:
         ai(args.cmd)
         return
+
+    console.print(f"{T('user_config_path')} {conf.user_config}", style="green")
     InteractiveConsole(ai, console, settings).run()
