@@ -19,7 +19,8 @@ from pygments.lexers.python import PythonLexer
 
 from . import __version__
 from .aipy import TaskManager
-from .aipy.i18n import T
+from .aipy.utils import confirm_disclaimer
+from .aipy.i18n import T, set_lang
 from .aipy.config import ConfigManager
 
 __PACKAGE_NAME__ = "aipyapp"
@@ -43,6 +44,13 @@ def main(args):
     conf = ConfigManager(get_default_config(), path)
     conf.check_config()
     settings = conf.get_config()
+
+    lang = settings.get('lang')
+    if lang: set_lang(lang)
+    
+    if settings.get('accept_disclaimer') != 'yes' and not confirm_disclaimer(console):
+        return
+    
     try:
         ai = TaskManager(settings, console=console)
     except Exception as e:

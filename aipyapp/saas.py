@@ -13,6 +13,7 @@ from prompt_toolkit.completion import WordCompleter
 
 from . import __version__
 from .aipy import TaskManager
+from .aipy.utils import confirm_disclaimer
 from .aipy.i18n import T, set_lang
 from .aipy.config import ConfigManager
 
@@ -148,6 +149,9 @@ def main(args):
     lang = settings.get('lang')
     if lang: set_lang(lang)
 
+    if settings.get('accept_disclaimer') != 'yes' and not confirm_disclaimer(console):
+        return
+    
     try:
         tm = TaskManager(settings, console=console)
     except Exception as e:

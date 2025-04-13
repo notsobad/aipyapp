@@ -2,6 +2,7 @@ workdir = 'work'
 history = '.history.txt'
 record = true
 max_tokens = 4096
+accept_disclaimer = false
 
 system_prompt = """
 你是一个掌握大量知识的先进人工智能大语言模型系统。

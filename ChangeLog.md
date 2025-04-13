@@ -13,6 +13,8 @@
 - 重新实现返回信息解析逻辑
 - 删除 agent.py，增加 taskmgr.py 和 task.py
 - 支持 exit 命令
+- 增加免责声明
+- 调整 Live 显示
 
 # 0.1.20
 - 增加 Azure API 支持
