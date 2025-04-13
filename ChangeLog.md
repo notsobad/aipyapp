@@ -1,4 +1,8 @@
 
+# 0.1.22
+- 修改 Docker 相关代码
+
+
 # 0.1.21
 - 修补没有因为没有 _tkinter 的启动错误
 - 增加自动执行轮数限制：
@@ -7,13 +11,11 @@
  - 默认 16
 - Python 模式：ai.config_files 数组包含加载的配置文件
 - 自动修改用户提示词
-- hook os.getenv
 - 增加 __blocks__ 变量
 - 修改系统提示词
 - 重新实现返回信息解析逻辑
 - 删除 agent.py，增加 taskmgr.py 和 task.py
 - 支持 exit 命令
-- 增加免责声明
 - 调整 Live 显示
 
 # 0.1.20

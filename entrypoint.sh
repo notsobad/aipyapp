@@ -2,7 +2,7 @@
 
 if [ "$1" = "--ttyd" ]; then
     shift
-    ttyd -p 80 -W uv run aipython "$@"
+    ttyd -p 80 -W uv run aipy "$@"
 else
-    uv run aipython "$@"
+    uv run aipy "$@"
 fi
