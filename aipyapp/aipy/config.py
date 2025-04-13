@@ -8,6 +8,8 @@ from rich import print
 
 from .i18n import T
 
+SETTINGS_FILES = [Path.home() / '.aipy.toml', Path('aipython.toml').resolve(), Path('.aipy.toml').resolve(), Path('aipy.toml').resolve()]
+
 def is_valid_api_key(api_key):
     """
     校验是否为有效的 API Key 格式。
@@ -27,8 +29,10 @@ class ConfigManager:
 
     def _load_config(self):
         try:
+            settings_files = [self.default_config] + SETTINGS_FILES[:-1] + [Path(self.user_config).resolve()]
+
             config = Dynaconf(
-                settings_files=[self.default_config, Path.home() / '.aipy.toml', 'aipython.toml', '.aipy.toml', self.user_config],
+                settings_files=settings_files,
                 envvar_prefix="AIPY", merge_enabled=True
             )
         except Exception as e:

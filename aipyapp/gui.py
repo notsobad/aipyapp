@@ -1,7 +1,11 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+import os
+import subprocess
+from enum import Enum, auto
 from pathlib import Path
 import importlib.resources as resources
+
 from typing import Any, Optional, Union
 import threading
 import tkinter as tk
@@ -16,12 +20,10 @@ from prompt_toolkit.styles import Style
 from prompt_toolkit.completion import WordCompleter
 
 from . import __version__
-from .aipy import Agent
-from .aipy.i18n import T
 from .aipy.config import ConfigManager
-import os
-import subprocess
-
+from .aipy import TaskManager
+from .aipy.i18n import T
+#
 __PACKAGE_NAME__ = "aipyapp"
 
 
@@ -77,15 +79,45 @@ class GUIConsole(Console):
         # and redirecting it to the text_widget.  A full implementation is
                 # beyond the scope of this example.
 
+class CommandType(Enum):
+    CMD_DONE = auto()
+    CMD_USE = auto()
+    CMD_EXIT = auto()
+    CMD_INVALID = auto()
+    CMD_TEXT = auto()
+
+def parse_command(input_str, llms=set()):
+    lower = input_str.lower()
+
+    if lower in ("/done", "done"):
+        return CommandType.CMD_DONE, None
+    if lower in ("/exit", "exit"):
+        return CommandType.CMD_EXIT, None
+    if lower in llms:
+        return CommandType.CMD_USE, input_str
+    
+    if lower.startswith("/use "):
+        arg = input_str[5:].strip()
+        if arg in llms:
+            return CommandType.CMD_USE, arg
+        else:
+            return CommandType.CMD_INVALID, arg
+
+    if lower.startswith("use "):
+        arg = input_str[4:].strip()
+        if arg in llms:
+            return CommandType.CMD_USE, arg
+               
+    return CommandType.CMD_TEXT, input_str
 
 class AIAppGUI:
-    def __init__(self, ai, settings):
-        self.ai = ai
+    def __init__(self, tm, settings):
+        self.tm = tm
         self.settings = settings
 
         # init llm
-        self.llms = ai.llm.names
-        completer = WordCompleter(['/use', 'use', '/done','done'] + list(self.llms['available']), ignore_case=True)
+        self.names = tm.llm.names
+        completer = WordCompleter(['/use', 'use', '/done','done'] + list(self.names['enabled']), ignore_case=True)
         self.history = FileHistory(str(Path.cwd() / settings.history))
         self.session = PromptSession(history=self.history, completer=completer)
         self.style_main = Style.from_dict({"prompt": "green"})
@@ -189,43 +221,50 @@ class AIAppGUI:
         return words[0] if len(words) == 1 and words[0] in llms else None
     
     def submit_prompt(self):
-        prompt = self.input_entry.get("1.0", tk.END)
+        user_input = self.input_entry.get("1.0", tk.END)
 
         # check use command
-        names = self.ai.llm.names
-        name = self.parse_use_command(prompt, names['available'])
-        if name is not None:
-            if name:
-                self.ai.use(name)
-        elif prompt in ('/done', 'done'):
-            self.end_session()
+        if len(user_input) < 2:
             return
-        else:
-            self.run_ai_task(prompt)
+
+        cmd, arg = parse_command(user_input, self.names['enabled'])
+        if cmd == CommandType.CMD_TEXT:
+            task = self.tm.new_task(arg)
+            self.run_task(task)
+        elif cmd == CommandType.CMD_USE:
+            ret = self.tm.llm.use(arg)
+            #self.console.print('[green]Ok[/green]' if ret else '[red]Error[/red]')
+        elif cmd == CommandType.CMD_INVALID:
+            pass
+            #self.console.print('[red]Error[/red]')
+        elif cmd == CommandType.CMD_EXIT:
+            self.end_session()
 
         # clear
         self.input_entry.delete("1.0", tk.END)
 
-
-    def _run_ai_task(self, task):
-        print("run ai task")
+    def _run_task(self, task, instruction=None):
         try:
-            self.ai(task)
+            task.run(instruction=instruction)
+        except (EOFError, KeyboardInterrupt):
+            pass
         except Exception as e:
-            print(f"Error: {e}")
+            #self.console.print_exception()
+            pass
 
-    def run_ai_task(self, task):
-        thread = threading.Thread(target=self._run_ai_task, args=(task,))
+    def run_task(self, task, instruction=None):
+        thread = threading.Thread(target=self._run_task, args=(task, instruction))
         thread.start()
+
 
     def end_session(self):
         try:
-            self.ai.publish(verbose=False)
+            self.tm.publish(verbose=False)
         except Exception as e:
             pass
 
         try:
-            self.ai.done()
+            self.tm.done()
         except Exception as e:
             #self.console.print_exception()
             pass
@@ -233,12 +272,12 @@ class AIAppGUI:
 
     def continue_session(self):
         try:
-            self.ai.publish(verbose=False)
+            self.tm.publish(verbose=False)
         except Exception as e:
             pass
 
         try:
-            self.ai.done()
+            self.tm.done()
         except Exception as e:
             #self.console.print_exception()
             pass
@@ -262,13 +301,13 @@ def main(args):
 
     console = GUIConsole()
     try:
-        ai = Agent(settings, console=console)
+        tm = TaskManager(settings, console=console)
     except Exception as e:
         #console.print_exception(e)
         #console.print(f"[bold red]Error: {e}")
         print(e)
         return
    
-    gui = AIAppGUI(ai, settings)  # Replace None with actual AI instance
+    gui = AIAppGUI(tm, settings)  # Replace None with actual AI instance
     console.set_gui(gui)
     gui.run()
