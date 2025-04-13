@@ -48,6 +48,10 @@ class TaskManager:
         lines = [self.system_prompt]
         for api_name, api_conf in api.items():
             lines.append(f"## {api_name} API")
+            desc = api_conf.get('desc')
+            if desc: 
+                lines.append(f"### API {T('description')}\n{desc}")
+
             envs = api_conf.get('env')
             if not envs:
                 continue
@@ -59,9 +63,7 @@ class TaskManager:
                     continue
                 lines.append(f"- {name}: {desc}")
                 self.envs[name] = (value, desc)
-            desc = api_conf.get('desc')
-            if desc: 
-                lines.append(f"### API {T('description')}\n{desc}")
+
         self.system_prompt = "\n".join(lines)
 
     def new_task(self, instruction, llm=None, max_rounds=None, system_prompt=None):

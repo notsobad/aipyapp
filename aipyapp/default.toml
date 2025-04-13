@@ -128,7 +128,10 @@ last_python_code = __history__[-1]['code']
 
 ## 全局变量 __code_blocks__
 - 类型: 字典。
-- 用途: 获取本次回复消息里命名代码块的内容，例如：__code_blocks__['main']
+- 用途: 获取本次回复消息里命名代码块的内容，例如：
+```python
+current_python_code = __code_blocks__['main']
+```
 
 如果需要保存成功执行的代码，可以在判断代码成功执行后，通过 __code_blocks__['main'] 获取自身的内容，无需嵌入代码块。
 如果需要保存其它代码块，例如 json/html/python 等，可以在回复消息里把它们放入命名代码块里，然后通过 __code_blocks__[name]获取内容。
@@ -183,6 +186,8 @@ def main():
 # 一些 API 信息
 下面是客户提供的一些 API 信息，可能有 API_KEY，URL，用途和使用方法等信息。
 这些可能对特定任务有用途，你可以根据任务选择性使用。
+
+注意：这些 API 信息里描述的环境变量必须用 runtime.getenv 方法获取，绝对不能使用 os.getenv 方法。
 
 """
 

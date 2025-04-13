@@ -55,6 +55,7 @@ class ChatHistory:
 class BaseClient(ABC):
     MODEL = None
     BASE_URL = None
+    RPS = 2
 
     def __init__(self, config):
         self.name = None
@@ -144,7 +145,7 @@ class OpenAIClient(BaseClient):
         title = f"{self.name} {T('llm_response')}"
         usage = Counter()
         response_panel = None
-        with Live(auto_refresh=True, vertical_overflow='visible', transient=True, refresh_per_second=1) as live:
+        with Live(auto_refresh=True, vertical_overflow='visible', transient=True, refresh_per_second=self.RPS) as live:
             status = self.console.status(f"[dim white]{self.name} {T('thinking')}...", spinner='runner')
             response_panel = Panel(status, title=title, border_style="blue")
             live.update(response_panel)
@@ -168,7 +169,7 @@ class OpenAIClient(BaseClient):
                         text = Text(full_response)
                         response_panel = Panel(text, title=title, border_style="yellow")
                     
-                    live.update(response_panel, refresh=False)
+                    live.update(response_panel)
         
         if response_panel: self.console.print(response_panel)            
         #segments = self.console.render(response_panel)
@@ -220,7 +221,7 @@ class OllamaClient(BaseClient):
         full_response = ""
         response_panel = None
         title = f"{self.name} {T('llm_response')}"
-        with Live(auto_refresh=True, vertical_overflow='visible', transient=True, refresh_per_second=1) as live:
+        with Live(auto_refresh=True, vertical_overflow='visible', transient=True, refresh_per_second=self.RPS) as live:
             status = self.console.status(f"[dim white]{self.name} {T('thinking')}...", spinner='runner')
             response_panel = Panel(status, title=title, border_style="blue")
             live.update(response_panel)
@@ -298,7 +299,7 @@ class ClaudeClient(BaseClient):
         full_response = ""
         response_panel = None
         title = f"{self.name} {T('llm_response')}"
-        with Live(auto_refresh=True, vertical_overflow='visible', transient=True, refresh_per_second=1) as live:
+        with Live(auto_refresh=True, vertical_overflow='visible', transient=True, refresh_per_second=self.RPS) as live:
             status = self.console.status(f"[dim white]{self.name} {T('thinking')}...", spinner='runner')
             response_panel = Panel(status, title=title, border_style="blue")
             live.update(response_panel)

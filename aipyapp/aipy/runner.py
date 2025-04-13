@@ -75,10 +75,8 @@ class Runner(Runtime):
         session = self._globals['__session__'].copy()
         gs = self._globals.copy()
         gs['__result__'] = {}
-        gs['__blocks__'] = blocks
+        gs['__code_blocks__'] = blocks
         try:
-            old_getenv = os.getenv
-            os.getenv = self.getenv
             exec(code_str, gs)
         except (SystemExit, Exception) as e:
             result['errstr'] = str(e)
@@ -86,7 +84,6 @@ class Runner(Runtime):
         finally:
             sys.stdout = old_stdout
             sys.stderr = old_stderr
-            os.getenv = old_getenv
 
         s = captured_stdout.getvalue().strip()
         if s: result['stdout'] = s if is_json_serializable(s) else '<filtered: cannot json-serialize>'
