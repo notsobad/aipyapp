@@ -5,7 +5,6 @@ import os
 import sys
 import json
 import traceback
-import platform
 from io import StringIO
 from importlib.util import find_spec
 
@@ -26,22 +25,6 @@ import random
 import traceback
 """
 
-def set_chinese_font():
-    system = platform.system().lower()
-    font_options = {
-        'windows': ['Microsoft YaHei', 'SimHei'],
-        'darwin': ['Kai', 'Hei'],
-        'linux': ['Noto Sans CJK SC', 'WenQuanYi Micro Hei', 'Source Han Sans SC']
-    }
-    
-    fonts = font_options.get(system, font_options['windows'])
-    plt.rcParams['font.family'] = 'sans-serif'
-    plt.rcParams['font.sans-serif'] = fonts
-    plt.rcParams['font.size'] = 12
-    plt.rcParams['axes.unicode_minus'] = False
-    
-set_chinese_font()
-
 def is_json_serializable(obj):
     try:
         json.dumps(obj)  # 尝试序列化对象
@@ -57,10 +40,10 @@ def diff_dicts(dict1, dict2):
     return diff
 
 class Runner(Runtime):
-    def __init__(self, console, settings):
+    def __init__(self, settings, console, *, envs=None):
         self._console = console
         self._settings = settings
-        self.env = {}
+        self.env = envs or {}
         self._auto_install = settings.get('auto_install')
         self._auto_getenv = settings.get('auto_getenv')
         for key, value in os.environ.items():
@@ -82,7 +65,7 @@ class Runner(Runtime):
     def globals(self):
         return self._globals
     
-    def __call__(self, code_str):
+    def __call__(self, code_str, blocks):
         old_stdout, old_stderr = sys.stdout, sys.stderr
         captured_stdout = StringIO()
         captured_stderr = StringIO()
@@ -92,7 +75,10 @@ class Runner(Runtime):
         session = self._globals['__session__'].copy()
         gs = self._globals.copy()
         gs['__result__'] = {}
+        gs['__blocks__'] = blocks
         try:
+            old_getenv = os.getenv
+            os.getenv = self.getenv
             exec(code_str, gs)
         except (SystemExit, Exception) as e:
             result['errstr'] = str(e)
@@ -100,6 +86,7 @@ class Runner(Runtime):
         finally:
             sys.stdout = old_stdout
             sys.stderr = old_stderr
+            os.getenv = old_getenv
 
         s = captured_stdout.getvalue().strip()
         if s: result['stdout'] = s if is_json_serializable(s) else '<filtered: cannot json-serialize>'
@@ -137,7 +124,7 @@ class Runner(Runtime):
             return utils.install_packages(self._console, need_install)
         
     @utils.restore_output
-    def getenv(self, name, desc=None):
+    def getenv(self, name, default=None, *, desc=None):
         self._console.print(f"\n⚠️ LLM {T('ask_for_env', name)}: {desc}")
         try:
             value = self.env[name][0]
@@ -145,13 +132,13 @@ class Runner(Runtime):
         except KeyError:
             if self._auto_getenv:
                 self._console.print(f"✅ {T('auto_confirm')}")
-                value = ''
+                value = None
             else:
                 value = self._console.input(f"💬 {T('input_env', name)}: ")
                 value = value.strip()
             if value:
                 self.setenv(name, value, desc)
-        return value
+        return value or default
     
     @utils.restore_output
     def display(self, path=None, url=None):

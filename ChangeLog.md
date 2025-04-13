@@ -5,7 +5,15 @@
  - `max_round` 配置
  - Python 模式下，ai("任务", max_rounds=10000000) 临时调整
  - 默认 16
- 
+- Python 模式：ai.config_files 数组包含加载的配置文件
+- 自动修改用户提示词
+- hook os.getenv
+- 增加 __blocks__ 变量
+- 修改系统提示词
+- 重新实现返回信息解析逻辑
+- 删除 agent.py，增加 taskmgr.py 和 task.py
+- 支持 exit 命令
+
 # 0.1.20
 - 增加 Azure API 支持
 - 重构 LLM 实现

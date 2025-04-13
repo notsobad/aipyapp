@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+from enum import Enum, auto
 from pathlib import Path
 import importlib.resources as resources
 
@@ -11,17 +12,48 @@ from prompt_toolkit.styles import Style
 from prompt_toolkit.completion import WordCompleter
 
 from . import __version__
-from .aipy import Agent
-from .aipy.i18n import T
+from .aipy import TaskManager
+from .aipy.i18n import T, set_lang
 from .aipy.config import ConfigManager
 
 __PACKAGE_NAME__ = "aipyapp"
 
+class CommandType(Enum):
+    CMD_DONE = auto()
+    CMD_USE = auto()
+    CMD_EXIT = auto()
+    CMD_INVALID = auto()
+    CMD_TEXT = auto()
+
+def parse_command(input_str, llms=set()):
+    lower = input_str.lower()
+
+    if lower in ("/done", "done"):
+        return CommandType.CMD_DONE, None
+    if lower in ("/exit", "exit"):
+        return CommandType.CMD_EXIT, None
+    if lower in llms:
+        return CommandType.CMD_USE, input_str
+    
+    if lower.startswith("/use "):
+        arg = input_str[5:].strip()
+        if arg in llms:
+            return CommandType.CMD_USE, arg
+        else:
+            return CommandType.CMD_INVALID, arg
+
+    if lower.startswith("use "):
+        arg = input_str[4:].strip()
+        if arg in llms:
+            return CommandType.CMD_USE, arg
+               
+    return CommandType.CMD_TEXT, input_str
+
 class InteractiveConsole():
-    def __init__(self, ai, console, settings):
-        self.ai = ai
-        self.llms = ai.llm.names
-        completer = WordCompleter(['/use', 'use', '/done','done'] + list(self.llms['enabled']), ignore_case=True)
+    def __init__(self, tm, console, settings):
+        self.tm = tm
+        self.names = tm.llm.names
+        completer = WordCompleter(['/use', 'use', '/done','done'] + list(self.names['enabled']), ignore_case=True)
         self.history = FileHistory(str(Path.cwd() / settings.history))
         self.session = PromptSession(history=self.history, completer=completer)
         self.console = console
@@ -45,67 +77,61 @@ class InteractiveConsole():
                 break
         return "\n".join(lines)
 
-    def run_ai_task(self, task):
+    def run_task(self, task, instruction=None):
         try:
-            self.ai(task)
+            task.run(instruction=instruction)
         except (EOFError, KeyboardInterrupt):
             pass
         except Exception as e:
             self.console.print_exception()
 
-    def run_ai_mode(self, initial_text):
-        ai = self.ai
+    def start_task_mode(self, task):
         self.console.print(f"{T('ai_mode_enter')}", style="cyan")
-        self.run_ai_task(initial_text)
+        self.run_task(task)
         while True:
             try:
                 user_input = self.input_with_possible_multiline(">>> ", is_ai=True).strip()
+                if len(user_input) < 2: continue
             except (EOFError, KeyboardInterrupt):
                 break
 
-            if not user_input:
-                continue
-            if user_input in ('/done', 'done'):
+            cmd, arg = parse_command(user_input, self.names['enabled'])
+            if cmd == CommandType.CMD_TEXT:
+                self.run_task(task, arg)
+            elif cmd == CommandType.CMD_DONE:
                 break
-            name = self.parse_use_command(user_input, self.llms['enabled'])
-            if name != None:
-                if name: ai.use(name)
-            else:
-                self.run_ai_task(user_input)
+            elif cmd == CommandType.CMD_USE:
+                ret = self.tm.llm.use(arg)
+                self.console.print('[green]Ok[/green]' if ret else '[red]Error[/red]')
+            elif cmd == CommandType.CMD_INVALID:
+                self.console.print(f'[red]Error: {arg}[/red]')
 
         try:
-            ai.publish(verbose=False)
-        except Exception as e:
-            pass
-        try:
-            ai.done()
+            task.done()
         except Exception as e:
             self.console.print_exception()
-            pass
         self.console.print(f"{T('ai_mode_exit')}", style="cyan")
 
-    def parse_use_command(self, user_input, llms):
-        words = user_input.split()
-        if len(words) > 2:
-            return None
-        if words[0] in ('/use', 'use'):
-            return words[1] if len(words) > 1 else ''
-        return words[0] if len(words) == 1 and words[0] in llms else None
-    
     def run(self):
-        names = self.llms
         self.console.print(f"{T('banner1')}", style="green")
-        self.console.print(f"[cyan]{T('default')}: [green]{names['default']}，[cyan]{T('enabled')}: [yellow]{' '.join(names['enabled'])}")
+        self.console.print(f"[cyan]{T('default')}: [green]{self.names['default']}，[cyan]{T('enabled')}: [yellow]{' '.join(self.names['enabled'])}")
         while True:
             try:
                 user_input = self.input_with_possible_multiline(">> ").strip()
                 if len(user_input) < 2:
                     continue
-                name = self.parse_use_command(user_input, names['enabled'])
-                if name != None:
-                    if name: self.ai.use(name)
-                else:
-                    self.run_ai_mode(user_input)
+
+                cmd, arg = parse_command(user_input, self.names['enabled'])
+                if cmd == CommandType.CMD_TEXT:
+                    task = self.tm.new_task(arg)
+                    self.start_task_mode(task)
+                elif cmd == CommandType.CMD_USE:
+                    ret = self.tm.llm.use(arg)
+                    self.console.print('[green]Ok[/green]' if ret else '[red]Error[/red]')
+                elif cmd == CommandType.CMD_INVALID:
+                    self.console.print('[red]Error[/red]')
+                elif cmd == CommandType.CMD_EXIT:
+                    break
             except (EOFError, KeyboardInterrupt):
                 break
 
@@ -119,18 +145,20 @@ def main(args):
     conf.check_config()
     settings = conf.get_config()
 
+    lang = settings.get('lang')
+    if lang: set_lang(lang)
+
     try:
-        ai = Agent(settings, console=console)
+        tm = TaskManager(settings, console=console)
     except Exception as e:
-        console.print_exception(e)
-        console.print(f"[bold red]Error: {e}")
+        console.print_exception()
         return
     
-    if not ai.llm:
+    if not tm.llm:
         console.print(f"[bold red]{T('no_available_llm')}")
         return
     
     if args.cmd:
-        ai(args.cmd)
+        tm.new_task(args.cmd).run()
         return
-    InteractiveConsole(ai, console, settings).run()
+    InteractiveConsole(tm, console, settings).run()

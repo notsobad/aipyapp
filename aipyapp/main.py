@@ -18,7 +18,7 @@ from prompt_toolkit.history import FileHistory
 from pygments.lexers.python import PythonLexer
 
 from . import __version__
-from .aipy import Agent
+from .aipy import TaskManager
 from .aipy.i18n import T
 from .aipy.config import ConfigManager
 
@@ -44,10 +44,9 @@ def main(args):
     conf.check_config()
     settings = conf.get_config()
     try:
-        ai = Agent(settings, console=console)
+        ai = TaskManager(settings, console=console)
     except Exception as e:
         console.print_exception(e)
-        console.print(f"[bold red]Error: {e}")
         return
 
     if not ai.llm:

@@ -389,16 +389,18 @@ class LLM(object):
         'trust': TrustClient,
         'azure': AzureOpenAIClient
     }
+    MAX_TOKENS = 4096
 
-    def __init__(self, console, configs, max_tokens=None):
+    def __init__(self, settings, console,system_prompt=None):
         self.llms = {}
         self.console = console
         self.default = None
         self._last = None
         self.history = ChatHistory()
-        self.max_tokens = max_tokens
+        self.max_tokens = settings.get('max_tokens', self.MAX_TOKENS)
+        self.system_prompt = system_prompt
         names = defaultdict(set)
-        for name, config in configs.items():
+        for name, config in settings.llm.items():
             if not config.get('enable', True):
                 names['disabled'].add(name)
                 continue
@@ -435,6 +437,10 @@ class LLM(object):
         return f"Current: {'default' if self.current == self.default else self.current}, Default: {self.default}"
     
     @property
+    def enabled(self):
+        return self.names['enabled']
+    
+    @property
     def last(self):
         return self._last.name if self._last else None
     
@@ -460,15 +466,12 @@ class LLM(object):
     
     def use(self, name):
         llm = self.llms.get(name)
-        if not llm:
-            self.console.print(f"[red]LLM: {name} not found")
-        elif llm.usable():
+        if llm and llm.usable():
             self.current = llm
-            self.console.print(f"[green]LLM: use {name}")
-        else:
-            self.console.print(f"[red]LLM: {name} {T('not usable')}")
-
-    def __call__(self, instruction, system_prompt=None, name=None):
+            return True
+        return False
+    
+    def __call__(self, instruction, *, system_prompt=None, name=None):
         """ LLM 选择规则
         1. 如果 name 为 None, 使用 current
         2. 如果 name 存在，使用 name 对应的
