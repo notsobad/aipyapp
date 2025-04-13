@@ -194,4 +194,5 @@ def main():
 [llm.trustoken]
 type = "trust"
 api_key = ""
+enable = false
 
