@@ -4,7 +4,6 @@ from enum import Enum, auto
 from pathlib import Path
 import importlib.resources as resources
 
-from dynaconf import Dynaconf
 from rich.console import Console
 from prompt_toolkit import PromptSession
 from prompt_toolkit.history import FileHistory
@@ -13,7 +12,6 @@ from prompt_toolkit.completion import WordCompleter
 
 from . import __version__
 from .aipy import TaskManager
-from .aipy.utils import confirm_disclaimer
 from .aipy.i18n import T, set_lang
 from .aipy.config import ConfigManager
 
@@ -149,9 +147,6 @@ def main(args):
     lang = settings.get('lang')
     if lang: set_lang(lang)
 
-    if settings.get('accept_disclaimer') != 'yes' and not confirm_disclaimer(console):
-        return
-    
     try:
         tm = TaskManager(settings, console=console)
     except Exception as e:
