@@ -126,13 +126,22 @@ MESSAGES = {
     }
 }
 
-lang = 'en'
-language, _ = locale.getlocale()
-if language:
-    language = language.lower()
-    if language.find('china') >=0 or language.find('chinese') >= 0 or language.find('zh_') >= 0:
-        lang = 'zh'
+__lang__ = 'en'
+
+def set_lang(lang=None):
+    global __lang__, MESSAGES
+    if lang and lang in MESSAGES:
+        __lang__ = lang
+        return
+    
+    language, _ = locale.getlocale()
+    if language:
+        language = language.lower()
+        if language.find('china') >=0 or language.find('chinese') >= 0 or language.find('zh_') >= 0:
+            __lang__ = 'zh'
 
 def T(key, *args):
-    msg = MESSAGES[lang][key]
+    msg = MESSAGES[__lang__][key]
     return msg.format(*args) if args else msg
+
+set_lang()

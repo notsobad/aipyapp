@@ -143,7 +143,8 @@ class OpenAIClient(BaseClient):
         full_response = ""
         title = f"{self.name} {T('llm_response')}"
         usage = Counter()
-        with Live(auto_refresh=True, vertical_overflow='visible') as live:
+        response_panel = None
+        with Live(auto_refresh=True, vertical_overflow='visible', transient=True, refresh_per_second=1) as live:
             status = self.console.status(f"[dim white]{self.name} {T('thinking')}...", spinner='runner')
             response_panel = Panel(status, title=title, border_style="blue")
             live.update(response_panel)
@@ -167,10 +168,11 @@ class OpenAIClient(BaseClient):
                         text = Text(full_response)
                         response_panel = Panel(text, title=title, border_style="yellow")
                     
-                    live.update(response_panel)
-                    
-        segments = self.console.render(response_panel)
-        self.console._record_buffer.extend(segments)
+                    live.update(response_panel, refresh=False)
+        
+        if response_panel: self.console.print(response_panel)            
+        #segments = self.console.render(response_panel)
+        #self.console._record_buffer.extend(segments)
         return ChatMessage(role="assistant", content=full_response, usage=usage)
 
     def _parse_response(self, response):
@@ -216,9 +218,9 @@ class OllamaClient(BaseClient):
 
     def _parse_stream_response(self, response):
         full_response = ""
-        
+        response_panel = None
         title = f"{self.name} {T('llm_response')}"
-        with Live(auto_refresh=True, vertical_overflow='visible') as live:
+        with Live(auto_refresh=True, vertical_overflow='visible', transient=True, refresh_per_second=1) as live:
             status = self.console.status(f"[dim white]{self.name} {T('thinking')}...", spinner='runner')
             response_panel = Panel(status, title=title, border_style="blue")
             live.update(response_panel)
@@ -241,9 +243,10 @@ class OllamaClient(BaseClient):
                         response_panel = Panel(text, title=title, border_style="yellow")
                     
                     live.update(response_panel)
-                    
-        segments = self.console.render(response_panel)
-        self.console._record_buffer.extend(segments)
+        
+        if response_panel: self.console.print(response_panel)
+        #segments = self.console.render(response_panel)
+        #self.console._record_buffer.extend(segments)
         return ChatMessage(role="assistant", content=full_response, usage=usage)
 
     def _parse_response(self, response):
@@ -293,9 +296,9 @@ class ClaudeClient(BaseClient):
     def _parse_stream_response(self, response):
         usage = Counter()    
         full_response = ""
-        
+        response_panel = None
         title = f"{self.name} {T('llm_response')}"
-        with Live(auto_refresh=True, vertical_overflow='visible') as live:
+        with Live(auto_refresh=True, vertical_overflow='visible', transient=True, refresh_per_second=1) as live:
             status = self.console.status(f"[dim white]{self.name} {T('thinking')}...", spinner='runner')
             response_panel = Panel(status, title=title, border_style="blue")
             live.update(response_panel)
@@ -319,9 +322,10 @@ class ClaudeClient(BaseClient):
                     usage['input_tokens'] += getattr(event.usage, 'input_tokens', 0)
                     usage['output_tokens'] += getattr(event.usage, 'output_tokens', 0)
 
-        usage['total_tokens'] = usage['input_tokens'] + usage['output_tokens']          
-        segments = self.console.render(response_panel)
-        self.console._record_buffer.extend(segments)
+        usage['total_tokens'] = usage['input_tokens'] + usage['output_tokens']
+        if response_panel: self.console.print(response_panel)      
+        #segments = self.console.render(response_panel)
+        #self.console._record_buffer.extend(segments)
         return ChatMessage(role="assistant", content=full_response, usage=usage)
 
     def _parse_response(self, response):
@@ -389,16 +393,18 @@ class LLM(object):
         'trust': TrustClient,
         'azure': AzureOpenAIClient
     }
+    MAX_TOKENS = 4096
 
-    def __init__(self, console, configs, max_tokens=None):
+    def __init__(self, settings, console,system_prompt=None):
         self.llms = {}
         self.console = console
         self.default = None
         self._last = None
         self.history = ChatHistory()
-        self.max_tokens = max_tokens
+        self.max_tokens = settings.get('max_tokens', self.MAX_TOKENS)
+        self.system_prompt = system_prompt
         names = defaultdict(set)
-        for name, config in configs.items():
+        for name, config in settings.llm.items():
             if not config.get('enable', True):
                 names['disabled'].add(name)
                 continue
@@ -435,6 +441,10 @@ class LLM(object):
         return f"Current: {'default' if self.current == self.default else self.current}, Default: {self.default}"
     
     @property
+    def enabled(self):
+        return self.names['enabled']
+    
+    @property
     def last(self):
         return self._last.name if self._last else None
     
@@ -460,15 +470,12 @@ class LLM(object):
     
     def use(self, name):
         llm = self.llms.get(name)
-        if not llm:
-            self.console.print(f"[red]LLM: {name} not found")
-        elif llm.usable():
+        if llm and llm.usable():
             self.current = llm
-            self.console.print(f"[green]LLM: use {name}")
-        else:
-            self.console.print(f"[red]LLM: {name} {T('not usable')}")
-
-    def __call__(self, instruction, system_prompt=None, name=None):
+            return True
+        return False
+    
+    def __call__(self, instruction, *, system_prompt=None, name=None):
         """ LLM 选择规则
         1. 如果 name 为 None, 使用 current
         2. 如果 name 存在，使用 name 对应的
