@@ -1,7 +1,7 @@
 #!/bin/bash
 
-IMAGE="lgxz/aipy:latest"
-DOCKER="docker run -v $(pwd)/aipython.toml:/app/aipy.toml -v $(pwd)/work:/app/work"
+IMAGE="aipyapp/aipy:latest"
+DOCKER="docker run -v $(pwd)/aipy.toml:/app/aipy.toml -v $(pwd)/work:/app/work"
 
 if [ "$1" = "--ttyd" ]; then
     ${DOCKER} -d --name aipy-ttyd -p 8080:80 $IMAGE --ttyd
