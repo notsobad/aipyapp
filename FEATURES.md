@@ -1,6 +1,14 @@
 # Features
 
-# usage-limit
+## plugin
+- 插件支持
+
+## kb-support
+- 支持保存完整的任务数据到 sqlite/json/minio
+- 支持任务重用: 完全一样的任务/稍微有区别的任务/参数化的任务
+
+
+## usage-limit
 - 完善使用情况统计：支持各家 API，支持细粒度
 - 时间统计
 - 对话次数统计

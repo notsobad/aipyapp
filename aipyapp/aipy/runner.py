@@ -1,14 +1,12 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import os
 import sys
 import json
 import traceback
 from io import StringIO
 from importlib.util import find_spec
 
-import matplotlib.pyplot as plt
 from term_image.image import from_file, from_url
 
 from . import utils
@@ -46,11 +44,6 @@ class Runner(Runtime):
         self.env = envs or {}
         self._auto_install = settings.get('auto_install')
         self._auto_getenv = settings.get('auto_getenv')
-        for key, value in os.environ.items():
-            if key == 'LC_TERMINAL':
-                self.setenv(key, value, '终端应用程序')
-            elif key == 'TERM':
-                self.setenv(key, value, '终端类型')
         self.clear()
 
     def clear(self):

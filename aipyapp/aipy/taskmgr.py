@@ -8,6 +8,7 @@ from .i18n import T
 from .task import Task
 from .llm import LLM
 from .runner import Runner
+from .plugin import PluginManager
 
 class TaskManager:
     def __init__(self, settings, console):
@@ -17,6 +18,9 @@ class TaskManager:
         self.envs = {}
         self.config_files = settings._loaded_files
         self.system_prompt = settings.get('system_prompt')
+        plugin_dir = settings.get('plugin_dir') or Path.cwd() / 'plugins'
+        self.plugin_manager = PluginManager(plugin_dir)
+        self.plugin_manager.load_plugins()
         if settings.workdir:
             workdir = Path.cwd() / settings.workdir
             workdir.mkdir(parents=True, exist_ok=True)

@@ -14,6 +14,7 @@ from rich.text import Text
 from rich.markdown import Markdown
 
 from .i18n import T
+from .plugin import event_bus
 
 @dataclass
 class ChatMessage:
@@ -492,5 +493,7 @@ class LLM(object):
             return None
         
         self._last = llm
-        return llm(self.history, instruction, system_prompt=system_prompt)
+        ret = llm(self.history, instruction, system_prompt=system_prompt)
+        event_bus.broadcast('response_complete', {'llm': name, 'content': ret})
+        return ret
         

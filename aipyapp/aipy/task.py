@@ -18,6 +18,7 @@ from rich.syntax import Syntax
 from rich.markdown import Markdown
 
 from .i18n import T
+from .plugin import event_bus
 from .templates import CONSOLE_HTML_FORMAT
 
 CERT_PATH = Path('/tmp/aipy_client.crt')
@@ -72,9 +73,11 @@ class Task:
         return code_blocks
 
     def process_code_reply(self, blocks, llm=None):
+        event_bus('exec', blocks)
         code_block = blocks['main']
         self.box(f"\n⚡ {T('start_execute')}:", code_block, lang='python')
         result = self.runner(code_block, blocks)
+        event_bus('result', result)
         result = json.dumps(result, ensure_ascii=False, indent=4)
         self.box(f"\n✅ {T('execute_result')}:\n", result, lang="json")
         status = self.console.status(f"[dim white]{T('start_feedback')}...")
@@ -135,7 +138,7 @@ class Task:
         prompt['today'] = date.today().isoformat()
         prompt['TERM'] = os.environ.get('TERM')
         prompt['LC_TERMINAL'] = os.environ.get('LC_TERMINAL')
-        return json.dumps(prompt, ensure_ascii=False)
+        return prompt
 
     def run(self, instruction=None, *, llm=None, max_rounds=None):
         """
@@ -143,7 +146,10 @@ class Task:
         """
         self.box(f"[yellow]{T('start_instruction')}", f'[red]{instruction or self.instruction}', align="center")
         if not instruction:
-            instruction = self.build_user_prompt()
+            prompt = self.build_user_prompt()
+            event_bus('task_start', prompt)
+            print(prompt)
+            instruction = json.dumps(prompt, ensure_ascii=False)
             system_prompt = self.system_prompt
             self.cwd.mkdir(parents=True, exist_ok=False)
             os.chdir(self.cwd)
