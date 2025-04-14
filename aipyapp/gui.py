@@ -8,9 +8,18 @@ import importlib.resources as resources
 
 from typing import Any, Optional, Union
 import threading
-import tkinter as tk
-from tkinter import ttk
-import tkinter.scrolledtext as scrolledtext
+try:
+    import tkinter as tk
+    from tkinter import ttk
+    import tkinter.scrolledtext as scrolledtext
+except ImportError:
+    import sys
+    print("Python Tkinter package is not installed. Please install python-tk.")
+    if sys.platform == "darwin":
+        print("You can use brew to install it: brew install python-tk")
+    else:
+        raise
+    sys.exit(1)
 
 from dynaconf import Dynaconf
 from rich.console import Console,JustifyMethod, OverflowMethod
