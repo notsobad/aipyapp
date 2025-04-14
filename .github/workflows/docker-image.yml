@@ -6,7 +6,7 @@ on:
     paths:
       - 'Dockerfile'
       - 'Dockerfile.deb'
-      - 'aipython/**'
+      - 'aipyapp/**'
       - 'pyproject.toml'
   pull_request:
     branches: [ "main" ]
@@ -30,7 +30,7 @@ jobs:
           platforms: linux/amd64
           push: true
           file: Dockerfile
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/aipython:amd64-latest
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/aipy:amd64-latest
 
   build-arm64:
     needs: build-amd64  # 确保在 amd64 构建完成后执行
@@ -54,7 +54,7 @@ jobs:
           platforms: linux/arm64
           push: true
           file: Dockerfile.deb
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/aipython:arm64-latest
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/aipy:arm64-latest
 
   manifest:
     needs: [build-amd64, build-arm64]
@@ -68,8 +68,8 @@ jobs:
 
       - name: Create and Push Manifest List
         run: |
-          docker manifest create ${{ secrets.DOCKERHUB_USERNAME }}/aipython:latest \
-            --amend ${{ secrets.DOCKERHUB_USERNAME }}/aipython:amd64-latest \
-            --amend ${{ secrets.DOCKERHUB_USERNAME }}/aipython:arm64-latest
+          docker manifest create ${{ secrets.DOCKERHUB_USERNAME }}/aipy:latest \
+            --amend ${{ secrets.DOCKERHUB_USERNAME }}/aipy:amd64-latest \
+            --amend ${{ secrets.DOCKERHUB_USERNAME }}/aipy:arm64-latest
 
-          docker manifest push ${{ secrets.DOCKERHUB_USERNAME }}/aipython:latest
+          docker manifest push ${{ secrets.DOCKERHUB_USERNAME }}/aipy:latest
