@@ -35,6 +35,55 @@ from .aipy.i18n import T
 #
 __PACKAGE_NAME__ = "aipyapp"
 
+def strip_rich_text_tags(text: str) -> str:
+    """
+    Removes common Rich text formatting tags from a string without using regex.
+
+    Args:
+        text: The input string containing Rich tags.
+
+    Returns:
+        The string with Rich tags removed.
+    """
+    # List of common colors and styles
+    colors = ["black", "red", "green", "yellow", "blue", "magenta", "cyan", "white"]
+    styles = ["bold", "italic", "underline", "blink", "reverse", "strike", "dim", "b", "i", "u", "s"]
+
+    tags_to_remove = []
+
+    # Simple color tags
+    for color in colors:
+        tags_to_remove.append(f"[{color}]")
+        tags_to_remove.append(f"[/{color}]")
+
+    # Simple style tags
+    for style in styles:
+        tags_to_remove.append(f"[{style}]")
+        tags_to_remove.append(f"[/{style}]")
+
+    # Combined style and color tags (e.g., [bold red])
+    for style in styles:
+        for color in colors:
+            tags_to_remove.append(f"[{style} {color}]")
+            tags_to_remove.append(f"[/{style} {color}]") # Although [/style color] is not standard, include for safety
+            tags_to_remove.append(f"[{color} {style}]") # Handle swapped order if necessary
+            tags_to_remove.append(f"[/{color} {style}]")
+
+    # Generic closing tag
+    tags_to_remove.append("[/]")
+
+    # Add specific known tags if needed
+    # tags_to_remove.extend(["[link]", "[/link]"]) # Example
+
+    cleaned_text = text
+    for tag in tags_to_remove:
+        cleaned_text = cleaned_text.replace(tag, "")
+
+    # Handle potential edge cases like incomplete tags or variations if necessary
+    # This simple replacement might leave artifacts if tags are nested complexly
+    # or if there are tags not covered in the lists.
+
+    return cleaned_text
 
 class GUIConsole(Console):
     def __init__(self, *args, **kwargs):
@@ -78,6 +127,7 @@ class GUIConsole(Console):
         print("message", message)
 
         if self.gui:
+            message = strip_rich_text_tags(message)
             self.gui.handle_ai_output(message)
 
 
@@ -135,17 +185,21 @@ class AIAppGUI:
         
         # GUI staff
         self.root = tk.Tk()
-        self.root.title("AI Assistant")
+        self.root.title("aipyapp GUI")
 
-        self.code_label = ttk.Label(self.root, text="Code:")
-        self.code_label.grid(row=0, column=0, sticky="w")
-        self.code_text = scrolledtext.ScrolledText(self.root, width=60, height=20)
-        self.code_text.grid(row=1, column=0, padx=5, pady=5, sticky="nsew")
-
-        self.output_label = ttk.Label(self.root, text="AI Output:")
-        self.output_label.grid(row=0, column=1, sticky="w")
+        # AI输出结果：
+        self.output_label = ttk.Label(self.root, text="AI 输出:")
+        self.output_label.grid(row=0, column=0, sticky="w")
         self.output_text = scrolledtext.ScrolledText(self.root, width=60, height=20)
-        self.output_text.grid(row=1, column=1, padx=5, pady=5, sticky="nsew")
+        self.output_text.grid(row=1, column=0, padx=5, pady=5, sticky="nsew")
+
+        # 程序执行结果：
+        self.code_label = ttk.Label(self.root, text="代码执行结果:")
+        self.code_label.grid(row=0, column=1, sticky="w")
+        self.code_text = scrolledtext.ScrolledText(self.root, width=60, height=20)
+        self.code_text.grid(row=1, column=1, padx=5, pady=5, sticky="nsew")
+
+
 
         self.input_label = ttk.Label(self.root, text="Enter your prompt:")
         self.input_label.grid(row=2, column=0, sticky="w", padx=5, pady=2)
@@ -204,7 +258,9 @@ class AIAppGUI:
         #print("GUI got output", output)
         #print("*"*10, "handle_ai_output EOF", "*"*10)
         #output = output.strip()
-        if "#RUN" in output:
+        #if "#RUN" in output:
+        if output[0] == '{' and output[-1] == '}':
+            # output is json
             self.print_code("\n" + output)
         else:
             self.print_output(output)

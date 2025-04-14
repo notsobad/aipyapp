@@ -86,8 +86,11 @@ class Task:
     def box(self, title, content, align=None, lang=None):
         if hasattr(self.console, 'gui'):
             # Using Mocked console. Dont use Panel
-            self.console.print(f"\n{title}")
-            self.console.print(content)
+
+            if lang == 'json':
+                # Only print execute result.
+                self.console.print(f"\n{title}")
+                self.console.print(content)
             return
 
         if lang:
