@@ -5,7 +5,7 @@ import subprocess
 from enum import Enum, auto
 from pathlib import Path
 import importlib.resources as resources
-
+import traceback
 from typing import Any, Optional, Union
 import threading
 try:
@@ -177,6 +177,7 @@ class AIAppGUI:
 
         # init llm
         self.names = tm.llm.names
+        self.task = None
         completer = WordCompleter(['/use', 'use', '/done','done'] + list(self.names['enabled']), ignore_case=True)
         self.history = FileHistory(str(Path.cwd() / settings.history))
         self.session = PromptSession(history=self.history, completer=completer)
@@ -213,7 +214,7 @@ class AIAppGUI:
 
 
 
-        self.input_label = ttk.Label(self.root, text="Enter your prompt:")
+        self.input_label = ttk.Label(self.root, text="输入你的需求，然后点击提交:")
         self.input_label.grid(row=2, column=0, sticky="w", padx=5, pady=2)
         self.input_entry = tk.Text(self.root, width=60, height=5)
         self.input_entry.grid(row=3, column=0, padx=5, pady=2, sticky="ew")
@@ -305,9 +306,10 @@ class AIAppGUI:
         if cmd == CommandType.CMD_TEXT:
             task = self.tm.new_task(arg)
             self.run_task(task)
+            self.task = task
         elif cmd == CommandType.CMD_USE:
             ret = self.tm.llm.use(arg)
-            self.print_output('\nOk' if ret else '\nError')
+            self.print_output(f'\nUsing {arg} ok\n' if ret else '\nUsing {arg} failed\n')
         elif cmd == CommandType.CMD_INVALID:
             self.print_output(f"\nInvalid command: {arg}")
         elif cmd == CommandType.CMD_EXIT:
@@ -352,6 +354,7 @@ class AIAppGUI:
         try:
             self.tm.done()
         except Exception as e:
+            traceback.print_exc()
             #self.console.print_exception()
             pass
         self.input_entry.delete(0, tk.END)
@@ -371,7 +374,9 @@ def main(args):
     settings = conf.get_config()
 
     settings.user_config_path = user_config_path
-
+    # auto install package.
+    settings.auto_install = True
+    settings.auto_getenv = True
     console = GUIConsole()
     try:
         tm = TaskManager(settings, console=console)
