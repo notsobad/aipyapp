@@ -11,6 +11,7 @@ import threading
 try:
     import tkinter as tk
     from tkinter import ttk
+    import tkinter.font as tkFont
     import tkinter.scrolledtext as scrolledtext
 except ImportError:
     import sys
@@ -186,6 +187,17 @@ class AIAppGUI:
         # GUI staff
         self.root = tk.Tk()
         self.root.title("aipyapp GUI")
+        # Maximize the window on startup
+        try:
+            # This works on Windows and some Linux environments
+            self.root.state('zoomed')
+        except tk.TclError:
+            # Fallback for macOS and other environments
+            # Get screen width and height
+            screen_width = self.root.winfo_screenwidth()
+            screen_height = self.root.winfo_screenheight()
+            # Set geometry to fill the screen (may include taskbar/menu bar space)
+            self.root.geometry(f"{screen_width}x{screen_height}+0+0")
 
         # AI输出结果：
         self.output_label = ttk.Label(self.root, text="AI 输出:")
@@ -206,8 +218,11 @@ class AIAppGUI:
         self.input_entry = tk.Text(self.root, width=60, height=5)
         self.input_entry.grid(row=3, column=0, padx=5, pady=2, sticky="ew")
 
-        self.submit_button = ttk.Button(self.root, text="提交", command=self.submit_prompt)
-        self.submit_button.grid(row=3, column=1, padx=5, pady=2, sticky="w")
+        button_font = tkFont.Font(family="Arial", size=16)  # 调整 size 以改变字体大小
+        style = ttk.Style()
+        style.configure("Submit.TButton", font=button_font, padding=(10, 20, 10, 20))  # 使用 TButton 样式
+        self.submit_button = ttk.Button(self.root, text="提交", command=self.submit_prompt, style="Submit.TButton")
+        self.submit_button.grid(row=3, column=1, padx=5, pady=5, ipady=10, sticky="w")
 
         self.continue_button = ttk.Button(self.root, text="结束会话并继续", command=self.continue_session)
         self.continue_button.grid(row=4, column=1, padx=5, pady=2, sticky="w")
@@ -215,19 +230,18 @@ class AIAppGUI:
         self.end_button.grid(row=4, column=1, padx=60, pady=2, sticky="e")
 
 
-
         self.open_work_button = ttk.Button(self.root, text="打开工作目录", command=self.open_work_dir)
         self.open_work_button.grid(row=4, column=0, padx=5, pady=2, sticky="w")
 
-        self.open_config_button = ttk.Button(self.root, text="打开配置文件", command=self.open_config_file)
-
-        self.open_config_button.grid(row=4, column=0, padx=10, pady=2, sticky="e")
+        #self.open_config_button = ttk.Button(self.root, text="打开配置文件", command=self.open_config_file)
+        #self.open_config_button.grid(row=4, column=0, padx=10, pady=2, sticky="e")
 
         self.root.grid_columnconfigure(0, weight=1)
         self.root.grid_columnconfigure(1, weight=1)
         self.root.grid_rowconfigure(1, weight=1)
 
         self.print_output(f"Python use - AIPython ({__version__}) [https://www.aipy.app]\n")
+        self.print_output(f"{T('default')}: {self.names['default']}，{T('enabled')}: {' '.join(self.names['enabled'])}")
 
     def open_work_dir(self):
         #path = self.settings.workdir
@@ -254,11 +268,6 @@ class AIAppGUI:
 
 
     def handle_ai_output(self, output):
-        #print("*"*10, "handle_ai_output", "*"*10)
-        #print("GUI got output", output)
-        #print("*"*10, "handle_ai_output EOF", "*"*10)
-        #output = output.strip()
-        #if "#RUN" in output:
         if output[0] == '{' and output[-1] == '}':
             # output is json
             self.print_code("\n" + output)
@@ -298,10 +307,9 @@ class AIAppGUI:
             self.run_task(task)
         elif cmd == CommandType.CMD_USE:
             ret = self.tm.llm.use(arg)
-            #self.console.print('[green]Ok[/green]' if ret else '[red]Error[/red]')
+            self.print_output('\nOk' if ret else '\nError')
         elif cmd == CommandType.CMD_INVALID:
-            pass
-            #self.console.print('[red]Error[/red]')
+            self.print_output(f"\nInvalid command: {arg}")
         elif cmd == CommandType.CMD_EXIT:
             self.end_session()
 
