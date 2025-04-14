@@ -10,6 +10,7 @@ on:
       - 'pyproject.toml'
   pull_request:
     branches: [ "main" ]
+  workflow_dispatch:
 
 jobs:
   build-amd64:
