@@ -2,14 +2,13 @@ name: Docker Image CI
 
 on:
   push:
-    branches: [ "main" ]
+    tags:
+      - "v*"
     paths:
       - 'Dockerfile'
       - 'Dockerfile.deb'
       - 'aipyapp/**'
       - 'pyproject.toml'
-  pull_request:
-    branches: [ "main" ]
   workflow_dispatch:
 
 jobs:
