@@ -20,6 +20,7 @@ from rich.markdown import Markdown
 from .i18n import T
 from .plugin import event_bus
 from .templates import CONSOLE_HTML_FORMAT
+from .utils import get_safe_filename
 
 CERT_PATH = Path('/tmp/aipy_client.crt')
 
@@ -37,8 +38,6 @@ class Task:
         self.llm = None
         self.runner = None
         self.max_rounds = max_rounds
-        self.workdir = Path.cwd()
-        self.cwd = self.workdir / self.task_id
         self.system_prompt = system_prompt
         self.pattern = re.compile(
             r"^(`{4})(\w+)\s+([\w\-\.]+)\n(.*?)^\1\s*$",
@@ -46,7 +45,6 @@ class Task:
         )
 
     def save(self, path):
-       path = str(self.workdir / path)
        self._console.save_html(path, clear=False, code_format=CONSOLE_HTML_FORMAT)
 
     def save_html(self, path, task):
@@ -82,21 +80,23 @@ class Task:
 
     def done(self):
         #import pdb;pdb.set_trace()
-        task = {'instruction': self.instruction}
+        instruction = self.instruction
+        task = {'instruction': instruction}
         task['llm'] = self.llm.history.json()
         task['runner'] = self.runner.history
+        filename = get_safe_filename(instruction, extension='.json') or f"{self.task_id}.json"
         try:
-            json.dump(task, open('task.json', 'w'), ensure_ascii=False, indent=4)
+            json.dump(task, open(filename, 'w'), ensure_ascii=False, indent=4)
         except Exception as e:
             self.console.print_exception()
 
+        filename = get_safe_filename(instruction) or f"{self.task_id}.html"
         if hasattr(self.console, 'gui'):
             # Only save new html in gui mode for now.
-            self.save_html('console.html', task)
+            self.save_html(filename, task)
         else:
-            self.console.save_html('console.html', clear=True, code_format=CONSOLE_HTML_FORMAT)
+            self.console.save_html(filename, clear=True, code_format=CONSOLE_HTML_FORMAT)
 
-        os.chdir(self.workdir)
         self.llm.clear()
         self.runner.clear()
         self.task_id = None
@@ -189,11 +189,8 @@ class Task:
         if not instruction:
             prompt = self.build_user_prompt()
             event_bus('task_start', prompt)
-            print(prompt)
             instruction = json.dumps(prompt, ensure_ascii=False)
             system_prompt = self.system_prompt
-            self.cwd.mkdir(parents=True, exist_ok=False)
-            os.chdir(self.cwd)
         else:
             system_prompt = None
         rounds = 1

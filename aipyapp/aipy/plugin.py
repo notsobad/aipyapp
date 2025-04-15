@@ -47,7 +47,6 @@ class PluginManager:
         self.plugins: Dict[str, Any] = {}
 
     def load_plugins(self):
-        """加载目录下的所有插件文件"""
         if not os.path.exists(self.plugin_dir):
             return
 
@@ -64,17 +63,14 @@ class PluginManager:
 
         plugin_cls = getattr(module, "Plugin", None)
         if not plugin_cls or not callable(plugin_cls):
-            print(f"[miniplug] {plugin_id} skipped: no Plugin class.")
             return
 
         plugin = plugin_cls()
 
-        # 自动注册插件的 on_xxx 方法到 event_bus
         for attr_name in dir(plugin):
-            if attr_name.startswith("on_"):
+            if attr_name.startswith("on_") and len(attr_name) > 3:
                 handler = getattr(plugin, attr_name)
                 if callable(handler):
-                    event_bus.register(attr_name, handler)
+                    event_bus.register(attr_name[3:], handler)
 
         self.plugins[plugin_id] = plugin
-        print(f"[miniplug] Loaded: {plugin_id}")

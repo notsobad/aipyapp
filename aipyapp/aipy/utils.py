@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+import os
+import re
 import sys
 import subprocess
 from functools import wraps
@@ -55,3 +57,20 @@ def confirm_disclaimer(console):
             return False
         else:
             console.print("[yellow]请输入 yes 或 no。[/yellow]")
+
+def get_safe_filename(input_str, extension=".html", max_length=16):
+    input_str = input_str.strip()
+    safe_str = re.sub(r'[\\/:*?"<>|]', '', input_str).strip()
+    if not safe_str:
+        return None
+
+    name = safe_str[:max_length]
+    base_name = name
+    filename = f"{base_name}{extension}"
+    counter = 1
+
+    while os.path.exists(filename):
+        filename = f"{base_name}_{counter}{extension}"
+        counter += 1
+
+    return filename
