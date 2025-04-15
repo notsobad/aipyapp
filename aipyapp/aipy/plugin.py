@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import os
+from pathlib import Path
 import traceback
 import importlib.util
 from typing import Callable, Any, Dict, List
@@ -16,6 +17,7 @@ class EventBus:
     def broadcast(self, event_name: str, *args, **kwargs):
         for handler in self._listeners.get(event_name, []):
             try:
+                print(f"[miniplug] {event_name} -> {handler.__name__}")
                 handler(*args, **kwargs)
             except Exception as e:
                 traceback.print_exc()
@@ -23,6 +25,7 @@ class EventBus:
     def pipeline(self, event_name: str, data, **kwargs):
         for handler in self._listeners.get(event_name, []):
             try:
+                print(f"[miniplug] {event_name} -> {handler.__name__}")
                 data = handler(data, **kwargs)
             except Exception as e:
                 traceback.print_exc()
@@ -48,6 +51,11 @@ class PluginManager:
 
     def load_plugins(self):
         """加载目录下的所有插件文件"""
+        # First load the gui_plugin.py from the current directory
+        gui_plugin_path = Path(__file__).resolve().parent / 'gui_plugin.py'
+        self._load_plugin(gui_plugin_path)
+        if not os.path.exists(self.plugin_dir):
+            return
         for fname in os.listdir(self.plugin_dir):
             if fname.endswith(".py") and not fname.startswith("_"):
                 self._load_plugin(os.path.join(self.plugin_dir, fname))
