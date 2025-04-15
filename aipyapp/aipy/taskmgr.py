@@ -29,6 +29,7 @@ class TaskManager:
             self._cwd = workdir
         else:
             self._cwd = Path.cwd()
+        self._init_environ()
         self._init_api()
         self.runner = Runner(settings, console, envs=self.envs)
         self.llm = LLM(settings, console, system_prompt=self.system_prompt)
@@ -45,6 +46,11 @@ class TaskManager:
     def save(self, path):
         if self.task:  
             self.task.save(path)
+
+    def _init_environ(self):
+        envs = self.settings.get('environ', {})
+        for name, value in envs.items():
+            os.environ[name] = value
 
     def _init_api(self):
         api = self.settings.get('api')
