@@ -9,6 +9,7 @@ from .task import Task
 from .llm import LLM
 from .runner import Runner
 from .plugin import PluginManager
+from .prompt import SYSTEM_PROMPT
 
 class TaskManager:
     def __init__(self, settings, console):
@@ -17,7 +18,7 @@ class TaskManager:
         self.task = None
         self.envs = {}
         self.config_files = settings._loaded_files
-        self.system_prompt = settings.get('system_prompt')
+        self.system_prompt = f"{settings.system_prompt}\n{SYSTEM_PROMPT}"
         plugin_dir = settings.get('plugin_dir') or Path.cwd() / 'plugins'
         self.plugin_manager = PluginManager(plugin_dir)
         self.plugin_manager.load_plugins()

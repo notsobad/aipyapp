@@ -159,6 +159,7 @@ class OpenAIClient(BaseClient):
                     content = chunk.choices[0].delta.content
                     full_response += content
 
+                    event_bus.broadcast('response_stream', {'llm': self.name, 'content': content})
                     if hasattr(self.console, 'gui'):
                         # Using Mocked console. Dont use Panel
                         self.console.print(content, end="", highlight=False)
@@ -237,6 +238,8 @@ class OllamaClient(BaseClient):
                     content = msg['message']['content']
                     full_response += content
                     
+                    event_bus.broadcast('response_stream', {'llm': self.name, 'content': content})
+
                     try:
                         md = Markdown(full_response)
                         response_panel = Panel(md, title=title, border_style="green")
@@ -310,6 +313,7 @@ class ClaudeClient(BaseClient):
                     content = event.delta.text
                     full_response += content
                     
+                    event_bus.broadcast('response_stream', {'llm': self.name, 'content': content})
                     try:
                         md = Markdown(full_response)
                         response_panel = Panel(md, title=title, border_style="green")
