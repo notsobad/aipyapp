@@ -32,7 +32,7 @@ from prompt_toolkit.completion import WordCompleter
 from . import __version__
 from .aipy.config import ConfigManager
 from .aipy import TaskManager
-from .aipy.i18n import T
+from .aipy.i18n import T,set_lang
 #
 __PACKAGE_NAME__ = "aipyapp"
 
@@ -125,7 +125,7 @@ class GUIConsole(Console):
         # If the message is empty, return
         if not message:
             return
-        print("message", message)
+        #print("message", message)
 
         if self.gui:
             message = strip_rich_text_tags(message)
@@ -147,7 +147,7 @@ class CommandType(Enum):
     CMD_TEXT = auto()
 
 def parse_command(input_str, llms=set()):
-    lower = input_str.lower()
+    lower = input_str.strip().lower()
 
     if lower in ("/done", "done"):
         return CommandType.CMD_DONE, None
@@ -242,7 +242,7 @@ class AIAppGUI:
         self.root.grid_rowconfigure(1, weight=1)
 
         self.print_output(f"Python use - AIPython ({__version__}) [https://www.aipy.app]\n")
-        self.print_output(f"{T('default')}: {self.names['default']}，{T('enabled')}: {' '.join(self.names['enabled'])}")
+        self.print_output(f"{T('default')}: {self.names['default']}，{T('enabled')}: {' '.join(self.names['enabled'])}\n")
 
     def open_work_dir(self):
         #path = self.settings.workdir
@@ -304,9 +304,17 @@ class AIAppGUI:
 
         cmd, arg = parse_command(user_input, self.names['enabled'])
         if cmd == CommandType.CMD_TEXT:
-            task = self.tm.new_task(arg)
-            self.run_task(task)
-            self.task = task
+            if self.task:
+                # in task
+                self.run_task(self.task, arg)
+            else:
+                print("new task", arg)
+                task = self.tm.new_task(arg)
+                self.run_task(task)
+                self.task = task
+        elif cmd == CommandType.CMD_DONE:
+            self.continue_session()
+            self.print_output("\n task Done\n")
         elif cmd == CommandType.CMD_USE:
             ret = self.tm.llm.use(arg)
             self.print_output(f'\nUsing {arg} ok\n' if ret else '\nUsing {arg} failed\n')
@@ -333,33 +341,37 @@ class AIAppGUI:
 
 
     def end_session(self):
-        try:
-            self.tm.publish(verbose=False)
-        except Exception as e:
-            pass
+        #try:
+        #    self.tm.publish(verbose=False)
+        #except Exception as e:
+        #    pass
 
         try:
-            self.tm.done()
+            if self.task:
+                self.task.done()
+                self.task = None
         except Exception as e:
             #self.console.print_exception()
             pass
         self.root.destroy()
 
     def continue_session(self):
-        try:
-            self.tm.publish(verbose=False)
-        except Exception as e:
-            pass
+        #try:
+        #    self.tm.publish(verbose=False)
+        #except Exception as e:
+        #    pass
 
         try:
-            self.tm.done()
+            if self.task:
+                self.task.done()
+                self.task = None
         except Exception as e:
             traceback.print_exc()
             #self.console.print_exception()
             pass
-        self.input_entry.delete(0, tk.END)
-        self.code_text.delete(1.0, tk.END)
-        self.output_text.delete(1.0, tk.END)
+        self.input_entry.delete("1.0", tk.END)
+        self.code_text.delete("1.0", tk.END)
+        self.output_text.delete("1.0", tk.END)
 
     def run(self):
         self.root.mainloop()
@@ -377,7 +389,12 @@ def main(args):
     # auto install package.
     settings.auto_install = True
     settings.auto_getenv = True
+    settings.lang="zh"
     console = GUIConsole()
+
+    lang = settings.get('lang')
+    if lang: set_lang(lang)
+
     try:
         tm = TaskManager(settings, console=console)
     except Exception as e:

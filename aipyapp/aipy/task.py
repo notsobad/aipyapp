@@ -48,8 +48,39 @@ class Task:
        path = str(self.workdir / path)
        self._console.save_html(path, clear=False, code_format=CONSOLE_HTML_FORMAT)
 
+    def save_html(self, path, task):
+        # 获取当前代码所在目录下的template.html作为模版文件
+        # 读取模版文件
+        # 将模版文件中的{{code}}替换为task转换为json
+        # 保存为新的html文件
+        template_path = Path(__file__).resolve().parent / 'template.html'
+        try:
+            with open(template_path, 'r') as f:
+                template_content = f.read()
+        except FileNotFoundError:
+            self.console.print(f"[red]Error: template.html not found at {template_path}[/red]")
+            return
+        except Exception as e:
+            self.console.print_exception()
+            return
+
+        if 'llm' in task and isinstance(task['llm'], list) and len(task['llm']) > 0:
+            if task['llm'][0]['role'] == 'system':
+                task['llm'].pop(0)
+
+        task_json = json.dumps(task, ensure_ascii=False)
+        html_content = template_content.replace('{{code}}', task_json)
+
+        try:
+            with open(path, 'w', encoding='utf-8') as f:
+                f.write(html_content)
+                self.console.print(f"[green]Task saved to {path}[/green]")
+        except Exception as e:
+            self.console.print_exception()
+            return
+
     def done(self):
-        self.console.save_html('console.html', clear=True, code_format=CONSOLE_HTML_FORMAT)
+        #import pdb;pdb.set_trace()
         task = {'instruction': self.instruction}
         task['llm'] = self.llm.history.json()
         task['runner'] = self.runner.history
@@ -57,6 +88,13 @@ class Task:
             json.dump(task, open('task.json', 'w'), ensure_ascii=False, indent=4)
         except Exception as e:
             self.console.print_exception()
+
+        if hasattr(self.console, 'gui'):
+            # Only save new html in gui mode for now.
+            self.save_html('console.html', task)
+        else:
+            self.console.save_html('console.html', clear=True, code_format=CONSOLE_HTML_FORMAT)
+
         os.chdir(self.workdir)
         self.llm.clear()
         self.runner.clear()
