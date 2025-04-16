@@ -125,7 +125,9 @@ class BaseClient(ABC):
 
 # https://platform.openai.com/docs/api-reference/chat/create
 # https://api-docs.deepseek.com/api/create-chat-completion
-class OpenAIClient(BaseClient):
+class OpenAIBaseClient(BaseClient):
+    PARAMS = {}
+    
     def usable(self):
         return super().usable() and self._api_key
     
@@ -191,14 +193,13 @@ class OpenAIClient(BaseClient):
     def get_completion(self, messages):
         if not self._client:
             self._client = self._get_client()
-        kws = {'stream_options': {'include_usage': True}} if self._stream and not self._base_url else {}
         try:
             response = self._client.chat.completions.create(
                 model = self._model,
                 messages = messages,
                 stream=self._stream,
                 max_tokens = self.max_tokens,
-                **kws
+                **self.PARAMS
             )
         except Exception as e:
             self.console.print(f"❌ [bold red]{self.name} API {T('call_failed')}: [yellow]{str(e)}")
@@ -358,23 +359,28 @@ class ClaudeClient(BaseClient):
             message = None
         return message
 
-class GeminiClient(OpenAIClient): 
+class OpenAIClient(OpenAIBaseClient): 
+    MODEL = 'gpt-4o'
+    PARAMS = {'stream_options': {'include_usage': True}}
+
+class GeminiClient(OpenAIBaseClient): 
     BASE_URL = 'https://generativelanguage.googleapis.com/v1beta/'
     MODEL = 'gemini-2.5-pro-exp-03-25'
 
-class DeepSeekClient(OpenAIClient): 
+class DeepSeekClient(OpenAIBaseClient): 
     BASE_URL = 'https://api.deepseek.com'
     MODEL = 'deepseek-chat'
 
-class GrokClient(OpenAIClient): 
+class GrokClient(OpenAIBaseClient): 
     BASE_URL = 'https://api.x.ai/v1/'
     MODEL = 'grok-3-mini'
+    PARAMS = {'stream_options': {'include_usage': True}}
 
-class TrustClient(OpenAIClient): 
+class TrustClient(OpenAIBaseClient): 
     BASE_URL = 'https://api.trustoken.ai/v1'
     MODEL = 'auto'
 
-class AzureOpenAIClient(OpenAIClient): 
+class AzureOpenAIClient(OpenAIBaseClient): 
     MODEL = 'gpt-4o'
 
     def __init__(self, config):
@@ -399,7 +405,7 @@ class LLM(object):
         'trust': TrustClient,
         'azure': AzureOpenAIClient
     }
-    MAX_TOKENS = 4096
+    MAX_TOKENS = 8192
 
     def __init__(self, settings, console,system_prompt=None):
         self.llms = {}
