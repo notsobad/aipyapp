@@ -66,7 +66,19 @@ AIPython 有两种运行模式：
 >>> /done
 ```
 
+`pip install aipyapp` ，运行aipy命令进入任务模式
+
+```
+-> % aipy
+🚀 Python use - AIPython (0.1.22) [https://aipy.app]
+请输入需要 AI 处理的任务 (输入 /use <下述 LLM> 切换)
+>> 获取Reddit r/LocalLLaMA 最新帖子
+......
+>>
+```
+
 ### Python 模式
+
 #### 基本用法
 自动任务处理：
 

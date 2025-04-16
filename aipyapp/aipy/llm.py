@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import time
+import json
 from collections import Counter, defaultdict
 from dataclasses import dataclass, field
 from abc import ABC, abstractmethod
@@ -228,11 +229,11 @@ class OllamaClient(BaseClient):
             status = self.console.status(f"[dim white]{self.name} {T('thinking')}...", spinner='runner')
             response_panel = Panel(status, title=title, border_style="blue")
             live.update(response_panel)
-            
-            for chunk in response:
-                msg = chunk.json()
+            for chunk in response.iter_lines():
+                chunk = chunk.decode(encoding='utf-8')
+                msg = json.loads(chunk)
                 if msg['done']:
-                    usage = self._parse_usage(chunk.usage)
+                    usage = self._parse_usage(msg)
                     break
 
                 if 'message' in msg and 'content' in msg['message'] and msg['message']['content']:
@@ -506,4 +507,3 @@ class LLM(object):
         ret = llm(self.history, instruction, system_prompt=system_prompt)
         event_bus.broadcast('response_complete', {'llm': name, 'content': ret})
         return ret
-        
