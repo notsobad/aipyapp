@@ -65,7 +65,18 @@ The default running mode is task mode, which can be switched to Python mode usin
 >>> /done
 ```
 
+`pip install aipyapp` and run with `aipy` enter Task Mode
+
+```
+-> % aipy
+🚀 Python use - AIPython (0.1.22) [https://aipy.app]
+>> Get the latest posts from Reddit r/LocalLLaMA
+......
+>>
+```
+
 ### Python Mode
+
 #### Basic Usage
 Automatic task processing:
 
