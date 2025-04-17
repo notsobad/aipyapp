@@ -10,6 +10,9 @@ class EventBus:
     def __init__(self):
         self._listeners: Dict[str, List[Callable[..., Any]]] = {}
 
+    def __repr__(self):
+        return repr(self._listeners)
+    
     def register(self, event_name: str, handler: Callable[..., Any]):
         self._listeners.setdefault(event_name, []).append(handler)
 

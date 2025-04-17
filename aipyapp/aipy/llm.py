@@ -505,5 +505,5 @@ class LLM(object):
         
         self._last = llm
         ret = llm(self.history, instruction, system_prompt=system_prompt)
-        event_bus.broadcast('response_complete', {'llm': name, 'content': ret})
+        event_bus.broadcast('response_complete', {'llm': llm.name, 'content': ret})
         return ret

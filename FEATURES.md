@@ -1,5 +1,8 @@
 # Features
 
+## role
+- 任务角色支持
+
 ## plugin
 - 插件支持
 
