@@ -380,6 +380,7 @@ class GrokClient(OpenAIBaseClient):
 class TrustClient(OpenAIBaseClient): 
     BASE_URL = 'https://api.trustoken.ai/v1'
     MODEL = 'auto'
+    PARAMS = {'stream_options': {'include_usage': True}}
 
 class AzureOpenAIClient(OpenAIBaseClient): 
     MODEL = 'gpt-4o'
