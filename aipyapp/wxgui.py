@@ -27,7 +27,7 @@ __PACKAGE_NAME__ = "aipyapp"
 
 ChatEvent, EVT_CHAT = NewEvent()
 
-AVATARS = {'我': '🧑', 'Python': '🤖', 'llm': '🧠'}
+AVATARS = {'我': '🧑', 'Python': '🤖', 'llm': '🧠', '爱派': '🐙'}
 
 CHAT_CSS = """
 body {
@@ -69,6 +69,11 @@ class AIPython(threading.Thread):
         evt = ChatEvent(user=user, msg=msg['content'])
         wx.PostEvent(self.gui, evt)
 
+    def on_summary(self, summary):
+        user = '爱派'
+        evt = ChatEvent(user=user, msg=f'结束处理指令 {summary}')
+        wx.PostEvent(self.gui, evt)
+
     def on_exec(self, blocks):
         user = 'Python'
         content = f"```python\n{blocks['main']}\n```"
@@ -86,6 +91,7 @@ class AIPython(threading.Thread):
         event_bus.register("response_complete", self.on_response_complete)
         event_bus.register("exec", self.on_exec)
         event_bus.register("result", self.on_result)
+        event_bus.register("summary", self.on_summary)
         while True:
             instruction = self.gui.get_task()
             if instruction in ('/done', 'done'):
@@ -105,35 +111,53 @@ class ChatFrame(wx.Frame):
 
         self.tm = tm
         self.task_queue = queue.Queue()
+        self.messages_md = []
+        self.rendered_messages = []
+        self.aipython = AIPython(self)
+        self.current_llm = tm.llm.names['default']
+        self.enabled_llm = list(tm.llm.names['enabled'])
+
         self.make_menu_bar()
+        self.make_tool_bar()
+        self.make_panel()
+        self.CreateStatusBar(2)
+        self.SetStatusWidths([-1, 50])
+        self.GetStatusBar().SetStatusStyles([wx.SB_NORMAL, wx.SB_RAISED])
+        self.update_status_llm()
+
+        self.Bind(EVT_CHAT, self.on_chat)
+        self.aipython.start()
+        self.Show()
+
+    def make_panel(self):
         panel = wx.Panel(self)
         vbox = wx.BoxSizer(wx.VERTICAL)
 
-        # 消息展示区域
         self.browser = wx.html2.WebView.New(panel)
         vbox.Add(self.browser, 1, wx.EXPAND | wx.ALL, 5)
 
-        # 消息输入框
         self.input = wx.TextCtrl(panel, style=wx.TE_MULTILINE)
-        self.input.SetBackgroundColour(wx.Colour(255, 255, 255))  # 白色背景
-        self.input.SetForegroundColour(wx.Colour(0, 0, 0))        
+        self.input.SetBackgroundColour(wx.Colour(255, 255, 255)) 
+        self.input.SetForegroundColour(wx.Colour(0, 0, 0))      
+        self.input.Bind(wx.EVT_KEY_DOWN, self.on_key_down)  
         vbox.Add(self.input, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 5)
 
-        # 绑定键盘事件
-        self.input.Bind(wx.EVT_KEY_DOWN, self.on_key_down)
-
         panel.SetSizer(vbox)
-        self.messages_md = []  # 原始 Markdown 消息
-        self.rendered_messages = []  # 渲染后的 HTML 消息
         self.panel = panel
 
-        # 注册事件回调
-        self.Bind(EVT_CHAT, self.on_chat)
-
-        self.aipython = AIPython(self)
-        self.aipython.start()
-
-        self.Show()
+    def make_tool_bar(self):
+        toolbar = self.CreateToolBar(style=wx.TB_HORIZONTAL | wx.TB_TEXT)
+        
+        toolbar.AddStretchableSpace()
+        toolbar.AddControl(wx.StaticText(toolbar, label="LLM:"))
+        
+        self.choice = wx.Choice(toolbar, choices=self.enabled_llm)
+        self.choice.SetStringSelection(self.current_llm)
+        toolbar.AddControl(self.choice)
+        
+        self.choice.Bind(wx.EVT_CHOICE, self.on_choice_selected)
+        
+        toolbar.Realize()
 
     def make_menu_bar(self):
         menu_bar = wx.MenuBar()
@@ -166,6 +190,20 @@ class ChatFrame(wx.Frame):
         menu_bar.Append(help_menu, "帮助(&H)")
 
         self.SetMenuBar(menu_bar)
+
+    def on_choice_selected(self, event):
+        name = self.choice.GetStringSelection()
+        if not self.tm.use(name):
+            wx.MessageBox(f"LLM {name} 不可用", "警告", wx.OK|wx.ICON_WARNING)
+            self.choice.SetStringSelection(self.current_llm)
+        else:
+            self.current_llm = name
+        self.update_status_llm()
+        event.Skip()
+    
+    def update_status_llm(self):
+        selected = self.choice.GetStringSelection()
+        self.SetStatusText(selected, 1)
 
     def on_exit(self, event):
         self.task_queue.put('exit')
@@ -245,8 +283,12 @@ class ChatFrame(wx.Frame):
     def toggle_input(self):
         if self.input.IsShown():
             self.input.Hide()
+            wx.BeginBusyCursor()
+            self.SetStatusText("操作进行中，请稍候...", 0)
         else:
             self.input.Show()
+            wx.EndBusyCursor()
+            self.SetStatusText("操作完成", 0)
         self.panel.Layout()
         self.panel.Refresh()
 

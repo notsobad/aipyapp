@@ -170,6 +170,7 @@ class Task:
             summary = "| {rounds} | {time:.3f}s | Tokens: {input_tokens}/{output_tokens}/{total_tokens}".format(**summary)
         else:
             summary = ''
+        event_bus.broadcast('summary', summary)
         self.console.print(f"\n⏹ [cyan]{T('end_instruction')} {summary}")
 
     def build_user_prompt(self):

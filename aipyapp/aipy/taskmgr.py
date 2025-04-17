@@ -37,6 +37,7 @@ class TaskManager:
     def use(self, name):
         ret = self.llm.use(name)
         self.console.print('[green]Ok[/green]' if ret else '[red]Error[/red]')
+        return ret
 
     def done(self):
         if self.task:
