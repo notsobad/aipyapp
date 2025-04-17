@@ -140,22 +140,32 @@ class ChatFrame(wx.Frame):
 
         file_menu = wx.Menu()
         file_menu.Append(wx.ID_SAVE, "保存聊天记录为 Markdown(&S)\tCtrl+S", "保存当前聊天记录为 Markdown 文件")
-        file_menu.Append(wx.ID_ANY, "保存聊天记录为 HTML(&H)", "保存当前聊天记录为 HTML 文件")
+        menu_item = file_menu.Append(wx.ID_ANY, "保存聊天记录为 HTML(&H)", "保存当前聊天记录为 HTML 文件")
+        self.Bind(wx.EVT_MENU, self.on_save_html, menu_item)
         file_menu.AppendSeparator()
         file_menu.Append(wx.ID_EXIT, "退出(&Q)\tCtrl+Q", "退出程序")
-        self.Bind(wx.EVT_MENU, self.on_save_chat, id=wx.ID_SAVE)
-        self.Bind(wx.EVT_MENU, self.on_save_chat_html, id=file_menu.GetMenuItems()[-2].GetId())
+        self.Bind(wx.EVT_MENU, self.on_save_markdown, id=wx.ID_SAVE)
         self.Bind(wx.EVT_MENU, self.on_exit, id=wx.ID_EXIT)
 
         edit_menu = wx.Menu()
         edit_menu.Append(wx.ID_CLEAR, "清空聊天(&C)", "清除所有消息")
         self.Bind(wx.EVT_MENU, self.on_clear_chat, id=wx.ID_CLEAR)
 
+        help_menu = wx.Menu()
+        self.ID_WEBSITE = wx.NewIdRef()
+        menu_item = wx.MenuItem(help_menu, self.ID_WEBSITE, "官网(&W)\tCtrl+W", "打开官方网站")
+        help_menu.Append(menu_item)
+        self.ID_FORUM = wx.NewIdRef()
+        menu_item = wx.MenuItem(help_menu, self.ID_FORUM, "论坛(&W)\tCtrl+W", "打开官方论坛")
+        help_menu.Append(menu_item)
+        self.Bind(wx.EVT_MENU, self.on_open_website, id=self.ID_WEBSITE)
+        self.Bind(wx.EVT_MENU, self.on_open_website, id=self.ID_FORUM)
+
         menu_bar.Append(file_menu, "文件(&F)")
         menu_bar.Append(edit_menu, "编辑(&E)")
+        menu_bar.Append(help_menu, "帮助(&H)")
 
         self.SetMenuBar(menu_bar)
-
 
     def on_exit(self, event):
         self.task_queue.put('exit')
@@ -167,7 +177,14 @@ class ChatFrame(wx.Frame):
         self.rendered_messages.clear()
         self.refresh_chat()
 
-    def on_save_chat(self, event):
+    def on_open_website(self, event):
+        if event.GetId() == self.ID_WEBSITE:
+            url = "https://aipy.app"
+        elif event.GetId() == self.ID_FORUM:
+            url = "https://d.aipy.app"
+        wx.LaunchDefaultBrowser(url)
+            
+    def on_save_markdown(self, event):
         with FileDialog(self, "保存聊天记录为 Markdown 文件", wildcard="Markdown 文件 (*.md)|*.md",
                         style=FD_SAVE | FD_OVERWRITE_PROMPT) as dialog:
             if dialog.ShowModal() == wx.ID_CANCEL:
@@ -180,7 +197,7 @@ class ChatFrame(wx.Frame):
             except IOError:
                 wx.LogError(f"无法保存文件：{path}")
 
-    def on_save_chat_html(self, event):
+    def on_save_html(self, event):
         with FileDialog(self, "保存聊天记录为 HTML 文件", wildcard="HTML 文件 (*.html)|*.html",
                         style=FD_SAVE | FD_OVERWRITE_PROMPT) as dialog:
             if dialog.ShowModal() == wx.ID_CANCEL:
