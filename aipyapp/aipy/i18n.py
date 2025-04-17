@@ -63,6 +63,12 @@ MESSAGES = {
         'token_saved': "令牌已保存到 {}",
         'token_save_error': "保存令牌时出错: {}",
         'not usable': "不可用",
+        'permission_denied_error': "无权限创建目录: {}",
+        'error_creating_config_dir': "创建配置目录时出错: {}",
+        'token_received': "令牌接收成功，您现在可以安全地关闭浏览器窗口。",
+        'server_started': "本地服务器已启动，地址为 http://localhost:{}",
+        'open_browser': "自动打开浏览器，登录后获取令牌",
+        'migrate_config': "成功的将旧版本配置迁移到 {}",
     },
     'en': {
         'start_instruction': 'Start processing instruction',
@@ -123,6 +129,12 @@ MESSAGES = {
         'token_saved': "Token saved to {}",
         'token_save_error': "Error saving token: {}",
         'not usable': "Not usable",
+        'permission_denied_error': "Permission denied to create directory: {}",
+        'error_creating_config_dir': "Error creating configuration directory: {}",
+        'token_received': "Token received successfully. You can now safely close the browser window.",
+        'server_started': "Local server started on http://localhost:{}",
+        'open_browser': "Automatically opening browser for login and token retrieval",
+        'migrate_config': "Successfully migrated old version configuration to {}",
     }
 }
 
