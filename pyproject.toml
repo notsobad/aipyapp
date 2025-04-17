@@ -19,6 +19,7 @@ dependencies = [
     "seaborn>=0.13.2",
     "term-image>=0.7.2",
     "wxpython>=4.2.3",
+    "tomli-w>=1.2.0",
 ]
 
 [project.scripts]

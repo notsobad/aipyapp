@@ -63,6 +63,8 @@ MESSAGES = {
         'token_saved': "令牌已保存到 {}",
         'token_save_error': "保存令牌时出错: {}",
         'not usable': "不可用",
+        'permission_denied_error': "无权限创建目录: {}",
+        'error_creating_config_dir': "创建配置目录时出错: {}",
     },
     'en': {
         'start_instruction': 'Start processing instruction',
@@ -123,6 +125,8 @@ MESSAGES = {
         'token_saved': "Token saved to {}",
         'token_save_error': "Error saving token: {}",
         'not usable': "Not usable",
+        'permission_denied_error': "Permission denied to create directory: {}",
+        'error_creating_config_dir': "Error creating configuration directory: {}",
     }
 }
 
