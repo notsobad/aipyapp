@@ -1,5 +1,7 @@
 # Python-Use：一个全新的 AI Agent 范式（Agent 2.0）
 
+<img src="aipy.jpg" alt="AIPy" width="300">
+
 ## 背景：传统“假肢式”AI Agent模式已过时
 
 传统 AI 模式（Agent 1.0）依赖于 Function Calling、Tools、MCP-Servers、Workflows 及各种插件客户端，不仅门槛高、成本高，而且严重依赖开发者生态。这些外接“假肢”之间难以协同，模型生成的代码还被限制在云端沙盒，无法真正接触环境，导致 AI 行动能力受限。
