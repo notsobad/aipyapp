@@ -88,7 +88,7 @@ class AIPython(threading.Thread):
         wx.PostEvent(self.gui, evt)
 
     def run(self):
-        event_bus.register("response_complete", self.on_response_complete)
+        event_bus.register("response_stream", self.on_response_complete)
         event_bus.register("exec", self.on_exec)
         event_bus.register("result", self.on_result)
         event_bus.register("summary", self.on_summary)
@@ -116,6 +116,8 @@ class ChatFrame(wx.Frame):
         self.aipython = AIPython(self)
         self.current_llm = tm.llm.names['default']
         self.enabled_llm = list(tm.llm.names['enabled'])
+        self.last_user = None
+        self.last_msg = None
 
         self.make_menu_bar()
         self.make_tool_bar()
@@ -308,9 +310,22 @@ class ChatFrame(wx.Frame):
         self.append_message(user, text)
 
     def append_message(self, user, text):
-        msg = f"{user}\n{text}"
-        avatar = AVATARS.get(user) or AVATARS['llm']
+        avatar = AVATARS.get(user)
+        in_stream = False
+        if not avatar:
+            avatar = AVATARS['llm']
+            if self.last_user and user == self.last_user:
+                self.last_msg = self.last_msg + text
+                text = self.last_msg
+                in_stream = True
+            else:
+                self.last_user = user
+                self.last_msg = text
+        else:
+            self.last_user = None
+            self.last_msg = None
 
+        msg = f"{user}\n{text}"
         html_body = self.convert_markdown_to_html(text)
         html = f'''
             <div class="message">
@@ -318,8 +333,12 @@ class ChatFrame(wx.Frame):
                 <div><b>{user}：</b><br>{html_body}</div>
             </div>
         '''
-        self.rendered_messages.append(html)
-        self.messages_md.append(msg)
+        if in_stream:
+            self.rendered_messages[-1] = html
+            self.messages_md[-1] = msg
+        else:
+            self.rendered_messages.append(html)
+            self.messages_md.append(msg)
         self.refresh_chat()
 
     def refresh_chat(self):

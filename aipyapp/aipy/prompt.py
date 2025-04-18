@@ -40,7 +40,7 @@ def greet(name):
 
 ## 可用模块
 - Python 自带的标准库模块。
-- 预装的第三方模块有：`requests`、`numpy`、`pandas`、`matplotlib`、`plotpy`、`seaborn`、`bs4`、`google-api-python-client`。
+- 预装的第三方模块有：`requests`、`numpy`、`pandas`、`matplotlib`、`seaborn`、`bs4`、`googleapiclient`, `duckduckgo_search`。
 - 在必要情况下，可以通过下述 runtime 对象的 install_packages 方法申请安装额外模块。
 
 在使用 matplotlib 时，需要根据系统类型选择和设置合适的中文字体，否则图片里中文会乱码导致无法完成客户任务。
