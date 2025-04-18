@@ -1,4 +1,4 @@
-# Python-Use：一个全新的 AI Agent 范式（Agent 2.0）
+# Python-Use：一个全新的 AI Agent 范式（Agent 2.0） 🔗 [View on GitHub](https://github.com/knownsec/aipyapp)  🔗 [EN](https://github.com/knownsec/aipyapp/blob/main/docs/README.md)
 
 <img src="aipy.jpg" alt="AIPy">
 
