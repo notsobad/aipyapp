@@ -1,7 +1,7 @@
 # Python use
 AIPy is an implementation of the Python-use concept, demonstrating its practical value and potential.
 - **Mission**: unleash the full potential of large language models.
-- **Vision**: a future where LLMs can think independently and proactively leverage AIPY to solve complex problems.
+- **Vision**: a future where LLMs can think independently and proactively leverage AIPy to solve complex problems.
 
 ## What
 Python use provides the entire Python execution environment to LLM. Imagine LLM sitting in front of a computer, typing various commands into the Python command-line interpreter, pressing Enter to execute, observing the results, and then typing and executing more code.
