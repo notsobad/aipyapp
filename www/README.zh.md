@@ -50,7 +50,7 @@ Python-Use 开启了一条全新的智能行动路径：**No Agents、No MCP、N
 
 流程图
 
-
+![流程图](python-use-wf.png)
 
 这一范式还意味着：
 
