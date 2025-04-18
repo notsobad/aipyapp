@@ -1,6 +1,6 @@
-# Python-Use: A New AI Agent Paradigm (Agent 2.0)
+# Python-Use: A New AI Agent Paradigm (Agent 2.0) 🔗 [View on GitHub](https://github.com/knownsec/aipyapp)  🔗 [中文版](https://github.com/knownsec/aipyapp/blob/main/docs/README.zh.md)
 
-<img src="aipy.jpg" alt="AIPy" width="300">
+<img src="aipy.jpg" alt="AIPy">
 
 ## Background: The Outdated "Prosthetic" AI Agent Model
 
@@ -109,4 +109,4 @@ Join us. Let AI break free, act freely, and build the future.
 
 **No Agents, Just Python-use!**
 
-🔗 [View on GitHub](https://github.com/knownsec/aipyapp)
+
