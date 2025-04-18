@@ -58,12 +58,16 @@ CONFIG_FILE_NAME = f"{__PACKAGE_NAME__}.toml"
 USER_CONFIG_FILE_NAME = "user_config.toml"
 CONFIG_DIR = init_config_dir()
 
-def get_config_file_path(file_name=CONFIG_FILE_NAME):
+def get_config_file_path(config_dir=None, file_name=CONFIG_FILE_NAME):
     """
     获取配置文件的完整路径
     :return: 配置文件的完整路径
     """
-    config_dir = init_config_dir()
+    if config_dir:
+        config_dir = Path(config_dir)
+    else:
+        config_dir = CONFIG_DIR
+
     config_file_path = config_dir / file_name
 
     # 如果配置文件不存在，则创建一个空文件
@@ -138,9 +142,9 @@ def start_local_server(save_func):
 
 
 class ConfigManager:
-    def __init__(self, default_config="default.toml",  config_file=None):
-        self.config_file = get_config_file_path()
-        self.user_config_file = get_config_file_path(USER_CONFIG_FILE_NAME)
+    def __init__(self, default_config="default.toml",  config_dir=None):
+        self.config_file = get_config_file_path(config_dir)
+        self.user_config_file = get_config_file_path(config_dir, USER_CONFIG_FILE_NAME)
         self.default_config = default_config
         self.config = self._load_config()
 
