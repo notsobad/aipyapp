@@ -6,6 +6,9 @@ Python use 是把整个 Python 执行环境提供给 LLM 使用，可以想象�
 
 和 Agent 的区别是 Python use 不定义任何 tools 接口，LLM 可以自由使用 Python 运行环境提供的所有功能。
 
+- **使命**: 释放大语言模型的全部潜能
+- **愿景**: 不断进化的借助 AIPY 来解决各种问题的 LLM
+
 ## Why
 假如你是一个数据工程师，你对下面的场景一定不陌生：
 - 处理各种不同格式的数据文件：csv/excel，json，html, sqlite, parquet ...
