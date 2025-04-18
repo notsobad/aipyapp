@@ -24,6 +24,70 @@ class ChatMessage:
     reason: str = None
     usage: Counter = field(default_factory=Counter)
 
+class LineReceiver(list):
+    def __init__(self):
+        super().__init__()
+        self.buffer = ""
+
+    @property
+    def content(self):
+        return '\n'.join(self)
+    
+    def feed(self, data: str):
+        self.buffer += data
+        new_lines = []
+
+        while '\n' in self.buffer:
+            line, self.buffer = self.buffer.split('\n', 1)
+            self.append(line)
+            new_lines.append(line)
+
+        return new_lines
+
+class LiveManager:
+    def __init__(self, console, name):
+        self.live = None
+        self.name = name
+        self.console = console
+        self.lr = LineReceiver()
+        self.title = f"{self.name} {T('llm_response')}"
+        self.response_panel = None
+        self.full_response = None
+
+    def __enter__(self):
+        self.live = Live(auto_refresh=False, vertical_overflow='visible', transient=True)
+        self.live.__enter__()
+        status = self.console.status(f"[dim white]{self.name} {T('thinking')}...", spinner='runner')
+        response_panel = Panel(status, title=self.title, border_style="blue")
+        self.live.update(response_panel, refresh=True)
+        return self
+
+    def process_chunk(self, content):
+        if not content: return
+        lines = self.lr.feed(content)
+        if not lines: return
+        
+        content = '\n'.join(lines)
+        event_bus.broadcast('response_stream', {'llm': self.name, 'content': content})
+        if hasattr(self.console, 'gui'):
+            self.console.print(content, end="", highlight=False)
+
+        full_response = self.lr.content
+        try:
+            md = Markdown(full_response)
+            response_panel = Panel(md, title=self.title, border_style="green")
+        except Exception:
+            text = Text(full_response)
+            response_panel = Panel(text, title=self.title, border_style="yellow")
+        self.live.update(response_panel, refresh=True)
+        self.response_panel = response_panel
+        self.full_response = full_response
+    
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if self.lr.buffer:
+            self.process_chunk('\n')
+        self.live.__exit__(exc_type, exc_val, exc_tb)
+
 class ChatHistory:
     def __init__(self):
         self.messages = []
@@ -151,38 +215,19 @@ class OpenAIBaseClient(BaseClient):
         return usage
     
     def _parse_stream_response(self, response):
-        full_response = ""
-        title = f"{self.name} {T('llm_response')}"
         usage = Counter()
-        response_panel = None
-        with Live(auto_refresh=True, vertical_overflow='visible', transient=True, refresh_per_second=self.RPS) as live:
-            status = self.console.status(f"[dim white]{self.name} {T('thinking')}...", spinner='runner')
-            response_panel = Panel(status, title=title, border_style="blue")
-            live.update(response_panel)
-            
+        with LiveManager(self.console, self.name) as lm:
             for chunk in response:
                 if hasattr(chunk, 'usage') and chunk.usage is not None:
                     usage = self._parse_usage(chunk.usage)
 
                 if chunk.choices and chunk.choices[0].delta.content:
                     content = chunk.choices[0].delta.content
-                    full_response += content
-
-                    event_bus.broadcast('response_stream', {'llm': self.name, 'content': content})
-                    if hasattr(self.console, 'gui'):
-                        # Using Mocked console. Dont use Panel
-                        self.console.print(content, end="", highlight=False)
-
-                    try:
-                        md = Markdown(full_response)
-                        response_panel = Panel(md, title=title, border_style="green")
-                    except Exception:
-                        text = Text(full_response)
-                        response_panel = Panel(text, title=title, border_style="yellow")
-                    
-                    live.update(response_panel)
-        
-        if response_panel: self.console.print(response_panel)            
+                    lm.process_chunk(content)
+            
+        response_panel = lm.response_panel
+        full_response = lm.full_response
+        if response_panel: self.console.print(response_panel)
         #segments = self.console.render(response_panel)
         #self.console._record_buffer.extend(segments)
         return ChatMessage(role="assistant", content=full_response, usage=usage)
@@ -228,13 +273,7 @@ class OllamaClient(BaseClient):
         return ret
 
     def _parse_stream_response(self, response):
-        full_response = ""
-        response_panel = None
-        title = f"{self.name} {T('llm_response')}"
-        with Live(auto_refresh=True, vertical_overflow='visible', transient=True, refresh_per_second=self.RPS) as live:
-            status = self.console.status(f"[dim white]{self.name} {T('thinking')}...", spinner='runner')
-            response_panel = Panel(status, title=title, border_style="blue")
-            live.update(response_panel)
+        with LiveManager(self.console, self.name) as lm:
             for chunk in response.iter_lines():
                 chunk = chunk.decode(encoding='utf-8')
                 msg = json.loads(chunk)
@@ -244,22 +283,10 @@ class OllamaClient(BaseClient):
 
                 if 'message' in msg and 'content' in msg['message'] and msg['message']['content']:
                     content = msg['message']['content']
-                    full_response += content
-                    
-                    event_bus.broadcast('response_stream', {'llm': self.name, 'content': content})
-
-                    try:
-                        md = Markdown(full_response)
-                        response_panel = Panel(md, title=title, border_style="green")
-                    except Exception:
-                        text = Text(full_response)
-                        response_panel = Panel(text, title=title, border_style="yellow")
-                    
-                    live.update(response_panel)
-        
+                    lm.process_chunk(content)
+        response_panel = lm.response_panel
+        full_response = lm.full_response        
         if response_panel: self.console.print(response_panel)
-        #segments = self.console.render(response_panel)
-        #self.console._record_buffer.extend(segments)
         return ChatMessage(role="assistant", content=full_response, usage=usage)
 
     def _parse_response(self, response):
@@ -309,27 +336,11 @@ class ClaudeClient(BaseClient):
 
     def _parse_stream_response(self, response):
         usage = Counter()    
-        full_response = ""
-        response_panel = None
-        title = f"{self.name} {T('llm_response')}"
-        with Live(auto_refresh=True, vertical_overflow='visible', transient=True, refresh_per_second=self.RPS) as live:
-            status = self.console.status(f"[dim white]{self.name} {T('thinking')}...", spinner='runner')
-            response_panel = Panel(status, title=title, border_style="blue")
-            live.update(response_panel)
-            
+        with LiveManager(self.console, self.name) as lm:
             for event in response:
                 if hasattr(event, 'delta') and hasattr(event.delta, 'text') and event.delta.text:
                     content = event.delta.text
-                    full_response += content
-                    
-                    event_bus.broadcast('response_stream', {'llm': self.name, 'content': content})
-                    try:
-                        md = Markdown(full_response)
-                        response_panel = Panel(md, title=title, border_style="green")
-                    except Exception:
-                        text = Text(full_response)
-                        response_panel = Panel(text, title=title, border_style="yellow")
-                    live.update(response_panel)
+                    lm.process_chunk(content)
                 elif hasattr(event, 'message') and hasattr(event.message, 'usage') and event.message.usage:
                     usage['input_tokens'] += getattr(event.message.usage, 'input_tokens', 0)
                     usage['output_tokens'] += getattr(event.message.usage, 'output_tokens', 0)
@@ -337,10 +348,10 @@ class ClaudeClient(BaseClient):
                     usage['input_tokens'] += getattr(event.usage, 'input_tokens', 0)
                     usage['output_tokens'] += getattr(event.usage, 'output_tokens', 0)
 
+        response_panel = lm.response_panel
+        full_response = lm.full_response        
         usage['total_tokens'] = usage['input_tokens'] + usage['output_tokens']
         if response_panel: self.console.print(response_panel)      
-        #segments = self.console.render(response_panel)
-        #self.console._record_buffer.extend(segments)
         return ChatMessage(role="assistant", content=full_response, usage=usage)
 
     def _parse_response(self, response):
