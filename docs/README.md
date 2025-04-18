@@ -1,5 +1,7 @@
 # Python-Use: A New AI Agent Paradigm (Agent 2.0)
 
+<img src="aipy.jpg" alt="AIPy" width="300">
+
 ## Background: The Outdated "Prosthetic" AI Agent Model
 
 Traditional AI (Agent 1.0) relies on Function Calling, Tools, MCP-Servers, Workflows, and plugin-based clients. These external "prosthetics" lead to high entry barriers, heavy reliance on developers, and poor coordination between tools. Worse still, most AI-generated code is locked in cloud sandboxes, unable to interact with the real environment—crippling the model’s execution potential.
