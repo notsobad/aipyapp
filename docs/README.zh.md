@@ -1,6 +1,6 @@
 # Python-Use：一个全新的 AI Agent 范式（Agent 2.0）
 
-<img src="aipy.jpg" alt="AIPy" width="300">
+<img src="aipy.jpg" alt="AIPy">
 
 ## 背景：传统“假肢式”AI Agent模式已过时
 
