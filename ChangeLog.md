@@ -3,6 +3,9 @@
 - 自动安装包时支持配置国内 pypi 源
 - 修补 ollama 问题
 - 修补 Grok token 统计丢失问题
+- 改进系统提示词
+- 修改默认配置
+- 增加 temperature 配置
 
 # 0.1.22
 - 修改 Docker 相关代码

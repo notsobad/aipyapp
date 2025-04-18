@@ -58,17 +58,25 @@ class BaseClient(ABC):
     MODEL = None
     BASE_URL = None
     RPS = 2
+    MAX_TOKENS = 8192
+    PARAMS = {}
 
     def __init__(self, config):
         self.name = None
         self.console = None
-        self.max_tokens = config.get("max_tokens")
+        self.max_tokens = config.get("max_tokens") or self.MAX_TOKENS
         self._model = config.get("model") or self.MODEL
         self._timeout = config.get("timeout")
         self._api_key = config.get("api_key")
         self._base_url = config.get("base_url") or self.BASE_URL
         self._stream = config.get("stream", True)
         self._client = None
+        self._params = {}
+        if self.PARAMS:
+            self._params.update(self.PARAMS)
+        temperature = config.get("temperature")
+        if temperature != None and temperature >= 0 and temperature <= 1:
+            self._params['temperature'] = temperature
 
     def __repr__(self):
         return f"{self.__class__.__name__}<{self.name}>({self._model}, {self.max_tokens})"
@@ -127,8 +135,6 @@ class BaseClient(ABC):
 # https://platform.openai.com/docs/api-reference/chat/create
 # https://api-docs.deepseek.com/api/create-chat-completion
 class OpenAIBaseClient(BaseClient):
-    PARAMS = {}
-    
     def usable(self):
         return super().usable() and self._api_key
     
@@ -200,7 +206,7 @@ class OpenAIBaseClient(BaseClient):
                 messages = messages,
                 stream=self._stream,
                 max_tokens = self.max_tokens,
-                **self.PARAMS
+                **self._params
             )
         except Exception as e:
             self.console.print(f"❌ [bold red]{self.name} API {T('call_failed')}: [yellow]{str(e)}")
@@ -271,7 +277,8 @@ class OllamaClient(BaseClient):
                     "stream": self._stream,
                     "options": {"num_predict": self.max_tokens}
                 },
-                timeout=self._timeout
+                timeout=self._timeout,
+                **self._params
             )
             response.raise_for_status()
         except Exception as e:
@@ -353,7 +360,8 @@ class ClaudeClient(BaseClient):
                 messages = messages,
                 stream=self._stream,
                 system=self._system_prompt,
-                max_tokens = self.max_tokens
+                max_tokens = self.max_tokens,
+                **self._params
             )
         except Exception as e:
             self.console.print(f"❌ [bold red]{self.name} API {T('call_failed')}: [yellow]{str(e)}")
@@ -408,7 +416,6 @@ class LLM(object):
         'trust': TrustClient,
         'azure': AzureOpenAIClient
     }
-    MAX_TOKENS = 8192
 
     def __init__(self, settings, console,system_prompt=None):
         self.llms = {}
@@ -416,7 +423,6 @@ class LLM(object):
         self.default = None
         self._last = None
         self.history = ChatHistory()
-        self.max_tokens = settings.get('max_tokens', self.MAX_TOKENS)
         self.system_prompt = system_prompt
         names = defaultdict(set)
         for name, config in settings.llm.items():
@@ -434,8 +440,6 @@ class LLM(object):
             names['enabled'].add(name)
             client.name = name
             client.console = console
-            if not client.max_tokens:
-                client.max_tokens = self.max_tokens
             self.llms[name] = client
 
             if config.get('default', False) and not self.default:
@@ -471,9 +475,6 @@ class LLM(object):
 
     def get_client(self, config):
         proto = config.get("type", "openai")
-        model = config.get("model")
-        max_tokens = config.get("max_tokens") or self.max_tokens
-        timeout = config.get("timeout")
 
         client = self.CLIENTS.get(proto.lower())
         if not client:
