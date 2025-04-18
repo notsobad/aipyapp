@@ -3,19 +3,24 @@ import os
 import re
 import io
 import datetime
+import webbrowser
+import json
+import base64
+import socket
+import random
+from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
+from urllib.parse import urlparse, parse_qs
 
 from dynaconf import Dynaconf
 from rich import print
+import tomli_w
 
 
 from .i18n import T
 from .. import __PACKAGE_NAME__
-import tomli_w
 
 SETTINGS_FILES = [Path.home() / '.aipy.toml', Path('aipython.toml').resolve(), Path('.aipy.toml').resolve(), Path('aipy.toml').resolve()]
-
-
 CONFIG_FILE_NAME = f"{__PACKAGE_NAME__}.toml"
 USER_CONFIG_FILE_NAME = "user_config.toml"
 
@@ -33,7 +38,7 @@ def init_config_dir():
     else:
         # Linux/macOS 路径
         config_dir = Path.home() / ".config" / __PACKAGE_NAME__
-    
+
     # 确保目录存在
     try:
         config_dir.mkdir(parents=True, exist_ok=True)
@@ -43,7 +48,7 @@ def init_config_dir():
     except Exception as e:
         print(T('error_creating_config_dir').format(config_dir, str(e)))
         raise
-    
+
     return config_dir
 
 def get_config_file_path(file_name=CONFIG_FILE_NAME):
@@ -65,6 +70,7 @@ def get_config_file_path(file_name=CONFIG_FILE_NAME):
     return config_file_path
 
 
+
 def is_valid_api_key(api_key):
     """
     校验是否为有效的 API Key 格式。
@@ -75,48 +81,87 @@ def is_valid_api_key(api_key):
     pattern = r"^[A-Za-z0-9_-]{8,128}$"
     return bool(re.match(pattern, api_key))
 
+def start_local_server(save_func):
+    """web服务器用于接收 Trustoken 的登录凭证
+    """
+    class RequestHandler(BaseHTTPRequestHandler):
+        def do_GET(self):
+            # Parse 'credential' from query parameters
+            query = urlparse(self.path).query
+            params = parse_qs(query)
+            credential_b64 = params.get("credential", [None])[0]
+            if credential_b64:
+                try:
+                    credential_json = base64.b64decode(credential_b64).decode("utf-8")
+                    credential = json.loads(credential_json)
+                    token = credential.get("token")
+                    if token:
+                        save_func(token)
+                        self.send_response(200)
+                        self.send_header('Content-Type', 'text/plain; charset=utf-8')
+                        self.end_headers()
+                        self.wfile.write(f"{__PACKAGE_NAME__}配置文件获取成功，您现在可以安全的关闭浏览器窗口。".encode('utf-8'))
+                        print("Token received and saved")
+                        return
+                except Exception as e:
+                    print("Error decoding credential:", e)
+            self.send_response(400)
+            self.end_headers()
+            self.wfile.write(b"Invalid credential.")
+
+    server = None
+    port = 0
+    while server is None:
+        port = random.randint(1024, 65535)
+        try:
+            server = HTTPServer(('localhost', port), RequestHandler)
+            print(f"Local server started on http://localhost:{port}")
+        except socket.error as e:
+            if e.errno == socket.errno.EADDRINUSE:
+                print(f"Port {port} is already in use, trying another one...")
+            else:
+                print(f"Error starting server: {e}")
+                raise # Reraise other socket errors
+
+    print("Opening browser for login...")
+    webbrowser.open(f"https://api-test.trustoken.ai/token/grant?redirect=http://127.0.0.1:{port}")
+
+    print("Waiting for credential...")
+    server.handle_request()
+
 
 class ConfigManager:
     def __init__(self, default_config="default.toml",  config_file=None):
         self.config_file = get_config_file_path()
         self.user_config_file = get_config_file_path(USER_CONFIG_FILE_NAME)
-        self.config = Dynaconf(
-            settings_files=[default_config, self.config_file],
-            envvar_prefix="AIPY",
-            merge_enabled=True
-        )
+        self.default_config = default_config
+        self.config = self._load_config()
 
         # old user config, without default config.
         self._old_user_config = Dynaconf(
             settings_files=SETTINGS_FILES[:-1] + [Path('aipython.toml').resolve()],
             envvar_prefix="AIPY", merge_enabled=True
         )
-        print(config_file)
-        print(self.config.to_dict())
-        print(self._old_user_config.to_dict())
+        #print(self.config.to_dict())
+        #print(self._old_user_config.to_dict())
+
+    def _load_config(self):
+        config = Dynaconf(
+            settings_files=[self.default_config, self.config_file],
+            envvar_prefix="AIPY",
+        )
+        #print(config.to_dict())
+        return config
 
     def get_config(self):
         return self.config
-
-    def valid_tt_config(self, config):
-        """
-        校验 Trustoken 配置是否有效
-        :param config: 配置字典
-        :return: 如果配置有效返回 True，否则返回 False
-        """
-        if not config:
-            return False
-
-        tt = config.get('llm', {}).get('trustoken', {})
-        if tt and tt.get('api_key') and tt.get('type') == 'trust':
-            return True
-        return False
 
     def save_tt_config(self, api_key):
         config = {
             'llm': {
                 'trustoken': {
                     'api_key': api_key,
+                    'type': 'trust',
                     'base_url': 'https://api.trustoken.ai/v1',
                     'model': 'auto',
                     'default': True,
@@ -160,15 +205,20 @@ class ConfigManager:
             print(T('config_not_loaded'))
             return
         tt = self.config.get('llm', {}).get('trustoken', {})
-        if self.valid_tt_config(tt):
+        if tt and tt.get('api_key') and tt.get('type') == 'trust':
             # valid tt config
-            print("trustoken config found")
-        elif self._old_user_config:
+            #print("trustoken config found")
+            return 
+        elif self._old_user_config.to_dict():
             # no tt config, try to migrate from old config
+            # remove this later.
             self._migrate_old_config(self._old_user_config)
         else:
             # try to fetch config from web.
-            pass
+            start_local_server(self.save_tt_config)
+        
+        # reload config
+        self.config = self._load_config()
 
     def _migrate_old_config(self, old_config):
         """
@@ -239,84 +289,3 @@ class ConfigManager:
             return True
         
         return False
-
-class ConfigManager2:
-    def __init__(self, default_config="default.toml", user_config="aipy.toml"):
-        self.default_config = default_config
-        self.user_config = user_config
-        self.config = self._load_config()
-
-    def _load_config(self):
-        try:
-            settings_files = [self.default_config] + SETTINGS_FILES[:-1] + [Path(self.user_config).resolve()]
-
-            config = Dynaconf(
-                settings_files=settings_files,
-                envvar_prefix="AIPY", merge_enabled=True
-            )
-        except Exception as e:
-            print(T('error_loading_config').format(e))
-            config = None
-        return config
-
-    def get_config(self):
-        return self.config
-
-    def check_config(self):
-        if not self.config:
-            print(T('config_file_error'))
-            return
-
-        self.check_llm()
-
-    def check_llm(self):
-        if not self.config:
-            print(T('config_not_loaded'))
-            return
-
-        llm = self.config.get("llm")
-        if not llm:
-            print(T('llm_config_not_found'))
-
-        llms = {}
-        for name, config in self.config.get('llm', {}).items():
-            if config.get("enable", True):
-                llms[name] = config
-
-        if not llms:
-            self._init_llm()
-
-    def _init_llm(self):
-        print(T('trustoken_register_instruction').format(self.user_config))
-
-        while True:
-            user_token = input(T('prompt_token_input')).strip()
-            if user_token.lower() == "exit":
-                print(T('exit_token_prompt'))
-                sys.exit(0)
-            if not user_token:
-                print(T('no_token_detected'))
-                continue
-            if not is_valid_api_key(user_token):
-                print(T('invalid_token'))
-                continue
-
-            self.save_trustoken(user_token)
-
-            self.config = self._load_config()
-            break
-
-    def save_trustoken(self, token):
-        config_file = self.user_config
-        try:
-            with open(config_file, "a") as f:
-                f.write("\n[llm.trustoken]\n")
-                f.write(f'api_key = "{token}"\n')
-                f.write('base_url = "https://api.trustoken.ai/v1"\n')
-                f.write('model = "auto"\n')
-                f.write("default = true\n")
-                f.write("enable = true\n")
-            print(T('token_saved').format(config_file))
-        except Exception as e:
-            print(T('token_save_error').format(e))
-
