@@ -1,13 +1,13 @@
 # Python use
-Python use (aipython) 是一个集成 LLM 的 Python 命令行解释器。
+AIPy 是 Python-use 概念的一个具体实现，旨在展示该理念的实际价值与应用潜力。
+
+- **使命**: 释放大语言模型的全部潜能
+- **愿景**: 不断进化的借助 AIPY 来解决各种问题的 LLM
 
 ## What
 Python use 是把整个 Python 执行环境提供给 LLM 使用，可以想象为 LLM 坐在电脑前用键盘在 Python 命令行解释器里输入各种命令，按回车运行，然后观察执行结果，再输入代码和执行。
 
 和 Agent 的区别是 Python use 不定义任何 tools 接口，LLM 可以自由使用 Python 运行环境提供的所有功能。
-
-- **使命**: 释放大语言模型的全部潜能
-- **愿景**: 不断进化的借助 AIPY 来解决各种问题的 LLM
 
 ## Why
 假如你是一个数据工程师，你对下面的场景一定不陌生：
