@@ -1,6 +1,5 @@
 # Python use
-Python use (aipython) is a Python command-line interpreter integrated with LLM.
-
+AIPy is an implementation of the Python-use concept, demonstrating its practical value and potential.
 - **Mission**: unleash the full potential of large language models.
 - **Vision**: a future where LLMs can think independently and proactively leverage AIPY to solve complex problems.
 
