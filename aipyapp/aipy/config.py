@@ -20,9 +20,12 @@ import tomli_w
 from .i18n import T
 from .. import __PACKAGE_NAME__
 
-SETTINGS_FILES = [Path.home() / '.aipy.toml', Path('aipython.toml').resolve(), Path('.aipy.toml').resolve(), Path('aipy.toml').resolve()]
-CONFIG_FILE_NAME = f"{__PACKAGE_NAME__}.toml"
-USER_CONFIG_FILE_NAME = "user_config.toml"
+OLD_SETTINGS_FILES = [
+    Path.home() / '.aipy.toml',
+    Path('aipython.toml').resolve(),
+    Path('.aipy.toml').resolve(),
+    Path('aipy.toml').resolve()
+]
 
 def init_config_dir():
     """
@@ -50,6 +53,10 @@ def init_config_dir():
         raise
 
     return config_dir
+
+CONFIG_FILE_NAME = f"{__PACKAGE_NAME__}.toml"
+USER_CONFIG_FILE_NAME = "user_config.toml"
+CONFIG_DIR = init_config_dir()
 
 def get_config_file_path(file_name=CONFIG_FILE_NAME):
     """
@@ -100,7 +107,7 @@ def start_local_server(save_func):
                         self.send_response(200)
                         self.send_header('Content-Type', 'text/plain; charset=utf-8')
                         self.end_headers()
-                        self.wfile.write(f"{__PACKAGE_NAME__}配置文件获取成功，您现在可以安全的关闭浏览器窗口。".encode('utf-8'))
+                        self.wfile.write(T('token_received').encode('utf-8'))
                         print("Token received and saved")
                         return
                 except Exception as e:
@@ -115,7 +122,7 @@ def start_local_server(save_func):
         port = random.randint(1024, 65535)
         try:
             server = HTTPServer(('localhost', port), RequestHandler)
-            print(f"Local server started on http://localhost:{port}")
+            print(T('server_started').format(port))
         except socket.error as e:
             if e.errno == socket.errno.EADDRINUSE:
                 print(f"Port {port} is already in use, trying another one...")
@@ -123,10 +130,10 @@ def start_local_server(save_func):
                 print(f"Error starting server: {e}")
                 raise # Reraise other socket errors
 
-    print("Opening browser for login...")
+    print(T('open_browser'))
     webbrowser.open(f"https://api-test.trustoken.ai/token/grant?redirect=http://127.0.0.1:{port}")
 
-    print("Waiting for credential...")
+    #print("Waiting for credential...")
     server.handle_request()
 
 
@@ -139,7 +146,7 @@ class ConfigManager:
 
         # old user config, without default config.
         self._old_user_config = Dynaconf(
-            settings_files=SETTINGS_FILES[:-1] + [Path('aipython.toml').resolve()],
+            settings_files=OLD_SETTINGS_FILES,
             envvar_prefix="AIPY", merge_enabled=True
         )
         #print(self.config.to_dict())
@@ -208,7 +215,7 @@ class ConfigManager:
         if tt and tt.get('api_key') and tt.get('type') == 'trust':
             # valid tt config
             #print("trustoken config found")
-            return 
+            return
         elif self._old_user_config.to_dict():
             # no tt config, try to migrate from old config
             # remove this later.
@@ -246,19 +253,19 @@ class ConfigManager:
                 # 从原配置中删除
                 llm.pop(section_name)
 
-        print("keys found:", tt_keys)
+        #print("keys found:", tt_keys)
 
         if tt_keys:
             # 保存第一个找到的API key
             self.save_tt_config(tt_keys[0])
 
-        print(old_config.to_dict())
+        #print(old_config.to_dict())
         # 将 old_config 转换为 dict
         config_dict = old_config.to_dict()
         try:
             with open(self.user_config_file, "wb") as f:
                 tomli_w.dump(config_dict, f)
-                print(f"Old config migrated and saved to {self.user_config_file}")
+                print(T('migrate_config').format(self.user_config_file))
         except Exception as e:
             print(T('error_saving_config').format(self.user_config_file, str(e)))
         return
