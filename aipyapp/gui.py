@@ -381,7 +381,7 @@ def main(args):
     path = args.config if args.config else 'aipython.toml'
     user_config_path = Path(path).resolve()
     default_config_path = resources.files(__PACKAGE_NAME__) / "default.toml"
-    conf = ConfigManager(default_config_path, path)
+    conf = ConfigManager(default_config_path, args.config)
     conf.check_config()
     settings = conf.get_config()
 

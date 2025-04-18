@@ -37,8 +37,7 @@ def main(args):
     console = Console(record=True)
     console.print(f"[bold cyan]🚀 Python use - AIPython ({__version__}) [[green]https://aipy.app[/green]]")
 
-    path = args.config if args.config else 'aipy.toml'
-    conf = ConfigManager(get_default_config(), path)
+    conf = ConfigManager(get_default_config(), args.config_dir)
     conf.check_config()
     settings = conf.get_config()
 

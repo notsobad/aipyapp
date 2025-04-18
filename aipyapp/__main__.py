@@ -13,10 +13,10 @@ def main():
     def parse_args():
         import argparse
         parser = argparse.ArgumentParser(description="Python use - AIPython", formatter_class=argparse.RawTextHelpFormatter)
-        parser.add_argument("-c", '--config', type=str,
+        parser.add_argument("-c", '--config-dir', type=str,
                             help=config_help_message) # Use the generated help message
         parser.add_argument('-p', '--python', default=False, action='store_true', help="Python mode")
-        parser.add_argument('-g', '--gui', choices=['tk', 'wx'], help="GUI mode")
+        parser.add_argument('-g', '--gui', choices=['wx'], help="GUI mode")
         parser.add_argument('cmd', nargs='?', default=None, help="Task to execute, e.g. 'Who are you?'")
         return parser.parse_args()
 

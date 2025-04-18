@@ -26,6 +26,8 @@ OLD_SETTINGS_FILES = [
     Path('.aipy.toml').resolve(),
     Path('aipy.toml').resolve()
 ]
+TOKEN_GRANT_URL = f"https://api-test.trustoken.ai/token/grant?redirect=http://127.0.0.1:{0}"
+
 
 def init_config_dir():
     """
@@ -135,7 +137,7 @@ def start_local_server(save_func):
                 raise # Reraise other socket errors
 
     print(T('open_browser'))
-    webbrowser.open(f"https://api-test.trustoken.ai/token/grant?redirect=http://127.0.0.1:{port}")
+    webbrowser.open(TOKEN_GRANT_URL.format(port))
 
     #print("Waiting for credential...")
     server.handle_request()
