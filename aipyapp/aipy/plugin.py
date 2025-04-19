@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import os
+import threading
 import traceback
 import importlib.util
 from typing import Callable, Any, Dict, List
@@ -9,6 +10,13 @@ from typing import Callable, Any, Dict, List
 class EventBus:
     def __init__(self):
         self._listeners: Dict[str, List[Callable[..., Any]]] = {}
+        self._stop_event = threading.Event()
+
+    def stop(self):
+        self._stop_event.set()
+
+    def is_stopped(self):
+        return self._stop_event.is_set()    
 
     def __repr__(self):
         return repr(self._listeners)

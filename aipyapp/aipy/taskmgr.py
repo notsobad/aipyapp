@@ -34,6 +34,10 @@ class TaskManager:
         self.runner = Runner(settings, console, envs=self.envs)
         self.llm = LLM(settings, console, system_prompt=self.system_prompt)
 
+    @property
+    def workdir(self):
+        return str(self._cwd)
+
     def use(self, name):
         ret = self.llm.use(name)
         self.console.print('[green]Ok[/green]' if ret else '[red]Error[/red]')

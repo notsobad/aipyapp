@@ -146,6 +146,9 @@ class BaseClient(ABC):
     def __repr__(self):
         return f"{self.__class__.__name__}<{self.name}>({self._model}, {self.max_tokens})"
     
+    def is_stopped(self):
+        return event_bus.is_stopped()
+
     def usable(self):
         return self._model
     
@@ -225,7 +228,9 @@ class OpenAIBaseClient(BaseClient):
                 if chunk.choices and chunk.choices[0].delta.content:
                     content = chunk.choices[0].delta.content
                     lm.process_chunk(content)
-            
+
+                if self.is_stopped():
+                    break
         response_panel = lm.response_panel
         full_response = lm.full_response
         if response_panel: self.console.print(response_panel)
@@ -285,6 +290,9 @@ class OllamaClient(BaseClient):
                 if 'message' in msg and 'content' in msg['message'] and msg['message']['content']:
                     content = msg['message']['content']
                     lm.process_chunk(content)
+
+                if self.is_stopped():
+                    break
         response_panel = lm.response_panel
         full_response = lm.full_response        
         if response_panel: self.console.print(response_panel)
@@ -348,6 +356,9 @@ class ClaudeClient(BaseClient):
                 elif hasattr(event, 'usage') and event.usage:
                     usage['input_tokens'] += getattr(event.usage, 'input_tokens', 0)
                     usage['output_tokens'] += getattr(event.usage, 'output_tokens', 0)
+
+                if self.is_stopped():
+                    break
 
         response_panel = lm.response_panel
         full_response = lm.full_response        

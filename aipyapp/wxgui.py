@@ -125,7 +125,7 @@ class ChatFrame(wx.Frame):
 
         html_file_path = os.path.abspath(resources.files(__PACKAGE_NAME__) / "chatroom.html")
         self.webview = wx.html2.WebView.New(panel)
-        self.webview.LoadURL(f"file://{html_file_path}")
+        self.webview.SetPage(open(html_file_path, 'r', encoding='utf-8').read(), baseUrl=f'file://{self.tm.workdir}')
         self.webview.SetWindowStyleFlag(wx.BORDER_NONE)
         vbox.Add(self.webview, proportion=1, flag=wx.EXPAND | wx.ALL, border=12)
 
@@ -144,6 +144,13 @@ class ChatFrame(wx.Frame):
         toolbar = self.CreateToolBar(style=wx.TB_HORIZONTAL | wx.TB_TEXT | wx.BORDER_NONE)
         toolbar.SetBackgroundColour(wx.Colour(240, 240, 240))
         
+        """
+        self.stop_btn = wx.Button(toolbar, label="停止任务")
+        self.stop_btn.SetBackgroundColour(wx.Colour(255, 100, 100))
+        self.stop_btn.SetForegroundColour(wx.Colour(255, 255, 255))
+        toolbar.AddControl(self.stop_btn)
+        self.stop_btn.Bind(wx.EVT_BUTTON, self.on_stop_task)
+        """
         toolbar.AddStretchableSpace()
         
         label = wx.StaticText(toolbar, label="LLM:")
@@ -289,6 +296,10 @@ class ChatFrame(wx.Frame):
 
     def refresh_chat(self):
         wx.CallLater(100, lambda: self.browser.RunScript("window.scrollTo(0, document.body.scrollHeight);"))
+
+    def on_stop_task(self, event):
+        self.tm.done()
+        self.SetStatusText("任务已停止", 0)
 
 def main(args):
     path = args.config if args.config else 'aipy.toml'
