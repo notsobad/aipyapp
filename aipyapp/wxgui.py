@@ -75,8 +75,11 @@ class AIPython(threading.Thread):
 
 class ChatFrame(wx.Frame):
     def __init__(self, tm):
-        super().__init__(None, title=f"Python-use: AIPy (v{__version__})", size=(800, 600))
-
+        super().__init__(None, title=f"Python-use: AIPy (v{__version__})", size=(1024, 768))
+        
+        # 设置窗口背景色
+        self.SetBackgroundColour(wx.Colour(245, 245, 245))
+        
         self.tm = tm
         self.task_queue = queue.Queue()
         self.aipython = AIPython(self)
@@ -102,24 +105,32 @@ class ChatFrame(wx.Frame):
         html_file_path = os.path.abspath(resources.files(__PACKAGE_NAME__) / "chatroom.html")
         self.webview = wx.html2.WebView.New(panel)
         self.webview.LoadURL(f"file://{html_file_path}")
-        vbox.Add(self.webview, proportion=1, flag=wx.EXPAND | wx.ALL, border=10)
+        self.webview.SetWindowStyleFlag(wx.BORDER_NONE)
+        vbox.Add(self.webview, proportion=1, flag=wx.EXPAND | wx.ALL, border=12)
 
         self.input = wx.TextCtrl(panel, style=wx.TE_MULTILINE)
-        self.input.SetBackgroundColour(wx.Colour(255, 255, 255)) 
-        self.input.SetForegroundColour(wx.Colour(0, 0, 0))      
-        self.input.Bind(wx.EVT_KEY_DOWN, self.on_key_down)  
-        vbox.Add(self.input, proportion=0, flag=wx.EXPAND | wx.LEFT | wx.RIGHT, border=10)
+        self.input.SetBackgroundColour(wx.Colour(255, 255, 255))
+        self.input.SetForegroundColour(wx.Colour(33, 33, 33))
+        self.input.SetMinSize((-1, 60))
+        self.input.SetWindowStyleFlag(wx.BORDER_SIMPLE)
+        self.input.Bind(wx.EVT_KEY_DOWN, self.on_key_down)
+        vbox.Add(self.input, proportion=0, flag=wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, border=12)
 
         panel.SetSizer(vbox)
         self.panel = panel
 
     def make_tool_bar(self):
-        toolbar = self.CreateToolBar(style=wx.TB_HORIZONTAL | wx.TB_TEXT)
+        toolbar = self.CreateToolBar(style=wx.TB_HORIZONTAL | wx.TB_TEXT | wx.BORDER_NONE)
+        toolbar.SetBackgroundColour(wx.Colour(240, 240, 240))
         
         toolbar.AddStretchableSpace()
-        toolbar.AddControl(wx.StaticText(toolbar, label="LLM:"))
+        
+        label = wx.StaticText(toolbar, label="LLM:")
+        toolbar.AddControl(label)
         
         self.choice = wx.Choice(toolbar, choices=self.enabled_llm)
+        self.choice.SetBackgroundColour(wx.Colour(255, 255, 255))
+        self.choice.SetForegroundColour(wx.Colour(33, 33, 33))
         self.choice.SetStringSelection(self.current_llm)
         toolbar.AddControl(self.choice)
         
@@ -129,7 +140,8 @@ class ChatFrame(wx.Frame):
 
     def make_menu_bar(self):
         menu_bar = wx.MenuBar()
-
+        menu_bar.SetBackgroundColour(wx.Colour(240, 240, 240))
+        
         file_menu = wx.Menu()
         file_menu.Append(wx.ID_SAVE, "保存聊天记录为 HTML(&S)\tCtrl+S", "保存当前聊天记录为 HTML 文件")
         file_menu.AppendSeparator()

@@ -55,7 +55,8 @@ class LiveManager:
         self.full_response = None
 
     def __enter__(self):
-        self.live = Live(auto_refresh=False, vertical_overflow='visible', transient=True)
+        console = self.console if self.console.quiet else None
+        self.live = Live(console=console, auto_refresh=False, vertical_overflow='visible', transient=True)
         self.live.__enter__()
         status = self.console.status(f"[dim white]{self.name} {T('thinking')}...", spinner='runner')
         response_panel = Panel(status, title=self.title, border_style="blue")
