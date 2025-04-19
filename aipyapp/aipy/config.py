@@ -18,7 +18,8 @@ import tomli_w
 
 
 from .i18n import T
-from .. import __PACKAGE_NAME__
+
+__PACKAGE_NAME__ = "aipyapp"
 
 OLD_SETTINGS_FILES = [
     Path.home() / '.aipy.toml',
