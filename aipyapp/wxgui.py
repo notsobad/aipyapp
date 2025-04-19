@@ -6,6 +6,8 @@ import sys
 import time
 import json
 import queue
+import base64
+import mimetypes
 import traceback
 import threading
 import importlib.resources as resources
@@ -29,6 +31,20 @@ AVATARS = {'我': '🧑', 'BB-8': '🤖', '图灵': '🧠', '爱派': '🐙'}
 
 matplotlib.use('Agg')
 
+def image_to_base64(file_path):
+    mime_type, _ = mimetypes.guess_type(file_path)
+    if mime_type is None:
+        return None
+
+    try:
+        with open(file_path, "rb") as image_file:
+            encoded_string = base64.b64encode(image_file.read()).decode("utf-8")
+    except Exception as e:
+        return None
+
+    data_url = f"data:{mime_type};base64,{encoded_string}"
+    return data_url
+
 class AIPython(threading.Thread):
     def __init__(self, gui):
         super().__init__(daemon=True)
@@ -45,10 +61,16 @@ class AIPython(threading.Thread):
         evt = ChatEvent(user=user, msg=content)
         wx.PostEvent(self.gui, evt)
 
-    def on_display(self, path):
+    def on_display(self, image):
         user = '图灵'
-        content = f'![图片]({path})'
-        evt = ChatEvent(user=user, msg=content)
+        if image['path']:
+            base64_data = image_to_base64(image['path'])
+            content = base64_data if base64_data else image['path']
+        else:
+            content = image['url']
+
+        msg = f'![图片]({content})'
+        evt = ChatEvent(user=user, msg=msg)
         wx.PostEvent(self.gui, evt)
 
     def on_response_complete(self, msg):
@@ -94,26 +116,63 @@ class AIPython(threading.Thread):
                     traceback.print_exc()
             wx.CallAfter(self.gui.toggle_input)
 
+class CStatusBar(wx.StatusBar):
+    def __init__(self, parent):
+        super().__init__(parent, style=wx.STB_DEFAULT_STYLE)
+        self.parent = parent
+        self.SetFieldsCount(2)
+        self.SetStatusWidths([-1, 100])
+        
+
+        self.tm = parent.tm
+        self.current_llm = self.tm.llm.names['default']
+        self.enabled_llm = list(self.tm.llm.names['enabled'])
+        self.menu_items = self.enabled_llm
+        self.radio_group = []
+
+        self.SetStatusText(f"{self.current_llm} ▾", 1)
+        self.Bind(wx.EVT_LEFT_DOWN, self.on_click)
+
+    def on_click(self, event):
+        rect = self.GetFieldRect(1)
+        if rect.Contains(event.GetPosition()):
+            self.show_menu()
+
+    def show_menu(self):
+        self.current_menu = wx.Menu()
+        self.radio_group = []
+        for label in self.menu_items:
+            item = wx.MenuItem(self.current_menu, wx.ID_ANY, label, kind=wx.ITEM_RADIO)
+            self.current_menu.Append(item)
+            self.radio_group.append(item)
+            self.Bind(wx.EVT_MENU, self.on_menu_select, item)
+
+        rect = self.GetFieldRect(1)
+        pos = self.ClientToScreen(rect.GetBottomLeft())
+        self.PopupMenu(self.current_menu, self.ScreenToClient(pos))
+
+    def on_menu_select(self, event):
+        item = self.current_menu.FindItemById(event.GetId())
+        label = item.GetItemLabel()
+        if self.tm.use(label):
+            self.current_llm = label
+            self.SetStatusText(f"{label} ▾", 1)
+        else:
+            wx.MessageBox(f"LLM {label} 不可用", "警告", wx.OK|wx.ICON_WARNING)
+
 class ChatFrame(wx.Frame):
     def __init__(self, tm):
         super().__init__(None, title=f"Python-use: AIPy (v{__version__})", size=(1024, 768))
         
-        # 设置窗口背景色
-        self.SetBackgroundColour(wx.Colour(245, 245, 245))
-        
         self.tm = tm
         self.task_queue = queue.Queue()
         self.aipython = AIPython(self)
-        self.current_llm = tm.llm.names['default']
-        self.enabled_llm = list(tm.llm.names['enabled'])
 
+        self.SetBackgroundColour(wx.Colour(245, 245, 245))
         self.make_menu_bar()
-        self.make_tool_bar()
         self.make_panel()
-        self.CreateStatusBar(2)
-        self.SetStatusWidths([-1, 50])
-        self.GetStatusBar().SetStatusStyles([wx.SB_NORMAL, wx.SB_RAISED])
-        self.update_status_llm()
+        self.statusbar = CStatusBar(self)
+        self.SetStatusBar(self.statusbar)
 
         self.Bind(EVT_CHAT, self.on_chat)
         self.aipython.start()
@@ -125,7 +184,8 @@ class ChatFrame(wx.Frame):
 
         html_file_path = os.path.abspath(resources.files(__PACKAGE_NAME__) / "chatroom.html")
         self.webview = wx.html2.WebView.New(panel)
-        self.webview.SetPage(open(html_file_path, 'r', encoding='utf-8').read(), baseUrl=f'file://{self.tm.workdir}')
+        print(f'file://{self.tm.workdir}', os.getcwd())
+        self.webview.SetPage(open(html_file_path, 'r', encoding='utf-8').read(), f'file://{self.tm.workdir}')
         self.webview.SetWindowStyleFlag(wx.BORDER_NONE)
         vbox.Add(self.webview, proportion=1, flag=wx.EXPAND | wx.ALL, border=12)
 
@@ -139,32 +199,6 @@ class ChatFrame(wx.Frame):
 
         panel.SetSizer(vbox)
         self.panel = panel
-
-    def make_tool_bar(self):
-        toolbar = self.CreateToolBar(style=wx.TB_HORIZONTAL | wx.TB_TEXT | wx.BORDER_NONE)
-        toolbar.SetBackgroundColour(wx.Colour(240, 240, 240))
-        
-        """
-        self.stop_btn = wx.Button(toolbar, label="停止任务")
-        self.stop_btn.SetBackgroundColour(wx.Colour(255, 100, 100))
-        self.stop_btn.SetForegroundColour(wx.Colour(255, 255, 255))
-        toolbar.AddControl(self.stop_btn)
-        self.stop_btn.Bind(wx.EVT_BUTTON, self.on_stop_task)
-        """
-        toolbar.AddStretchableSpace()
-        
-        label = wx.StaticText(toolbar, label="LLM:")
-        toolbar.AddControl(label)
-        
-        self.choice = wx.Choice(toolbar, choices=self.enabled_llm)
-        self.choice.SetBackgroundColour(wx.Colour(255, 255, 255))
-        self.choice.SetForegroundColour(wx.Colour(33, 33, 33))
-        self.choice.SetStringSelection(self.current_llm)
-        toolbar.AddControl(self.choice)
-        
-        self.choice.Bind(wx.EVT_CHOICE, self.on_choice_selected)
-        
-        toolbar.Realize()
 
     def make_menu_bar(self):
         menu_bar = wx.MenuBar()
@@ -197,20 +231,6 @@ class ChatFrame(wx.Frame):
 
         self.SetMenuBar(menu_bar)
 
-    def on_choice_selected(self, event):
-        name = self.choice.GetStringSelection()
-        if not self.tm.use(name):
-            wx.MessageBox(f"LLM {name} 不可用", "警告", wx.OK|wx.ICON_WARNING)
-            self.choice.SetStringSelection(self.current_llm)
-        else:
-            self.current_llm = name
-        self.update_status_llm()
-        event.Skip()
-    
-    def update_status_llm(self):
-        selected = self.choice.GetStringSelection()
-        self.SetStatusText(selected, 1)
-
     def on_exit(self, event):
         self.task_queue.put('exit')
         self.aipython.join()
@@ -227,16 +247,11 @@ class ChatFrame(wx.Frame):
         wx.LaunchDefaultBrowser(url)
 
     def on_save_html(self, event):
-        js_code = "document.documentElement.outerHTML"
         try:
-            result = self.webview.RunScript(js_code)
-            if isinstance(result, tuple):
-                html_content = result[1]
-            else:
-                html_content = result
+            html_content = self.webview.GetPageSource()
             self.save_html_content(html_content)
         except Exception as e:
-            wx.MessageBox(f"Error executing JavaScript: {e}", "Error")
+            wx.MessageBox(f"save html error: {e}", "Error")
 
     def save_html_content(self, html_content):
         with FileDialog(self, "保存聊天记录为 HTML 文件", wildcard="HTML 文件 (*.html)|*.html",

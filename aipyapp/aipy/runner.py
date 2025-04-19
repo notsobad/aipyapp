@@ -134,7 +134,8 @@ class Runner(Runtime):
     @utils.restore_output
     def display(self, path=None, url=None):
         quiet = self._console.quiet
-        event_bus.broadcast('display', path or url)
+        image = {'path': path, 'url': url}
+        event_bus.broadcast('display', image)
         if not quiet:
             image = from_file(path) if path else from_url(url)
             image.draw()

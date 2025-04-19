@@ -93,31 +93,60 @@
         .hljs-comment { color: #6a737d; }
         .hljs-variable { color: #e36209; }
         
-        .code-wrapper {
-            margin: 10px 0;
+        img {
+            max-width: 100%;
+            height: auto;
+            display: block;
         }
         
-        .code-wrapper summary {
-            cursor: pointer;
-            padding: 5px 10px;
+        .code-wrapper {
+            margin: 12px 0;
+            border: 1px solid #d0d7de;
+            border-radius: 6px;
             background-color: #f6f8fa;
-            border-radius: 3px;
+            overflow: hidden;
+        }
+
+        .code-wrapper summary {
+            list-style: none;
+            cursor: pointer;
+            padding: 8px 16px;
+            background-color: #eaeef2;
+            font-weight: bold;
             display: flex;
             align-items: center;
             justify-content: space-between;
+            font-size: 14px;
+            border-bottom: 1px solid #d0d7de;
+            transition: background-color 0.2s ease;
         }
-        
-        .copy-button {
-            background-color: #0366d6;
-            color: white;
-            border: none;
-            padding: 3px 8px;
-            border-radius: 3px;
-            cursor: pointer;
+
+        .code-wrapper summary:hover {
+            background-color: #d8e0e7;
+        }
+
+        .code-wrapper summary::marker {
+            display: none;
+        }
+
+        .code-wrapper[open] summary::after {
+            content: "▲ 隐藏代码";
             font-size: 12px;
-            margin-left: 10px;
+            color: #57606a;
         }
-        
+
+        .code-wrapper summary::after {
+            content: "▼ 查看代码";
+            font-size: 12px;
+            color: #57606a;
+        }
+
+        .code-wrapper pre {
+            margin: 0;
+            border: none;
+            border-radius: 0;
+        }
+                
         .copy-button:hover {
             background-color: #035fc7;
         }
