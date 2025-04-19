@@ -270,8 +270,9 @@ def main(args):
     lang = settings.get('lang')
     if lang: set_lang(lang)
 
+    console = Console(quiet=True, record=True)
     try:
-        tm = TaskManager(settings, console=Console())
+        tm = TaskManager(settings, console=console)
     except Exception as e:
         traceback.print_exc()
         return
