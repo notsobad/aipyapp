@@ -178,8 +178,12 @@ class Task:
         prompt['python_version'] = platform.python_version()
         prompt['platform'] = platform.platform()
         prompt['today'] = date.today().isoformat()
-        prompt['TERM'] = os.environ.get('TERM')
-        prompt['LC_TERMINAL'] = os.environ.get('LC_TERMINAL')
+        if self.console.quiet:
+            prompt['matplotlib'] = "我现在用的是 matplotlib 的 Agg 后端，请默认用 plt.savefig() 保存图片后用 runtime.display() 显示，禁止使用 plt.show()"
+            prompt['wxPython'] = "你回复的Markdown 消息中，可以用 ![图片](图片路径) 的格式引用之前创建的图片，会显示在 wx.html2 的 WebView 中"
+        else:
+            prompt['TERM'] = os.environ.get('TERM')
+            prompt['LC_TERMINAL'] = os.environ.get('LC_TERMINAL')
         return prompt
 
     def run(self, instruction=None, *, llm=None, max_rounds=None):

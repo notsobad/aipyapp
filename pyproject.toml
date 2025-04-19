@@ -16,11 +16,14 @@ dependencies = [
     "requests>=2.32.3",
     "rich>=13.9.4",
     "seaborn>=0.13.2",
-    "term-image>=0.7.2",
+    "term-image>=0.7.2"
 ]
 
 [project.scripts]
 aipy = "aipyapp.__main__:main"
+
+[project.gui-scripts]
+aipyw = "aipyapp.__main__:mainw"
 
 [build-system]
 requires = ["hatchling"]

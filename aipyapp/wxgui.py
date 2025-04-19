@@ -2,6 +2,8 @@
 #coding: utf-8
 
 import os
+import sys
+import time
 import json
 import queue
 import traceback
@@ -10,9 +12,11 @@ import importlib.resources as resources
 
 import wx
 import wx.html2
+import matplotlib
+import matplotlib.pyplot as plt
+from rich.console import Console
 from wx.lib.newevent import NewEvent
 from wx import FileDialog, FD_SAVE, FD_OVERWRITE_PROMPT
-from rich.console import Console
 
 from . import __version__
 from .aipy.config import ConfigManager
@@ -20,16 +24,32 @@ from .aipy import TaskManager, event_bus
 from .aipy.i18n import T,set_lang
 
 __PACKAGE_NAME__ = "aipyapp"
-
 ChatEvent, EVT_CHAT = NewEvent()
-
 AVATARS = {'我': '🧑', 'BB-8': '🤖', '图灵': '🧠', '爱派': '🐙'}
+
+matplotlib.use('Agg')
 
 class AIPython(threading.Thread):
     def __init__(self, gui):
         super().__init__(daemon=True)
         self.gui = gui
         self.tm = gui.tm
+        plt.show = self.on_plt_show
+        sys.modules["matplotlib.pyplot"] = plt
+
+    def on_plt_show(self, *args, **kwargs):
+        filename = f'{time.strftime("%Y%m%d_%H%M%S")}.png'
+        plt.savefig(filename)
+        user = 'BB-8'
+        content = f'![{filename}]({filename})'
+        evt = ChatEvent(user=user, msg=content)
+        wx.PostEvent(self.gui, evt)
+
+    def on_display(self, path):
+        user = '图灵'
+        content = f'![图片]({path})'
+        evt = ChatEvent(user=user, msg=content)
+        wx.PostEvent(self.gui, evt)
 
     def on_response_complete(self, msg):
         user = '图灵' #msg['llm']
@@ -60,6 +80,7 @@ class AIPython(threading.Thread):
         event_bus.register("exec", self.on_exec)
         event_bus.register("result", self.on_result)
         event_bus.register("summary", self.on_summary)
+        event_bus.register("display", self.on_display)
         while True:
             instruction = self.gui.get_task()
             if instruction in ('/done', 'done'):

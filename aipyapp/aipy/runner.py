@@ -11,6 +11,7 @@ from term_image.image import from_file, from_url
 
 from . import utils
 from .i18n import T
+from .plugin import event_bus
 from .interface import Runtime
 
 INIT_IMPORTS = """
@@ -132,11 +133,10 @@ class Runner(Runtime):
     
     @utils.restore_output
     def display(self, path=None, url=None):
-        if path:
-            image = from_file(path)
-            image.draw()
-        elif url:
-            image = from_url(url)
+        quiet = self._console.quiet
+        event_bus.broadcast('display', path or url)
+        if not quiet:
+            image = from_file(path) if path else from_url(url)
             image.draw()
 
     @utils.restore_output
