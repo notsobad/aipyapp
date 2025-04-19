@@ -1,20 +1,16 @@
 #!/usr/bin/env python
 #coding: utf-8
 
+import os
 import json
 import queue
 import traceback
 import threading
-from pathlib import Path
 import importlib.resources as resources
 
 import wx
 import wx.html2
 from wx.lib.newevent import NewEvent
-from markdown_it import MarkdownIt
-from pygments import highlight
-from pygments.formatters import HtmlFormatter
-from pygments.lexers import get_lexer_by_name, TextLexer
 from wx import FileDialog, FD_SAVE, FD_OVERWRITE_PROMPT
 from rich.console import Console
 
@@ -27,35 +23,7 @@ __PACKAGE_NAME__ = "aipyapp"
 
 ChatEvent, EVT_CHAT = NewEvent()
 
-AVATARS = {'我': '🧑', 'Python': '🤖', 'llm': '🧠', '爱派': '🐙'}
-
-CHAT_CSS = """
-body {
-    font-family: sans-serif;
-    font-size: 14px;
-}
-.message {
-    display: flex;
-    align-items: flex-start;
-    margin: 10px 0;
-}
-.message .emoji {
-    font-size: 24px;
-    margin-right: 10px;
-    line-height: 1;
-}
-.message div {
-    word-wrap: break-word; /* 自动折行 */
-    white-space: normal;   /* 保证文本折行并且不增加多余空白行 */
-}
-.message pre {
-    background: #f0f0f0;
-    padding: 6px;
-    border-radius: 6px;
-    word-wrap: break-word;  /* 自动折行 */
-    white-space: pre-wrap;  /* 保留换行符并自动折行 */
-}
-"""
+AVATARS = {'我': '🧑', 'BB-8': '🤖', '图灵': '🧠', '爱派': '🐙'}
 
 class AIPython(threading.Thread):
     def __init__(self, gui):
@@ -64,7 +32,7 @@ class AIPython(threading.Thread):
         self.tm = gui.tm
 
     def on_response_complete(self, msg):
-        user = msg['llm']
+        user = '图灵' #msg['llm']
         #content = f"```markdown\n{msg['content']}\n```"
         evt = ChatEvent(user=user, msg=msg['content'])
         wx.PostEvent(self.gui, evt)
@@ -75,13 +43,13 @@ class AIPython(threading.Thread):
         wx.PostEvent(self.gui, evt)
 
     def on_exec(self, blocks):
-        user = 'Python'
+        user = 'BB-8'
         content = f"```python\n{blocks['main']}\n```"
         evt = ChatEvent(user=user, msg=content)
         wx.PostEvent(self.gui, evt)
 
     def on_result(self, result):
-        user = 'Python'
+        user = 'BB-8'
         content = json.dumps(result, indent=4, ensure_ascii=False)
         content = f'运行结果如下\n```json\n{content}\n```'
         evt = ChatEvent(user=user, msg=content)
@@ -111,13 +79,9 @@ class ChatFrame(wx.Frame):
 
         self.tm = tm
         self.task_queue = queue.Queue()
-        self.messages_md = []
-        self.rendered_messages = []
         self.aipython = AIPython(self)
         self.current_llm = tm.llm.names['default']
         self.enabled_llm = list(tm.llm.names['enabled'])
-        self.last_user = None
-        self.last_msg = None
 
         self.make_menu_bar()
         self.make_tool_bar()
@@ -135,14 +99,16 @@ class ChatFrame(wx.Frame):
         panel = wx.Panel(self)
         vbox = wx.BoxSizer(wx.VERTICAL)
 
-        self.browser = wx.html2.WebView.New(panel)
-        vbox.Add(self.browser, 1, wx.EXPAND | wx.ALL, 5)
+        html_file_path = os.path.abspath(resources.files(__PACKAGE_NAME__) / "chatroom.html")
+        self.webview = wx.html2.WebView.New(panel)
+        self.webview.LoadURL(f"file://{html_file_path}")
+        vbox.Add(self.webview, proportion=1, flag=wx.EXPAND | wx.ALL, border=10)
 
         self.input = wx.TextCtrl(panel, style=wx.TE_MULTILINE)
         self.input.SetBackgroundColour(wx.Colour(255, 255, 255)) 
         self.input.SetForegroundColour(wx.Colour(0, 0, 0))      
         self.input.Bind(wx.EVT_KEY_DOWN, self.on_key_down)  
-        vbox.Add(self.input, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 5)
+        vbox.Add(self.input, proportion=0, flag=wx.EXPAND | wx.LEFT | wx.RIGHT, border=10)
 
         panel.SetSizer(vbox)
         self.panel = panel
@@ -165,12 +131,10 @@ class ChatFrame(wx.Frame):
         menu_bar = wx.MenuBar()
 
         file_menu = wx.Menu()
-        file_menu.Append(wx.ID_SAVE, "保存聊天记录为 Markdown(&S)\tCtrl+S", "保存当前聊天记录为 Markdown 文件")
-        menu_item = file_menu.Append(wx.ID_ANY, "保存聊天记录为 HTML(&H)", "保存当前聊天记录为 HTML 文件")
-        self.Bind(wx.EVT_MENU, self.on_save_html, menu_item)
+        file_menu.Append(wx.ID_SAVE, "保存聊天记录为 HTML(&S)\tCtrl+S", "保存当前聊天记录为 HTML 文件")
         file_menu.AppendSeparator()
         file_menu.Append(wx.ID_EXIT, "退出(&Q)\tCtrl+Q", "退出程序")
-        self.Bind(wx.EVT_MENU, self.on_save_markdown, id=wx.ID_SAVE)
+        self.Bind(wx.EVT_MENU, self.on_save_html, id=wx.ID_SAVE)
         self.Bind(wx.EVT_MENU, self.on_exit, id=wx.ID_EXIT)
 
         edit_menu = wx.Menu()
@@ -213,9 +177,7 @@ class ChatFrame(wx.Frame):
         self.Close()
 
     def on_clear_chat(self, event):
-        self.messages_md.clear()
-        self.rendered_messages.clear()
-        self.refresh_chat()
+        pass
 
     def on_open_website(self, event):
         if event.GetId() == self.ID_WEBSITE:
@@ -223,21 +185,20 @@ class ChatFrame(wx.Frame):
         elif event.GetId() == self.ID_FORUM:
             url = "https://d.aipy.app"
         wx.LaunchDefaultBrowser(url)
-            
-    def on_save_markdown(self, event):
-        with FileDialog(self, "保存聊天记录为 Markdown 文件", wildcard="Markdown 文件 (*.md)|*.md",
-                        style=FD_SAVE | FD_OVERWRITE_PROMPT) as dialog:
-            if dialog.ShowModal() == wx.ID_CANCEL:
-                return
-
-            path = dialog.GetPath()
-            try:
-                with open(path, 'w', encoding='utf-8') as file:
-                    file.write("\n\n---\n\n".join(self.messages_md))
-            except IOError:
-                wx.LogError(f"无法保存文件：{path}")
 
     def on_save_html(self, event):
+        js_code = "document.documentElement.outerHTML"
+        try:
+            result = self.webview.RunScript(js_code)
+            if isinstance(result, tuple):
+                html_content = result[1]
+            else:
+                html_content = result
+            self.save_html_content(html_content)
+        except Exception as e:
+            wx.MessageBox(f"Error executing JavaScript: {e}", "Error")
+
+    def save_html_content(self, html_content):
         with FileDialog(self, "保存聊天记录为 HTML 文件", wildcard="HTML 文件 (*.html)|*.html",
                         style=FD_SAVE | FD_OVERWRITE_PROMPT) as dialog:
             if dialog.ShowModal() == wx.ID_CANCEL:
@@ -246,29 +207,9 @@ class ChatFrame(wx.Frame):
             path = dialog.GetPath()
             try:
                 with open(path, 'w', encoding='utf-8') as file:
-                    html_content = self.generate_chat_html()
                     file.write(html_content)
             except IOError:
                 wx.LogError(f"无法保存文件：{path}")
-
-    def generate_chat_html(self):
-        content_html = "<hr>".join(self.rendered_messages)
-        style = HtmlFormatter().get_style_defs('.highlight')
-
-        full_html = f"""
-        <html>
-        <head>
-        <meta charset="utf-8">
-        <style>{style}</style>
-        <style>{CHAT_CSS}</style>
-        </head>
-        <body>
-        {content_html}
-        </body>
-        </html>
-        """
-
-        return full_html
 
     def on_key_down(self, event):
         keycode = event.GetKeyCode()
@@ -298,7 +239,6 @@ class ChatFrame(wx.Frame):
         text = self.input.GetValue().strip()
         if not text:
             return
-
         self.append_message('我', text)
         self.input.Clear()
         self.toggle_input()
@@ -310,71 +250,12 @@ class ChatFrame(wx.Frame):
         self.append_message(user, text)
 
     def append_message(self, user, text):
-        avatar = AVATARS.get(user)
-        in_stream = False
-        if not avatar:
-            avatar = AVATARS['llm']
-            if self.last_user and user == self.last_user:
-                self.last_msg = self.last_msg + text
-                text = self.last_msg
-                in_stream = True
-            else:
-                self.last_user = user
-                self.last_msg = text
-        else:
-            self.last_user = None
-            self.last_msg = None
-
-        msg = f"{user}\n{text}"
-        html_body = self.convert_markdown_to_html(text)
-        html = f'''
-            <div class="message">
-                <div class="emoji">{avatar}</div>
-                <div><b>{user}：</b><br>{html_body}</div>
-            </div>
-        '''
-        if in_stream:
-            self.rendered_messages[-1] = html
-            self.messages_md[-1] = msg
-        else:
-            self.rendered_messages.append(html)
-            self.messages_md.append(msg)
-        self.refresh_chat()
+        avatar = AVATARS[user]
+        js_code = f'appendMessage("{avatar}", "{user}", {repr(text)});'
+        self.webview.RunScript(js_code)
 
     def refresh_chat(self):
-        content_html = "<hr>".join(self.rendered_messages)
-        style = HtmlFormatter().get_style_defs('.highlight')
-
-        full_html = f"""
-        <html>
-        <head>
-        <meta charset=\"utf-8\">
-        <style>{style}</style>
-        <style>{CHAT_CSS}</style>
-        </head>
-        <body>
-        {content_html}
-        </body>
-        </html>
-        """
-
-        self.browser.SetPage(full_html, "")
         wx.CallLater(100, lambda: self.browser.RunScript("window.scrollTo(0, document.body.scrollHeight);"))
-
-    def convert_markdown_to_html(self, md_text):
-        def pygments_highlight(code, lang, attrs=None):
-            try:
-                lexer = get_lexer_by_name(lang)
-            except Exception:
-                lexer = TextLexer()
-            formatter = HtmlFormatter(nowrap=True)
-            return f'<pre class="highlight"><code>{highlight(code, lexer, formatter)}</code></pre>'
-
-        md = MarkdownIt("commonmark", {
-            "highlight": pygments_highlight
-        })
-        return md.render(md_text)
-
 
 def main(args):
     path = args.config if args.config else 'aipy.toml'
