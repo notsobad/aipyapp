@@ -301,28 +301,33 @@ class ConfigManager:
             # 跳过非字典类型的配置
             if not isinstance(section_data, dict):
                 continue
-
             # 检查顶级配置
             if self._is_tt_config(section_name, section_data):
-                api_key = section_data.get('api_key', '')
+                api_key = section_data.get('api_key', section_data.get('api-key'))
                 if api_key:
                     tt_keys.append(api_key)
                 # 从原配置中删除
                 llm.pop(section_name)
 
-        #print("keys found:", tt_keys)
+
+        print("keys found:", tt_keys)
 
         if tt_keys:
             # 保存第一个找到的API key
             self.save_tt_config(tt_keys[0])
+            print(T('migrate_config').format(self.config_file))
 
-        #print(old_config.to_dict())
         # 将 old_config 转换为 dict
         config_dict = lowercase_keys(old_config.to_dict())
+        #print(config_dict)
+        if not config_dict.get('llm'):
+            config_dict.pop('llm', None)
+        if not config_dict:
+            return {}
         try:
             with open(self.user_config_file, "wb") as f:
                 tomli_w.dump(config_dict, f)
-                print(T('migrate_config').format(self.user_config_file))
+                print(T('migrate_user_config').format(self.user_config_file))
         except Exception as e:
             print(T('error_saving_config').format(self.user_config_file, str(e)))
         return
@@ -341,15 +346,15 @@ class ConfigManager:
         if any(keyword in name.lower() for keyword in ['trustoken', 'trust']):
             return True
 
+        base_url = config.get('base_url', config.get('base-url', '')).lower()
         # 条件2: base_url包含目标域名
-        if isinstance(config, dict) and 'base_url' in config:
-            base_url = config['base_url'].lower()
+        if isinstance(config, dict) and base_url:
             if 'trustoken.ai' in base_url:
                 return True
 
         # 条件3: 其他特定标记
         # type == trust, 且没有base_url.
-        if isinstance(config, dict) and config.get('type') == 'trust' and not config.get('base_url'):
+        if isinstance(config, dict) and config.get('type') == 'trust' and not base_url:
             return True
         
         return False
