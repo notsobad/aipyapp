@@ -93,51 +93,40 @@ def is_valid_api_key(api_key):
     pattern = r"^[A-Za-z0-9_-]{8,128}$"
     return bool(re.match(pattern, api_key))
 
-
 def request_binding():
     """向 Coordinator 请求绑定"""
     url = f"{COORDINATOR_URL}/request_bind"
     try:
-        # Use requests.post
         response = requests.post(url, timeout=10)
-        response.raise_for_status() # Raise an exception for bad status codes (4xx or 5xx)
+        response.raise_for_status()
 
         data = response.json()
         approval_url = data['approval_url']
         request_id = data['request_id']
         expires_in = data['expires_in']
 
-        print(f"Binding request sent successfully.\n"
-              f"Request ID: {request_id}\n\n"
-              f">>> Please open this URL in your browser on an authenticated device to approve:\n"
-              f">>> {approval_url}\n\n"
-              f"(This link expires in {expires_in} seconds)\n"
-              f"Or scan the QR code below:")
+        print(T('binding_request_sent').format(request_id, approval_url, expires_in))
+        print(T('scan_qr_code'))
 
-        # Generate and print QR code
         try:
-            # Reduce border size for potentially smaller output
             qr = qrcode.QRCode(
-            error_correction=qrcode.constants.ERROR_CORRECT_L,
-            border=1 # Reduce border from default 4
+                error_correction=qrcode.constants.ERROR_CORRECT_L,
+                border=1
             )
             qr.add_data(approval_url)
             qr.make(fit=True)
-            # Print QR code to the terminal using ASCII characters for potentially smaller output
-            # Use tty=True for better rendering in some terminals, invert=True might be needed depending on terminal theme
             qr.print_ascii(tty=True)
-            print("\n") # Add a newline for better spacing
+            print("\n")
         except Exception as e:
-            # Fallback or error message if QR code generation fails
-            print(f"(Could not display QR code: {e})\n")
+            print(T('qr_code_display_failed').format(e))
 
         return data['request_id']
 
     except requests.exceptions.RequestException as e:
-        print(f"Error connecting to coordinator or during request: {e}")
+        print(T('coordinator_request_error').format(e))
         return None
     except Exception as e:
-        print(f"An unexpected error occurred during request: {e}")
+        print(T('unexpected_request_error').format(e))
         return None
 
 def poll_status(request_id, save_func=None):
@@ -145,60 +134,60 @@ def poll_status(request_id, save_func=None):
     url = f"{COORDINATOR_URL}/check_status"
     params = {'request_id': request_id}
     start_time = time.time()
-    # 设置一个总的轮询超时，例如比请求超时稍长一点
     polling_timeout = 310
 
-    print("Waiting for approval...")
-    while time.time() - start_time < polling_timeout:
-        try:
-            # Use requests.get
-            response = requests.get(url, params=params, timeout=10)
-            response.raise_for_status() # Raise an exception for bad status codes
+    print(T('waiting_for_approval'))
+    try:
+        while time.time() - start_time < polling_timeout:
+            try:
+                response = requests.get(url, params=params, timeout=10)
+                response.raise_for_status()
 
-            data = response.json()
-            status = data.get('status')
-            print(f"Current status: {status}...")
+                data = response.json()
+                status = data.get('status')
+                print(T('current_status').format(status))
 
-            if status == 'approved':
-                if save_func:
-                    save_func(data['secret_token'])
-                return True
-            elif status == 'expired':
-                print("\nBinding request expired.")
+                if status == 'approved':
+                    if save_func:
+                        save_func(data['secret_token'])
+                    return True
+                elif status == 'expired':
+                    print(T('binding_expired'))
+                    return False
+                elif status == 'pending':
+                    pass
+                else:
+                    print(T('unknown_status').format(status))
+                    return False
+
+            except requests.exceptions.RequestException as e:
+                print(T('coordinator_polling_error').format(e))
+                time.sleep(POLL_INTERVAL)
+            except Exception as e:
+                print(T('unexpected_polling_error').format(e))
                 return False
-            elif status == 'pending':
-                # 继续轮询
-                pass
-            else:
-                print(f"\nUnknown status received: {status}")
-                return False
 
-        except requests.exceptions.RequestException as e:
-            print(f"Error connecting to coordinator during polling: {e}")
-            # 等待后重试
             time.sleep(POLL_INTERVAL)
-        except Exception as e:
-            print(f"An unexpected error occurred during polling: {e}")
-            return False # 出现意外错误则停止
+    except KeyboardInterrupt:
+        print(T('polling_cancelled'))
+        return False
 
-        time.sleep(POLL_INTERVAL)
-
-    print("\nPolling timed out.")
+    print(T('polling_timeout'))
     return False
 
 def fetch_token(save_func):
     """从 Coordinator 获取 Token 并保存"""
-    print("Starting device binding process...")
+    print(T('start_binding_process'))
     req_id = request_binding()
     if req_id:
         if poll_status(req_id, save_func):
-            print("\nBinding process completed successfully.")
+            print(T('binding_success'))
         else:
-            print("\nBinding process failed or was not completed.")
-            sys.exit(1) # Indicate failure
+            print(T('binding_failed'))
+            sys.exit(1)
     else:
-        print("\nFailed to initiate binding request.")
-        sys.exit(1) # Indicate failure
+        print(T('binding_request_failed'))
+        sys.exit(1)
 
 class ConfigManager:
     def __init__(self, default_config="default.toml",  config_dir=None):
