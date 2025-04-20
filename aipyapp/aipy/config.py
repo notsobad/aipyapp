@@ -211,8 +211,9 @@ class ConfigManager:
 
     def _load_config(self):
         config = Dynaconf(
-            settings_files=[self.default_config, self.config_file, self.user_config_file],
+            settings_files=[self.default_config, self.user_config_file, self.config_file],
             envvar_prefix="AIPY",
+            merge_enabled=True,
         )
         #print(config.to_dict())
         return config
@@ -268,6 +269,12 @@ class ConfigManager:
         if not self.config:
             print(T('config_not_loaded'))
             return
+        llm = self.config.get('llm', {})
+        
+        if len(llm.keys()) > 1:
+            # have more than one llm config, other than the default trustoken.
+            return
+        
         tt = self.config.get('llm', {}).get('trustoken', {})
         if tt and tt.get('api_key') and tt.get('type') == 'trust':
             # valid tt config
@@ -325,8 +332,9 @@ class ConfigManager:
         if not config_dict:
             return {}
         try:
-            with open(self.user_config_file, "wb") as f:
-                tomli_w.dump(config_dict, f)
+            with open(self.user_config_file, "w", encoding="utf-8") as f:
+                toml_text = tomli_w.dumps(config_dict)
+                f.write(toml_text)
                 print(T('migrate_user_config').format(self.user_config_file))
         except Exception as e:
             print(T('error_saving_config').format(self.user_config_file, str(e)))
