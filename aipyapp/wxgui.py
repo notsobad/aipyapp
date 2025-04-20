@@ -317,9 +317,8 @@ class ChatFrame(wx.Frame):
         self.SetStatusText("任务已停止", 0)
 
 def main(args):
-    path = args.config if args.config else 'aipy.toml'
     default_config_path = resources.files(__PACKAGE_NAME__) / "default.toml"
-    conf = ConfigManager(default_config_path, path)
+    conf = ConfigManager(default_config_path, args.config_dir)
     conf.check_config()
     settings = conf.get_config()
 

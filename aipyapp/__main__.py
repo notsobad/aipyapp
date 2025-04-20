@@ -4,12 +4,17 @@
 import argparse
 from pathlib import Path
 
-from .aipy.config import SETTINGS_FILES
+from .aipy.config import CONFIG_DIR
+
+config_help_message = (
+    f"Specify the configuration directory.\nDefaults to {CONFIG_DIR} if not provided."
+)
 
 def mainw():
     def parse_args():
         parser = argparse.ArgumentParser(description="Python use - AIPython")
-        parser.add_argument("-c", '--config', type=str, default="aipy.toml")
+        parser.add_argument("-c", '--config-dir', type=str,
+                            help=config_help_message) # Use the generated help message
         parser.add_argument('cmd', nargs='?', default=None, help="Task to execute, e.g. 'Who are you?'")
         return parser.parse_args()
 
@@ -28,14 +33,11 @@ def mainw():
     aipy_main(args)
 
 def main():
-    settings_files_help = "\n".join(map(str, SETTINGS_FILES))
-    config_help_message = (
-        f"Toml config file. If not provided, searches in:\n{settings_files_help}"
-    )
 
     def parse_args():
         parser = argparse.ArgumentParser(description="Python use - AIPython", formatter_class=argparse.RawTextHelpFormatter)
-        parser.add_argument("-c", '--config', type=str, default="aipy.toml", help=config_help_message)
+        parser.add_argument("-c", '--config-dir', type=str,
+                            help=config_help_message) # Use the generated help message
         parser.add_argument('-p', '--python', default=False, action='store_true', help="Python mode")
         parser.add_argument('cmd', nargs='?', default=None, help="Task to execute, e.g. 'Who are you?'")
         return parser.parse_args()
