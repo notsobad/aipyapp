@@ -82,6 +82,11 @@ def get_config_file_path(config_dir=None, file_name=CONFIG_FILE_NAME):
 
     return config_file_path
 
+def lowercase_keys(d):
+    """递归地将字典中的所有键转换为小写"""
+    if not isinstance(d, dict):
+        return d
+    return {k.lower(): lowercase_keys(v) for k, v in d.items()}
 
 def is_valid_api_key(api_key):
     """
@@ -206,7 +211,7 @@ class ConfigManager:
 
     def _load_config(self):
         config = Dynaconf(
-            settings_files=[self.default_config, self.config_file],
+            settings_files=[self.default_config, self.config_file, self.user_config_file],
             envvar_prefix="AIPY",
         )
         #print(config.to_dict())
@@ -313,7 +318,7 @@ class ConfigManager:
 
         #print(old_config.to_dict())
         # 将 old_config 转换为 dict
-        config_dict = old_config.to_dict()
+        config_dict = lowercase_keys(old_config.to_dict())
         try:
             with open(self.user_config_file, "wb") as f:
                 tomli_w.dump(config_dict, f)
