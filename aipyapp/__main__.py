@@ -10,16 +10,7 @@ config_help_message = (
     f"Specify the configuration directory.\nDefaults to {CONFIG_DIR} if not provided."
 )
 
-def mainw():
-    def parse_args():
-        parser = argparse.ArgumentParser(description="Python use - AIPython")
-        parser.add_argument("-c", '--config-dir', type=str,
-                            help=config_help_message) # Use the generated help message
-        parser.add_argument('cmd', nargs='?', default=None, help="Task to execute, e.g. 'Who are you?'")
-        return parser.parse_args()
-
-    args = parse_args()
-
+def ensure_wxpython():
     try:
         import wx
     except:
@@ -29,6 +20,16 @@ def mainw():
         cp = subprocess.run([sys.executable, "-m", "pip", "install", 'wxpython'])
         assert cp.returncode == 0
 
+def mainw():
+    def parse_args():
+        parser = argparse.ArgumentParser(description="Python use - AIPython")
+        parser.add_argument("-c", '--config-dir', type=str,
+                            help=config_help_message) # Use the generated help message
+        parser.add_argument('cmd', nargs='?', default=None, help="Task to execute, e.g. 'Who are you?'")
+        return parser.parse_args()
+    args = parse_args()
+
+    ensure_wxpython()
     from .wxgui import main as aipy_main
     aipy_main(args)
 
@@ -39,6 +40,7 @@ def main():
         parser.add_argument("-c", '--config-dir', type=str,
                             help=config_help_message) # Use the generated help message
         parser.add_argument('-p', '--python', default=False, action='store_true', help="Python mode")
+        parser.add_argument('-g', '--gui', default=False, action='store_true', help="GUI mode")
         parser.add_argument('cmd', nargs='?', default=None, help="Task to execute, e.g. 'Who are you?'")
         return parser.parse_args()
 
@@ -46,6 +48,9 @@ def main():
 
     if args.python:
         from .main import main as aipy_main
+    elif args.gui:
+        ensure_wxpython()
+        from .wxgui import main as aipy_main
     else:
         from .saas import main as aipy_main
     aipy_main(args)

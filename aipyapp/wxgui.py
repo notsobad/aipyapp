@@ -121,8 +121,7 @@ class CStatusBar(wx.StatusBar):
         super().__init__(parent, style=wx.STB_DEFAULT_STYLE)
         self.parent = parent
         self.SetFieldsCount(2)
-        self.SetStatusWidths([-1, 100])
-        
+        self.SetStatusWidths([-1, 80])
 
         self.tm = parent.tm
         self.current_llm = self.tm.llm.names['default']
@@ -168,6 +167,9 @@ class ChatFrame(wx.Frame):
         self.task_queue = queue.Queue()
         self.aipython = AIPython(self)
 
+        icon = wx.Icon(str(resources.files(__PACKAGE_NAME__) / "aipy.ico"), wx.BITMAP_TYPE_ICO)
+        self.SetIcon(icon)
+
         self.SetBackgroundColour(wx.Colour(245, 245, 245))
         self.make_menu_bar()
         self.make_panel()
@@ -184,18 +186,23 @@ class ChatFrame(wx.Frame):
 
         html_file_path = os.path.abspath(resources.files(__PACKAGE_NAME__) / "chatroom.html")
         self.webview = wx.html2.WebView.New(panel)
-        print(f'file://{self.tm.workdir}', os.getcwd())
         self.webview.SetPage(open(html_file_path, 'r', encoding='utf-8').read(), f'file://{self.tm.workdir}')
         self.webview.SetWindowStyleFlag(wx.BORDER_NONE)
         vbox.Add(self.webview, proportion=1, flag=wx.EXPAND | wx.ALL, border=12)
 
-        self.input = wx.TextCtrl(panel, style=wx.TE_MULTILINE)
+        self.container = wx.Panel(panel)
+        vbox.Add(self.container, proportion=0, flag=wx.EXPAND | wx.LEFT | wx.RIGHT, border=12)
+
+        self.input = wx.TextCtrl(self.container, style=wx.TE_MULTILINE)
         self.input.SetBackgroundColour(wx.Colour(255, 255, 255))
         self.input.SetForegroundColour(wx.Colour(33, 33, 33))
         self.input.SetMinSize((-1, 60))
         self.input.SetWindowStyleFlag(wx.BORDER_SIMPLE)
         self.input.Bind(wx.EVT_KEY_DOWN, self.on_key_down)
-        vbox.Add(self.input, proportion=0, flag=wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, border=12)
+
+        self.send_button = wx.Button(self.container, label="发送", size=(50, -1))
+        self.send_button.Bind(wx.EVT_BUTTON, self.on_send)
+        self.container.Bind(wx.EVT_SIZE, self.on_container_resize)
 
         panel.SetSizer(vbox)
         self.panel = panel
@@ -220,7 +227,7 @@ class ChatFrame(wx.Frame):
         menu_item = wx.MenuItem(help_menu, self.ID_WEBSITE, "官网(&W)\tCtrl+W", "打开官方网站")
         help_menu.Append(menu_item)
         self.ID_FORUM = wx.NewIdRef()
-        menu_item = wx.MenuItem(help_menu, self.ID_FORUM, "论坛(&W)\tCtrl+W", "打开官方论坛")
+        menu_item = wx.MenuItem(help_menu, self.ID_FORUM, "论坛(&W)\tCtrl+F", "打开官方论坛")
         help_menu.Append(menu_item)
         self.Bind(wx.EVT_MENU, self.on_open_website, id=self.ID_WEBSITE)
         self.Bind(wx.EVT_MENU, self.on_open_website, id=self.ID_FORUM)
@@ -235,6 +242,23 @@ class ChatFrame(wx.Frame):
         self.task_queue.put('exit')
         self.aipython.join()
         self.Close()
+
+    def on_container_resize(self, event):
+        # 获取容器和按钮的大小
+        container_size = event.GetSize()
+        button_size = self.send_button.GetSize()
+
+        overlap = -10
+        self.input.SetSize(container_size)
+
+        button_pos_x = container_size.width - button_size.width + overlap
+        if sys.platform == 'darwin':
+            button_pos_y = container_size.height - button_size.height - 10
+        else:
+            button_pos_y = (container_size.height - button_size.height) // 2
+        self.send_button.SetPosition((button_pos_x, button_pos_y))
+
+        event.Skip()
 
     def on_clear_chat(self, event):
         pass
@@ -275,16 +299,19 @@ class ChatFrame(wx.Frame):
         else:
             event.Skip()
 
+    def on_send(self, event):
+        self.send_message()
+
     def get_task(self):
         return self.task_queue.get()
 
     def toggle_input(self):
-        if self.input.IsShown():
-            self.input.Hide()
+        if self.container.IsShown():
+            self.container.Hide()
             wx.BeginBusyCursor()
             self.SetStatusText("操作进行中，请稍候...", 0)
         else:
-            self.input.Show()
+            self.container.Show()
             wx.EndBusyCursor()
             self.SetStatusText("操作完成", 0)
         self.panel.Layout()
