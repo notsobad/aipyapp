@@ -84,6 +84,15 @@ MESSAGES = {
         'binding_success': "\n绑定流程已成功完成。",
         'binding_failed': "\n绑定流程失败或未完成。",
         'binding_request_failed': "\n绑定请求发起失败。",
+        'cancel': "取消",
+        'trust_token_auth': "TrustToken 认证",
+        'Error': "错误",
+        'Time remaining': "剩余时间：{} 秒",
+        'approved': "已批准",
+        'expired': "已过期",
+        'pending': "待处理",
+        'unknown_status': "收到未知状态: {}",
+        
     },
     'en': {
         'start_instruction': 'Start processing instruction',
@@ -165,6 +174,14 @@ MESSAGES = {
         'binding_success': "\nBinding process completed successfully.",
         'binding_failed': "\nBinding process failed or was not completed.",
         'binding_request_failed': "\nFailed to initiate binding request.",
+        'cancel': "Cancel",
+        'trust_token_auth': "TrustToken Authentication",
+        'Error': "Error",
+        'Time remaining': "Time remaining: {} seconds",
+        'approved': "Approved",
+        'expired': "Expired",
+        'pending': "Pending",
+        'unknown_status': "Received unknown status: {}",
     }
 }
 

@@ -13,8 +13,8 @@ from rich import print
 import tomli_w
 import qrcode
 
-
 from .i18n import T
+from .trustoken import TrustToken
 
 __PACKAGE_NAME__ = "aipyapp"
 
@@ -25,9 +25,6 @@ OLD_SETTINGS_FILES = [
     Path('aipy.toml').resolve()
 ]
 
-# Coordinator 服务器地址
-COORDINATOR_URL = os.getenv('COORDINATOR_URL', 'https://api.trustoken.ai/api')
-POLL_INTERVAL = 5 # 轮询间隔（秒）
 CONFIG_FILE_NAME = f"{__PACKAGE_NAME__}.toml"
 USER_CONFIG_FILE_NAME = "user_config.toml"
 
@@ -98,116 +95,19 @@ def is_valid_api_key(api_key):
     pattern = r"^[A-Za-z0-9_-]{8,128}$"
     return bool(re.match(pattern, api_key))
 
-def request_binding():
-    """向 Coordinator 请求绑定"""
-    url = f"{COORDINATOR_URL}/request_bind"
-    try:
-        response = requests.post(url, timeout=10)
-        response.raise_for_status()
-
-        data = response.json()
-        approval_url = data['approval_url']
-        request_id = data['request_id']
-        expires_in = data['expires_in']
-
-        print(T('binding_request_sent').format(request_id, approval_url, expires_in))
-        print(T('scan_qr_code'))
-
-        try:
-            qr = qrcode.QRCode(
-                error_correction=qrcode.constants.ERROR_CORRECT_L,
-                border=1
-            )
-            qr.add_data(approval_url)
-            qr.make(fit=True)
-            qr.print_ascii(tty=True)
-            print("\n")
-        except Exception as e:
-            print(T('qr_code_display_failed').format(e))
-
-        return data['request_id']
-
-    except requests.exceptions.RequestException as e:
-        print(T('coordinator_request_error').format(e))
-        return None
-    except Exception as e:
-        print(T('unexpected_request_error').format(e))
-        return None
-
-def poll_status(request_id, save_func=None):
-    """轮询绑定状态"""
-    url = f"{COORDINATOR_URL}/check_status"
-    params = {'request_id': request_id}
-    start_time = time.time()
-    polling_timeout = 310
-
-    print(T('waiting_for_approval'))
-    try:
-        while time.time() - start_time < polling_timeout:
-            try:
-                response = requests.get(url, params=params, timeout=10)
-                response.raise_for_status()
-
-                data = response.json()
-                status = data.get('status')
-                print(T('current_status').format(status))
-
-                if status == 'approved':
-                    if save_func:
-                        save_func(data['secret_token'])
-                    return True
-                elif status == 'expired':
-                    print(T('binding_expired'))
-                    return False
-                elif status == 'pending':
-                    pass
-                else:
-                    print(T('unknown_status').format(status))
-                    return False
-
-            except requests.exceptions.RequestException as e:
-                print(T('coordinator_polling_error').format(e))
-                time.sleep(POLL_INTERVAL)
-            except Exception as e:
-                print(T('unexpected_polling_error').format(e))
-                return False
-
-            time.sleep(POLL_INTERVAL)
-    except KeyboardInterrupt:
-        print(T('polling_cancelled'))
-        return False
-
-    print(T('polling_timeout'))
-    return False
-
-def fetch_token(save_func):
-    """从 Coordinator 获取 Token 并保存"""
-    print(T('start_binding_process'))
-    req_id = request_binding()
-    if req_id:
-        if poll_status(req_id, save_func):
-            print(T('binding_success'))
-        else:
-            print(T('binding_failed'))
-            sys.exit(1)
-    else:
-        print(T('binding_request_failed'))
-        sys.exit(1)
-
 class ConfigManager:
     def __init__(self, default_config="default.toml",  config_dir=None):
         self.config_file = get_config_file_path(config_dir)
         self.user_config_file = get_config_file_path(config_dir, USER_CONFIG_FILE_NAME)
         self.default_config = default_config
         self.config = self._load_config()
+        self.trust_token = TrustToken()
 
         # old user config, without default config.
         self._old_user_config = Dynaconf(
             settings_files=OLD_SETTINGS_FILES,
             envvar_prefix="AIPY", merge_enabled=True
         )
-        #print(self.config.to_dict())
-        #print(self._old_user_config.to_dict())
 
     def _load_config(self):
         config = Dynaconf(
@@ -215,7 +115,6 @@ class ConfigManager:
             envvar_prefix="AIPY",
             merge_enabled=True,
         )
-        #print(config.to_dict())
         return config
 
     def get_config(self):
@@ -264,8 +163,7 @@ class ConfigManager:
 
         return config
 
-    def check_config(self):
-
+    def check_config(self, gui=False):
         if not self.config:
             print(T('config_not_loaded'))
             return
@@ -278,15 +176,16 @@ class ConfigManager:
         tt = self.config.get('llm', {}).get('trustoken', {})
         if tt and tt.get('api_key') and tt.get('type') == 'trust':
             # valid tt config
-            #print("trustoken config found")
             return
         elif self._old_user_config.to_dict():
             # no tt config, try to migrate from old config
             # remove this later.
             self._migrate_old_config(self._old_user_config)
         else:
+            if gui:
+                return 'TrustToken'
             # try to fetch config from web.
-            fetch_token(self.save_tt_config)
+            self.trust_token.fetch_token(self.save_tt_config)
         
         # reload config
         self.config = self._load_config()
@@ -326,7 +225,6 @@ class ConfigManager:
 
         # 将 old_config 转换为 dict
         config_dict = lowercase_keys(old_config.to_dict())
-        #print(config_dict)
         if not config_dict.get('llm'):
             config_dict.pop('llm', None)
         if not config_dict:

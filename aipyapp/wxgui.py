@@ -23,11 +23,13 @@ from wx import FileDialog, FD_SAVE, FD_OVERWRITE_PROMPT
 from . import __version__
 from .aipy.config import ConfigManager
 from .aipy import TaskManager, event_bus
-from .aipy.i18n import T,set_lang
+from .aipy.i18n import T, set_lang
+from .gui import TrustTokenAuthDialog
 
 __PACKAGE_NAME__ = "aipyapp"
 ChatEvent, EVT_CHAT = NewEvent()
 AVATARS = {'我': '🧑', 'BB-8': '🤖', '图灵': '🧠', '爱派': '🐙'}
+TITLE = "🐙爱派，您的干活牛🐂马🐎，啥都能干！"
 
 matplotlib.use('Agg')
 
@@ -168,7 +170,7 @@ class CStatusBar(wx.StatusBar):
 
 class ChatFrame(wx.Frame):
     def __init__(self, tm):
-        super().__init__(None, title=f"Python-use: AIPy (v{__version__})", size=(1024, 768))
+        super().__init__(None, title=TITLE, size=(1024, 768))
         
         self.tm = tm
         self.task_queue = queue.Queue()
@@ -188,19 +190,9 @@ class ChatFrame(wx.Frame):
         self.aipython.start()
         self.Show()
 
-    def make_panel(self):
-        panel = wx.Panel(self)
-        vbox = wx.BoxSizer(wx.VERTICAL)
-
-        html_file_path = os.path.abspath(resources.files(__PACKAGE_NAME__) / "chatroom.html")
-        self.webview = wx.html2.WebView.New(panel)
-        self.webview.SetPage(open(html_file_path, 'r', encoding='utf-8').read(), f'file://{self.tm.workdir}')
-        self.webview.SetWindowStyleFlag(wx.BORDER_NONE)
-        vbox.Add(self.webview, proportion=1, flag=wx.EXPAND | wx.ALL, border=12)
-
+    def make_input_panel(self, panel):
         self.container = wx.Panel(panel)
-        vbox.Add(self.container, proportion=0, flag=wx.EXPAND | wx.LEFT | wx.RIGHT, border=12)
-
+ 
         self.input = wx.TextCtrl(self.container, style=wx.TE_MULTILINE)
         self.input.SetBackgroundColour(wx.Colour(255, 255, 255))
         self.input.SetForegroundColour(wx.Colour(33, 33, 33))
@@ -215,6 +207,50 @@ class ChatFrame(wx.Frame):
         self.send_button = wx.Button(self.container, label="发送", size=(50, -1))
         self.send_button.Bind(wx.EVT_BUTTON, self.on_send)
         self.container.Bind(wx.EVT_SIZE, self.on_container_resize)
+        return self.container
+
+    def make_input_panel2(self, panel):
+        container = wx.Panel(panel)
+        hbox = wx.BoxSizer(wx.HORIZONTAL)
+        self.input = wx.TextCtrl(container, style=wx.TE_MULTILINE)
+        self.input.SetBackgroundColour(wx.Colour(255, 255, 255))
+        self.input.SetForegroundColour(wx.Colour(33, 33, 33))
+        self.input.SetMinSize((-1, 80))
+        self.input.SetWindowStyleFlag(wx.BORDER_SIMPLE)
+        self.input.Bind(wx.EVT_KEY_DOWN, self.on_key_down)
+        hbox.Add(self.input, proportion=1, flag=wx.EXPAND | wx.ALL, border=5)
+
+        vbox = wx.BoxSizer(wx.VERTICAL)
+        self.done_button = wx.Button(container, label="结束")
+        self.done_button.Hide()
+        self.done_button.Bind(wx.EVT_BUTTON, self.on_done)
+        self.done_button.SetBackgroundColour(wx.Colour(255, 230, 230)) 
+        self.send_button = wx.Button(container, label="发送")
+        self.send_button.Bind(wx.EVT_BUTTON, self.on_send)
+        vbox.Add(self.done_button, 0, wx.ALIGN_CENTER | wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
+        vbox.AddSpacer(10)
+        vbox.Add(self.send_button, 0, wx.ALIGN_CENTER | wx.LEFT | wx.RIGHT | wx.TOP, 10)
+
+        hbox.Add(vbox, 0, wx.ALIGN_CENTER)
+        container.SetSizer(hbox)    
+        self.container = container
+        return container
+    
+    def make_panel(self):
+        panel = wx.Panel(self)
+        vbox = wx.BoxSizer(wx.VERTICAL)
+
+        html_file_path = os.path.abspath(resources.files(__PACKAGE_NAME__) / "chatroom.html")
+        self.webview = wx.html2.WebView.New(panel)
+        self.webview.LoadURL(f'file://{html_file_path}')
+        self.webview.SetWindowStyleFlag(wx.BORDER_NONE)
+        vbox.Add(self.webview, proportion=1, flag=wx.EXPAND | wx.ALL, border=12)
+
+        if sys.platform == 'darwin':
+            input_panel = self.make_input_panel(panel)
+        else:
+            input_panel = self.make_input_panel2(panel)
+        vbox.Add(input_panel, proportion=0, flag=wx.EXPAND | wx.LEFT | wx.RIGHT, border=12)
 
         panel.SetSizer(vbox)
         self.panel = panel
@@ -235,7 +271,7 @@ class ChatFrame(wx.Frame):
         self.Bind(wx.EVT_MENU, self.on_clear_chat, id=wx.ID_CLEAR)
 
         task_menu = wx.Menu()
-        self.task_menu_item = task_menu.Append(wx.ID_STOP, "结束任务(&T)", "结束当前任务")
+        self.task_menu_item = task_menu.Append(wx.ID_STOP, "开始新任务(&B)", "开始一个新任务")
         self.task_menu_item.Enable(False)
         self.Bind(wx.EVT_MENU, self.on_done, id=wx.ID_STOP)
         
@@ -245,14 +281,17 @@ class ChatFrame(wx.Frame):
 
         help_menu = wx.Menu()
         self.ID_WEBSITE = wx.NewIdRef()
-        menu_item = wx.MenuItem(help_menu, self.ID_WEBSITE, "官网(&W)\tCtrl+W", "打开官方网站")
+        menu_item = wx.MenuItem(help_menu, self.ID_WEBSITE, "官网(&W)\tCtrl+W", "官方网站")
         help_menu.Append(menu_item)
         self.ID_FORUM = wx.NewIdRef()
-        menu_item = wx.MenuItem(help_menu, self.ID_FORUM, "论坛(&W)\tCtrl+F", "打开官方论坛")
+        menu_item = wx.MenuItem(help_menu, self.ID_FORUM, "论坛(&W)\tCtrl+F", "官方论坛")
         help_menu.Append(menu_item)
+        self.ID_GROUP = wx.NewIdRef()
+        menu_item = wx.MenuItem(help_menu, self.ID_GROUP, "微信群(&G)\tCtrl+G", "官方微信群")
+        help_menu.Append(menu_item)        
         self.Bind(wx.EVT_MENU, self.on_open_website, id=self.ID_WEBSITE)
         self.Bind(wx.EVT_MENU, self.on_open_website, id=self.ID_FORUM)
-        
+        self.Bind(wx.EVT_MENU, self.on_open_website, id=self.ID_GROUP)
         menu_bar.Append(help_menu, "帮助(&H)")
 
         self.SetMenuBar(menu_bar)
@@ -267,6 +306,7 @@ class ChatFrame(wx.Frame):
         self.done_button.Hide()
         self.SetStatusText("当前任务已结束", 0)
         self.task_menu_item.Enable(False)
+        self.SetTitle(TITLE)
 
     def on_container_resize(self, event):
         container_size = event.GetSize()
@@ -295,6 +335,8 @@ class ChatFrame(wx.Frame):
             url = "https://aipy.app"
         elif event.GetId() == self.ID_FORUM:
             url = "https://d.aipy.app"
+        elif event.GetId() == self.ID_GROUP:
+            url = "https://d.aipy.app/d/13"
         wx.LaunchDefaultBrowser(url)
 
     def on_save_html(self, event):
@@ -350,6 +392,10 @@ class ChatFrame(wx.Frame):
         text = self.input.GetValue().strip()
         if not text:
             return
+        
+        if not self.tm.busy:
+            self.SetTitle(f"[当前任务] {text}")
+
         self.append_message('我', text)
         self.input.Clear()
         self.toggle_input()
@@ -366,9 +412,14 @@ class ChatFrame(wx.Frame):
         self.webview.RunScript(js_code)
 
 def main(args):
+    set_lang('zh')
     default_config_path = resources.files(__PACKAGE_NAME__) / "default.toml"
     conf = ConfigManager(default_config_path, args.config_dir)
-    conf.check_config()
+    app = wx.App()
+    if conf.check_config(gui=True) == 'TrustToken':
+        dialog = TrustTokenAuthDialog()
+        if not dialog.fetch_token(conf.save_tt_config):
+            return
     settings = conf.get_config()
 
     settings.gui = True
@@ -386,6 +437,5 @@ def main(args):
         traceback.print_exc()
         return
     
-    app = wx.App()
     ChatFrame(tm)
     app.MainLoop()

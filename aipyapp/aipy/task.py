@@ -165,11 +165,11 @@ class Task:
         """
         summary = history.get_summary()
         if 'time' in summary:
-            summary = "| {rounds} | {time:.3f}s | Tokens: {input_tokens}/{output_tokens}/{total_tokens}".format(**summary)
+            summarys = "| {rounds} | {time:.3f}s | Tokens: {input_tokens}/{output_tokens}/{total_tokens}".format(**summary)
         else:
-            summary = ''
-        event_bus.broadcast('summary', summary)
-        self.console.print(f"\n⏹ [cyan]{T('end_instruction')} {summary}")
+            summarys = ''
+        event_bus.broadcast('summary', summarys)
+        self.console.print(f"\n⏹ [cyan]{T('end_instruction')} {summarys}")
 
     def build_user_prompt(self):
         prompt = {'task': self.instruction}
