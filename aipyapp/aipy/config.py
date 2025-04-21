@@ -333,7 +333,7 @@ class ConfigManager:
             return {}
         try:
             with open(self.user_config_file, "w", encoding="utf-8") as f:
-                toml_text = tomli_w.dumps(config_dict)
+                toml_text = tomli_w.dumps(config_dict, multiline_strings=True)
                 f.write(toml_text)
                 print(T('migrate_user_config').format(self.user_config_file))
         except Exception as e:
