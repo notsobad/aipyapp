@@ -77,7 +77,7 @@ def get_config_file_path(config_dir=None, file_name=CONFIG_FILE_NAME):
         try:
             config_file_path.touch()
         except Exception as e:
-            print(T('error_creating_config_dir').format(config_file_path, str(e)))
+            print(T('error_creating_config_dir').format(config_file_path))
             raise
 
     return config_file_path
@@ -344,6 +344,24 @@ class ConfigManager:
         """
         if not old_config:
             return {}
+        
+        # Identify and backup existing old settings files
+        existing_files = []
+        backup_files = []
+        for path in OLD_SETTINGS_FILES:
+            if not path.exists():
+                continue
+            existing_files.append(str(path))
+            # Build backup name, e.g. "aipy.toml" -> "aipy-backup.toml"
+            backup_path = path.with_name(f"{path.stem}-backup{path.suffix}")
+            try:
+                path.rename(backup_path)
+            except Exception as e:
+                print(T('error_creating_backup').format(path, e))
+            backup_files.append(str(backup_path))
+
+        print(T('attempting_migration').format(', '.join(existing_files), ', '.join(backup_files)))
+
         #print(old_config.to_dict())
         tt_keys = []
 
