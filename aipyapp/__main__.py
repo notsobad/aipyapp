@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-import os
 import sys
 import argparse
 from pathlib import Path
@@ -31,9 +30,6 @@ def parse_args():
     return parser.parse_args()
 
 def mainw():
-    devnull = open(os.devnull, 'w')
-    sys.stdout = devnull
-    sys.stderr = devnull
     args = parse_args()
     ensure_wxpython()
     from .wxgui import main as aipy_main
