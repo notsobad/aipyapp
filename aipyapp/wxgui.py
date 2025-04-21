@@ -234,6 +234,15 @@ class ChatFrame(wx.Frame):
         edit_menu.Append(wx.ID_CLEAR, "清空聊天(&C)", "清除所有消息")
         self.Bind(wx.EVT_MENU, self.on_clear_chat, id=wx.ID_CLEAR)
 
+        task_menu = wx.Menu()
+        self.task_menu_item = task_menu.Append(wx.ID_STOP, "结束任务(&T)", "结束当前任务")
+        self.task_menu_item.Enable(False)
+        self.Bind(wx.EVT_MENU, self.on_done, id=wx.ID_STOP)
+        
+        menu_bar.Append(file_menu, "文件(&F)")
+        menu_bar.Append(edit_menu, "编辑(&E)")
+        menu_bar.Append(task_menu, "任务(&T)")
+
         help_menu = wx.Menu()
         self.ID_WEBSITE = wx.NewIdRef()
         menu_item = wx.MenuItem(help_menu, self.ID_WEBSITE, "官网(&W)\tCtrl+W", "打开官方网站")
@@ -243,9 +252,7 @@ class ChatFrame(wx.Frame):
         help_menu.Append(menu_item)
         self.Bind(wx.EVT_MENU, self.on_open_website, id=self.ID_WEBSITE)
         self.Bind(wx.EVT_MENU, self.on_open_website, id=self.ID_FORUM)
-
-        menu_bar.Append(file_menu, "文件(&F)")
-        menu_bar.Append(edit_menu, "编辑(&E)")
+        
         menu_bar.Append(help_menu, "帮助(&H)")
 
         self.SetMenuBar(menu_bar)
@@ -259,6 +266,7 @@ class ChatFrame(wx.Frame):
         self.tm.done()
         self.done_button.Hide()
         self.SetStatusText("当前任务已结束", 0)
+        self.task_menu_item.Enable(False)
 
     def on_container_resize(self, event):
         container_size = event.GetSize()
@@ -329,10 +337,12 @@ class ChatFrame(wx.Frame):
             self.container.Hide()
             wx.BeginBusyCursor()
             self.SetStatusText("操作进行中，请稍候...", 0)
+            self.task_menu_item.Enable(False)
         else:
             self.container.Show()
             wx.EndBusyCursor()
-            self.SetStatusText("操作完成。如果开始下一个任务，请点击“结束”按钮", 0)
+            self.SetStatusText("操作完成。如果开始下一个任务，请点击'结束'按钮", 0)
+            self.task_menu_item.Enable(self.aipython.can_done())
         self.panel.Layout()
         self.panel.Refresh()
 
