@@ -15,6 +15,7 @@ import qrcode
 
 
 from .i18n import T
+import traceback
 
 __PACKAGE_NAME__ = "aipyapp"
 
@@ -303,37 +304,33 @@ class ConfigManager:
         """检查配置文件是否存在，并加载配置。
         如果配置文件不存在，则创建一个新的配置文件。
         """
-        if not self.config:
-            print(T('config_not_loaded'))
-            return
+        try:
+            if not self.config:
+                print(T('config_not_loaded'))
+                return
 
-        if self.check_llm():
-            # 有状态为eneble的配置文件，则不需要强制要求trustoken配置。
-            return
-        
-        # old user config, without default config.
-        old_user_config = self._load_config(settings_files=OLD_SETTINGS_FILES)
+            if self.check_llm():
+                # 有状态为 enable 的配置文件，则不需要强制要求 trustoken 配置。
+                return
 
-        if old_user_config.to_dict():
-            # no tt config, try to migrate from old config
-            # remove this later.
-            self._migrate_old_config(old_user_config)
-        
-            # reload config
-            self.config = self._load_config()
+            # 尝试从旧版本配置迁移
+            old_user_config = self._load_config(settings_files=OLD_SETTINGS_FILES)
+            if old_user_config.to_dict():
+                self._migrate_old_config(old_user_config)
+                # 迁移完成后重新加载配置
+                self.config = self._load_config()
 
-        if not self.check_llm():
-            # 迁移了配置之后依然没有可用的LLM配置，则从web拉取配置。
-            # try to fetch config from web.
-            #fetch_token(self.save_tt_config)
-            self.fetch_config()
-        
-            # reload config
-            self.config = self._load_config()
+            # 如果仍然没有可用的 LLM 配置，则从网络拉取
+            if not self.check_llm():
+                self.fetch_config()
+                self.config = self._load_config()
 
-        if not self.check_llm():
-            # 依然没有可用的配置
-            print(T('llm_config_not_found'))
+            if not self.check_llm():
+                print(T('llm_config_not_found'))
+                sys.exit(1)
+
+        except Exception as e:
+            traceback.print_exc()
             sys.exit(1)
 
     def _migrate_old_config(self, old_config):
@@ -363,7 +360,6 @@ class ConfigManager:
         print(T('attempting_migration').format(', '.join(existing_files), ', '.join(backup_files)))
 
         #print(old_config.to_dict())
-        tt_keys = []
 
         # 处理顶级配置
         llm = old_config.get('llm', {})
@@ -371,27 +367,29 @@ class ConfigManager:
             # 跳过非字典类型的配置
             if not isinstance(section_data, dict):
                 continue
-            # 检查顶级配置
+           
+            # 检查是否有tt的配置，找到一条即可
             if self._is_tt_config(section_name, section_data):
                 api_key = section_data.get('api_key', section_data.get('api-key'))
                 if api_key:
-                    tt_keys.append(api_key)
-                # 从原配置中删除
-                llm.pop(section_name)
+                    # 保存系统配置
+                    print("Token found:", api_key)
+                    self.save_tt_config(api_key)
+                    print(T('migrate_config').format(self.config_file))
 
-        if tt_keys:
-            # 保存第一个找到的API key
-            print("keys found:", tt_keys)
-            self.save_tt_config(tt_keys[0])
-            print(T('migrate_config').format(self.config_file))
+                    # 从原配置中删除
+                    llm.pop(section_name)
+                    break
 
-        # 将 old_config 转换为 dict
+        # 将 old_config 转换为 dict， 保存用户配置文件
         config_dict = lowercase_keys(old_config.to_dict())
         #print(config_dict)
         if not config_dict.get('llm'):
             config_dict.pop('llm', None)
+
         if not config_dict:
             return {}
+        
         try:
             with open(self.user_config_file, "w", encoding="utf-8") as f:
                 toml_text = tomli_w.dumps(config_dict, multiline_strings=True)
