@@ -146,6 +146,10 @@ def main(args):
     lang = settings.get('lang')
     if lang: set_lang(lang)
 
+    if args.fetch_config:
+        conf.fetch_config()
+        return
+
     try:
         tm = TaskManager(settings, console=console)
     except Exception as e:

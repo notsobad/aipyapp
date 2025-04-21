@@ -49,19 +49,6 @@ MESSAGES = {
         'config_file_error': "请检查配置文件路径和格式。",
         'config_not_loaded': "配置尚未加载。",
         'llm_config_not_found': "缺少 'llm' 配置。",
-        'trustoken_register_instruction': (
-            "当前环境缺少配置文件，请注册一个trustoken账号，可以使用免费赠送的API账号。\n"
-            "浏览器打开 https://api.trustoken.ai/register ， 进行账号注册。\n"
-            "注册后进行登录，访问页面顶部的“令牌”页面，或者点击这个地址：https://api.trustoken.ai/token \n"
-            "点击“复制”按钮，复制令牌到剪贴板。在下面进行粘贴。\n"
-            "另外，也可以选择退出，然后手动编辑配置文件 {}，配置自己已有的其他大模型令牌"
-        ),
-        'prompt_token_input': "请粘贴令牌并按 Enter 键 (输入 'exit' 退出): ",
-        'exit_token_prompt': "退出令牌输入流程。",
-        'no_token_detected': "未检测到令牌输入。",
-        'invalid_token': "输入的令牌不合法，请确保令牌正确，格式为‘sk-xxxxxx……’，或输入 'exit' 退出。",
-        'token_saved': "令牌已保存到 {}",
-        'token_save_error': "保存令牌时出错: {}",
         'not usable': "不可用",
         'permission_denied_error': "无权限创建目录: {}",
         'error_creating_config_dir': "创建配置目录时出错: {}",
@@ -84,6 +71,7 @@ MESSAGES = {
         'binding_success': "\n绑定流程已成功完成。",
         'binding_failed': "\n绑定流程失败或未完成。",
         'binding_request_failed': "\n绑定请求发起失败。",
+        'attempting_migration': '发现旧的配置文件: {}\n尝试从这些文件迁移配置...\n迁移之后，这些文件会被备份到 {}，请注意查看。',
     },
     'en': {
         'start_instruction': 'Start processing instruction',
@@ -130,19 +118,6 @@ MESSAGES = {
         'config_file_error': "Please check the configuration file path and format.",
         'config_not_loaded': "Configuration not loaded.",
         'llm_config_not_found': "Missing 'llm' configuration.",
-        'trustoken_register_instruction': (
-            "The current environment lacks a configuration file. Please register for a Trustoken account to use the free API token.\n"
-            "Open https://api.trustoken.ai/register to register.\n"
-            "After registration, log in and visit the 'Token' page at the top, or navigate to: https://api.trustoken.ai/token\n"
-            "Click the 'copy' button to copy your token to the clipboard and paste it here.\n"
-            "Alternatively, you can exit now, and manually edit the configuration file {} to configure your existing LLM token."
-        ),
-        'prompt_token_input': "Please paste the token and press Enter (type 'exit' to quit): ",
-        'exit_token_prompt': "Exiting token input process.",
-        'no_token_detected': "No token detected.",
-        'invalid_token': "The entered token is invalid. Ensure it starts with 'sk-' followed by the correct characters, or type 'exit' to quit.",
-        'token_saved': "Token saved to {}",
-        'token_save_error': "Error saving token: {}",
         'not usable': "Not usable",
         'permission_denied_error': "Permission denied to create directory: {}",
         'error_creating_config_dir': "Error creating configuration directory: {}",
@@ -165,6 +140,7 @@ MESSAGES = {
         'binding_success': "\nBinding process completed successfully.",
         'binding_failed': "\nBinding process failed or was not completed.",
         'binding_request_failed': "\nFailed to initiate binding request.",
+        'attempting_migration': 'Found old configuration files: {}\nAttempting to migrate configuration from these files...\nAfter migration, these files will be backed up to {}, please check them.',
     }
 }
 
