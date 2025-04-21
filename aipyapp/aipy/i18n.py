@@ -72,6 +72,7 @@ MESSAGES = {
         'binding_failed': "\n绑定流程失败或未完成。",
         'binding_request_failed': "\n绑定请求发起失败。",
         'attempting_migration': '发现旧的配置文件: {}\n尝试从这些文件迁移配置...\n迁移之后，这些文件会被备份到 {}，请注意查看。',
+        'task_saved': '结果文件已保存',
     },
     'en': {
         'start_instruction': 'Start processing instruction',
@@ -141,6 +142,7 @@ MESSAGES = {
         'binding_failed': "\nBinding process failed or was not completed.",
         'binding_request_failed': "\nFailed to initiate binding request.",
         'attempting_migration': 'Found old configuration files: {}\nAttempting to migrate configuration from these files...\nAfter migration, these files will be backed up to {}, please check them.',
+        'task_saved': 'Result file saved',
     }
 }
 
