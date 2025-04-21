@@ -106,7 +106,7 @@ class InteractiveConsole():
                 self.console.print(f'[red]Error: {arg}[/red]')
 
         try:
-            task.done()
+            self.tm.done()
         except Exception as e:
             self.console.print_exception()
         self.console.print(f"{T('ai_mode_exit')}", style="cyan")

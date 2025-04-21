@@ -10,7 +10,6 @@ from pathlib import Path
 from datetime import date
 from enum import Enum, auto
 
-import requests
 from rich.panel import Panel
 from rich.align import Align
 from rich.table import Table
@@ -21,8 +20,6 @@ from .i18n import T
 from .plugin import event_bus
 from .templates import CONSOLE_HTML_FORMAT
 from .utils import get_safe_filename
-
-CERT_PATH = Path('/tmp/aipy_client.crt')
 
 class MsgType(Enum):
     CODE = auto()
@@ -43,9 +40,10 @@ class Task:
             r"^(`{4})(\w+)\s+([\w\-\.]+)\n(.*?)^\1\s*$",
             re.DOTALL | re.MULTILINE
         )
-
+        
     def save(self, path):
-       self._console.save_html(path, clear=False, code_format=CONSOLE_HTML_FORMAT)
+       if self._console.record:
+           self._console.save_html(path, clear=False, code_format=CONSOLE_HTML_FORMAT)
 
     def save_html(self, path, task):
         # 获取当前代码所在目录下的template.html作为模版文件
@@ -226,32 +224,3 @@ class Task:
             self.console.print(f"❌ {T('no_context')}")
             return
         self.process_reply(response)
-
-    def publish(self, title=None, author=None, verbose=True):
-        url = self.settings.get('publish.url')
-        cert = self.settings.get('publish.cert')
-        if not (url and cert) or self.settings.get('publish.disable'):
-            if verbose: self.console.print(f"[red]{T('publish_disabled')}")
-            return False
-        title = title or self.instruction
-        author = author or os.getlogin()
-        meta = {'author': author}
-        files = {'content': self.console.export_html(clear=False)}
-        data = {'title': title, 'metadata': json.dumps(meta)}
-
-        if not (CERT_PATH.exists() and CERT_PATH.stat().st_size  > 0):
-            CERT_PATH.write_text(cert)
-
-        try:
-            response = requests.post(url, files=files, data=data, cert=str(CERT_PATH), verify=True)
-        except Exception as e:
-            self.console.print_exception(e)
-            return
-        
-        status_code = response.status_code
-        if status_code in (200, 201):
-            if verbose: self.console.print(f"[green]{T('upload_success')}:", response.json())
-            return response.json()
-        else:
-            if verbose: self.console.print(f"[red]{T('upload_failed', status_code)}:", response.text)
-            return False

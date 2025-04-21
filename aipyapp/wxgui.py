@@ -50,8 +50,12 @@ class AIPython(threading.Thread):
         super().__init__(daemon=True)
         self.gui = gui
         self.tm = gui.tm
+        self._busy = threading.Event()
         plt.show = self.on_plt_show
         sys.modules["matplotlib.pyplot"] = plt
+
+    def can_done(self):
+        return not self._busy.is_set() and self.tm.busy
 
     def on_plt_show(self, *args, **kwargs):
         filename = f'{time.strftime("%Y%m%d_%H%M%S")}.png'
@@ -111,9 +115,12 @@ class AIPython(threading.Thread):
                 break
             else:
                 try:
+                    self._busy.set()
                     self.tm(instruction)
                 except Exception as e:
                     traceback.print_exc()
+                finally:
+                    self._busy.clear()
             wx.CallAfter(self.gui.toggle_input)
 
 class CStatusBar(wx.StatusBar):
@@ -175,6 +182,7 @@ class ChatFrame(wx.Frame):
         self.make_panel()
         self.statusbar = CStatusBar(self)
         self.SetStatusBar(self.statusbar)
+        self.statusbar.SetStatusText("按 Ctrl+Enter 发送消息", 0)
 
         self.Bind(EVT_CHAT, self.on_chat)
         self.aipython.start()
@@ -200,6 +208,10 @@ class ChatFrame(wx.Frame):
         self.input.SetWindowStyleFlag(wx.BORDER_SIMPLE)
         self.input.Bind(wx.EVT_KEY_DOWN, self.on_key_down)
 
+        self.done_button = wx.Button(self.container, label="结束", size=(50, -1))
+        self.done_button.Hide()
+        self.done_button.Bind(wx.EVT_BUTTON, self.on_done)
+        self.done_button.SetBackgroundColour(wx.Colour(255, 230, 230)) 
         self.send_button = wx.Button(self.container, label="发送", size=(50, -1))
         self.send_button.Bind(wx.EVT_BUTTON, self.on_send)
         self.container.Bind(wx.EVT_SIZE, self.on_container_resize)
@@ -243,20 +255,27 @@ class ChatFrame(wx.Frame):
         self.aipython.join()
         self.Close()
 
-    def on_container_resize(self, event):
-        # 获取容器和按钮的大小
-        container_size = event.GetSize()
-        button_size = self.send_button.GetSize()
+    def on_done(self, event):
+        self.tm.done()
+        self.done_button.Hide()
+        self.SetStatusText("当前任务已结束", 0)
 
-        overlap = -10
+    def on_container_resize(self, event):
+        container_size = event.GetSize()
         self.input.SetSize(container_size)
 
-        button_pos_x = container_size.width - button_size.width + overlap
-        if sys.platform == 'darwin':
-            button_pos_y = container_size.height - button_size.height - 10
-        else:
-            button_pos_y = (container_size.height - button_size.height) // 2
+        overlap = -20
+        send_button_size = self.send_button.GetSize()
+        button_pos_x = container_size.width - send_button_size.width + overlap
+        button_pos_y = container_size.height - send_button_size.height - 10
         self.send_button.SetPosition((button_pos_x, button_pos_y))
+
+        if self.aipython.can_done():
+            done_button_size = self.done_button.GetSize()
+            button_pos_x = container_size.width - done_button_size.width + overlap
+            button_pos_y = 10
+            self.done_button.SetPosition((button_pos_x, button_pos_y))
+            self.done_button.Show()
 
         event.Skip()
 
@@ -313,7 +332,7 @@ class ChatFrame(wx.Frame):
         else:
             self.container.Show()
             wx.EndBusyCursor()
-            self.SetStatusText("操作完成", 0)
+            self.SetStatusText("操作完成。如果开始下一个任务，请点击“结束”按钮", 0)
         self.panel.Layout()
         self.panel.Refresh()
 
@@ -336,26 +355,21 @@ class ChatFrame(wx.Frame):
         js_code = f'appendMessage("{avatar}", "{user}", {repr(text)});'
         self.webview.RunScript(js_code)
 
-    def refresh_chat(self):
-        wx.CallLater(100, lambda: self.browser.RunScript("window.scrollTo(0, document.body.scrollHeight);"))
-
-    def on_stop_task(self, event):
-        self.tm.done()
-        self.SetStatusText("任务已停止", 0)
-
 def main(args):
     default_config_path = resources.files(__PACKAGE_NAME__) / "default.toml"
     conf = ConfigManager(default_config_path, args.config_dir)
     conf.check_config()
     settings = conf.get_config()
 
+    settings.gui = True
     settings.auto_install = True
     settings.auto_getenv = True
 
     lang = settings.get('lang')
     if lang: set_lang(lang)
 
-    console = Console(quiet=True, record=True)
+    quiet = False if args.debug else True
+    console = Console(quiet=quiet, record=True)
     try:
         tm = TaskManager(settings, console=console)
     except Exception as e:
