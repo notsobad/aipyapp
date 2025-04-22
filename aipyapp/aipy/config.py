@@ -198,7 +198,7 @@ class ConfigManager:
     def fetch_config(self):
         """从tt获取配置并保存到配置文件中。
         """
-        fetch_token(self.save_tt_config)
+        self.trust_token.fetch_token(self.save_tt_config)
 
     def check_config(self, gui=False):
         """检查配置文件是否存在，并加载配置。
