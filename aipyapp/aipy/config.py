@@ -94,6 +94,13 @@ class ConfigManager:
         self.config = self._load_config()
         self.trust_token = TrustToken()
 
+
+    def get_work_dir(self):
+        if self.config.workdir:
+            return Path.cwd() / self.config.workdir
+        return Path.cwd()
+
+
     def _load_config(self, settings_files=[]):
         """加载配置文件
         :param settings_files: 配置文件列表

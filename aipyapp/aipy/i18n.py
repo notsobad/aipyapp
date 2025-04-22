@@ -82,6 +82,7 @@ MESSAGES = {
         'unknown_status': "收到未知状态: {}",
         'attempting_migration': '发现旧的配置文件: {}\n尝试从这些文件迁移配置...\n迁移之后，这些文件会被备份到 {}，请注意查看。',
         'task_saved': '结果文件已保存',
+        'env_info': '当前配置文件目录：{} 工作目录: {}'
     },
     'en': {
         'start_instruction': 'Start processing instruction',
@@ -161,6 +162,7 @@ MESSAGES = {
         'unknown_status': "Received unknown status: {}",
         'attempting_migration': 'Found old configuration files: {}\nAttempting to migrate configuration from these files...\nAfter migration, these files will be backed up to {}, please check them.',
         'task_saved': 'Result file saved',
+        'env_info': 'Current configuration file directory: {} Working directory: {}'
     }
 }
 
