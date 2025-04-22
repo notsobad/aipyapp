@@ -246,7 +246,6 @@ class ConfigManager:
             if not path.exists():
                 continue
 
-            migrated_files.append(str(path))
 
             try:
                 config = Dynaconf(
@@ -266,6 +265,8 @@ class ConfigManager:
 
                 combined_toml_content += content + "\n\n" # Add separator
 
+                # 文件内容、格式都正常，则准备迁移
+                migrated_files.append(str(path))
                 # Backup the old file
                 backup_path = path.with_name(f"{path.stem}-backup{path.suffix}")
                 try:
