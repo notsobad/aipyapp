@@ -11,6 +11,7 @@ import mimetypes
 import traceback
 import threading
 import importlib.resources as resources
+import subprocess
 
 import wx
 import wx.html2
@@ -24,7 +25,7 @@ from . import __version__
 from .aipy.config import ConfigManager, CONFIG_DIR
 from .aipy import TaskManager, event_bus
 from .aipy.i18n import T, set_lang
-from .gui import TrustTokenAuthDialog
+from .gui import TrustTokenAuthDialog, ConfigDialog
 
 __PACKAGE_NAME__ = "aipyapp"
 ChatEvent, EVT_CHAT = NewEvent()
@@ -129,8 +130,8 @@ class CStatusBar(wx.StatusBar):
     def __init__(self, parent):
         super().__init__(parent, style=wx.STB_DEFAULT_STYLE)
         self.parent = parent
-        self.SetFieldsCount(2)
-        self.SetStatusWidths([-1, 80])
+        self.SetFieldsCount(3)
+        self.SetStatusWidths([-1, 30, 80])
 
         self.tm = parent.tm
         self.current_llm = self.tm.llm.names['default']
@@ -138,11 +139,20 @@ class CStatusBar(wx.StatusBar):
         self.menu_items = self.enabled_llm
         self.radio_group = []
 
-        self.SetStatusText(f"{self.current_llm} ▾", 1)
+        self.folder_button = wx.StaticBitmap(self, -1, wx.ArtProvider.GetBitmap(wx.ART_FOLDER_OPEN, wx.ART_MENU))
+        self.folder_button.Bind(wx.EVT_LEFT_DOWN, self.on_open_work_dir)
+        self.Bind(wx.EVT_SIZE, self.on_size)
+
+        self.SetStatusText(f"{self.current_llm} ▾", 2)
         self.Bind(wx.EVT_LEFT_DOWN, self.on_click)
 
-    def on_click(self, event):
+    def on_size(self, event):
         rect = self.GetFieldRect(1)
+        self.folder_button.SetPosition((rect.x + 5, rect.y + 2))
+        event.Skip()
+
+    def on_click(self, event):
+        rect = self.GetFieldRect(2)
         if rect.Contains(event.GetPosition()):
             self.show_menu()
 
@@ -156,7 +166,7 @@ class CStatusBar(wx.StatusBar):
             self.Bind(wx.EVT_MENU, self.on_menu_select, item)
             if label == self.current_llm:
                 item.Check()
-        rect = self.GetFieldRect(1)
+        rect = self.GetFieldRect(2)
         pos = self.ClientToScreen(rect.GetBottomLeft())
         self.PopupMenu(self.current_menu, self.ScreenToClient(pos))
 
@@ -165,9 +175,22 @@ class CStatusBar(wx.StatusBar):
         label = item.GetItemLabel()
         if self.tm.use(label):
             self.current_llm = label
-            self.SetStatusText(f"{label} ▾", 1)
+            self.SetStatusText(f"{label} ▾", 2)
         else:
             wx.MessageBox(f"LLM {label} 不可用", "警告", wx.OK|wx.ICON_WARNING)
+
+    def on_open_work_dir(self, event):
+        """打开工作目录"""
+        work_dir = self.tm.workdir
+        if os.path.exists(work_dir):
+            if sys.platform == 'win32':
+                os.startfile(work_dir)
+            elif sys.platform == 'darwin':
+                subprocess.call(['open', work_dir])
+            else:
+                subprocess.call(['xdg-open', work_dir])
+        else:
+            wx.MessageBox(T('Work directory does not exist'), T('Error'), wx.OK | wx.ICON_ERROR)
 
 class ChatFrame(wx.Frame):
     def __init__(self, tm):
@@ -268,7 +291,12 @@ class ChatFrame(wx.Frame):
         self.Bind(wx.EVT_MENU, self.on_exit, id=wx.ID_EXIT)
 
         edit_menu = wx.Menu()
-        edit_menu.Append(wx.ID_CLEAR, "清空聊天(&C)", "清除所有消息")
+        edit_menu.Append(wx.ID_CLEAR, T('Clear chat') + "(&C)", T('Clear all messages'))
+        edit_menu.AppendSeparator()
+        self.ID_CONFIG = wx.NewIdRef()
+        menu_item = wx.MenuItem(edit_menu, self.ID_CONFIG, T('Configuration') + "(&O)\tCtrl+O", T('Configure program parameters'))
+        edit_menu.Append(menu_item)
+        self.Bind(wx.EVT_MENU, self.on_config, id=self.ID_CONFIG)
         self.Bind(wx.EVT_MENU, self.on_clear_chat, id=wx.ID_CLEAR)
 
         task_menu = wx.Menu()
@@ -423,6 +451,17 @@ class ChatFrame(wx.Frame):
         avatar = AVATARS[user]
         js_code = f'appendMessage("{avatar}", "{user}", {repr(text)});'
         self.webview.RunScript(js_code)
+
+    def on_config(self, event):
+        dialog = ConfigDialog(self, self.tm.settings)
+        if dialog.ShowModal() == wx.ID_OK:
+            values = dialog.get_values()
+            self.tm.settings.workdir = values['workdir']
+            self.tm.settings['max-tokens'] = values['max-tokens']
+            self.tm.settings['timeout'] = values['timeout']
+            self.tm.settings['max-rounds'] = values['max-rounds']
+            self.tm.settings.save()
+        dialog.Destroy()
 
 class AboutDialog(wx.Dialog):
     def __init__(self, parent):
