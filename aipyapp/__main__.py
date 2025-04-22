@@ -26,6 +26,7 @@ def parse_args():
     parser.add_argument('-p', '--python', default=False, action='store_true', help="Python mode")
     parser.add_argument('-g', '--gui', default=False, action='store_true', help="GUI mode")
     parser.add_argument('--debug', default=False, action='store_true', help="Debug mode")
+    parser.add_argument('-f', '--fetch-config', default=False, action='store_true', help="login to trustoken and fetch token config")
     parser.add_argument('cmd', nargs='?', default=None, help="Task to execute, e.g. 'Who are you?'")
     return parser.parse_args()
 

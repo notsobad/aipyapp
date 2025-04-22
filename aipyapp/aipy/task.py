@@ -94,7 +94,8 @@ class Task:
             self.save_html(filename, task)
         else:
             self.console.save_html(filename, clear=True, code_format=CONSOLE_HTML_FORMAT)
-
+        filename = str(Path(filename).resolve())
+        self.console.print(f"[green]{T('task_saved')}: \"{filename}\"")
         self.llm.clear()
         self.runner.clear()
         self.task_id = None
