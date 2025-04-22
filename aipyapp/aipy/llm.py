@@ -144,7 +144,7 @@ class BaseClient(ABC):
             self._params['temperature'] = temperature
 
     def __repr__(self):
-        return f"{self.__class__.__name__}<{self.name}>({self._model}, {self.max_tokens})"
+        return f"{self.__class__.__name__}<{self.name}>: ({self._model}, {self._base_url})"
     
     def is_stopped(self):
         return event_bus.is_stopped()

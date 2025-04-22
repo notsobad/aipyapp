@@ -1,10 +1,13 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+import sys
 from enum import Enum, auto
 from pathlib import Path
 import importlib.resources as resources
+from collections import OrderedDict
 
 from rich.console import Console
+from rich.table import Table
 from prompt_toolkit import PromptSession
 from prompt_toolkit.history import FileHistory
 from prompt_toolkit.styles import Style
@@ -23,12 +26,15 @@ class CommandType(Enum):
     CMD_EXIT = auto()
     CMD_INVALID = auto()
     CMD_TEXT = auto()
+    CMD_INFO = auto()
 
 def parse_command(input_str, llms=set()):
     lower = input_str.lower()
 
     if lower in ("/done", "done"):
         return CommandType.CMD_DONE, None
+    if lower in ("/info", "info"):
+        return CommandType.CMD_INFO, None
     if lower in ("/exit", "exit"):
         return CommandType.CMD_EXIT, None
     if lower in llms:
@@ -48,11 +54,28 @@ def parse_command(input_str, llms=set()):
                
     return CommandType.CMD_TEXT, input_str
 
+def show_info(console, info):
+    info['Python'] = sys.executable
+    info['Python version'] = sys.version
+    info['Base Prefix'] = sys.base_prefix
+    table = Table(title=T("sys_info"), show_lines=True)
+
+    table.add_column("参数", justify="center", style="bold cyan", no_wrap=True)
+    table.add_column("值", justify="right", style="bold magenta")
+
+    for key, value in info.items():
+        table.add_row(
+            key,
+            value,
+        )
+
+    console.print(table)
+
 class InteractiveConsole():
     def __init__(self, tm, console, settings):
         self.tm = tm
         self.names = tm.llm.names
-        completer = WordCompleter(['/use', 'use', '/done','done'] + list(self.names['enabled']), ignore_case=True)
+        completer = WordCompleter(['/use', 'use', '/done','done', '/info', 'info'] + list(self.names['enabled']), ignore_case=True)
         self.history = FileHistory(str(Path.cwd() / settings.history))
         self.session = PromptSession(history=self.history, completer=completer)
         self.console = console
@@ -127,10 +150,16 @@ class InteractiveConsole():
                 elif cmd == CommandType.CMD_USE:
                     ret = self.tm.llm.use(arg)
                     self.console.print('[green]Ok[/green]' if ret else '[red]Error[/red]')
+                elif cmd == CommandType.CMD_INFO:
+                    info = OrderedDict()
+                    info['Config dir'] = str(CONFIG_DIR)
+                    info['Work dir'] = str(self.tm.workdir)
+                    info['Current LLM'] = repr(self.tm.llm.current)
+                    show_info(self.console, info)
+                elif cmd == CommandType.CMD_EXIT:
+                    break                    
                 elif cmd == CommandType.CMD_INVALID:
                     self.console.print('[red]Error[/red]')
-                elif cmd == CommandType.CMD_EXIT:
-                    break
             except (EOFError, KeyboardInterrupt):
                 break
 
@@ -141,7 +170,7 @@ def main(args):
     conf = ConfigManager(default_config_path, args.config_dir)
     conf.check_config()
     settings = conf.get_config()
-    console.print(T('env_info').format(CONFIG_DIR, conf.get_work_dir()))
+    #console.print(T('env_info').format(CONFIG_DIR, conf.get_work_dir()))
 
     lang = settings.get('lang')
     if lang: set_lang(lang)

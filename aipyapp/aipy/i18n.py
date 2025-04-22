@@ -32,7 +32,7 @@ MESSAGES = {
         'thinking': '正在绞尽脑汁思考中，请稍等6-60秒',
         'no_available_llm': '没有可用的 LLM，请检查配置文件',
         'banner1_python': "请用 ai('任务') 输入需要 AI 处理的任务 (输入 ai.use(llm) 切换下述 LLM：",
-        'banner1': "请输入需要 AI 处理的任务 (输入 /use <下述 LLM> 切换)",
+        'banner1': "请输入需要 AI 处理的任务 (输入 /use <下述 LLM> 切换，输入 /info 查看系统信息)",
         'default': '默认',
         'enabled': '已启用',
         'ai_mode_enter': '进入 AI 模式，开始处理任务，输入 Ctrl+d 或 /done 结束任务',
@@ -82,7 +82,8 @@ MESSAGES = {
         'unknown_status': "收到未知状态: {}",
         'attempting_migration': '发现旧的配置文件: {}\n尝试从这些文件迁移配置...\n迁移之后，这些文件会被备份到 {}，请注意查看。',
         'task_saved': '结果文件已保存',
-        'env_info': '当前配置文件目录：{} 工作目录: {}'
+        'env_info': '当前配置文件目录：{} 工作目录: {}',
+        'sys_info': '系统信息',
     },
     'en': {
         'start_instruction': 'Start processing instruction',
@@ -112,7 +113,7 @@ MESSAGES = {
         'thinking': 'is thinking hard, please wait 6-60 seconds',
         'no_available_llm': 'No available LLM, please check the configuration file',
         'banner1_python': "Please use ai('task') to enter the task to be processed by AI (enter ai.use(llm) to switch to the following LLM:",
-        'banner1': "Please enter the task to be processed by AI (enter /use <following LLM> to switch)",
+        'banner1': "Please enter the task to be processed by AI (enter /use <following LLM> to switch, enter /info to view system information)",
         'default': 'Default',
         'enabled': 'Enabled',
         'ai_mode_enter': 'Enter AI mode, start processing tasks, enter Ctrl+d or /done to end the task',
@@ -162,7 +163,8 @@ MESSAGES = {
         'unknown_status': "Received unknown status: {}",
         'attempting_migration': 'Found old configuration files: {}\nAttempting to migrate configuration from these files...\nAfter migration, these files will be backed up to {}, please check them.',
         'task_saved': 'Result file saved',
-        'env_info': 'Current configuration file directory: {} Working directory: {}'
+        'env_info': 'Current configuration file directory: {} Working directory: {}',
+        'sys_info': 'System information',
     }
 }
 
