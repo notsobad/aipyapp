@@ -13,7 +13,7 @@ from prompt_toolkit.completion import WordCompleter
 from . import __version__
 from .aipy import TaskManager
 from .aipy.i18n import T, set_lang
-from .aipy.config import ConfigManager
+from .aipy.config import ConfigManager,CONFIG_DIR
 
 __PACKAGE_NAME__ = "aipyapp"
 
@@ -137,11 +137,11 @@ class InteractiveConsole():
 def main(args):
     console = Console(record=True)
     console.print(f"[bold cyan]🚀 Python use - AIPython ({__version__}) [[green]https://aipy.app[/green]]")
-    
     default_config_path = resources.files(__PACKAGE_NAME__) / "default.toml"
     conf = ConfigManager(default_config_path, args.config_dir)
     conf.check_config()
     settings = conf.get_config()
+    console.print(T('env_info').format(CONFIG_DIR, conf.get_work_dir()))
 
     lang = settings.get('lang')
     if lang: set_lang(lang)

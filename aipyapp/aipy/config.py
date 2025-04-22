@@ -33,17 +33,7 @@ def init_config_dir():
     """
     获取平台相关的配置目录，并确保目录存在
     """
-    if sys.platform == "win32":
-        # Windows 路径
-        app_data = os.environ.get("APPDATA")
-        if app_data:
-            config_dir = Path(app_data) / __PACKAGE_NAME__
-        else:
-            config_dir = Path.home() / "AppData" / "Roaming" / __PACKAGE_NAME__
-    else:
-        # Linux/macOS 路径
-        config_dir = Path.home() / ".config" / __PACKAGE_NAME__
-
+    config_dir = Path.home() / f".{__PACKAGE_NAME__}"
     # 确保目录存在
     try:
         config_dir.mkdir(parents=True, exist_ok=True)
@@ -103,6 +93,13 @@ class ConfigManager:
         self.default_config = default_config
         self.config = self._load_config()
         self.trust_token = TrustToken()
+
+
+    def get_work_dir(self):
+        if self.config.workdir:
+            return Path.cwd() / self.config.workdir
+        return Path.cwd()
+
 
     def _load_config(self, settings_files=[]):
         """加载配置文件
@@ -217,11 +214,9 @@ class ConfigManager:
                 return
 
             # 尝试从旧版本配置迁移
-            old_user_config = self._load_config(settings_files=OLD_SETTINGS_FILES)
-            if old_user_config.to_dict():
-                self._migrate_old_config(old_user_config)
+            if self._migrate_config():
                 # 迁移完成后重新加载配置
-                self.config = self._load_config()
+                self.reload_config()
 
             # 如果仍然没有可用的 LLM 配置，则从网络拉取
             if not self.check_llm():
@@ -237,70 +232,84 @@ class ConfigManager:
             traceback.print_exc()
             sys.exit(1)
 
-    def _migrate_old_config(self, old_config):
+    def _migrate_config(self):
         """
-        从old_config中提取符合特定条件的API keys，并从原始配置中删除
-        
-        返回: 提取的API keys字典，格式为 {配置名称: API key}
+        Migrates configuration from old settings files (OLD_SETTINGS_FILES)
+        to the new user_config.toml and potentially creates the main aipyapp.toml
+        if a TrustToken configuration is found.
         """
-        if not old_config:
-            return {}
-        
-        # Identify and backup existing old settings files
-        existing_files = []
+        combined_toml_content = ""
+        migrated_files = []
         backup_files = []
+
         for path in OLD_SETTINGS_FILES:
             if not path.exists():
                 continue
-            existing_files.append(str(path))
-            # Build backup name, e.g. "aipy.toml" -> "aipy-backup.toml"
-            backup_path = path.with_name(f"{path.stem}-backup{path.suffix}")
+
+
             try:
-                path.rename(backup_path)
+                config = Dynaconf(
+                    settings_files=[path],
+                )
+                config_dict = config.to_dict()
+                assert(config_dict)
+
+                try:
+                    content = path.read_text(encoding='utf-8')
+                except UnicodeDecodeError:
+                    try:
+                        content = path.read_text(encoding='gbk')
+                    except Exception as e:
+                        print(f"Error reading file {path}: {e}")
+                        continue
+
+                combined_toml_content += content + "\n\n" # Add separator
+
+                # 文件内容、格式都正常，则准备迁移
+                migrated_files.append(str(path))
+                # Backup the old file
+                backup_path = path.with_name(f"{path.stem}-backup{path.suffix}")
+                try:
+                    path.rename(backup_path)
+                    backup_files.append(str(backup_path))
+                except Exception as e:
+                    pass
+
             except Exception as e:
-                print(T('error_creating_backup').format(path, e))
-            backup_files.append(str(backup_path))
+                pass
+        if not combined_toml_content:
+            return
 
-        print(T('attempting_migration').format(', '.join(existing_files), ', '.join(backup_files)))
+        print(T('attempting_migration').format(', '.join(migrated_files), ', '.join(backup_files)))
 
-        #print(old_config.to_dict())
-
-        # 处理顶级配置
-        llm = old_config.get('llm', {})
-        for section_name, section_data in list(llm.items()):
-            # 跳过非字典类型的配置
-            if not isinstance(section_data, dict):
-                continue
-           
-            # 检查是否有tt的配置，找到一条即可
-            if self._is_tt_config(section_name, section_data):
-                api_key = section_data.get('api_key', section_data.get('api-key'))
-                if api_key:
-                    # 保存系统配置
-                    print("Token found:", api_key)
-                    self.save_tt_config(api_key)
-                    print(T('migrate_config').format(self.config_file))
-
-                    # 从原配置中删除
-                    llm.pop(section_name)
-                    break
-
-        # 将 old_config 转换为 dict， 保存用户配置文件
-        config_dict = lowercase_keys(old_config.to_dict())
-        if not config_dict.get('llm'):
-            config_dict.pop('llm', None)
-
-        if not config_dict:
-            return {}
-        
+        # Write combined content to user_config.toml
         try:
             with open(self.user_config_file, "w", encoding="utf-8") as f:
-                toml_text = tomli_w.dumps(config_dict, multiline_strings=True)
-                f.write(toml_text)
+                f.write(f"# Migrated from: {', '.join(migrated_files)}\n")
+                f.write(f"# Original files backed up to: {', '.join(backup_files)}\n\n")
+                f.write(combined_toml_content)
                 print(T('migrate_user_config').format(self.user_config_file))
         except Exception as e:
-            print(T('error_saving_config').format(self.user_config_file, str(e)))
-        return
+            return
+
+        # Now, load the newly created user config to find TT key
+        try:
+            temp_config = self._load_config(settings_files=[self.user_config_file])
+            llm_config = temp_config.get('llm', {})
+
+            for section_name, section_data in llm_config.items():
+                if isinstance(section_data, dict) and self._is_tt_config(section_name, section_data):
+                    api_key = section_data.get('api_key', section_data.get('api-key'))
+                    if api_key:
+                        print("Token found:", api_key)
+                        self.save_tt_config(api_key)
+                        print(T('migrate_config').format(self.config_file))
+                        break
+
+        except Exception as e:
+            pass
+        
+        return True
 
     def _is_tt_config(self, name, config):
         """

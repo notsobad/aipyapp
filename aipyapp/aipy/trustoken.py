@@ -101,7 +101,7 @@ class TrustToken:
             qr.add_data(approval_url)
             qr.make(fit=True)
             qr.print_ascii(tty=True)
-            print("\n")
+            print(T('config_help'))
         except Exception as e:
             print(T('qr_code_display_failed').format(e))
 
@@ -120,7 +120,7 @@ class TrustToken:
         start_time = time.time()
         polling_timeout = 310
 
-        print(T('waiting_for_approval'))
+        print(T('waiting_for_approval'), end='', flush=True)
         try:
             while time.time() - start_time < polling_timeout:
                 data = self.api.check_status(request_id)
@@ -129,6 +129,12 @@ class TrustToken:
                     continue
 
                 status = data.get('status')
+                if status == 'pending':
+                    print('.', end='', flush=True)
+                    time.sleep(self.poll_interval)
+                    continue
+
+                print()
                 print(T('current_status').format(status))
 
                 if status == 'approved':
@@ -138,8 +144,6 @@ class TrustToken:
                 elif status == 'expired':
                     print(T('binding_expired'))
                     return False
-                elif status == 'pending':
-                    pass
                 else:
                     print(T('unknown_status').format(status))
                     return False
