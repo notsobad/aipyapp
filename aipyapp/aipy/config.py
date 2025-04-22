@@ -133,6 +133,9 @@ class ConfigManager:
                 )
         return config
 
+    def reload_config(self):
+        self.config = self._load_config()
+
     def get_config(self):
         return self.config
 
@@ -224,7 +227,7 @@ class ConfigManager:
             if not self.check_llm():
                 if gui: return 'TrustToken'
                 self.fetch_config()
-                self.config = self._load_config()
+                self.reload_config()
 
             if not self.check_llm():
                 print(T('llm_config_not_found'))

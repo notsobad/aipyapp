@@ -412,13 +412,14 @@ class ChatFrame(wx.Frame):
         self.webview.RunScript(js_code)
 
 def main(args):
-    set_lang('zh')
     default_config_path = resources.files(__PACKAGE_NAME__) / "default.toml"
     conf = ConfigManager(default_config_path, args.config_dir)
     app = wx.App()
     if conf.check_config(gui=True) == 'TrustToken':
         dialog = TrustTokenAuthDialog()
-        if not dialog.fetch_token(conf.save_tt_config):
+        if dialog.fetch_token(conf.save_tt_config):
+            conf.reload_config()
+        else:
             return
     settings = conf.get_config()
 
