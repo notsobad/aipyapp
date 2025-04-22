@@ -10,6 +10,7 @@ from .llm import LLM
 from .runner import Runner
 from .plugin import PluginManager
 from .prompt import SYSTEM_PROMPT
+from .diagnose import Diagnose
 
 class TaskManager:
     def __init__(self, settings, console):
@@ -31,6 +32,7 @@ class TaskManager:
             self._cwd = Path.cwd()
         self._init_environ()
         self._init_api()
+        self.diagnose = Diagnose.create(settings)
         self.runner = Runner(settings, console, envs=self.envs)
         self.llm = LLM(settings, console, system_prompt=self.system_prompt)
 
@@ -38,15 +40,22 @@ class TaskManager:
     def workdir(self):
         return str(self._cwd)
 
+    @property
+    def busy(self):
+        return self.task is not None
+
     def use(self, name):
         ret = self.llm.use(name)
         self.console.print('[green]Ok[/green]' if ret else '[red]Error[/red]')
         return ret
 
     def done(self):
-        if self.task:
-            self.task.done()
-            self.task = None
+        if not self.task:
+            return
+        
+        self.diagnose.report_code_error(self.runner.history)
+        self.task.done()
+        self.task = None
 
     def save(self, path):
         if self.task:  
