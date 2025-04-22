@@ -1,16 +1,23 @@
 #!/usr/bin/env python
 # coding: utf-8
 
+import os
 import sys
 import argparse
-from pathlib import Path
 
-from .aipy.config import CONFIG_DIR
+class Logger:
+    def __init__(self, file_path=os.devnull):
+        self.terminal = sys.stdout
+        self.log = open(file_path, "a", encoding="utf-8")
 
-config_help_message = (
-    f"Specify the configuration directory.\nDefaults to {CONFIG_DIR} if not provided."
-)
+    def write(self, message):
+        self.terminal.write(message)
+        self.log.write(message)
 
+    def flush(self):
+        self.terminal.flush()
+        self.log.flush()
+        
 def ensure_wxpython():
     try:
         import wx
@@ -21,6 +28,11 @@ def ensure_wxpython():
         assert cp.returncode == 0
 
 def parse_args():
+    from .aipy.config import CONFIG_DIR
+    config_help_message = (
+        f"Specify the configuration directory.\nDefaults to {CONFIG_DIR} if not provided."
+    )
+
     parser = argparse.ArgumentParser(description="Python use - AIPython", formatter_class=argparse.RawTextHelpFormatter)
     parser.add_argument("-c", '--config-dir', type=str, help=config_help_message)
     parser.add_argument('-p', '--python', default=False, action='store_true', help="Python mode")
@@ -31,6 +43,8 @@ def parse_args():
     return parser.parse_args()
 
 def mainw():
+    sys.stdout = Logger()
+    sys.stderr = Logger()
     args = parse_args()
     ensure_wxpython()
     from .wxgui import main as aipy_main
