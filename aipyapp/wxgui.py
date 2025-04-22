@@ -21,7 +21,7 @@ from wx.lib.newevent import NewEvent
 from wx import FileDialog, FD_SAVE, FD_OVERWRITE_PROMPT
 
 from . import __version__
-from .aipy.config import ConfigManager
+from .aipy.config import ConfigManager, CONFIG_DIR
 from .aipy import TaskManager, event_bus
 from .aipy.i18n import T, set_lang
 from .gui import TrustTokenAuthDialog
@@ -154,7 +154,8 @@ class CStatusBar(wx.StatusBar):
             self.current_menu.Append(item)
             self.radio_group.append(item)
             self.Bind(wx.EVT_MENU, self.on_menu_select, item)
-
+            if label == self.current_llm:
+                item.Check()
         rect = self.GetFieldRect(1)
         pos = self.ClientToScreen(rect.GetBottomLeft())
         self.PopupMenu(self.current_menu, self.ScreenToClient(pos))
@@ -288,10 +289,15 @@ class ChatFrame(wx.Frame):
         help_menu.Append(menu_item)
         self.ID_GROUP = wx.NewIdRef()
         menu_item = wx.MenuItem(help_menu, self.ID_GROUP, "微信群(&G)\tCtrl+G", "官方微信群")
-        help_menu.Append(menu_item)        
+        help_menu.Append(menu_item)
+        help_menu.AppendSeparator()
+        self.ID_ABOUT = wx.NewIdRef()
+        menu_item = wx.MenuItem(help_menu, self.ID_ABOUT, "关于(&A)", "关于爱派")
+        help_menu.Append(menu_item)
         self.Bind(wx.EVT_MENU, self.on_open_website, id=self.ID_WEBSITE)
         self.Bind(wx.EVT_MENU, self.on_open_website, id=self.ID_FORUM)
         self.Bind(wx.EVT_MENU, self.on_open_website, id=self.ID_GROUP)
+        self.Bind(wx.EVT_MENU, self.on_about, id=self.ID_ABOUT)
         menu_bar.Append(help_menu, "帮助(&H)")
 
         self.SetMenuBar(menu_bar)
@@ -338,6 +344,11 @@ class ChatFrame(wx.Frame):
         elif event.GetId() == self.ID_GROUP:
             url = "https://d.aipy.app/d/13"
         wx.LaunchDefaultBrowser(url)
+
+    def on_about(self, event):
+        about_dialog = AboutDialog(self)
+        about_dialog.ShowModal()
+        about_dialog.Destroy()
 
     def on_save_html(self, event):
         try:
@@ -412,6 +423,69 @@ class ChatFrame(wx.Frame):
         avatar = AVATARS[user]
         js_code = f'appendMessage("{avatar}", "{user}", {repr(text)});'
         self.webview.RunScript(js_code)
+
+class AboutDialog(wx.Dialog):
+    def __init__(self, parent):
+        super().__init__(parent, title="关于爱派", size=(400, 300))
+        
+        self.SetBackgroundColour(wx.Colour(255, 255, 255))
+        
+        vbox = wx.BoxSizer(wx.VERTICAL)
+        
+        # Logo and title
+        logo_panel = wx.Panel(self)
+        logo_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        
+        try:
+            icon_path = str(resources.files(__PACKAGE_NAME__) / "aipy.ico")
+            icon = wx.Icon(icon_path, wx.BITMAP_TYPE_ICO)
+            bitmap = wx.StaticBitmap(logo_panel, -1, icon.ConvertToBitmap())
+            logo_sizer.Add(bitmap, 0, wx.ALL | wx.ALIGN_CENTER, 10)
+        except:
+            pass
+            
+        title = wx.StaticText(logo_panel, -1, "爱派")
+        title.SetFont(wx.Font(24, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD))
+        logo_sizer.Add(title, 0, wx.ALL | wx.ALIGN_CENTER, 10)
+        
+        logo_panel.SetSizer(logo_sizer)
+        vbox.Add(logo_panel, 0, wx.ALL | wx.ALIGN_CENTER, 10)
+        
+        # Version and description
+        version = wx.StaticText(self, -1, f"版本: {__version__}")
+        vbox.Add(version, 0, wx.ALL | wx.ALIGN_CENTER, 5)
+        
+        description = wx.StaticText(self, -1, "爱派是一个智能助手，可以帮助您完成各种任务。")
+        vbox.Add(description, 0, wx.ALL | wx.ALIGN_CENTER, 5)
+        
+        # Add some space
+        vbox.AddSpacer(15)
+        
+        tm = parent.tm
+        # Configuration directory
+        config_dir = wx.StaticText(self, -1, f"当前配置目录: {CONFIG_DIR}")
+        vbox.Add(config_dir, 0, wx.ALL | wx.ALIGN_CENTER, 5)
+        work_dir = wx.StaticText(self, -1, f"当前工作目录: {tm.workdir}")
+        vbox.Add(work_dir, 0, wx.ALL | wx.ALIGN_CENTER, 5)
+
+        # Add flexible space to push copyright and button to bottom
+        vbox.AddStretchSpacer()
+        
+        # Copyright and OK button at bottom
+        bottom_panel = wx.Panel(self)
+        bottom_sizer = wx.BoxSizer(wx.VERTICAL)
+        
+        copyright = wx.StaticText(bottom_panel, -1, "© 2025 爱派团队")
+        bottom_sizer.Add(copyright, 0, wx.ALL | wx.ALIGN_CENTER, 5)
+        
+        ok_button = wx.Button(bottom_panel, wx.ID_OK, "确定")
+        bottom_sizer.Add(ok_button, 0, wx.ALL | wx.ALIGN_CENTER, 10)
+        
+        bottom_panel.SetSizer(bottom_sizer)
+        vbox.Add(bottom_panel, 0, wx.EXPAND | wx.ALL, 5)
+        
+        self.SetSizer(vbox)
+        self.Centre()
 
 def main(args):
     app = wx.App(False)

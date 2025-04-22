@@ -1,5 +1,6 @@
 import time
 import wx
+import wx.adv
 import threading
 import qrcode
 import io
@@ -41,15 +42,18 @@ class TrustTokenAuthDialog(wx.Dialog):
         
        # Status text
         self.status_text = wx.StaticText(self, label='')
-        main_sizer.Add(self.status_text, 0, wx.TOP | wx.ALIGN_CENTER, 10)
+        main_sizer.Add(self.status_text, 0, wx.TOP | wx.ALIGN_CENTER, 5)
 
         # QR code display
         self.qr_bitmap = wx.StaticBitmap(self, size=(300, 300))
-        main_sizer.Add(self.qr_bitmap, 0, wx.ALL | wx.ALIGN_CENTER, 10)
-        
+        main_sizer.Add(self.qr_bitmap, 0, wx.ALL | wx.ALIGN_CENTER, 5)
+
+        self.other_text = wx.adv.HyperlinkCtrl(self, label='扫码绑定AiPy大脑，您也可以配置其它大模型大脑', url='https://d.aipy.app/d/77')
+        main_sizer.Add(self.other_text, 0, wx.TOP | wx.ALIGN_CENTER, 5)
+
         # Progress bar
         self.progress_bar = wx.Gauge(self, range=100)
-        main_sizer.Add(self.progress_bar, 0, wx.ALL | wx.EXPAND, 10)
+        main_sizer.Add(self.progress_bar, 0, wx.ALL | wx.EXPAND, 5)
         
         # Time remaining text
         self.time_text = wx.StaticText(self, label='')
@@ -58,7 +62,7 @@ class TrustTokenAuthDialog(wx.Dialog):
         
         # Buttons
         self.cancel_button = wx.Button(self, wx.ID_CANCEL, T('cancel'))
-        main_sizer.Add(self.cancel_button, 0, wx.ALIGN_CENTER | wx.TOP, 10)
+        main_sizer.Add(self.cancel_button, 0, wx.ALIGN_CENTER | wx.ALL, 5)
         
         self.SetSizer(main_sizer)
         

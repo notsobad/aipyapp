@@ -101,6 +101,7 @@ class TaskManager:
         task.console = self.console
         task.llm = self.llm
         task.runner = self.runner
+        self.task = task
         return task
     
     def __call__(self, instruction, llm=None, max_rounds=None, system_prompt=None):

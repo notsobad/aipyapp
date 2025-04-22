@@ -13,7 +13,7 @@ from prompt_toolkit.completion import WordCompleter
 from . import __version__
 from .aipy import TaskManager
 from .aipy.i18n import T, set_lang
-from .aipy.config import ConfigManager,CONFIG_DIR
+from .aipy.config import ConfigManager, CONFIG_DIR
 
 __PACKAGE_NAME__ = "aipyapp"
 
