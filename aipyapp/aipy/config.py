@@ -301,7 +301,7 @@ class ConfigManager:
                 if isinstance(section_data, dict) and self._is_tt_config(section_name, section_data):
                     api_key = section_data.get('api_key', section_data.get('api-key'))
                     if api_key:
-                        print("Token found:", api_key)
+                        #print("Token found:", api_key)
                         self.save_tt_config(api_key)
                         print(T('migrate_config').format(self.config_file))
                         break
