@@ -3,7 +3,6 @@
 
 import os
 import sys
-import argparse
 
 class Logger:
     def __init__(self, file_path=os.devnull):
@@ -17,17 +16,9 @@ class Logger:
     def flush(self):
         self.terminal.flush()
         self.log.flush()
-        
-def ensure_wxpython():
-    try:
-        import wx
-    except:
-        import subprocess
-
-        cp = subprocess.run([sys.executable, "-m", "pip", "install", 'wxpython'])
-        assert cp.returncode == 0
 
 def parse_args():
+    import argparse
     from .aipy.config import CONFIG_DIR
     config_help_message = (
         f"Specify the configuration directory.\nDefaults to {CONFIG_DIR} if not provided."
@@ -41,6 +32,15 @@ def parse_args():
     parser.add_argument('-f', '--fetch-config', default=False, action='store_true', help="login to trustoken and fetch token config")
     parser.add_argument('cmd', nargs='?', default=None, help="Task to execute, e.g. 'Who are you?'")
     return parser.parse_args()
+
+def ensure_wxpython():
+    try:
+        import wx
+    except:
+        import subprocess
+
+        cp = subprocess.run([sys.executable, "-m", "pip", "install", 'wxpython'])
+        assert cp.returncode == 0
 
 def mainw():
     sys.stdout = Logger()

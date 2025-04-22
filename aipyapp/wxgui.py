@@ -123,7 +123,7 @@ class AIPython(threading.Thread):
                     traceback.print_exc()
                 finally:
                     self._busy.clear()
-            wx.CallAfter(self.gui.toggle_input)
+                wx.CallAfter(self.gui.toggle_input)
 
 class CStatusBar(wx.StatusBar):
     def __init__(self, parent):
@@ -377,11 +377,13 @@ class ChatFrame(wx.Frame):
     def toggle_input(self):
         if self.container.IsShown():
             self.container.Hide()
+            self.done_button.Hide()
             wx.BeginBusyCursor()
             self.SetStatusText("操作进行中，请稍候...", 0)
             self.task_menu_item.Enable(False)
         else:
             self.container.Show()
+            self.done_button.Show()
             wx.EndBusyCursor()
             self.SetStatusText("操作完成。如果开始下一个任务，请点击'结束'按钮", 0)
             self.task_menu_item.Enable(self.aipython.can_done())
@@ -412,9 +414,9 @@ class ChatFrame(wx.Frame):
         self.webview.RunScript(js_code)
 
 def main(args):
+    app = wx.App(False)
     default_config_path = resources.files(__PACKAGE_NAME__) / "default.toml"
     conf = ConfigManager(default_config_path, args.config_dir)
-    app = wx.App()
     if conf.check_config(gui=True) == 'TrustToken':
         dialog = TrustTokenAuthDialog()
         if dialog.fetch_token(conf.save_tt_config):
