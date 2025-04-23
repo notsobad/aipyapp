@@ -4,7 +4,6 @@
 import os
 import re
 import sys
-import subprocess
 from functools import wraps
 
 from rich.panel import Panel
@@ -36,8 +35,6 @@ def confirm(console, prompt, default="n", auto=None):
             break
     return response == "y"
 
-def install_packages(console, packages):
-    console.print(f"[green]Install packages: {', '.join(packages)} with pip")
     cp = subprocess.run([sys.executable, "-m", "pip", "install"] + packages)
     return cp.returncode == 0
 

@@ -61,12 +61,12 @@ runtime 对象提供一些协助代码完成任务的方法。
 
 ### runtime.install_packages 方法
 - 功能: 申请安装完成任务必需的额外模块
-- 参数：模块名列表
+- 参数：一个或多个 PyPi 包名，如：'httpx', 'requests>=2.25'
 - 返回值：True 表示成功，False 表示失败
 
 示例如下：
 ```python
-if runtime.install_packages(['datasets']):
+if runtime.install_packages('httpx', 'requests>=2.25'):
     import datasets
 ```
 

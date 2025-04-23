@@ -84,7 +84,7 @@ class TrustTokenAuthDialog(wx.Dialog):
             time_remaining = int(self.polling_timeout - elapsed)
             
         wx.CallAfter(self.progress_bar.SetValue, progress)
-        wx.CallAfter(self.time_text.SetLabel, f'{T('Time remaining', time_remaining)}')
+        wx.CallAfter(self.time_text.SetLabel, f"{T('Time remaining', time_remaining)}")
         
     def _poll_status(self, save_func):
         """Poll the binding status in a separate thread."""

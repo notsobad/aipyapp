@@ -63,9 +63,9 @@ class ConfigDialog(wx.Dialog):
         tokens_sizer.Add(tokens_label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
         
         self.tokens_slider = wx.Slider(tokens_panel, -1, 
-                                     settings.get('max-tokens', 2000),
-                                     minValue=1000,
-                                     maxValue=8000,
+                                     settings.get('max_tokens', 8192),
+                                     minValue=64,
+                                     maxValue=128*1024,
                                      style=wx.SL_HORIZONTAL | wx.SL_AUTOTICKS)
         self.tokens_slider.SetBackgroundColour(wx.Colour(255, 255, 255))
         self.tokens_slider.SetTickFreq(1000)
@@ -87,7 +87,7 @@ class ConfigDialog(wx.Dialog):
         timeout_sizer.Add(timeout_label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
         
         self.timeout_slider = wx.Slider(timeout_panel, -1, 
-                                      int(settings.get('timeout', 30.0)),
+                                      int(settings.get('timeout', 0)),
                                       minValue=0,
                                       maxValue=120,
                                       style=wx.SL_HORIZONTAL | wx.SL_AUTOTICKS)
@@ -111,7 +111,7 @@ class ConfigDialog(wx.Dialog):
         rounds_sizer.Add(rounds_label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
         
         self.rounds_slider = wx.Slider(rounds_panel, -1,
-                                     settings.get('max-rounds', 10),
+                                     settings.get('max_rounds', 16),
                                      minValue=1,
                                      maxValue=64,
                                      style=wx.SL_HORIZONTAL | wx.SL_AUTOTICKS)
@@ -179,9 +179,9 @@ class ConfigDialog(wx.Dialog):
     def get_values(self):
         return {
             'workdir': self.work_dir_text.GetValue(),
-            'max-tokens': self.tokens_slider.GetValue(),
+            'max_tokens': int(self.tokens_slider.GetValue()),
             'timeout': float(self.timeout_slider.GetValue()),
-            'max-rounds': self.rounds_slider.GetValue()
+            'max_rounds': int(self.rounds_slider.GetValue())
         }
 
 if __name__ == '__main__':

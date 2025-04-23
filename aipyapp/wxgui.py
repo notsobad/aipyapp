@@ -192,6 +192,18 @@ class CStatusBar(wx.StatusBar):
         else:
             wx.MessageBox(T('Work directory does not exist'), T('Error'), wx.OK | wx.ICON_ERROR)
 
+
+class FileDropTarget(wx.FileDropTarget):
+    def __init__(self, text_ctrl):
+        super().__init__()
+        self.text_ctrl = text_ctrl
+
+    def OnDropFiles(self, x, y, filenames):
+        s = json.dumps(filenames, ensure_ascii=False)
+        self.text_ctrl.AppendText(s)
+        return True
+
+
 class ChatFrame(wx.Frame):
     def __init__(self, tm):
         super().__init__(None, title=TITLE, size=(1024, 768))
@@ -274,6 +286,11 @@ class ChatFrame(wx.Frame):
             input_panel = self.make_input_panel(panel)
         else:
             input_panel = self.make_input_panel2(panel)
+        drop_target = FileDropTarget(self.input)
+        self.input.SetDropTarget(drop_target)
+        font = wx.Font(16, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL)
+        self.input.SetFont(font)
+    
         vbox.Add(input_panel, proportion=0, flag=wx.EXPAND | wx.LEFT | wx.RIGHT, border=12)
 
         panel.SetSizer(vbox)
@@ -456,11 +473,9 @@ class ChatFrame(wx.Frame):
         dialog = ConfigDialog(self, self.tm.settings)
         if dialog.ShowModal() == wx.ID_OK:
             values = dialog.get_values()
-            self.tm.settings.workdir = values['workdir']
-            self.tm.settings['max-tokens'] = values['max-tokens']
-            self.tm.settings['timeout'] = values['timeout']
-            self.tm.settings['max-rounds'] = values['max-rounds']
-            self.tm.settings.save()
+            if values['timeout'] == 0:
+                del values['timeout']
+            self.tm.config_manager.update_sys_config(values)
         dialog.Destroy()
 
 class AboutDialog(wx.Dialog):
@@ -553,5 +568,6 @@ def main(args):
         traceback.print_exc()
         return
     
+    tm.config_manager = conf
     ChatFrame(tm)
     app.MainLoop()
