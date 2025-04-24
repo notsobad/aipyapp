@@ -84,7 +84,7 @@ class TrustTokenAuthDialog(wx.Dialog):
             time_remaining = int(self.polling_timeout - elapsed)
             
         wx.CallAfter(self.progress_bar.SetValue, progress)
-        wx.CallAfter(self.time_text.SetLabel, f"{T('Time remaining', time_remaining)}")
+        wx.CallAfter(self.time_text.SetLabel, T('Time remaining', time_remaining))
         
     def _poll_status(self, save_func):
         """Poll the binding status in a separate thread."""
@@ -99,7 +99,7 @@ class TrustTokenAuthDialog(wx.Dialog):
                 continue
                 
             status = data.get('status')
-            wx.CallAfter(self._update_status, f'{T('current_status', T(status))}')
+            wx.CallAfter(self._update_status, T('current_status', T(status)))
             
             if status == 'approved':
                 if save_func:
@@ -107,20 +107,20 @@ class TrustTokenAuthDialog(wx.Dialog):
                 wx.CallAfter(self.EndModal, wx.ID_OK)
                 return True
             elif status == 'expired':
-                wx.CallAfter(self._update_status, 'binding_expired')
+                wx.CallAfter(self._update_status, T('binding_expired'))
                 wx.CallAfter(self.EndModal, wx.ID_CANCEL)
                 return False
             elif status == 'pending':
                 pass
             else:
-                wx.CallAfter(self._update_status, f'unknown_status: {status}')
+                wx.CallAfter(self._update_status, T('unknown_status', status))
                 wx.CallAfter(self.EndModal, wx.ID_CANCEL)
                 return False
                 
             time.sleep(self.poll_interval)
             
         if not self.stop_polling:
-            wx.CallAfter(self._update_status, 'polling_timeout')
+            wx.CallAfter(self._update_status, T('polling_timeout'))
             wx.CallAfter(self.EndModal, wx.ID_CANCEL)
         return False
         
@@ -159,7 +159,7 @@ class TrustTokenAuthDialog(wx.Dialog):
             self.qr_bitmap.SetBitmap(wx.Bitmap(wx_img))
             self.Layout()
         except Exception as e:
-            wx.MessageBox(f'{T('qr_code_display_failed', e)}', T('Error'), wx.OK | wx.ICON_ERROR)
+            wx.MessageBox(T('qr_code_display_failed', e), T('Error'), wx.OK | wx.ICON_ERROR)
             
     def _update_status(self, status):
         """Update the status text."""
@@ -175,17 +175,17 @@ class TrustTokenAuthDialog(wx.Dialog):
         Returns:
             bool: True if token was successfully fetched and saved, False otherwise.
         """
-        self._update_status('requesting_binding')
+        self._update_status(T('requesting_binding'))
         data = self.api.request_binding()
         if not data:
-            wx.MessageBox(f'{T('binding_request_failed', None)}', T('Error'), wx.OK | wx.ICON_ERROR)
+            wx.MessageBox(T('binding_request_failed', None), T('Error'), wx.OK | wx.ICON_ERROR)
             return False
             
         approval_url = data['approval_url']
         self.request_id = data['request_id']
         expires_in = data['expires_in']
         self.polling_timeout = expires_in
-        self._update_status(f'{T('current_status', T('waiting_for_approval'))}')
+        self._update_status(T('current_status', T('waiting_for_approval')))
         self._update_qr_code(approval_url)
         
         # Start polling in a separate thread

@@ -127,6 +127,7 @@ MESSAGES = {
         'Settings': '设置',
         'Open work directory': '打开工作目录',
         'Open work directory in file manager': '在文件管理器中打开工作目录',
+        'requesting_binding': '正在申请绑定',
     },
     'en': {
         'start_instruction': 'Start processing instruction',
@@ -251,6 +252,7 @@ MESSAGES = {
         'Settings': 'Settings',
         'Open work directory': 'Open work directory',
         'Open work directory in file manager': 'Open work directory in file manager',
+        'requesting_binding': 'Request binding',
     }
 }
 
