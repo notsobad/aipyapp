@@ -142,6 +142,7 @@ class ChatFrame(wx.Frame):
         self.tm = tm
         self.task_queue = queue.Queue()
         self.aipython = AIPython(self)
+        self.chat_html = "file://" + os.path.abspath(resources.files(__package__) / "chatroom.html")
 
         icon = wx.Icon(str(resources.files(__package__) / "gui" / "aipy.ico"), wx.BITMAP_TYPE_ICO)
         self.SetIcon(icon)
@@ -210,9 +211,8 @@ class ChatFrame(wx.Frame):
         panel = wx.Panel(self)
         vbox = wx.BoxSizer(wx.VERTICAL)
 
-        html_file_path = os.path.abspath(resources.files(__package__) / "chatroom.html")
         self.webview = wx.html2.WebView.New(panel)
-        self.webview.LoadURL(f'file://{html_file_path}')
+        self.webview.LoadURL(self.chat_html)
         self.webview.SetWindowStyleFlag(wx.BORDER_NONE)
         vbox.Add(self.webview, proportion=1, flag=wx.EXPAND | wx.ALL, border=12)
 
@@ -251,8 +251,8 @@ class ChatFrame(wx.Frame):
         self.Bind(wx.EVT_MENU, self.on_clear_chat, id=wx.ID_CLEAR)
 
         task_menu = wx.Menu()
-        self.task_menu_item = task_menu.Append(wx.ID_STOP, "开始新任务(&B)", "开始一个新任务")
-        self.task_menu_item.Enable(False)
+        self.task_done_menu = task_menu.Append(wx.ID_STOP, "开始新任务(&B)", "开始一个新任务")
+        self.task_done_menu.Enable(False)
         self.Bind(wx.EVT_MENU, self.on_done, id=wx.ID_STOP)
         
         self.ID_STOP_TASK = wx.NewIdRef()
@@ -295,7 +295,7 @@ class ChatFrame(wx.Frame):
         self.tm.done()
         self.done_button.Hide()
         self.SetStatusText("当前任务已结束", 0)
-        self.task_menu_item.Enable(False)
+        self.task_done_menu.Enable(False)
         self.SetTitle(TITLE)
 
     def on_container_resize(self, event):
@@ -318,7 +318,7 @@ class ChatFrame(wx.Frame):
         event.Skip()
 
     def on_clear_chat(self, event):
-        pass
+        self.webview.LoadURL(self.chat_html)
 
     def on_open_website(self, event):
         if event.GetId() == self.ID_WEBSITE:
@@ -375,14 +375,14 @@ class ChatFrame(wx.Frame):
             self.done_button.Hide()
             wx.BeginBusyCursor()
             self.SetStatusText("操作进行中，请稍候...", 0)
-            self.task_menu_item.Enable(False)
+            self.task_done_menu.Enable(False)
             self.stop_task_menu_item.Enable(True)
         else:
             self.container.Show()
             self.done_button.Show()
             wx.EndBusyCursor()
             self.SetStatusText("操作完成。如果开始下一个任务，请点击'结束'按钮", 0)
-            self.task_menu_item.Enable(self.aipython.can_done())
+            self.task_done_menu.Enable(self.aipython.can_done())
             self.stop_task_menu_item.Enable(False)
         self.panel.Layout()
         self.panel.Refresh()
@@ -445,6 +445,7 @@ def main(args):
 
     file = None if args.debug else open(os.devnull, 'w')
     console = Console(file=file, record=True)
+    console.gui = True
     try:
         tm = TaskManager(settings, console=console)
     except Exception as e:

@@ -53,9 +53,10 @@ def ensure_wxpython():
         assert cp.returncode == 0
 
 def mainw():
-    sys.stdout = Logger()
-    sys.stderr = Logger()
     args = parse_args()
+    if not args.debug:
+        sys.stdout = Logger()
+        sys.stderr = Logger()
     ensure_wxpython()
     from .wxgui import main as aipy_main
     aipy_main(args)

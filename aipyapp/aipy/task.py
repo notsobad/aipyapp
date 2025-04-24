@@ -91,6 +91,7 @@ class Task(Stoppable):
         try:
             json.dump(task, open(filename, 'w'), ensure_ascii=False, indent=4)
         except Exception as e:
+            self.log.exception('Error saving task')
             self.console.print_exception()
 
         filename = get_safe_filename(instruction) or f"{self.task_id}.html"
@@ -183,7 +184,7 @@ class Task(Stoppable):
         prompt['platform'] = platform.platform()
         prompt['today'] = date.today().isoformat()
         prompt['work_dir'] = '工作目录为当前目录，默认在当前目录下创建文件'
-        if self.console.quiet:
+        if getattr(self.console, 'gui', False):
             prompt['matplotlib'] = "我现在用的是 matplotlib 的 Agg 后端，请默认用 plt.savefig() 保存图片后用 runtime.display() 显示，禁止使用 plt.show()"
             prompt['wxPython'] = "你回复的Markdown 消息中，可以用 ![图片](图片路径) 的格式引用之前创建的图片，会显示在 wx.html2 的 WebView 中"
         else:

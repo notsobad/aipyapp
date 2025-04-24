@@ -129,10 +129,10 @@ class Runner(Runtime):
     
     @utils.restore_output
     def display(self, path=None, url=None):
-        quiet = self._console.quiet
+        gui = getattr(self._console, 'gui', False)
         image = {'path': path, 'url': url}
         event_bus.broadcast('display', image)
-        if not quiet:
+        if not gui:
             image = from_file(path) if path else from_url(url)
             image.draw()
 

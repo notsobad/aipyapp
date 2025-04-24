@@ -133,8 +133,10 @@ class Diagnose:
         # Each history entry contains code and execution result
         # We only collect entries with traceback information
         # Returns True if report was sent successfully
+        if not self._api_key:
+            return True
+        
         data = []
-
         for h in history:
             result = h.get('result')
             if not result:
