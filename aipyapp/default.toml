@@ -27,3 +27,5 @@ type = "trust"
 api_key = ""
 enable = false
 
+[diagnose]
+api_url = "https://aipy.xxyy.eu.org/"

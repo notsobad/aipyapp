@@ -41,10 +41,13 @@ class TaskManager:
         self.diagnose = Diagnose.create(settings)
         self.runner = Runner(settings, console, envs=self.envs)
         self.llm = LLM(settings, console, system_prompt=self.system_prompt)
-
+        
     @property
     def workdir(self):
         return str(self._cwd)
+
+    def get_update(self, force=False):
+        return self.diagnose.check_update(force)
 
     @property
     def busy(self):

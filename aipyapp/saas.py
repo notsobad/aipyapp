@@ -184,7 +184,11 @@ def main(args):
     except Exception as e:
         console.print_exception()
         return
-    
+
+    update = tm.get_update()
+    if update and update.get('has_update'):
+        console.print(f"[bold red]🔔 号外❗ {T('update_available')}: {update.get('latest_version')}")
+
     if not tm.llm:
         console.print(f"[bold red]{T('no_available_llm')}")
         return

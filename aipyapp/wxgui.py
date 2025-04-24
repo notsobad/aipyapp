@@ -11,7 +11,6 @@ import mimetypes
 import traceback
 import threading
 import importlib.resources as resources
-import subprocess
 
 import wx
 import wx.html2
@@ -22,7 +21,7 @@ from wx.lib.newevent import NewEvent
 from wx import FileDialog, FD_SAVE, FD_OVERWRITE_PROMPT
 
 from . import __version__
-from .aipy.config import ConfigManager, CONFIG_DIR
+from .aipy.config import ConfigManager
 from .aipy import TaskManager, event_bus
 from .aipy.i18n import T, set_lang
 from .gui import TrustTokenAuthDialog, ConfigDialog, AboutDialog, CStatusBar
@@ -157,6 +156,9 @@ class ChatFrame(wx.Frame):
         self.Bind(EVT_CHAT, self.on_chat)
         self.aipython.start()
         self.Show()
+        update = self.tm.get_update(True)
+        if update and update.get('has_update'):
+            wx.CallLater(1000, self.append_message, '爱派', f"\n🔔 **号外❗** {T('update_available')}: `v{update.get('latest_version')}`")
 
     def make_input_panel(self, panel):
         self.container = wx.Panel(panel)
@@ -441,14 +443,14 @@ def main(args):
     lang = settings.get('lang')
     if lang: set_lang(lang)
 
-    quiet = False if args.debug else True
-    console = Console(file=open(os.devnull, 'w'), record=True)
+    file = None if args.debug else open(os.devnull, 'w')
+    console = Console(file=file, record=True)
     try:
         tm = TaskManager(settings, console=console)
     except Exception as e:
         traceback.print_exc()
         return
-    
+
     tm.config_manager = conf
     ChatFrame(tm)
     app.MainLoop()

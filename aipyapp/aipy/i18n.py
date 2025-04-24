@@ -128,6 +128,7 @@ MESSAGES = {
         'Open work directory': '打开工作目录',
         'Open work directory in file manager': '在文件管理器中打开工作目录',
         'requesting_binding': '正在申请绑定',
+        'update_available': '有新版本可用',
     },
     'en': {
         'start_instruction': 'Start processing instruction',
@@ -253,6 +254,7 @@ MESSAGES = {
         'Open work directory': 'Open work directory',
         'Open work directory in file manager': 'Open work directory in file manager',
         'requesting_binding': 'Request binding',
+        'update_available': 'Update available',
     }
 }
 
