@@ -15,8 +15,6 @@ from .plugin import PluginManager
 from .prompt import SYSTEM_PROMPT
 from .diagnose import Diagnose
 
-logger.remove()
-
 class TaskManager:
     def __init__(self, settings, console):
         self.settings = settings
@@ -24,7 +22,6 @@ class TaskManager:
         self.task = None
         self.envs = {}
         self.log = logger.bind(src='taskmgr')
-        self.log.add("taskmgr.log", format="{time:HH:mm:ss} | {level} | {message} | {extra}", level='INFO')
         
         self.config_files = settings._loaded_files
         self.system_prompt = f"{settings.system_prompt}\n{SYSTEM_PROMPT}"

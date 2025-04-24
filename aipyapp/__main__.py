@@ -4,6 +4,13 @@
 import os
 import sys
 
+from loguru import logger
+
+from .aipy.config import CONFIG_DIR
+
+logger.remove()
+logger.add(CONFIG_DIR / "aipyapp.log", format="{time:HH:mm:ss} | {level} | {message} | {extra}", level='INFO')
+
 class Logger:
     def __init__(self, file_path=os.devnull):
         self.terminal = sys.stdout
@@ -19,19 +26,22 @@ class Logger:
 
 def parse_args():
     import argparse
-    from .aipy.config import CONFIG_DIR
+    
     config_help_message = (
         f"Specify the configuration directory.\nDefaults to {CONFIG_DIR} if not provided."
     )
 
     parser = argparse.ArgumentParser(description="Python use - AIPython", formatter_class=argparse.RawTextHelpFormatter)
     parser.add_argument("-c", '--config-dir', type=str, help=config_help_message)
+    parser.add_argument('--level', type=str, default='INFO', help="Log level")
     parser.add_argument('-p', '--python', default=False, action='store_true', help="Python mode")
     parser.add_argument('-g', '--gui', default=False, action='store_true', help="GUI mode")
     parser.add_argument('--debug', default=False, action='store_true', help="Debug mode")
     parser.add_argument('-f', '--fetch-config', default=False, action='store_true', help="login to trustoken and fetch token config")
     parser.add_argument('cmd', nargs='?', default=None, help="Task to execute, e.g. 'Who are you?'")
-    return parser.parse_args()
+    args = parser.parse_args()
+    logger.level(args.level)
+    return args
 
 def ensure_wxpython():
     try:
