@@ -25,9 +25,8 @@ from . import __version__
 from .aipy.config import ConfigManager, CONFIG_DIR
 from .aipy import TaskManager, event_bus
 from .aipy.i18n import T, set_lang
-from .gui import TrustTokenAuthDialog, ConfigDialog
+from .gui import TrustTokenAuthDialog, ConfigDialog, AboutDialog, CStatusBar
 
-__PACKAGE_NAME__ = "aipyapp"
 ChatEvent, EVT_CHAT = NewEvent()
 AVATARS = {'我': '🧑', 'BB-8': '🤖', '图灵': '🧠', '爱派': '🐙'}
 TITLE = "🐙爱派，您的干活牛🐂马🐎，啥都能干！"
@@ -126,73 +125,6 @@ class AIPython(threading.Thread):
                     self._busy.clear()
                 wx.CallAfter(self.gui.toggle_input)
 
-class CStatusBar(wx.StatusBar):
-    def __init__(self, parent):
-        super().__init__(parent, style=wx.STB_DEFAULT_STYLE)
-        self.parent = parent
-        self.SetFieldsCount(3)
-        self.SetStatusWidths([-1, 30, 80])
-
-        self.tm = parent.tm
-        self.current_llm = self.tm.llm.names['default']
-        self.enabled_llm = list(self.tm.llm.names['enabled'])
-        self.menu_items = self.enabled_llm
-        self.radio_group = []
-
-        self.folder_button = wx.StaticBitmap(self, -1, wx.ArtProvider.GetBitmap(wx.ART_FOLDER_OPEN, wx.ART_MENU))
-        self.folder_button.Bind(wx.EVT_LEFT_DOWN, self.on_open_work_dir)
-        self.Bind(wx.EVT_SIZE, self.on_size)
-
-        self.SetStatusText(f"{self.current_llm} ▾", 2)
-        self.Bind(wx.EVT_LEFT_DOWN, self.on_click)
-
-    def on_size(self, event):
-        rect = self.GetFieldRect(1)
-        self.folder_button.SetPosition((rect.x + 5, rect.y + 2))
-        event.Skip()
-
-    def on_click(self, event):
-        rect = self.GetFieldRect(2)
-        if rect.Contains(event.GetPosition()):
-            self.show_menu()
-
-    def show_menu(self):
-        self.current_menu = wx.Menu()
-        self.radio_group = []
-        for label in self.menu_items:
-            item = wx.MenuItem(self.current_menu, wx.ID_ANY, label, kind=wx.ITEM_RADIO)
-            self.current_menu.Append(item)
-            self.radio_group.append(item)
-            self.Bind(wx.EVT_MENU, self.on_menu_select, item)
-            if label == self.current_llm:
-                item.Check()
-        rect = self.GetFieldRect(2)
-        pos = self.ClientToScreen(rect.GetBottomLeft())
-        self.PopupMenu(self.current_menu, self.ScreenToClient(pos))
-
-    def on_menu_select(self, event):
-        item = self.current_menu.FindItemById(event.GetId())
-        label = item.GetItemLabel()
-        if self.tm.use(label):
-            self.current_llm = label
-            self.SetStatusText(f"{label} ▾", 2)
-        else:
-            wx.MessageBox(f"LLM {label} 不可用", "警告", wx.OK|wx.ICON_WARNING)
-
-    def on_open_work_dir(self, event):
-        """打开工作目录"""
-        work_dir = self.tm.workdir
-        if os.path.exists(work_dir):
-            if sys.platform == 'win32':
-                os.startfile(work_dir)
-            elif sys.platform == 'darwin':
-                subprocess.call(['open', work_dir])
-            else:
-                subprocess.call(['xdg-open', work_dir])
-        else:
-            wx.MessageBox(T('Work directory does not exist'), T('Error'), wx.OK | wx.ICON_ERROR)
-
-
 class FileDropTarget(wx.FileDropTarget):
     def __init__(self, text_ctrl):
         super().__init__()
@@ -212,7 +144,7 @@ class ChatFrame(wx.Frame):
         self.task_queue = queue.Queue()
         self.aipython = AIPython(self)
 
-        icon = wx.Icon(str(resources.files(__PACKAGE_NAME__) / "aipy.ico"), wx.BITMAP_TYPE_ICO)
+        icon = wx.Icon(str(resources.files(__package__) / "gui" / "aipy.ico"), wx.BITMAP_TYPE_ICO)
         self.SetIcon(icon)
 
         self.SetBackgroundColour(wx.Colour(245, 245, 245))
@@ -276,7 +208,7 @@ class ChatFrame(wx.Frame):
         panel = wx.Panel(self)
         vbox = wx.BoxSizer(wx.VERTICAL)
 
-        html_file_path = os.path.abspath(resources.files(__PACKAGE_NAME__) / "chatroom.html")
+        html_file_path = os.path.abspath(resources.files(__package__) / "chatroom.html")
         self.webview = wx.html2.WebView.New(panel)
         self.webview.LoadURL(f'file://{html_file_path}')
         self.webview.SetWindowStyleFlag(wx.BORDER_NONE)
@@ -320,6 +252,11 @@ class ChatFrame(wx.Frame):
         self.task_menu_item = task_menu.Append(wx.ID_STOP, "开始新任务(&B)", "开始一个新任务")
         self.task_menu_item.Enable(False)
         self.Bind(wx.EVT_MENU, self.on_done, id=wx.ID_STOP)
+        
+        self.ID_STOP_TASK = wx.NewIdRef()
+        self.stop_task_menu_item = task_menu.Append(self.ID_STOP_TASK, "停止任务(&S)", "停止当前任务")
+        self.stop_task_menu_item.Enable(False)
+        self.Bind(wx.EVT_MENU, self.on_stop_task, id=self.ID_STOP_TASK)
         
         menu_bar.Append(file_menu, "文件(&F)")
         menu_bar.Append(edit_menu, "编辑(&E)")
@@ -437,12 +374,14 @@ class ChatFrame(wx.Frame):
             wx.BeginBusyCursor()
             self.SetStatusText("操作进行中，请稍候...", 0)
             self.task_menu_item.Enable(False)
+            self.stop_task_menu_item.Enable(True)
         else:
             self.container.Show()
             self.done_button.Show()
             wx.EndBusyCursor()
             self.SetStatusText("操作完成。如果开始下一个任务，请点击'结束'按钮", 0)
             self.task_menu_item.Enable(self.aipython.can_done())
+            self.stop_task_menu_item.Enable(False)
         self.panel.Layout()
         self.panel.Refresh()
 
@@ -478,72 +417,13 @@ class ChatFrame(wx.Frame):
             self.tm.config_manager.update_sys_config(values)
         dialog.Destroy()
 
-class AboutDialog(wx.Dialog):
-    def __init__(self, parent):
-        super().__init__(parent, title="关于爱派", size=(400, 300))
-        
-        self.SetBackgroundColour(wx.Colour(255, 255, 255))
-        
-        vbox = wx.BoxSizer(wx.VERTICAL)
-        
-        # Logo and title
-        logo_panel = wx.Panel(self)
-        logo_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        
-        try:
-            icon_path = str(resources.files(__PACKAGE_NAME__) / "aipy.ico")
-            icon = wx.Icon(icon_path, wx.BITMAP_TYPE_ICO)
-            bitmap = wx.StaticBitmap(logo_panel, -1, icon.ConvertToBitmap())
-            logo_sizer.Add(bitmap, 0, wx.ALL | wx.ALIGN_CENTER, 10)
-        except:
-            pass
-            
-        title = wx.StaticText(logo_panel, -1, "爱派")
-        title.SetFont(wx.Font(24, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD))
-        logo_sizer.Add(title, 0, wx.ALL | wx.ALIGN_CENTER, 10)
-        
-        logo_panel.SetSizer(logo_sizer)
-        vbox.Add(logo_panel, 0, wx.ALL | wx.ALIGN_CENTER, 10)
-        
-        # Version and description
-        version = wx.StaticText(self, -1, f"版本: {__version__}")
-        vbox.Add(version, 0, wx.ALL | wx.ALIGN_CENTER, 5)
-        
-        description = wx.StaticText(self, -1, "爱派是一个智能助手，可以帮助您完成各种任务。")
-        vbox.Add(description, 0, wx.ALL | wx.ALIGN_CENTER, 5)
-        
-        # Add some space
-        vbox.AddSpacer(15)
-        
-        tm = parent.tm
-        # Configuration directory
-        config_dir = wx.StaticText(self, -1, f"当前配置目录: {CONFIG_DIR}")
-        vbox.Add(config_dir, 0, wx.ALL | wx.ALIGN_CENTER, 5)
-        work_dir = wx.StaticText(self, -1, f"当前工作目录: {tm.workdir}")
-        vbox.Add(work_dir, 0, wx.ALL | wx.ALIGN_CENTER, 5)
-
-        # Add flexible space to push copyright and button to bottom
-        vbox.AddStretchSpacer()
-        
-        # Copyright and OK button at bottom
-        bottom_panel = wx.Panel(self)
-        bottom_sizer = wx.BoxSizer(wx.VERTICAL)
-        
-        copyright = wx.StaticText(bottom_panel, -1, "© 2025 爱派团队")
-        bottom_sizer.Add(copyright, 0, wx.ALL | wx.ALIGN_CENTER, 5)
-        
-        ok_button = wx.Button(bottom_panel, wx.ID_OK, "确定")
-        bottom_sizer.Add(ok_button, 0, wx.ALL | wx.ALIGN_CENTER, 10)
-        
-        bottom_panel.SetSizer(bottom_sizer)
-        vbox.Add(bottom_panel, 0, wx.EXPAND | wx.ALL, 5)
-        
-        self.SetSizer(vbox)
-        self.Centre()
+    def on_stop_task(self, event):
+        """停止当前任务"""
+        self.tm.stop_task()
 
 def main(args):
     app = wx.App(False)
-    default_config_path = resources.files(__PACKAGE_NAME__) / "default.toml"
+    default_config_path = resources.files(__package__) / "default.toml"
     conf = ConfigManager(default_config_path, args.config_dir)
     if conf.check_config(gui=True) == 'TrustToken':
         dialog = TrustTokenAuthDialog()
@@ -551,17 +431,18 @@ def main(args):
             conf.reload_config()
         else:
             return
+    
     settings = conf.get_config()
-
     settings.gui = True
     settings.auto_install = True
     settings.auto_getenv = True
+    settings.debug = args.debug
 
     lang = settings.get('lang')
     if lang: set_lang(lang)
 
     quiet = False if args.debug else True
-    console = Console(quiet=quiet, record=True)
+    console = Console(file=open(os.devnull, 'w'), record=True)
     try:
         tm = TaskManager(settings, console=console)
     except Exception as e:

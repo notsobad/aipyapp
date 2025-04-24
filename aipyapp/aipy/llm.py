@@ -9,6 +9,7 @@ from abc import ABC, abstractmethod
 
 import openai
 import requests
+from loguru import logger
 from rich.live import Live
 from rich.panel import Panel
 from rich.text import Text
@@ -16,6 +17,7 @@ from rich.markdown import Markdown
 
 from .i18n import T
 from .plugin import event_bus
+from .interface import Stoppable
 
 @dataclass
 class ChatMessage:
@@ -119,7 +121,7 @@ class ChatHistory:
     def get_messages(self):
         return [{"role": msg.role, "content": msg.content} for msg in self.messages]
 
-class BaseClient(ABC):
+class BaseClient(ABC, Stoppable):
     MODEL = None
     BASE_URL = None
     RPS = 2
@@ -127,6 +129,7 @@ class BaseClient(ABC):
     PARAMS = {}
 
     def __init__(self, config):
+        super().__init__()
         self.name = None
         self.console = None
         self.max_tokens = config.get("max_tokens") or self.MAX_TOKENS
@@ -142,12 +145,9 @@ class BaseClient(ABC):
         temperature = config.get("temperature")
         if temperature != None and temperature >= 0 and temperature <= 1:
             self._params['temperature'] = temperature
-
+        self.log = logger.bind(src='client', name=self.name)
     def __repr__(self):
         return f"{self.__class__.__name__}<{self.name}>: ({self._model}, {self._base_url})"
-    
-    def is_stopped(self):
-        return event_bus.is_stopped()
 
     def usable(self):
         return self._model
@@ -230,6 +230,7 @@ class OpenAIBaseClient(BaseClient):
                     lm.process_chunk(content)
 
                 if self.is_stopped():
+                    self.log.info('Stopping stream')
                     break
         response_panel = lm.response_panel
         full_response = lm.full_response
@@ -261,6 +262,7 @@ class OpenAIBaseClient(BaseClient):
             )
         except Exception as e:
             self.console.print(f"❌ [bold red]{self.name} API {T('call_failed')}: [yellow]{str(e)}")
+            self.log.exception('Error calling OpenAI API')
             response = None
         return response
 
@@ -292,6 +294,7 @@ class OllamaClient(BaseClient):
                     lm.process_chunk(content)
 
                 if self.is_stopped():
+                    self.log.info('Stopping stream')
                     break
         response_panel = lm.response_panel
         full_response = lm.full_response        
@@ -319,6 +322,7 @@ class OllamaClient(BaseClient):
             response.raise_for_status()
         except Exception as e:
             self.console.print(f"❌ [bold red]{self.name} API {T('call_failed')}: [yellow]{str(e)}")
+            self.log.exception('Error calling Ollama API')
             response = None
         return response
 
@@ -358,6 +362,7 @@ class ClaudeClient(BaseClient):
                     usage['output_tokens'] += getattr(event.usage, 'output_tokens', 0)
 
                 if self.is_stopped():
+                    self.log.info('Stopping stream')
                     break
 
         response_panel = lm.response_panel
@@ -388,6 +393,7 @@ class ClaudeClient(BaseClient):
             )
         except Exception as e:
             self.console.print(f"❌ [bold red]{self.name} API {T('call_failed')}: [yellow]{str(e)}")
+            self.log.exception('Error calling Claude API')
             message = None
         return message
 
@@ -445,6 +451,7 @@ class LLM(object):
         self.console = console
         self.default = None
         self._last = None
+        self.log = logger.bind(src='llm')
         self.history = ChatHistory()
         self.system_prompt = system_prompt
         names = defaultdict(set)
@@ -457,6 +464,7 @@ class LLM(object):
                 client = self.get_client(config)
             except Exception as e:
                 self.console.print_exception()
+                self.log.exception('Error creating LLM client', name=name, config=config)
                 names['error'].add(name)
                 continue
             
@@ -501,6 +509,7 @@ class LLM(object):
 
         client = self.CLIENTS.get(proto.lower())
         if not client:
+            self.log.error('Unsupported LLM provider', proto=proto)
             raise ValueError(f"Unsupported LLM provider: {proto}")
         return client(config)
     
@@ -514,6 +523,10 @@ class LLM(object):
             return True
         return False
     
+    def stop(self):
+        if self._last:
+            self._last.stop()
+
     def __call__(self, instruction, *, system_prompt=None, name=None):
         """ LLM 选择规则
         1. 如果 name 为 None, 使用 current

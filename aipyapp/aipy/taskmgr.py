@@ -4,13 +4,18 @@
 import os
 from pathlib import Path
 
+from loguru import logger
+
 from .i18n import T
 from .task import Task
 from .llm import LLM
+from .config import CONFIG_DIR
 from .runner import Runner
 from .plugin import PluginManager
 from .prompt import SYSTEM_PROMPT
 from .diagnose import Diagnose
+
+logger.remove()
 
 class TaskManager:
     def __init__(self, settings, console):
@@ -18,9 +23,12 @@ class TaskManager:
         self.console = console
         self.task = None
         self.envs = {}
+        self.log = logger.bind(src='taskmgr')
+        self.log.add("taskmgr.log", format="{time:HH:mm:ss} | {level} | {message} | {extra}", level='INFO')
+        
         self.config_files = settings._loaded_files
         self.system_prompt = f"{settings.system_prompt}\n{SYSTEM_PROMPT}"
-        plugin_dir = settings.get('plugin_dir') or Path.cwd() / 'plugins'
+        plugin_dir = CONFIG_DIR / 'plugins'
         self.plugin_manager = PluginManager(plugin_dir)
         self.plugin_manager.load_plugins()
         if settings.workdir:
@@ -30,6 +38,7 @@ class TaskManager:
             self._cwd = workdir
         else:
             self._cwd = Path.cwd()
+
         self._init_environ()
         self._init_api()
         self.diagnose = Diagnose.create(settings)
@@ -52,7 +61,7 @@ class TaskManager:
     def done(self):
         if not self.task:
             return
-        
+        self.log.info('Done task', task_id=self.task.task_id)   
         self.diagnose.report_code_error(self.runner.history)
         self.task.done()
         self.task = None
@@ -102,6 +111,7 @@ class TaskManager:
         task.llm = self.llm
         task.runner = self.runner
         self.task = task
+        self.log.info('New task created', task_id=task.task_id)
         return task
     
     def __call__(self, instruction, llm=None, max_rounds=None, system_prompt=None):
@@ -111,3 +121,9 @@ class TaskManager:
             task = self.new_task(instruction, llm=llm, max_rounds=max_rounds, system_prompt=system_prompt)
             self.task = task
             task.run()
+        
+    def stop_task(self):
+        if self.task:
+            self.log.info('Stopping task')
+            self.task.stop()
+            self.llm.stop()

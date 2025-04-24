@@ -19,6 +19,7 @@ dependencies = [
     "term-image>=0.7.2",
     "tomli-w>=1.2.0",
     "qrcode>=8.1",
+    "loguru>=0.7.3",
 ]
 
 [project.scripts]

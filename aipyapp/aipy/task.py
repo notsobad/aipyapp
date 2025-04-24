@@ -10,6 +10,7 @@ from pathlib import Path
 from datetime import date
 from enum import Enum, auto
 
+from loguru import logger
 from rich.panel import Panel
 from rich.align import Align
 from rich.table import Table
@@ -18,6 +19,7 @@ from rich.markdown import Markdown
 
 from .i18n import T
 from .plugin import event_bus
+from .interface import Stoppable
 from .templates import CONSOLE_HTML_FORMAT
 from .utils import get_safe_filename
 
@@ -25,10 +27,11 @@ class MsgType(Enum):
     CODE = auto()
     TEXT = auto()
 
-class Task:
+class Task(Stoppable):
     MAX_ROUNDS = 16
 
     def __init__(self, instruction, *, system_prompt=None, max_rounds=None):
+        super().__init__()
         self.task_id = uuid.uuid4().hex
         self.instruction = instruction
         self.console = None
@@ -40,9 +43,11 @@ class Task:
             r"^(`{4})(\w+)\s+([\w\-\.]+)\n(.*?)^\1\s*$",
             re.DOTALL | re.MULTILINE
         )
+        self.log = logger.bind(src='task', id=self.task_id)
         
     def save(self, path):
        if self._console.record:
+           self.log.info('Saving task to html', path=path)
            self._console.save_html(path, clear=False, code_format=CONSOLE_HTML_FORMAT)
 
     def save_html(self, path, task):
@@ -190,6 +195,7 @@ class Task:
         """
         执行自动处理循环，直到 LLM 不再返回代码消息
         """
+        self.log.info('Running task', instruction=instruction or self.instruction)
         self.box(f"[yellow]{T('start_instruction')}", f'[red]{instruction or self.instruction}', align="center")
         if not instruction:
             prompt = self.build_user_prompt()
@@ -209,11 +215,13 @@ class Task:
                 break
             rounds += 1
             response = self.process_code_reply(blocks, llm)
-            if event_bus.is_stopped():
+            if self.is_stopped():
+                self.log.info('Task stopped')
                 break
         self.print_summary()
         os.write(1, b'\a\a\a')
-
+        self.log.info('Task done')
+        
     def chat(self, prompt):
         system_prompt = None if self.llm.history else self.system_prompt
         response, ok = self.llm(prompt, system_prompt=system_prompt)

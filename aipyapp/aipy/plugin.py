@@ -2,22 +2,17 @@
 # -*- coding: utf-8 -*-
 
 import os
-import threading
 import traceback
 import importlib.util
 from typing import Callable, Any, Dict, List
 
+from loguru import logger
+
 class EventBus:
     def __init__(self):
         self._listeners: Dict[str, List[Callable[..., Any]]] = {}
-        self._stop_event = threading.Event()
-
-    def stop(self):
-        self._stop_event.set()
-
-    def is_stopped(self):
-        return self._stop_event.is_set()    
-
+        self.log = logger.bind(src='eventbus')
+        
     def __repr__(self):
         return repr(self._listeners)
     
@@ -29,14 +24,14 @@ class EventBus:
             try:
                 handler(*args, **kwargs)
             except Exception as e:
-                traceback.print_exc()
+                self.log.exception('Error broadcasting event', event_name=event_name, handler=handler)
 
     def pipeline(self, event_name: str, data, **kwargs):
         for handler in self._listeners.get(event_name, []):
             try:
                 data = handler(data, **kwargs)
             except Exception as e:
-                traceback.print_exc()
+                self.log.exception('Error processing event', event_name=event_name, handler=handler)
         return data
 
     def collect(self, event_name: str, *args, **kwargs):
@@ -44,7 +39,7 @@ class EventBus:
             ret = [handler(*args, **kwargs) for handler in self._listeners.get(event_name, [])]
         except Exception as e:
             ret = []
-            traceback.print_exc()
+            self.log.exception('Error collecting event', event_name=event_name, args=args, kwargs=kwargs)
         return ret
 
     def __call__(self, event_name: str, *args, **kwargs):
