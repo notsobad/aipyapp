@@ -29,3 +29,4 @@ enable = false
 
 [diagnose]
 api_url = "https://aipy.xxyy.eu.org/"
+api_key = "sk-aipy-2ej5NpKz8FrC7wGhV4YtXdQsLx9AMuB6vZRS3bTD"

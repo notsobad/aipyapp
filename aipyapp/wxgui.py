@@ -19,6 +19,7 @@ import matplotlib.pyplot as plt
 from rich.console import Console
 from wx.lib.newevent import NewEvent
 from wx import FileDialog, FD_SAVE, FD_OVERWRITE_PROMPT
+from wx.lib.agw.hyperlink import HyperLinkCtrl
 
 from . import __version__
 from .aipy.config import ConfigManager
@@ -157,7 +158,7 @@ class ChatFrame(wx.Frame):
         self.Bind(EVT_CHAT, self.on_chat)
         self.aipython.start()
         self.Show()
-        update = self.tm.get_update(True)
+        update = self.tm.get_update()
         if update and update.get('has_update'):
             wx.CallLater(1000, self.append_message, '爱派', f"\n🔔 **号外❗** {T('update_available')}: `v{update.get('latest_version')}`")
 
@@ -259,6 +260,11 @@ class ChatFrame(wx.Frame):
         self.stop_task_menu_item = task_menu.Append(self.ID_STOP_TASK, "停止任务(&S)", "停止当前任务")
         self.stop_task_menu_item.Enable(False)
         self.Bind(wx.EVT_MENU, self.on_stop_task, id=self.ID_STOP_TASK)
+        
+        self.ID_SHARE_TASK = wx.NewIdRef()
+        self.share_task_menu_item = task_menu.Append(self.ID_SHARE_TASK, "分享任务记录(&R)", "分享当前任务记录")
+        self.share_task_menu_item.Enable(False)
+        self.Bind(wx.EVT_MENU, self.on_share_task, id=self.ID_SHARE_TASK)
         
         menu_bar.Append(file_menu, "文件(&F)")
         menu_bar.Append(edit_menu, "编辑(&E)")
@@ -377,6 +383,7 @@ class ChatFrame(wx.Frame):
             self.SetStatusText("操作进行中，请稍候...", 0)
             self.task_done_menu.Enable(False)
             self.stop_task_menu_item.Enable(True)
+            self.share_task_menu_item.Enable(False)
         else:
             self.container.Show()
             self.done_button.Show()
@@ -384,6 +391,7 @@ class ChatFrame(wx.Frame):
             self.SetStatusText("操作完成。如果开始下一个任务，请点击'结束'按钮", 0)
             self.task_done_menu.Enable(self.aipython.can_done())
             self.stop_task_menu_item.Enable(False)
+            self.share_task_menu_item.Enable(True)
         self.panel.Layout()
         self.panel.Refresh()
 
@@ -422,6 +430,68 @@ class ChatFrame(wx.Frame):
     def on_stop_task(self, event):
         """停止当前任务"""
         self.tm.stop_task()
+
+    def on_share_task(self, event):
+        """分享当前任务记录"""
+        try:
+            html_content = self.webview.GetPageSource()
+            result = self.tm.diagnose.report_data(html_content, 'task_record.html')
+            if result.get('success'):
+                dialog = ShareResultDialog(self, result['url'])
+                dialog.ShowModal()
+                dialog.Destroy()
+            else:
+                dialog = ShareResultDialog(self, None, msg)
+                dialog.ShowModal()
+                dialog.Destroy()
+        except Exception as e:
+            dialog = ShareResultDialog(self, None, msg)
+            dialog.ShowModal()
+            dialog.Destroy()
+
+class ShareResultDialog(wx.Dialog):
+    def __init__(self, parent, url, error=None):
+        super().__init__(parent, title="分享结果", size=(400, 200))
+        self.SetBackgroundColour(wx.Colour(245, 245, 245))
+        
+        vbox = wx.BoxSizer(wx.VERTICAL)
+        
+        if error:
+            # 显示错误信息
+            error_text = wx.StaticText(self, label="分享失败")
+            error_text.SetForegroundColour(wx.Colour(255, 0, 0))
+            error_text.SetFont(wx.Font(12, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD))
+            vbox.Add(error_text, 0, wx.ALL | wx.ALIGN_CENTER, 10)
+            
+            error_msg = wx.StaticText(self, label=error)
+            error_msg.Wrap(350)
+            vbox.Add(error_msg, 0, wx.ALL | wx.ALIGN_CENTER, 10)
+        else:
+            # 显示成功信息
+            success_text = wx.StaticText(self, label="分享成功")
+            success_text.SetForegroundColour(wx.Colour(0, 128, 0))
+            success_text.SetFont(wx.Font(12, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD))
+            vbox.Add(success_text, 0, wx.ALL | wx.ALIGN_CENTER, 10)
+            
+            # 添加提示文本
+            hint_text = wx.StaticText(self, label="点击下方链接查看任务记录：")
+            vbox.Add(hint_text, 0, wx.ALL | wx.ALIGN_CENTER, 5)
+            
+            # 添加可点击的链接
+            link = HyperLinkCtrl(self, -1, "查看任务记录", URL=url)
+            link.SetFont(wx.Font(10, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL))
+            link.SetColours("BLUE", "BLUE", "BLUE")
+            link.EnableRollover(True)
+            link.SetUnderlines(False, False, True)
+            vbox.Add(link, 0, wx.ALL | wx.ALIGN_CENTER, 5)
+        
+        # 添加确定按钮
+        ok_button = wx.Button(self, wx.ID_OK, "确定")
+        ok_button.SetBackgroundColour(wx.Colour(255, 255, 255))
+        vbox.Add(ok_button, 0, wx.ALL | wx.ALIGN_CENTER, 10)
+        
+        self.SetSizer(vbox)
+        self.Centre()
 
 def main(args):
     app = wx.App(False)

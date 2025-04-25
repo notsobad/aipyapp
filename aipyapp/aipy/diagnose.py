@@ -8,6 +8,7 @@ import uuid
 import time
 import platform
 import locale
+import mimetypes
 from io import BytesIO
 
 import requests
@@ -112,21 +113,54 @@ class Diagnose:
 
     def report_data(self, data, filename):
         try:
-            data = json.dumps(data, ensure_ascii=False, indent=4)
-            data = BytesIO(data.encode('utf-8'))
+            # 确保数据是字符串格式
+            if isinstance(data, (dict, list)):
+                data = json.dumps(data, ensure_ascii=False, indent=4)
+            elif not isinstance(data, str):
+                data = str(data)
+            
+            # 创建文件对象
+            file_data = BytesIO(data.encode('utf-8'))
+            file_data.seek(0)  # 确保文件指针在开始位置
         except Exception as e:
-            return False
+            self.log.error(f"Failed to prepare data: {str(e)}")
+            return {'success': False, 'error': str(e)}
         
         headers = {'API-KEY': self._api_key}
-        files = {'file': (filename, data)}
+        content_type, _ = mimetypes.guess_type(filename)
+        if not content_type:
+            content_type = 'application/octet-stream'
+            
+        files = {
+            'file': (
+                filename,
+                file_data,
+                content_type
+            )
+        }
 
+        error = 'Unknown error'
         try:
             response = requests.post(f"{self._api_url}/a6477529c8c34b6a8ca4bc2d7253ab76", files=files, headers=headers)
-            success = 200 <= response.status_code < 300
+            if 200 <= response.status_code < 300:
+                try:
+                    result = response.json()
+                    if result.get('success') and 'viewUrl' in result:
+                        self.log.info(f"Report uploaded successfully. View URL: {result['viewUrl']}")
+                        return {'success': True, 'url': result['viewUrl']}
+                    else:
+                        self.log.error(f"Upload failed: {result.get('error', 'Unknown error')}")
+                except json.JSONDecodeError:
+                    error = "Failed to parse response as JSON"
+                    self.log.error(error)
+            else:
+                error = f"Upload failed with status code: {response.status_code}"
+                self.log.error(error)
+            
         except Exception as e:
-            success = False
-
-        return success
+            error = f"Failed to upload report: {str(e)}"
+            self.log.error(error)
+        return {'success': False, 'error': error}
 
     def report_code_error(self, history):
         # Report code execution errors from history
@@ -164,6 +198,7 @@ if __name__ == '__main__':
     diagnose = Diagnose.create(settings)
     update = diagnose.check_update()
     print(update)
-    diagnose.report_code_error([
+    url = diagnose.report_code_error([
         {'code': 'print("Hello, World!")', 'result': {'traceback': 'Traceback (most recent call last):\n  File "test.py", line 1, in <module>\n    print("Hello, World!")\nNameError: name \'print\' is not defined\n', 'errstr': 'NameError: name \'print\' is not defined'}}
     ])
+    print(url)
