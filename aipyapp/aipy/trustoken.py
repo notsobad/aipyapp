@@ -1,4 +1,5 @@
 import os
+import sys
 import time
 import requests
 import qrcode
@@ -100,7 +101,8 @@ class TrustToken:
             )
             qr.add_data(approval_url)
             qr.make(fit=True)
-            qr.print_ascii(tty=True)
+            is_windows = sys.platform.startswith("win")
+            qr.print_ascii(tty=not is_windows)
             print(T('config_help'))
         except Exception as e:
             print(T('qr_code_display_failed').format(e))
