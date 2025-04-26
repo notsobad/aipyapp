@@ -57,7 +57,7 @@ def show_info(console, info):
     info['Python'] = sys.executable
     info['Python version'] = sys.version
     info['Base Prefix'] = sys.base_prefix
-    table = Table(title=T("sys_info"), show_lines=True)
+    table = Table(title=T("System information"), show_lines=True)
 
     table.add_column("参数", justify="center", style="bold cyan", no_wrap=True)
     table.add_column("值", justify="right", style="bold magenta")
@@ -107,7 +107,7 @@ class InteractiveConsole():
             self.console.print_exception()
 
     def start_task_mode(self, task):
-        self.console.print(f"{T('ai_mode_enter')}", style="cyan")
+        self.console.print(f"{T("Enter AI mode, start processing tasks, enter Ctrl+d or /done to end the task")}", style="cyan")
         self.run_task(task)
         while True:
             try:
@@ -131,11 +131,11 @@ class InteractiveConsole():
             self.tm.done()
         except Exception as e:
             self.console.print_exception()
-        self.console.print(f"{T('ai_mode_exit')}", style="cyan")
+        self.console.print(f"{T("[Exit AI mode]")}", style="cyan")
 
     def run(self):
-        self.console.print(f"{T('banner1')}", style="green")
-        self.console.print(f"[cyan]{T('default')}: [green]{self.names['default']}，[cyan]{T('enabled')}: [yellow]{' '.join(self.names['enabled'])}")
+        self.console.print(f"{T("Please enter the task to be processed by AI (enter /use <following LLM> to switch, enter /info to view system information)")}", style="green")
+        self.console.print(f"[cyan]{T("Default")}: [green]{self.names['default']}，[cyan]{T("Enabled")}: [yellow]{' '.join(self.names['enabled'])}")
         while True:
             try:
                 user_input = self.input_with_possible_multiline(">> ").strip()
@@ -186,10 +186,10 @@ def main(args):
 
     update = tm.get_update()
     if update and update.get('has_update'):
-        console.print(f"[bold red]🔔 号外❗ {T('update_available')}: {update.get('latest_version')}")
+        console.print(f"[bold red]🔔 号外❗ {T("Update available")}: {update.get('latest_version')}")
 
     if not tm.llm:
-        console.print(f"[bold red]{T('no_available_llm')}")
+        console.print(f"[bold red]{T("No available LLM, please check the configuration file")}")
         return
     
     if args.cmd:

@@ -99,7 +99,7 @@ class Task(Stoppable):
         else:
             self.console.save_html(filename, clear=True, code_format=CONSOLE_HTML_FORMAT)
         filename = str(Path(filename).resolve())
-        self.console.print(f"[green]{T('task_saved')}: \"{filename}\"")
+        self.console.print(f"[green]{T("Result file saved")}: \"{filename}\"")
         self.llm.clear()
         self.runner.clear()
         self.task_id = None
@@ -116,12 +116,12 @@ class Task(Stoppable):
     def process_code_reply(self, blocks, llm=None):
         event_bus('exec', blocks)
         code_block = blocks['main']
-        self.box(f"\n⚡ {T('start_execute')}:", code_block, lang='python')
+        self.box(f"\n⚡ {T("Start executing code block")}:", code_block, lang='python')
         result = self.runner(code_block, blocks)
         event_bus('result', result)
         result = json.dumps(result, ensure_ascii=False, indent=4)
-        self.box(f"\n✅ {T('execute_result')}:\n", result, lang="json")
-        status = self.console.status(f"[dim white]{T('start_feedback')}...")
+        self.box(f"\n✅ {T("Execution result")}:\n", result, lang="json")
+        status = self.console.status(f"[dim white]{T("Start sending feedback")}...")
         self.console.print(status)
         feed_back = f"# 最初任务\n{self.instruction}\n\n# 代码执行结果反馈\n{result}"
         feedback_response = self.llm(feed_back, name=llm)
@@ -174,7 +174,7 @@ class Task(Stoppable):
         else:
             summarys = ''
         event_bus.broadcast('summary', summarys)
-        self.console.print(f"\n⏹ [cyan]{T('end_instruction')} {summarys}")
+        self.console.print(f"\n⏹ [cyan]{T("End processing instruction")} {summarys}")
 
     def build_user_prompt(self):
         prompt = {'task': self.instruction}
@@ -195,7 +195,7 @@ class Task(Stoppable):
         执行自动处理循环，直到 LLM 不再返回代码消息
         """
         self.log.info('Running task', instruction=instruction or self.instruction)
-        self.box(f"[yellow]{T('start_instruction')}", f'[red]{instruction or self.instruction}', align="center")
+        self.box(f"[yellow]{T("Start processing instruction")}", f'[red]{instruction or self.instruction}', align="center")
         if not instruction:
             prompt = self.build_user_prompt()
             event_bus('task_start', prompt)
@@ -229,6 +229,6 @@ class Task(Stoppable):
     def step(self):
         response = self.llm.get_last_message()
         if not response:
-            self.console.print(f"❌ {T('no_context')}")
+            self.console.print(f"❌ {T("No context information found")}")
             return
         self.process_reply(response)

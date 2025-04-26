@@ -50,7 +50,7 @@ class LiveManager:
         self.name = name
         self.console = console
         self.lr = LineReceiver()
-        self.title = f"{self.name} {T('llm_response')}"
+        self.title = f"{self.name} {T("reply")}"
         self.response_panel = None
         self.full_response = None
 
@@ -58,7 +58,7 @@ class LiveManager:
         console = self.console if self.console.quiet else None
         self.live = Live(console=console, auto_refresh=False, vertical_overflow='visible', transient=True)
         self.live.__enter__()
-        status = self.console.status(f"[dim white]{self.name} {T('thinking')}...", spinner='runner')
+        status = self.console.status(f"[dim white]{self.name} {T("is thinking hard, please wait 6-60 seconds")}...", spinner='runner')
         response_panel = Panel(status, title=self.title, border_style="blue")
         self.live.update(response_panel, refresh=True)
         return self
@@ -187,7 +187,7 @@ class BaseClient(ABC, Stoppable):
 
         start = time.time()
         self.console.record = False
-        with self.console.status(f"[dim white]{T('sending_task', self.name)} ..."):
+        with self.console.status(f"[dim white]{T("Sending task to {}", self.name)} ..."):
             response = self.get_completion(history.get_messages())
         self.console.record = True
         end = time.time()
@@ -259,7 +259,7 @@ class OpenAIBaseClient(BaseClient):
                 **self._params
             )
         except Exception as e:
-            self.console.print(f"❌ [bold red]{self.name} API {T('call_failed')}: [yellow]{str(e)}")
+            self.console.print(f"❌ [bold red]{self.name} API {T("Call failed")}: [yellow]{str(e)}")
             self.log.exception('Error calling OpenAI API')
             response = None
         return response
@@ -319,7 +319,7 @@ class OllamaClient(BaseClient):
             )
             response.raise_for_status()
         except Exception as e:
-            self.console.print(f"❌ [bold red]{self.name} API {T('call_failed')}: [yellow]{str(e)}")
+            self.console.print(f"❌ [bold red]{self.name} API {T("Call failed")}: [yellow]{str(e)}")
             self.log.exception('Error calling Ollama API')
             response = None
         return response
@@ -390,7 +390,7 @@ class ClaudeClient(BaseClient):
                 **self._params
             )
         except Exception as e:
-            self.console.print(f"❌ [bold red]{self.name} API {T('call_failed')}: [yellow]{str(e)}")
+            self.console.print(f"❌ [bold red]{self.name} API {T("Call failed")}: [yellow]{str(e)}")
             self.log.exception('Error calling Claude API')
             message = None
         return message
@@ -537,7 +537,7 @@ class LLM(object):
             llm = self.llms.get(name, self.default)
 
         if not llm.usable():
-            self.console.print(f"[red]LLM: {name} {T('not usable')}")
+            self.console.print(f"[red]LLM: {name} {T("Not usable")}")
             return None
         
         self._last = llm

@@ -69,4 +69,4 @@ class CStatusBar(wx.StatusBar):
             else:
                 subprocess.call(['xdg-open', work_dir])
         else:
-            wx.MessageBox(T('Work directory does not exist'), T('Error'), wx.OK | wx.ICON_ERROR) 
+            wx.MessageBox(T('Work directory does not exist'), T("Error"), wx.OK | wx.ICON_ERROR) 

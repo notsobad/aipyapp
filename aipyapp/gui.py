@@ -242,7 +242,7 @@ class AIAppGUI:
         self.root.grid_rowconfigure(1, weight=1)
 
         self.print_output(f"Python use - AIPython ({__version__}) [https://www.aipy.app]\n")
-        self.print_output(f"{T('default')}: {self.names['default']}，{T('enabled')}: {' '.join(self.names['enabled'])}\n")
+        self.print_output(f"{T("Default")}: {self.names['default']}，{T("Enabled")}: {' '.join(self.names['enabled'])}\n")
 
     def open_work_dir(self):
         #path = self.settings.workdir

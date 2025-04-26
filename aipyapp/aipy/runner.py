@@ -101,8 +101,8 @@ class Runner(Runtime):
     
     @utils.restore_output
     def install_packages(self, *packages):
-        self._console.print(f"\n⚠️ LLM {T('ask_for_packages')}: {packages}")
-        ok = utils.confirm(self._console, f"💬 {T('agree_packages')} 'y'> ", auto=self._auto_install)
+        self._console.print(f"\n⚠️ LLM {T("Request to install third-party packages")}: {packages}")
+        ok = utils.confirm(self._console, f"💬 {T("If you agree, please enter")} 'y'> ", auto=self._auto_install)
         if ok:
             ret = ensure_packages(*packages)
             self._console.print("\n✅" if ret else "\n❌")
@@ -111,16 +111,16 @@ class Runner(Runtime):
     
     @utils.restore_output
     def getenv(self, name, default=None, *, desc=None):
-        self._console.print(f"\n⚠️ LLM {T('ask_for_env', name)}: {desc}")
+        self._console.print(f"\n⚠️ LLM {T("Request to obtain environment variable {}, purpose", name)}: {desc}")
         try:
             value = self.env[name][0]
-            self._console.print(f"✅ {T('env_exist', name)}")
+            self._console.print(f"✅ {T("Environment variable {} exists, returned for code use", name)}")
         except KeyError:
             if self._auto_getenv:
-                self._console.print(f"✅ {T('auto_confirm')}")
+                self._console.print(f"✅ {T("Auto confirm")}")
                 value = None
             else:
-                value = self._console.input(f"💬 {T('input_env', name)}: ")
+                value = self._console.input(f"💬 {T("Environment variable {} not found, please enter", name)}: ")
                 value = value.strip()
             if value:
                 self.setenv(name, value, desc)

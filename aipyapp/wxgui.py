@@ -159,7 +159,7 @@ class ChatFrame(wx.Frame):
         self.Show()
         update = self.tm.get_update()
         if update and update.get('has_update'):
-            wx.CallLater(1000, self.append_message, '爱派', f"\n🔔 **号外❗** {T('update_available')}: `v{update.get('latest_version')}`")
+            wx.CallLater(1000, self.append_message, '爱派', f"\n🔔 **号外❗** {T("Update available")}: `v{update.get('latest_version')}`")
 
     def make_input_panel(self, panel):
         self.container = wx.Panel(panel)
@@ -242,10 +242,10 @@ class ChatFrame(wx.Frame):
         self.Bind(wx.EVT_MENU, self.on_exit, id=wx.ID_EXIT)
 
         edit_menu = wx.Menu()
-        edit_menu.Append(wx.ID_CLEAR, T('Clear chat') + "(&C)", T('Clear all messages'))
+        edit_menu.Append(wx.ID_CLEAR, T("Clear chat") + "(&C)", T("Clear all messages"))
         edit_menu.AppendSeparator()
         self.ID_CONFIG = wx.NewIdRef()
-        menu_item = wx.MenuItem(edit_menu, self.ID_CONFIG, T('Configuration') + "(&O)\tCtrl+O", T('Configure program parameters'))
+        menu_item = wx.MenuItem(edit_menu, self.ID_CONFIG, T("Configuration") + "(&O)\tCtrl+O", T("Configure program parameters"))
         edit_menu.Append(menu_item)
         self.Bind(wx.EVT_MENU, self.on_config, id=self.ID_CONFIG)
         self.Bind(wx.EVT_MENU, self.on_clear_chat, id=wx.ID_CLEAR)
@@ -440,11 +440,11 @@ class ChatFrame(wx.Frame):
                 dialog.ShowModal()
                 dialog.Destroy()
             else:
-                dialog = ShareResultDialog(self, None, msg)
+                dialog = ShareResultDialog(self, None, result.get('error'))
                 dialog.ShowModal()
                 dialog.Destroy()
         except Exception as e:
-            dialog = ShareResultDialog(self, None, msg)
+            dialog = ShareResultDialog(self, None, str(e))
             dialog.ShowModal()
             dialog.Destroy()
 

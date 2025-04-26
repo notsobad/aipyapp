@@ -51,15 +51,15 @@ def main(args):
 
     update = ai.get_update(True)
     if update and update.get('has_update'):
-        console.print(f"[bold red]🔔 号外❗ {T('update_available')}: {update.get('latest_version')}")
+        console.print(f"[bold red]🔔 号外❗ {T("Update available")}: {update.get('latest_version')}")
 
     if not ai.llm:
-        console.print(f"[bold red]{T('no_available_llm')}")
+        console.print(f"[bold red]{T("No available LLM, please check the configuration file")}")
         return
     
     names = ai.llm.names
-    console.print(f"{T('banner1_python')}", style="green")
-    console.print(f"[cyan]{T('default')}: [green]{names['default']}，[cyan]{T('enabled')}: [yellow]{' '.join(names['enabled'])}")
+    console.print(f"{T("Please use ai('task') to enter the task to be processed by AI (enter ai.use(llm) to switch to the following LLM:")}", style="green")
+    console.print(f"[cyan]{T("Default")}: [green]{names['default']}，[cyan]{T("Enabled")}: [yellow]{' '.join(names['enabled'])}")
 
     interp = code.InteractiveConsole({'ai': ai})
 

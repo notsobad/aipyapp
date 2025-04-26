@@ -10,7 +10,7 @@ from .. import T
 
 class ConfigDialog(wx.Dialog):
     def __init__(self, parent, settings):
-        super().__init__(parent, title=T('Configuration'), size=(500, 450))
+        super().__init__(parent, title=T("Configuration"), size=(500, 450))
         
         self.settings = settings
         self.SetBackgroundColour(wx.Colour(245, 245, 245))
@@ -23,7 +23,7 @@ class ConfigDialog(wx.Dialog):
         main_vbox = wx.BoxSizer(wx.VERTICAL)
         
         # Work directory group
-        work_dir_box = wx.StaticBox(main_panel, -1, T('Work Directory'))
+        work_dir_box = wx.StaticBox(main_panel, -1, T("Work Directory"))
         work_dir_box.SetBackgroundColour(wx.Colour(245, 245, 245))
         work_dir_sizer = wx.StaticBoxSizer(work_dir_box, wx.VERTICAL)
         
@@ -35,7 +35,7 @@ class ConfigDialog(wx.Dialog):
         self.work_dir_text.SetBackgroundColour(wx.Colour(255, 255, 255))
         work_dir_inner_sizer.Add(self.work_dir_text, 1, wx.ALL | wx.EXPAND, 5)
         
-        browse_button = wx.Button(work_dir_panel, -1, T('Browse...'))
+        browse_button = wx.Button(work_dir_panel, -1, T("Browse..."))
         browse_button.SetBackgroundColour(wx.Colour(255, 255, 255))
         browse_button.Bind(wx.EVT_BUTTON, self.on_browse_work_dir)
         work_dir_inner_sizer.Add(browse_button, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
@@ -44,14 +44,14 @@ class ConfigDialog(wx.Dialog):
         work_dir_sizer.Add(work_dir_panel, 0, wx.ALL | wx.EXPAND, 5)
         
         # Add hint about creating new directory
-        hint_text = wx.StaticText(main_panel, -1, T('You can create a new directory in the file dialog'))
+        hint_text = wx.StaticText(main_panel, -1, T("You can create a new directory in the file dialog"))
         hint_text.SetForegroundColour(wx.Colour(128, 128, 128))
         work_dir_sizer.Add(hint_text, 0, wx.LEFT | wx.BOTTOM, 5)
         
         main_vbox.Add(work_dir_sizer, 0, wx.ALL | wx.EXPAND, 10)
         
         # Settings group
-        settings_box = wx.StaticBox(main_panel, -1, T('Settings'))
+        settings_box = wx.StaticBox(main_panel, -1, T("Settings"))
         settings_box.SetBackgroundColour(wx.Colour(245, 245, 245))
         settings_sizer = wx.StaticBoxSizer(settings_box, wx.VERTICAL)
         
@@ -60,7 +60,7 @@ class ConfigDialog(wx.Dialog):
         tokens_panel.SetBackgroundColour(wx.Colour(245, 245, 245))
         tokens_sizer = wx.BoxSizer(wx.HORIZONTAL)
         
-        tokens_label = wx.StaticText(tokens_panel, -1, T('Max Tokens') + ":")
+        tokens_label = wx.StaticText(tokens_panel, -1, T("Max Tokens") + ":")
         tokens_sizer.Add(tokens_label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
         
         self.tokens_slider = wx.Slider(tokens_panel, -1, 
@@ -84,7 +84,7 @@ class ConfigDialog(wx.Dialog):
         timeout_panel.SetBackgroundColour(wx.Colour(245, 245, 245))
         timeout_sizer = wx.BoxSizer(wx.HORIZONTAL)
         
-        timeout_label = wx.StaticText(timeout_panel, -1, T('Timeout (seconds)') + ":")
+        timeout_label = wx.StaticText(timeout_panel, -1, T("Timeout (seconds)") + ":")
         timeout_sizer.Add(timeout_label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
         
         self.timeout_slider = wx.Slider(timeout_panel, -1, 
@@ -108,7 +108,7 @@ class ConfigDialog(wx.Dialog):
         rounds_panel.SetBackgroundColour(wx.Colour(245, 245, 245))
         rounds_sizer = wx.BoxSizer(wx.HORIZONTAL)
         
-        rounds_label = wx.StaticText(rounds_panel, -1, T('Max Rounds') + ":")
+        rounds_label = wx.StaticText(rounds_panel, -1, T("Max Rounds") + ":")
         rounds_sizer.Add(rounds_label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
         
         self.rounds_slider = wx.Slider(rounds_panel, -1,
@@ -137,7 +137,7 @@ class ConfigDialog(wx.Dialog):
         button_panel.SetBackgroundColour(wx.Colour(245, 245, 245))
         button_sizer = wx.BoxSizer(wx.HORIZONTAL)
         
-        ok_button = wx.Button(button_panel, wx.ID_OK, T('OK'))
+        ok_button = wx.Button(button_panel, wx.ID_OK, T("OK"))
         ok_button.SetBackgroundColour(wx.Colour(255, 255, 255))
         ok_button.SetMinSize((100, 30))
         cancel_button = wx.Button(button_panel, wx.ID_CANCEL, T('Cancel'))
@@ -159,7 +159,7 @@ class ConfigDialog(wx.Dialog):
         self.Centre()
         
     def on_browse_work_dir(self, event):
-        with DirDialog(self, T('Select work directory'), 
+        with DirDialog(self, T("Select work directory"), 
                       defaultPath=self.work_dir_text.GetValue(),
                       style=wx.DD_DEFAULT_STYLE) as dlg:
             if dlg.ShowModal() == wx.ID_OK:
