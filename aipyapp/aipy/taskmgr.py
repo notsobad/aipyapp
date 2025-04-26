@@ -8,7 +8,7 @@ from loguru import logger
 
 from .. import T
 from .task import Task
-from ..llm.llm import LLM
+from ..llm import ClientManager
 from .config import CONFIG_DIR
 from .runner import Runner
 from .plugin import PluginManager
@@ -40,7 +40,7 @@ class TaskManager:
         self._init_api()
         self.diagnose = Diagnose.create(settings)
         self.runner = Runner(settings, console, envs=self.envs)
-        self.llm = LLM(settings, console, system_prompt=self.system_prompt)
+        self.llm = ClientManager(settings, console, system_prompt=self.system_prompt)
         
     @property
     def workdir(self):
