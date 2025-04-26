@@ -4,7 +4,7 @@ import time
 import requests
 import qrcode
 
-from .i18n import T
+from .. import T
 
 COORDINATOR_URL = os.getenv('COORDINATOR_URL', 'https://api.trustoken.ai/api')
 POLL_INTERVAL = 5 # 轮询间隔（秒）

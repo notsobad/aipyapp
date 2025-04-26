@@ -2,7 +2,8 @@ import os
 import sys
 import subprocess
 import wx
-from ..aipy.i18n import T
+
+from .. import T
 
 class CStatusBar(wx.StatusBar):
     def __init__(self, parent):

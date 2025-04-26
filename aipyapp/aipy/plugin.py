@@ -2,50 +2,12 @@
 # -*- coding: utf-8 -*-
 
 import os
-import traceback
 import importlib.util
-from typing import Callable, Any, Dict, List
+from typing import Dict, Any
 
 from loguru import logger
 
-class EventBus:
-    def __init__(self):
-        self._listeners: Dict[str, List[Callable[..., Any]]] = {}
-        self.log = logger.bind(src='eventbus')
-        
-    def __repr__(self):
-        return repr(self._listeners)
-    
-    def register(self, event_name: str, handler: Callable[..., Any]):
-        self._listeners.setdefault(event_name, []).append(handler)
-
-    def broadcast(self, event_name: str, *args, **kwargs):
-        for handler in self._listeners.get(event_name, []):
-            try:
-                handler(*args, **kwargs)
-            except Exception as e:
-                self.log.exception('Error broadcasting event', event_name=event_name, handler=handler)
-
-    def pipeline(self, event_name: str, data, **kwargs):
-        for handler in self._listeners.get(event_name, []):
-            try:
-                data = handler(data, **kwargs)
-            except Exception as e:
-                self.log.exception('Error processing event', event_name=event_name, handler=handler)
-        return data
-
-    def collect(self, event_name: str, *args, **kwargs):
-        try:
-            ret = [handler(*args, **kwargs) for handler in self._listeners.get(event_name, [])]
-        except Exception as e:
-            ret = []
-            self.log.exception('Error collecting event', event_name=event_name, args=args, kwargs=kwargs)
-        return ret
-
-    def __call__(self, event_name: str, *args, **kwargs):
-        return self.pipeline(event_name, *args, **kwargs)
-
-event_bus = EventBus()
+from .. import event_bus
 
 class PluginManager:
     def __init__(self, plugin_dir: str):

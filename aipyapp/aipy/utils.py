@@ -8,7 +8,7 @@ from functools import wraps
 
 from rich.panel import Panel
 
-from .i18n import T
+from .. import T
 from .templates import DISCLAIMER_TEXT
 
 def restore_output(func):

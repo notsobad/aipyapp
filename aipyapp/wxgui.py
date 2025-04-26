@@ -21,10 +21,9 @@ from wx.lib.newevent import NewEvent
 from wx import FileDialog, FD_SAVE, FD_OVERWRITE_PROMPT
 from wx.lib.agw.hyperlink import HyperLinkCtrl
 
-from . import __version__
+from . import __version__, T, set_lang, event_bus
 from .aipy.config import ConfigManager
-from .aipy import TaskManager, event_bus
-from .aipy.i18n import T, set_lang
+from .aipy import TaskManager
 from .gui import TrustTokenAuthDialog, ConfigDialog, AboutDialog, CStatusBar
 
 ChatEvent, EVT_CHAT = NewEvent()

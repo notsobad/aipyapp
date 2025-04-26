@@ -6,9 +6,9 @@ from pathlib import Path
 
 from loguru import logger
 
-from .i18n import T
+from .. import T
 from .task import Task
-from .llm import LLM
+from ..llm.llm import LLM
 from .config import CONFIG_DIR
 from .runner import Runner
 from .plugin import PluginManager

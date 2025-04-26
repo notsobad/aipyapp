@@ -6,8 +6,8 @@ import qrcode
 import io
 from PIL import Image
 
-from aipyapp.aipy.i18n import T
-from aipyapp.aipy.trustoken import TrustTokenAPI
+from .. import T
+from ..aipy.trustoken import TrustTokenAPI
 
 class TrustTokenAuthDialog(wx.Dialog):
     """A dialog for TrustToken authentication with QR code display."""

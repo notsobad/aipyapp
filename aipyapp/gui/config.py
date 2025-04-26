@@ -5,7 +5,8 @@ import os
 import wx
 from wx import DirDialog, FD_SAVE, FD_OVERWRITE_PROMPT
 from wx.lib.agw.floatspin import FloatSpin, EVT_FLOATSPIN, FS_LEFT, FS_RIGHT, FS_CENTRE, FS_READONLY
-from aipyapp.aipy.i18n import T
+
+from .. import T
 
 class ConfigDialog(wx.Dialog):
     def __init__(self, parent, settings):

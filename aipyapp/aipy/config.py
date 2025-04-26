@@ -13,7 +13,7 @@ from rich import print
 import tomli_w
 import qrcode
 
-from .i18n import T
+from .. import T
 from .trustoken import TrustToken
 import traceback
 

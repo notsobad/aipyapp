@@ -15,9 +15,7 @@ from rich.panel import Panel
 from rich.text import Text
 from rich.markdown import Markdown
 
-from .i18n import T
-from .plugin import event_bus
-from .interface import Stoppable
+from .. import Stoppable, event_bus, T
 
 @dataclass
 class ChatMessage:

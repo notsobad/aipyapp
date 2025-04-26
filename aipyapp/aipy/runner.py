@@ -9,8 +9,7 @@ from io import StringIO
 from term_image.image import from_file, from_url
 
 from . import utils
-from .i18n import T
-from .plugin import event_bus
+from .. import event_bus, T
 from .interface import Runtime
 from aipyapp.exec.install import ensure_packages
 

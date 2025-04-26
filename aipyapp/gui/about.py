@@ -1,8 +1,8 @@
 import wx
 import importlib.resources as resources
-from .. import __version__
-from aipyapp.aipy.config import CONFIG_DIR
-from aipyapp.aipy.i18n import T
+
+from .. import __version__, T
+from ..aipy.config import CONFIG_DIR
 
 class AboutDialog(wx.Dialog):
     def __init__(self, parent):

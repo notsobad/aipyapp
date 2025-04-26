@@ -17,9 +17,7 @@ from rich.table import Table
 from rich.syntax import Syntax
 from rich.markdown import Markdown
 
-from .i18n import T
-from .plugin import event_bus
-from .interface import Stoppable
+from .. import event_bus, Stoppable, T
 from .templates import CONSOLE_HTML_FORMAT
 from .utils import get_safe_filename
 

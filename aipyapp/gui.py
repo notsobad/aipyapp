@@ -32,7 +32,7 @@ from prompt_toolkit.completion import WordCompleter
 from . import __version__
 from .aipy.config import ConfigManager
 from .aipy import TaskManager
-from .aipy.i18n import T,set_lang
+from .i18n import T,set_lang
 #
 __PACKAGE_NAME__ = "aipyapp"
 
