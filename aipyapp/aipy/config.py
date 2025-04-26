@@ -13,7 +13,7 @@ from rich import print
 import tomli_w
 import qrcode
 
-from .. import T
+from .. import T, __resources_path__
 from .trustoken import TrustToken
 import traceback
 
@@ -87,10 +87,10 @@ def is_valid_api_key(api_key):
     return bool(re.match(pattern, api_key))
 
 class ConfigManager:
-    def __init__(self, default_config="default.toml",  config_dir=None):
+    def __init__(self, config_dir=None):
         self.config_file = get_config_file_path(config_dir)
         self.user_config_file = get_config_file_path(config_dir, USER_CONFIG_FILE_NAME)
-        self.default_config = default_config
+        self.default_config = __resources_path__ / "default.toml"
         self.config = self._load_config()
         self.trust_token = TrustToken()
 

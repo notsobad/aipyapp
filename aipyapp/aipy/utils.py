@@ -5,11 +5,13 @@ import os
 import re
 import sys
 from functools import wraps
+from importlib.resources import read_text
 
 from rich.panel import Panel
 
-from .. import T
-from .templates import DISCLAIMER_TEXT
+from .. import T, __resources__
+
+DISCLAIMER_TEXT = read_text(__resources__, "DISCLAIMER.md")
 
 def restore_output(func):
     @wraps(func)
@@ -34,9 +36,6 @@ def confirm(console, prompt, default="n", auto=None):
         if response in ["y", "n"]:
             break
     return response == "y"
-
-    cp = subprocess.run([sys.executable, "-m", "pip", "install"] + packages)
-    return cp.returncode == 0
 
 def confirm_disclaimer(console):
     console.print()

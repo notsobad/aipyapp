@@ -21,14 +21,15 @@ from wx.lib.newevent import NewEvent
 from wx import FileDialog, FD_SAVE, FD_OVERWRITE_PROMPT
 from wx.lib.agw.hyperlink import HyperLinkCtrl
 
-from . import __version__, T, set_lang, event_bus
-from .aipy.config import ConfigManager
-from .aipy import TaskManager
-from .gui import TrustTokenAuthDialog, ConfigDialog, AboutDialog, CStatusBar
+from .. import __version__, T, set_lang, event_bus
+from ..aipy.config import ConfigManager
+from ..aipy import TaskManager
+from . import TrustTokenAuthDialog, ConfigDialog, AboutDialog, CStatusBar
 
 ChatEvent, EVT_CHAT = NewEvent()
 AVATARS = {'我': '🧑', 'BB-8': '🤖', '图灵': '🧠', '爱派': '🐙'}
 TITLE = "🐙爱派，您的干活牛🐂马🐎，啥都能干！"
+RESOURCES = "aipyapp.res"
 
 matplotlib.use('Agg')
 
@@ -142,10 +143,13 @@ class ChatFrame(wx.Frame):
         self.tm = tm
         self.task_queue = queue.Queue()
         self.aipython = AIPython(self)
-        self.chat_html = "file://" + os.path.abspath(resources.files(__package__) / "chatroom.html")
 
-        icon = wx.Icon(str(resources.files(__package__) / "gui" / "aipy.ico"), wx.BITMAP_TYPE_ICO)
-        self.SetIcon(icon)
+        self.chat_html = resources.read_text(RESOURCES, "chatroom.html")
+        self.base_url = f"file://{tm.workdir / 'index.html'}"
+
+        with resources.path(RESOURCES, "aipy.ico") as icon_path:
+            icon = wx.Icon(str(icon_path), wx.BITMAP_TYPE_ICO)
+            self.SetIcon(icon)
 
         self.SetBackgroundColour(wx.Colour(245, 245, 245))
         self.make_menu_bar()
@@ -212,7 +216,7 @@ class ChatFrame(wx.Frame):
         vbox = wx.BoxSizer(wx.VERTICAL)
 
         self.webview = wx.html2.WebView.New(panel)
-        self.webview.LoadURL(self.chat_html)
+        self.webview.SetPage(self.chat_html, self.base_url)
         self.webview.SetWindowStyleFlag(wx.BORDER_NONE)
         vbox.Add(self.webview, proportion=1, flag=wx.EXPAND | wx.ALL, border=12)
 
@@ -494,8 +498,7 @@ class ShareResultDialog(wx.Dialog):
 
 def main(args):
     app = wx.App(False)
-    default_config_path = resources.files(__package__) / "default.toml"
-    conf = ConfigManager(default_config_path, args.config_dir)
+    conf = ConfigManager(args.config_dir)
     if conf.check_config(gui=True) == 'TrustToken':
         dialog = TrustTokenAuthDialog()
         if dialog.fetch_token(conf.save_tt_config):

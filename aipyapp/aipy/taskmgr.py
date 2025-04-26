@@ -44,7 +44,7 @@ class TaskManager:
         
     @property
     def workdir(self):
-        return str(self._cwd)
+        return self._cwd
 
     def get_update(self, force=False):
         return self.diagnose.check_update(force)

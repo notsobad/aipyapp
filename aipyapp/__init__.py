@@ -1,4 +1,5 @@
 import threading
+from importlib import resources
 from typing import Callable, Any, Dict, List
 
 from loguru import logger
@@ -6,6 +7,8 @@ from loguru import logger
 from .i18n import T, set_lang
 
 __version__ = '0.1.26b3'
+__resources__ = f'{__package__}.res'
+__resources_path__ = resources.files(__resources__)
 
 class Stoppable():
     def __init__(self):
@@ -62,5 +65,5 @@ class EventBus:
 
 event_bus = EventBus()
 
-__all__ = ['Stoppable', 'EventBus', 'event_bus', '__version__', 'T', 'set_lang']
+__all__ = ['Stoppable', 'EventBus', 'event_bus', '__version__', 'T', 'set_lang', '__resources__']
     

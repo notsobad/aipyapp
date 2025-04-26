@@ -9,6 +9,7 @@ import platform
 from pathlib import Path
 from datetime import date
 from enum import Enum, auto
+from importlib.resources import read_text
 
 from loguru import logger
 from rich.panel import Panel
@@ -17,9 +18,10 @@ from rich.table import Table
 from rich.syntax import Syntax
 from rich.markdown import Markdown
 
-from .. import event_bus, Stoppable, T
-from .templates import CONSOLE_HTML_FORMAT
+from .. import event_bus, Stoppable, T, __resources__
 from .utils import get_safe_filename
+
+CONSOLE_HTML_FORMAT = read_text(__resources__, "console_white.tpl")
 
 class MsgType(Enum):
     CODE = auto()
@@ -53,16 +55,7 @@ class Task(Stoppable):
         # 读取模版文件
         # 将模版文件中的{{code}}替换为task转换为json
         # 保存为新的html文件
-        template_path = Path(__file__).resolve().parent / 'template.html'
-        try:
-            with open(template_path, 'r') as f:
-                template_content = f.read()
-        except FileNotFoundError:
-            self.console.print(f"[red]Error: template.html not found at {template_path}[/red]")
-            return
-        except Exception as e:
-            self.console.print_exception()
-            return
+        template_content = read_text(__resources__, "console_code.tpl")
 
         if 'llm' in task and isinstance(task['llm'], list) and len(task['llm']) > 0:
             if task['llm'][0]['role'] == 'system':
