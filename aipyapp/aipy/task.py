@@ -7,14 +7,13 @@ import json
 import uuid
 import platform
 from pathlib import Path
-from datetime import date
+from datetime import datetime
 from enum import Enum, auto
 from importlib.resources import read_text
 
 from loguru import logger
 from rich.panel import Panel
 from rich.align import Align
-from rich.table import Table
 from rich.syntax import Syntax
 from rich.markdown import Markdown
 
@@ -35,8 +34,10 @@ class Task(Stoppable):
         self.task_id = uuid.uuid4().hex
         self.instruction = instruction
         self.console = None
-        self.llm = None
+        self.session = None
+        self.runtime = None
         self.runner = None
+        self.diagnose = None
         self.max_rounds = max_rounds
         self.system_prompt = system_prompt
         self.pattern = re.compile(
@@ -44,59 +45,47 @@ class Task(Stoppable):
             re.DOTALL | re.MULTILINE
         )
         self.log = logger.bind(src='task', id=self.task_id)
+        self.start_time = datetime.now()
         
     def save(self, path):
-       if self._console.record:
-           self.log.info('Saving task to html', path=path)
-           self._console.save_html(path, clear=False, code_format=CONSOLE_HTML_FORMAT)
+       if self.console.record:
+           self.console.save_html(path, clear=False, code_format=CONSOLE_HTML_FORMAT)
 
-    def save_html(self, path, task):
-        # 获取当前代码所在目录下的template.html作为模版文件
-        # 读取模版文件
-        # 将模版文件中的{{code}}替换为task转换为json
-        # 保存为新的html文件
-        template_content = read_text(__resources__, "console_code.tpl")
-
-        if 'llm' in task and isinstance(task['llm'], list) and len(task['llm']) > 0:
-            if task['llm'][0]['role'] == 'system':
-                task['llm'].pop(0)
-
-        task_json = json.dumps(task, ensure_ascii=False)
-        html_content = template_content.replace('{{code}}', task_json)
-
-        try:
-            with open(path, 'w', encoding='utf-8') as f:
-                f.write(html_content)
-                self.console.print(f"[green]Task saved to {path}[/green]")
-        except Exception as e:
-            self.console.print_exception()
-            return
-
-    def done(self):
-        #import pdb;pdb.set_trace()
+    def auto_save(self):
         instruction = self.instruction
         task = {'instruction': instruction}
-        task['llm'] = self.llm.history.json()
+        task['llm'] = self.session.history.json()
+        task['envs'] = self.runtime.envs
         task['runner'] = self.runner.history
-        filename = get_safe_filename(instruction, extension='.json') or f"{self.task_id}.json"
+
+        filename = f"{self.task_id}.json"
         try:
             json.dump(task, open(filename, 'w'), ensure_ascii=False, indent=4)
         except Exception as e:
             self.log.exception('Error saving task')
-            self.console.print_exception()
 
-        filename = get_safe_filename(instruction) or f"{self.task_id}.html"
-        if hasattr(self.console, 'gui'):
-            # Only save new html in gui mode for now.
-            self.save_html(filename, task)
-        else:
-            self.console.save_html(filename, clear=True, code_format=CONSOLE_HTML_FORMAT)
-        filename = str(Path(filename).resolve())
-        self.console.print(f"[green]{T("Result file saved")}: \"{filename}\"")
-        self.llm.clear()
-        self.runner.clear()
-        self.task_id = None
-        self.instruction = None
+        filename = f"{self.task_id}.html"
+        self.save(filename)
+        self.log.info('Task auto saved')
+        
+    def done(self):
+        curname = f"{self.task_id}.json"
+        jsonname = get_safe_filename(self.instruction, extension='.json')
+        if jsonname and os.path.exists(curname):
+            try:
+                os.rename(curname, jsonname)
+            except Exception as e:
+                self.log.exception('Error renaming task json file')
+
+        curname = f"{self.task_id}.html"
+        htmlname = get_safe_filename(self.instruction, extension='.html')
+        if htmlname and os.path.exists(curname):
+            try:
+                os.rename(curname, htmlname)
+            except Exception as e:
+                self.log.exception('Error renaming task html file')
+        self.diagnose.report_code_error(self.runner.history)
+        self.log.info('Task done', jsonname=jsonname, htmlname=htmlname)
 
     def parse_reply(self, markdown):
         code_blocks = {}
@@ -117,19 +106,9 @@ class Task(Stoppable):
         status = self.console.status(f"[dim white]{T("Start sending feedback")}...")
         self.console.print(status)
         feed_back = f"# 最初任务\n{self.instruction}\n\n# 代码执行结果反馈\n{result}"
-        feedback_response = self.llm(feed_back, name=llm)
-        return feedback_response
+        return self.session.chat(feed_back, name=llm)
 
     def box(self, title, content, align=None, lang=None):
-        if hasattr(self.console, 'gui'):
-            # Using Mocked console. Dont use Panel
-
-            if lang == 'json':
-                # Only print execute result.
-                self.console.print(f"\n{title}")
-                self.console.print(content)
-            return
-
         if lang:
             content = Syntax(content, lang, line_numbers=True, word_wrap=True)
         if align:
@@ -138,7 +117,7 @@ class Task(Stoppable):
         self.console.print(Panel(content, title=title))
 
     def print_summary(self):
-        history = self.llm.history
+        history = self.session.history
         """
         table = Table(title=T("Task Summary"), show_lines=True)
 
@@ -173,7 +152,7 @@ class Task(Stoppable):
         prompt = {'task': self.instruction}
         prompt['python_version'] = platform.python_version()
         prompt['platform'] = platform.platform()
-        prompt['today'] = date.today().isoformat()
+        prompt['today'] = datetime.today().isoformat()
         prompt['work_dir'] = '工作目录为当前目录，默认在当前目录下创建文件'
         if getattr(self.console, 'gui', False):
             prompt['matplotlib'] = "我现在用的是 matplotlib 的 Agg 后端，请默认用 plt.savefig() 保存图片后用 runtime.display() 显示，禁止使用 plt.show()"
@@ -200,9 +179,9 @@ class Task(Stoppable):
         max_rounds = max_rounds or self.max_rounds
         if not max_rounds or max_rounds < 1:
             max_rounds = self.MAX_ROUNDS
-        response = self.llm(instruction, system_prompt=system_prompt, name=llm)
+        response = self.session.chat(instruction, system_prompt=system_prompt, name=llm)
         while response and rounds <= max_rounds:
-            blocks = self.parse_reply(response)
+            blocks = self.parse_reply(response.content)
             if 'main' not in blocks:
                 break
             rounds += 1
@@ -211,16 +190,17 @@ class Task(Stoppable):
                 self.log.info('Task stopped')
                 break
         self.print_summary()
+        self.auto_save()
         os.write(1, b'\a\a\a')
         self.log.info('Task done')
         
     def chat(self, prompt):
-        system_prompt = None if self.llm.history else self.system_prompt
-        response, ok = self.llm(prompt, system_prompt=system_prompt)
+        system_prompt = None if self.session.history else self.system_prompt
+        response = self.session.chat(prompt, system_prompt=system_prompt)
         self.console.print(Markdown(response))
 
     def step(self):
-        response = self.llm.get_last_message()
+        response = self.session.get_last_message()
         if not response:
             self.console.print(f"❌ {T("No context information found")}")
             return

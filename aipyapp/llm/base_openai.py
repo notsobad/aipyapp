@@ -15,9 +15,6 @@ class OpenAIBaseClient(BaseClient):
     def _get_client(self):
         return openai.Client(api_key=self._api_key, base_url=self._base_url, timeout=self._timeout)
     
-    def add_system_prompt(self, history, system_prompt):
-        history.add("system", system_prompt)
-
     def _parse_usage(self, usage):
         usage = Counter({'total_tokens': usage.total_tokens,
                 'input_tokens': usage.prompt_tokens,

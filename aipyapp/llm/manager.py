@@ -8,7 +8,7 @@ from loguru import logger
 from .base_openai import OpenAIBaseClient
 from .client_ollama import OllamaClient
 from .client_claude import ClaudeClient
-from .session import ChatHistory
+from .session import Session
 from .. import Stoppable, event_bus, T
 
 class OpenAIClient(OpenAIBaseClient): 
@@ -60,14 +60,25 @@ CLIENTS = {
 }
 
 class ClientManager(object):
-    def __init__(self, settings, console, system_prompt=None):
-        self.llms = {}
+    def __init__(self, settings, console):
+        self.clients = {}
         self.console = console
         self.default = None
+        self.current = None
         self._last = None
         self.log = logger.bind(src='llm')
-        self.history = ChatHistory()
-        self.system_prompt = system_prompt
+        self.init_clients(settings)
+
+    def _init_client(self, config):
+        proto = config.get("type", "openai")
+
+        client = CLIENTS.get(proto.lower())
+        if not client:
+            self.log.error('Unsupported LLM provider', proto=proto)
+            raise ValueError(f"Unsupported LLM provider: {proto}")
+        return client(config)
+    
+    def init_clients(self, settings):
         names = defaultdict(set)
         for name, config in settings.llm.items():
             if not config.get('enable', True):
@@ -75,34 +86,45 @@ class ClientManager(object):
                 continue
 
             try:
-                client = self.get_client(config)
+                client = self._init_client(config)
             except Exception as e:
-                self.console.print_exception()
                 self.log.exception('Error creating LLM client', name=name, config=config)
                 names['error'].add(name)
                 continue
             
+            if not client.usable():
+                names['disabled'].add(name)
+                self.log.error('LLM client not usable', name=name, config=config)
+                continue
+
             names['enabled'].add(name)
             client.name = name
-            client.console = console
-            self.llms[name] = client
+            client.console = self.console
+            self.clients[name] = client
 
             if config.get('default', False) and not self.default:
                 self.default = client
                 names['default'] = name
 
         if not self.default:
-            name = list(self.llms.keys())[0]
-            self.default = self.llms[name]
+            name = list(self.clients.keys())[0]
+            self.default = self.clients[name]
             names['default'] = name
+
         self.current = self.default
         self.names = names
 
     def __len__(self):
-        return len(self.llms)
+        return len(self.clients)
     
     def __repr__(self):
         return f"Current: {'default' if self.current == self.default else self.current}, Default: {self.default}"
+
+    def __contains__(self, name):
+        return name in self.clients
+
+    def __getitem__(self, name):
+        return self.clients[name]
     
     @property
     def enabled(self):
@@ -112,30 +134,11 @@ class ClientManager(object):
     def last(self):
         return self._last.name if self._last else None
     
-    def get_last_message(self, role='assistant'):
-        return self.history.get_last_message(role)
-    
-    def clear(self):
-        self.history = ChatHistory()
-
-    def get_client(self, config):
-        proto = config.get("type", "openai")
-
-        client = CLIENTS.get(proto.lower())
-        if not client:
-            self.log.error('Unsupported LLM provider', proto=proto)
-            raise ValueError(f"Unsupported LLM provider: {proto}")
-        return client(config)
-    
-    def __contains__(self, name):
-        return name in self.llms
-    
     def use(self, name):
-        llm = self.llms.get(name)
-        if llm and llm.usable():
-            self.current = llm
-            return True
-        return False
+        self.current = self[name]
+
+    def get_client(self, name, default=None):
+        return self.clients.get(name, default)
     
     def stop(self):
         if self._last:
@@ -148,15 +151,21 @@ class ClientManager(object):
         3. 使用 default
         """
         if not name:
-            llm = self.current
+            client = self.current
         else:
-            llm = self.llms.get(name, self.default)
+            client = self.clients.get(name, self.current)
 
-        if not llm.usable():
+        if not client.usable():
             self.console.print(f"[red]LLM: {name} {T("Not usable")}")
             return None
         
-        self._last = llm
-        ret = llm(self.history, instruction, system_prompt=system_prompt)
-        event_bus.broadcast('response_complete', {'llm': llm.name, 'content': ret})
+        self._last = client
+        ret = client(instruction, system_prompt=system_prompt)
+        event_bus.broadcast('response_complete', {'llm': client.name, 'content': ret})
         return ret
+    
+    def Session(self, name=None):
+        client = self[name] if name else self.current
+        session = Session(self)
+        session.client = client
+        return session

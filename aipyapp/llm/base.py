@@ -47,8 +47,8 @@ class BaseClient(ABC, Stoppable):
     def get_completion(self, messages):
         pass
         
-    def add_system_prompt(self, history, system_prompt):
-        history.add("system", system_prompt)
+    def add_system_prompt(self, messages, system_prompt):
+        messages.append({"role": "system", "content": system_prompt})
 
     @abstractmethod
     def _parse_usage(self, response):
@@ -63,28 +63,28 @@ class BaseClient(ABC, Stoppable):
         pass
 
     def parse_response(self, response):
-        if self._stream:
+        if self._stream:    
             response = self._parse_stream_response(response)
         else:
             response = self._parse_response(response)
         return response
     
-    def __call__(self, history, prompt, system_prompt=None):
+    def __call__(self, messages, prompt, system_prompt=None):
         # We shall only send system prompt once
-        if not history and system_prompt:
-            self.add_system_prompt(history, system_prompt)
-        history.add("user", prompt)
+        if system_prompt:
+            self.add_system_prompt(messages, system_prompt)
+        messages.append({"role": "user", "content": prompt})
 
         start = time.time()
         self.console.record = False
         with self.console.status(f"[dim white]{T("Sending task to {}", self.name)} ..."):
-            response = self.get_completion(history.get_messages())
+            response = self.get_completion(messages)
         self.console.record = True
         end = time.time()
         if response:
             msg = self.parse_response(response)
+            msg.name = self.name
             msg.usage['time'] = round(end - start, 3)
-            history.add_message(msg)
-            response = msg.content
+            response = msg
         return response
     

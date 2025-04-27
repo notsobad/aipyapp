@@ -4,11 +4,14 @@
 from collections import Counter
 from dataclasses import dataclass, field
 
+from loguru import logger
+
 @dataclass
 class ChatMessage:
     role: str
     content: str
     reason: str = None
+    name: str = None
     usage: Counter = field(default_factory=Counter)
 
 class ChatHistory:
@@ -44,9 +47,21 @@ class ChatHistory:
 class Session:
     def __init__(self, manager):
         self.manager = manager
+        self.client = manager.current
+        self.log = logger.bind(src='session')
         self.history = ChatHistory()
 
-    def use(self, llm):
-        pass
-    def chat(self, prompt, system_prompt=None, llm=None):
-        return self.manager(self.history.get_messages(), prompt)
+    def use(self, name):
+        self.client = self.manager[name]
+
+    def chat(self, prompt, system_prompt=None, name=None):
+        client = self.manager[name] if name else self.client
+        cm = client(self.history.get_messages(), prompt, system_prompt=system_prompt)
+        if cm:
+            if system_prompt:
+                self.history.add("system", system_prompt)
+            self.history.add("user", prompt)
+            self.history.add_message(cm)
+        return cm
+    
+    

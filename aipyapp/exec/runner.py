@@ -6,13 +6,6 @@ import json
 import traceback
 from io import StringIO
 
-from term_image.image import from_file, from_url
-
-from . import utils
-from .. import event_bus, T
-from .interface import Runtime
-from aipyapp.exec.install import ensure_packages
-
 INIT_IMPORTS = """
 import os
 import re
@@ -37,18 +30,11 @@ def diff_dicts(dict1, dict2):
             diff[key] = value
     return diff
 
-class Runner(Runtime):
-    def __init__(self, settings, console, *, envs=None):
-        self._console = console
-        self._settings = settings
-        self.env = envs or {}
-        self._auto_install = settings.get('auto_install')
-        self._auto_getenv = settings.get('auto_getenv')
-        self.clear()
-
-    def clear(self):
-        self.history = [{'env': self.env}]
-        self._globals = {'runtime': self, '__session__': {}, '__name__': '__main__', 'input': self.input, '__history__': self.history}
+class Runner():
+    def __init__(self, runtime):
+        self.runtime = runtime
+        self.history = []
+        self._globals = {'runtime': runtime, '__session__': {}, '__name__': '__main__', 'input': self.runtime.input, '__history__': self.history}
         exec(INIT_IMPORTS, self._globals)
 
     def __repr__(self):
@@ -64,7 +50,7 @@ class Runner(Runtime):
         captured_stderr = StringIO()
         sys.stdout, sys.stderr = captured_stdout, captured_stderr
         result = {}
-        env = self.env.copy()
+        env = self.runtime.envs.copy()
         session = self._globals['__session__'].copy()
         gs = self._globals.copy()
         gs['__result__'] = {}
@@ -89,7 +75,7 @@ class Runner(Runtime):
 
         history = {'code': code_str, 'result': result}
 
-        diff = diff_dicts(env, self.env)
+        diff = diff_dicts(env, self.runtime.envs)
         if diff:
             history['env'] = diff
         diff = diff_dicts(gs['__session__'], session)
@@ -98,54 +84,11 @@ class Runner(Runtime):
 
         self.history.append(history)
         return result
-    
-    @utils.restore_output
-    def install_packages(self, *packages):
-        self._console.print(f"\n⚠️ LLM {T("Request to install third-party packages")}: {packages}")
-        ok = utils.confirm(self._console, f"💬 {T("If you agree, please enter")} 'y'> ", auto=self._auto_install)
-        if ok:
-            ret = ensure_packages(*packages)
-            self._console.print("\n✅" if ret else "\n❌")
-            return ret
-        return False
-    
-    @utils.restore_output
-    def getenv(self, name, default=None, *, desc=None):
-        self._console.print(f"\n⚠️ LLM {T("Request to obtain environment variable {}, purpose", name)}: {desc}")
-        try:
-            value = self.env[name][0]
-            self._console.print(f"✅ {T("Environment variable {} exists, returned for code use", name)}")
-        except KeyError:
-            if self._auto_getenv:
-                self._console.print(f"✅ {T("Auto confirm")}")
-                value = None
-            else:
-                value = self._console.input(f"💬 {T("Environment variable {} not found, please enter", name)}: ")
-                value = value.strip()
-            if value:
-                self.setenv(name, value, desc)
-        return value or default
-    
-    @utils.restore_output
-    def display(self, path=None, url=None):
-        gui = getattr(self._console, 'gui', False)
-        image = {'path': path, 'url': url}
-        event_bus.broadcast('display', image)
-        if not gui:
-            image = from_file(path) if path else from_url(url)
-            image.draw()
-
-    @utils.restore_output
-    def input(self, prompt=''):
-        return self._console.input(prompt)
-      
-    def setenv(self, name, value, desc):
-        self.env[name] = (value, desc)
 
     def filter_result(self, vars):
         if isinstance(vars, dict):
             for key in vars.keys():
-                if key in self.env:
+                if key in self.runtime.envs:
                     vars[key] = '<masked>'
                 else:
                     vars[key] = self.filter_result(vars[key])

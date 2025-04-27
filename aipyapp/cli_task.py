@@ -6,6 +6,7 @@ from pathlib import Path
 import importlib.resources as resources
 from collections import OrderedDict
 
+from loguru import logger
 from rich.console import Console
 from rich.table import Table
 from prompt_toolkit import PromptSession
@@ -16,8 +17,6 @@ from prompt_toolkit.completion import WordCompleter
 from . import __version__, T, set_lang
 from .aipy import TaskManager
 from .aipy.config import ConfigManager, CONFIG_DIR
-
-__PACKAGE_NAME__ = "aipyapp"
 
 class CommandType(Enum):
     CMD_DONE = auto()
@@ -73,7 +72,8 @@ def show_info(console, info):
 class InteractiveConsole():
     def __init__(self, tm, console, settings):
         self.tm = tm
-        self.names = tm.llm.names
+        self.names = tm.clients.names
+        self.log = logger.bind(src='console')
         completer = WordCompleter(['/use', 'use', '/done','done', '/info', 'info'] + list(self.names['enabled']), ignore_case=True)
         self.history = FileHistory(str(Path.cwd() / settings.history))
         self.session = PromptSession(history=self.history, completer=completer)
@@ -128,7 +128,7 @@ class InteractiveConsole():
                 self.console.print(f'[red]Error: {arg}[/red]')
 
         try:
-            self.tm.done()
+            task.done()
         except Exception as e:
             self.console.print_exception()
         self.console.print(f"{T("[Exit AI mode]")}", style="cyan")
@@ -168,7 +168,6 @@ def main(args):
     conf = ConfigManager(args.config_dir)
     conf.check_config()
     settings = conf.get_config()
-    #console.print(T('env_info').format(CONFIG_DIR, conf.get_work_dir()))
 
     lang = settings.get('lang')
     if lang: set_lang(lang)
@@ -187,7 +186,7 @@ def main(args):
     if update and update.get('has_update'):
         console.print(f"[bold red]🔔 号外❗ {T("Update available")}: {update.get('latest_version')}")
 
-    if not tm.llm:
+    if not tm.clients:
         console.print(f"[bold red]{T("No available LLM, please check the configuration file")}")
         return
     

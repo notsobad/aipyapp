@@ -3,23 +3,28 @@
 
 import os
 from pathlib import Path
+from collections import deque
 
 from loguru import logger
+from rich.console import Console
 
 from .. import T
 from .task import Task
 from ..llm import ClientManager
 from .config import CONFIG_DIR
-from .runner import Runner
+from ..exec import Runner
 from .plugin import PluginManager
 from .prompt import SYSTEM_PROMPT
 from .diagnose import Diagnose
+from .runtime import Runtime
 
 class TaskManager:
-    def __init__(self, settings, console):
+    MAX_TASKS = 16
+
+    def __init__(self, settings, console, runtime_cls=Runtime):
         self.settings = settings
         self.console = console
-        self.task = None
+        self.tasks = deque(maxlen=self.MAX_TASKS)
         self.envs = {}
         self.log = logger.bind(src='taskmgr')
         
@@ -39,9 +44,10 @@ class TaskManager:
         self._init_environ()
         self._init_api()
         self.diagnose = Diagnose.create(settings)
-        self.runner = Runner(settings, console, envs=self.envs)
-        self.llm = ClientManager(settings, console, system_prompt=self.system_prompt)
-        
+        self.clients = ClientManager(settings, console)
+        self.runtime = runtime_cls(settings, console)
+        self.runtime.envs = self.envs
+
     @property
     def workdir(self):
         return self._cwd
@@ -49,26 +55,8 @@ class TaskManager:
     def get_update(self, force=False):
         return self.diagnose.check_update(force)
 
-    @property
-    def busy(self):
-        return self.task is not None
-
     def use(self, name):
-        ret = self.llm.use(name)
-        self.console.print('[green]Ok[/green]' if ret else '[red]Error[/red]')
-        return ret
-
-    def done(self):
-        if not self.task:
-            return
-        self.log.info('Done task', task_id=self.task.task_id)   
-        self.diagnose.report_code_error(self.runner.history)
-        self.task.done()
-        self.task = None
-
-    def save(self, path):
-        if self.task:  
-            self.task.save(path)
+        self.clients.use(name)
 
     def _init_environ(self):
         envs = self.settings.get('environ', {})
@@ -101,29 +89,16 @@ class TaskManager:
         self.system_prompt = "\n".join(lines)
 
     def new_task(self, instruction, llm=None, max_rounds=None, system_prompt=None):
-        if llm and not self.llm.use(llm):
-            return None
-        
+        session = self.clients.Session(name=llm)
         system_prompt = system_prompt or self.system_prompt
         max_rounds = max_rounds or self.settings.get('max_rounds')
         task = Task(instruction, system_prompt=system_prompt, max_rounds=max_rounds)
-        task.console = self.console
-        task.llm = self.llm
-        task.runner = self.runner
-        self.task = task
+        task.console = Console(file=self.console.file, record=True)
+        task.session = session
+        task.runtime = self.runtime
+        task.runner = Runner(self.runtime)
+        task.diagnose = self.diagnose
+        self.tasks.append(task)
         self.log.info('New task created', task_id=task.task_id)
         return task
     
-    def __call__(self, instruction, llm=None, max_rounds=None, system_prompt=None):
-        if self.task:
-            self.task.run(instruction=instruction, llm=llm, max_rounds=max_rounds)
-        else:
-            task = self.new_task(instruction, llm=llm, max_rounds=max_rounds, system_prompt=system_prompt)
-            self.task = task
-            task.run()
-        
-    def stop_task(self):
-        if self.task:
-            self.log.info('Stopping task')
-            self.task.stop()
-            self.llm.stop()
