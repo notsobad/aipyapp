@@ -1,6 +1,6 @@
 #! /usr/bin/env python3
 # -*- coding: utf-8 -*-
-
+import time
 from collections import Counter
 from dataclasses import dataclass, field
 
@@ -45,19 +45,42 @@ class ChatHistory:
         return [{"role": msg.role, "content": msg.content} for msg in self.messages]
 
 class Session:
-    def __init__(self, manager):
+    def __init__(self, manager, stream_processor=None):
         self.manager = manager
         self.client = manager.current
+        self.stream_processor = stream_processor
         self.log = logger.bind(src='session')
         self.history = ChatHistory()
 
+    @property
+    def name(self):
+        return self.client.name
+    
     def use(self, name):
         self.client = self.manager[name]
 
     def chat(self, prompt, system_prompt=None, name=None):
         client = self.manager[name] if name else self.client
-        cm = client(self.history.get_messages(), prompt, system_prompt=system_prompt)
+        start = time.time()
+        response = client(self.history.get_messages(), prompt, system_prompt=system_prompt)
+        if not response: 
+            return None
+        
+        if not response.stream:
+            response.parse()
+        else:
+            with self.stream_processor.get_processor(client.name) as lm:
+                try:
+                    for token in response.parse_stream():
+                        lm.feed(token)
+                except Exception as e:
+                    self.log.exception(f"Error processing stream: {e}")
+
+        cm = response.message
         if cm:
+            end = time.time()
+            cm.name = client.name
+            cm.usage['time'] = round(end - start, 3)
             if system_prompt:
                 self.history.add("system", system_prompt)
             self.history.add("user", prompt)

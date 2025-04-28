@@ -15,6 +15,7 @@ import importlib.resources as resources
 import wx
 import wx.html2
 import matplotlib
+from loguru import logger
 import matplotlib.pyplot as plt
 from rich.console import Console
 from wx.lib.newevent import NewEvent
@@ -53,12 +54,17 @@ class AIPython(threading.Thread):
         super().__init__(daemon=True)
         self.gui = gui
         self.tm = gui.tm
+        self._task = None
         self._busy = threading.Event()
         plt.show = self.on_plt_show
         sys.modules["matplotlib.pyplot"] = plt
+        self.log = logger.bind(src='aipython')
+
+    def has_task(self):
+        return self._task is not None
 
     def can_done(self):
-        return not self._busy.is_set() and self.tm.busy
+        return not self._busy.is_set() and self.has_task()
 
     def on_plt_show(self, *args, **kwargs):
         filename = f'{time.strftime("%Y%m%d_%H%M%S")}.png'
@@ -112,16 +118,24 @@ class AIPython(threading.Thread):
         event_bus.register("display", self.on_display)
         while True:
             instruction = self.gui.get_task()
+            instruction = instruction.strip()
             if instruction in ('/done', 'done'):
-                self.tm.done()
+                if self._task:
+                    self._task.done()
+                    self._task = None
+                else:
+                    self.log.warning("没有正在进行的任务")
+                wx.CallAfter(self.gui.on_task_done)
             elif instruction in ('/exit', 'exit'):
                 break
             else:
+                self._busy.set()
                 try:
-                    self._busy.set()
-                    self.tm(instruction)
+                    if not self._task:
+                        self._task = self.tm.new_task()
+                    self._task.run(instruction)
                 except Exception as e:
-                    traceback.print_exc()
+                    self.log.exception('Error running task')
                 finally:
                     self._busy.clear()
                 wx.CallAfter(self.gui.toggle_input)
@@ -308,7 +322,9 @@ class ChatFrame(wx.Frame):
         self.Close()
 
     def on_done(self, event):
-        self.tm.done()
+        self.task_queue.put('/done')
+
+    def on_task_done(self):
         self.done_button.Hide()
         self.SetStatusText("当前任务已结束", 0)
         self.task_done_menu.Enable(False)
@@ -410,7 +426,7 @@ class ChatFrame(wx.Frame):
         if not text:
             return
         
-        if not self.tm.busy:
+        if not self.aipython.has_task():
             self.SetTitle(f"[当前任务] {text}")
 
         self.append_message('我', text)

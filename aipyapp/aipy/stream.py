@@ -1,7 +1,6 @@
 #! /usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-from loguru import logger
 from rich.live import Live
 from rich.panel import Panel
 from rich.text import Text
@@ -34,29 +33,28 @@ class LiveManager:
         self.live = None
         self.name = name
         self.console = console
-        self.lr = LineReceiver()
-        self.title = f"{self.name} {T("reply")}"
+        self.lr = None
+        self.title = None
         self.response_panel = None
         self.full_response = None
 
     def __enter__(self):
-        console = self.console if self.console.quiet else None
-        self.live = Live(console=console, auto_refresh=False, vertical_overflow='visible', transient=True)
+        self.lr = LineReceiver()
+        self.title = f"{self.name} {T("reply")}"
+        self.live = Live(auto_refresh=False, vertical_overflow='visible', transient=True)
         self.live.__enter__()
         status = self.console.status(f"[dim white]{self.name} {T("is thinking hard, please wait 6-60 seconds")}...", spinner='runner')
         response_panel = Panel(status, title=self.title, border_style="blue")
         self.live.update(response_panel, refresh=True)
         return self
 
-    def process_chunk(self, content):
+    def feed(self, content):
         if not content: return
         lines = self.lr.feed(content)
         if not lines: return
         
         content = '\n'.join(lines)
         event_bus.broadcast('response_stream', {'llm': self.name, 'content': content})
-        if hasattr(self.console, 'gui'):
-            self.console.print(content, end="", highlight=False)
 
         full_response = self.lr.content
         try:
@@ -71,5 +69,13 @@ class LiveManager:
     
     def __exit__(self, exc_type, exc_val, exc_tb):
         if self.lr.buffer:
-            self.process_chunk('\n')
+            self.feed('\n')
+        #if self.response_panel: self.console.print(self.response_panel)
         self.live.__exit__(exc_type, exc_val, exc_tb)
+
+class StreamProcessor:
+    def __init__(self, console):
+        self.console = console
+
+    def get_processor(self, name):
+        return LiveManager(self.console, name)

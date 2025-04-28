@@ -13,8 +13,8 @@ class CStatusBar(wx.StatusBar):
         self.SetStatusWidths([-1, 30, 80])
 
         self.tm = parent.tm
-        self.current_llm = self.tm.llm.names['default']
-        self.enabled_llm = list(self.tm.llm.names['enabled'])
+        self.current_llm = self.tm.clients.names['default']
+        self.enabled_llm = list(self.tm.clients.names['enabled'])
         self.menu_items = self.enabled_llm
         self.radio_group = []
 

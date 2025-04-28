@@ -3,6 +3,7 @@
 
 import os
 import re
+import time
 import json
 import uuid
 import platform
@@ -29,10 +30,10 @@ class MsgType(Enum):
 class Task(Stoppable):
     MAX_ROUNDS = 16
 
-    def __init__(self, instruction, *, system_prompt=None, max_rounds=None):
+    def __init__(self, system_prompt, max_rounds=None):
         super().__init__()
         self.task_id = uuid.uuid4().hex
-        self.instruction = instruction
+        self.instruction = None
         self.console = None
         self.session = None
         self.runtime = None
@@ -45,8 +46,8 @@ class Task(Stoppable):
             re.DOTALL | re.MULTILINE
         )
         self.log = logger.bind(src='task', id=self.task_id)
-        self.start_time = datetime.now()
-        
+        self.start_time = None
+        self.done_time = None
     def save(self, path):
        if self.console.record:
            self.console.save_html(path, clear=False, code_format=CONSOLE_HTML_FORMAT)
@@ -85,6 +86,7 @@ class Task(Stoppable):
             except Exception as e:
                 self.log.exception('Error renaming task html file')
         self.diagnose.report_code_error(self.runner.history)
+        self.done_time = datetime.now()
         self.log.info('Task done', jsonname=jsonname, htmlname=htmlname)
 
     def parse_reply(self, markdown):
@@ -106,7 +108,7 @@ class Task(Stoppable):
         status = self.console.status(f"[dim white]{T("Start sending feedback")}...")
         self.console.print(status)
         feed_back = f"# 最初任务\n{self.instruction}\n\n# 代码执行结果反馈\n{result}"
-        return self.session.chat(feed_back, name=llm)
+        return self.chat(feed_back, name=llm)
 
     def box(self, title, content, align=None, lang=None):
         if lang:
@@ -148,8 +150,8 @@ class Task(Stoppable):
         event_bus.broadcast('summary', summarys)
         self.console.print(f"\n⏹ [cyan]{T("End processing instruction")} {summarys}")
 
-    def build_user_prompt(self):
-        prompt = {'task': self.instruction}
+    def build_user_prompt(self, instruction):
+        prompt = {'task': instruction}
         prompt['python_version'] = platform.python_version()
         prompt['platform'] = platform.platform()
         prompt['today'] = datetime.today().isoformat()
@@ -162,14 +164,16 @@ class Task(Stoppable):
             prompt['LC_TERMINAL'] = os.environ.get('LC_TERMINAL')
         return prompt
 
-    def run(self, instruction=None, *, llm=None, max_rounds=None):
+    def run(self, instruction, *, llm=None, max_rounds=None):
         """
         执行自动处理循环，直到 LLM 不再返回代码消息
         """
-        self.log.info('Running task', instruction=instruction or self.instruction)
-        self.box(f"[yellow]{T("Start processing instruction")}", f'[red]{instruction or self.instruction}', align="center")
-        if not instruction:
-            prompt = self.build_user_prompt()
+        self.log.info('Running task', instruction=instruction)
+        self.box(f"[yellow]{T("Start processing instruction")}", f'[red]{instruction}', align="center")
+        if not self.start_time:
+            self.start_time = datetime.now()
+            self.instruction = instruction
+            prompt = self.build_user_prompt(instruction)
             event_bus('task_start', prompt)
             instruction = json.dumps(prompt, ensure_ascii=False)
             system_prompt = self.system_prompt
@@ -179,7 +183,7 @@ class Task(Stoppable):
         max_rounds = max_rounds or self.max_rounds
         if not max_rounds or max_rounds < 1:
             max_rounds = self.MAX_ROUNDS
-        response = self.session.chat(instruction, system_prompt=system_prompt, name=llm)
+        response = self.chat(instruction, system_prompt=system_prompt, name=llm)
         while response and rounds <= max_rounds:
             blocks = self.parse_reply(response.content)
             if 'main' not in blocks:
@@ -194,10 +198,12 @@ class Task(Stoppable):
         os.write(1, b'\a\a\a')
         self.log.info('Task done')
         
-    def chat(self, prompt):
-        system_prompt = None if self.session.history else self.system_prompt
-        response = self.session.chat(prompt, system_prompt=system_prompt)
-        self.console.print(Markdown(response))
+    def chat(self, prompt, system_prompt=None, name=None):
+        status = self.console.status(f"[dim white]{T("Sending task to {}", self.session.name)} ...")
+        self.console.print(status)
+        response = self.session.chat(prompt, system_prompt=system_prompt, name=name)
+        status.stop()
+        return response
 
     def step(self):
         response = self.session.get_last_message()

@@ -8,12 +8,30 @@ from loguru import logger
 
 from .. import Stoppable, T
 
+class BaseResponse(ABC):
+    def __init__(self, response, stream=True):
+        self.response = response
+        self.stream = stream
+        self.message = None
+
+    @abstractmethod
+    def _parse_usage(self, response):
+        pass
+    
+    @abstractmethod
+    def parse_stream(self):
+        pass
+    
+    @abstractmethod
+    def parse(self):
+        pass
+
 class BaseClient(ABC, Stoppable):
     MODEL = None
     BASE_URL = None
-    RPS = 2
     MAX_TOKENS = 8192
     PARAMS = {}
+    RESPONSE_CLASS = BaseResponse
 
     def __init__(self, config):
         super().__init__()
@@ -49,42 +67,14 @@ class BaseClient(ABC, Stoppable):
         
     def add_system_prompt(self, messages, system_prompt):
         messages.append({"role": "system", "content": system_prompt})
-
-    @abstractmethod
-    def _parse_usage(self, response):
-        pass
-
-    @abstractmethod
-    def _parse_stream_response(self, response):
-        pass
-
-    @abstractmethod
-    def _parse_response(self, response):
-        pass
-
-    def parse_response(self, response):
-        if self._stream:    
-            response = self._parse_stream_response(response)
-        else:
-            response = self._parse_response(response)
-        return response
     
     def __call__(self, messages, prompt, system_prompt=None):
-        # We shall only send system prompt once
         if system_prompt:
             self.add_system_prompt(messages, system_prompt)
         messages.append({"role": "user", "content": prompt})
 
-        start = time.time()
-        self.console.record = False
-        with self.console.status(f"[dim white]{T("Sending task to {}", self.name)} ..."):
-            response = self.get_completion(messages)
-        self.console.record = True
-        end = time.time()
+        response = self.get_completion(messages)
         if response:
-            msg = self.parse_response(response)
-            msg.name = self.name
-            msg.usage['time'] = round(end - start, 3)
-            response = msg
+            response = self.RESPONSE_CLASS(response, self._stream)
         return response
     

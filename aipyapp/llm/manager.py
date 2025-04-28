@@ -66,7 +66,7 @@ class ClientManager(object):
         self.default = None
         self.current = None
         self._last = None
-        self.log = logger.bind(src='llm')
+        self.log = logger.bind(src='client_manager')
         self.init_clients(settings)
 
     def _init_client(self, config):

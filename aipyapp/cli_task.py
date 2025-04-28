@@ -98,17 +98,17 @@ class InteractiveConsole():
                 break
         return "\n".join(lines)
 
-    def run_task(self, task, instruction=None):
+    def run_task(self, task, instruction):
         try:
-            task.run(instruction=instruction)
+            task.run(instruction)
         except (EOFError, KeyboardInterrupt):
             pass
         except Exception as e:
             self.console.print_exception()
 
-    def start_task_mode(self, task):
+    def start_task_mode(self, task, instruction):
         self.console.print(f"{T("Enter AI mode, start processing tasks, enter Ctrl+d or /done to end the task")}", style="cyan")
-        self.run_task(task)
+        self.run_task(task, instruction)
         while True:
             try:
                 user_input = self.input_with_possible_multiline(">>> ", is_ai=True).strip()
@@ -144,8 +144,8 @@ class InteractiveConsole():
 
                 cmd, arg = parse_command(user_input, self.names['enabled'])
                 if cmd == CommandType.CMD_TEXT:
-                    task = self.tm.new_task(arg)
-                    self.start_task_mode(task)
+                    task = self.tm.new_task()
+                    self.start_task_mode(task, arg)
                 elif cmd == CommandType.CMD_USE:
                     ret = self.tm.llm.use(arg)
                     self.console.print('[green]Ok[/green]' if ret else '[red]Error[/red]')
