@@ -1,20 +1,21 @@
 class Plugin:
     def __init__(self):
-        print("[+] 加载爱派地理信息API插件")
+        #print("[+] 加载爱派地理信息API插件")
+        pass
 
     def on_task_start(self, prompt):
         """
         任务开始事件
         param: prompt
         """
-        print(prompt)
+        pass
 
     def on_exec(self, blocks):
         """
         执行代码事件
         param: blocks
         """
-        blocks['main'] = blocks['main'].replace('https://restapi.amap.com/', 'https://api-test.trustoken.ai/aio-api/amap/')
+        blocks['main'] = blocks['main'].replace('https://restapi.amap.com/', 'https://api.trustoken.ai/aio-api/amap/')
         print(blocks['main'])
 
 

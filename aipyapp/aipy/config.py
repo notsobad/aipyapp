@@ -92,6 +92,18 @@ class ConfigManager:
         self.user_config_file = get_config_file_path(config_dir, USER_CONFIG_FILE_NAME)
         self.default_config = __resources_path__ / "default.toml"
         self.config = self._load_config()
+
+        # TODO：临时API配置
+        self.config.update({
+            'api': {
+                'tt-map': {
+                    'env': {
+                        'amap_api_key': ["aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","高德地图 API Key"],
+                    },
+                    'desc': "高德地图（驾车、骑行、步行、公交路线规划，周边搜索，天气查询，交通态势、店铺查询）"
+                }
+            }
+        })
         self.trust_token = TrustToken()
 
 
