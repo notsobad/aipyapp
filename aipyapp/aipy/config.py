@@ -132,6 +132,7 @@ class ConfigManager:
 
     def reload_config(self):
         self.config = self._load_config()
+        return self.config
 
     def get_config(self):
         return self.config
