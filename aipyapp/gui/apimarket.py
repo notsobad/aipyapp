@@ -51,12 +51,12 @@ class ApiItemPanel(wx.Panel):
         details_sizer = wx.BoxSizer(wx.VERTICAL)
         
         # 显示API KEY(s)
-        env_keys = [k for k in api_config.keys() if k.startswith("env.")]
-        for key_name in env_keys:
-            key_value = api_config[key_name]
+        envs = api_config.get('env', {})
+        for key_name in envs:
+            key_value = envs[key_name]
             if isinstance(key_value, list) and len(key_value) > 0:
                 masked_key = self.mask_api_key(key_value[0])
-                display_key = key_name.replace("env.", "")
+                display_key = key_name
                 key_text = wx.StaticText(self, label=f"{display_key}: {masked_key}")
                 details_sizer.Add(key_text, 0, wx.EXPAND | wx.LEFT | wx.RIGHT, 10)
         
@@ -140,14 +140,6 @@ class ApiEditDialog(wx.Dialog):
         
         # 查找环境变量键
         env_vars = {}
-        # 处理env.前缀的键
-        for key in self.api_config.keys():
-            key_str = str(key)
-            if key_str.startswith("env."):
-                var_name = key_str.replace("env.", "")
-                env_vars[var_name] = self.api_config[key_str]
-        
-        # 处理env字典
         if 'env' in self.api_config and isinstance(self.api_config['env'], dict):
             for key, value in self.api_config['env'].items():
                 env_vars[key] = value
@@ -290,6 +282,7 @@ class ApiEditDialog(wx.Dialog):
             "desc": self.desc_input.GetValue()  # 保留原始格式，包括换行
         }
         
+        env = {}
         for ctrl in self.env_controls:
             # 获取用户输入的键名
             key_name = ctrl['name'].GetValue().strip()
@@ -301,15 +294,9 @@ class ApiEditDialog(wx.Dialog):
             key_value = ctrl['value'].GetValue().strip()
             key_desc = ctrl['desc'].GetValue().strip()
             
-            # 规范化键名：如果用户已经输入了env.前缀，则使用用户的输入；否则添加env.前缀
-            if not key_name.startswith("env."):
-                final_key = f"env.{key_name}"
-            else:
-                final_key = key_name
-                
-            # 添加到配置中
-            config[final_key] = [key_value, key_desc]
-        
+            env[key_name] = [key_value, key_desc]
+
+        if env: config['env'] = env        
         return name, config
 
 
@@ -344,30 +331,14 @@ class ApiDetailsDialog(wx.Dialog):
             scroll_sizer.Add(desc_sizer, 0, wx.ALL | wx.EXPAND, 5)
         
         # 查找环境变量键
-        env_keys = []
-        for key in self.api_config.keys():
-            key_str = str(key)
-            if key_str.startswith("env.") or ".env." in key_str:
-                env_keys.append(key_str)
-        
-        # 如果没有找到键，检查是否有env键包含字典
-        if not env_keys and 'env' in self.api_config and isinstance(self.api_config['env'], dict):
-            for key in self.api_config['env'].keys():
-                env_keys.append(key)
-                
-        # 环境变量
-        if env_keys:
+        envs = self.api_config.get('env')
+        if envs:
             env_group = wx.StaticBox(scroll_panel, label="环境变量")
             env_sizer = wx.StaticBoxSizer(env_group, wx.VERTICAL)
             
-            for i, key_name in enumerate(env_keys):
-                # 确定键值位置
-                if key_name.startswith("env."):
-                    key_value = self.api_config[key_name]
-                    display_key = key_name.replace("env.", "")
-                else:
-                    key_value = self.api_config['env'][key_name]
-                    display_key = key_name
+            for i, key_name in enumerate(envs.keys()):
+                key_value = envs[key_name]
+                display_key = key_name
                 
                 env_panel = wx.Panel(scroll_panel)
                 env_panel.SetBackgroundColour(wx.Colour(245, 245, 245))
@@ -398,7 +369,7 @@ class ApiDetailsDialog(wx.Dialog):
                 env_sizer.Add(env_panel, 0, wx.ALL | wx.EXPAND, 5)
                 
                 # 添加分隔线，除了最后一个
-                if i < len(env_keys) - 1:
+                if i < len(envs) - 1:
                     env_sizer.Add(wx.StaticLine(scroll_panel), 0, wx.EXPAND | wx.ALL, 5)
             
             scroll_sizer.Add(env_sizer, 0, wx.ALL | wx.EXPAND, 5)
@@ -427,29 +398,7 @@ class ApiMarketDialog(wx.Dialog):
         self.settings = config_manager.get_config()
         
         # 复制API配置
-        self.api_configs = {}
-        
-        # 处理API配置
-        for api_name, api_config in self.settings.get('api', {}).items():
-            self.api_configs[api_name] = {}
-            
-            # 特殊处理可能的嵌套env结构
-            if 'env' in api_config and isinstance(api_config['env'], dict):
-                # 将嵌套的env字典转换为env.前缀格式
-                env_dict = api_config['env']
-                for env_key, env_value in env_dict.items():
-                    # 使用不带引号的env.前缀键
-                    env_key_name = f"env.{env_key}"
-                    self.api_configs[api_name][env_key_name] = env_value
-                
-                # 复制除env外的其他键
-                for key, value in api_config.items():
-                    if key != 'env':
-                        self.api_configs[api_name][key] = value
-            else:
-                # 复制所有键
-                for key, value in api_config.items():
-                    self.api_configs[api_name][str(key)] = value
+        self.api_configs = self.settings.get('api', {})
         
         self.SetBackgroundColour(wx.Colour(245, 245, 245))
         
@@ -532,18 +481,7 @@ class ApiMarketDialog(wx.Dialog):
         for api_name, api_config in self.api_configs.items():
             item = self.api_list.InsertItem(idx, api_name)
             
-            # 计算环境变量数量
-            env_keys = []
-            for key in api_config.keys():
-                key_str = str(key)
-                if key_str.startswith('env.') or '.env.' in key_str:
-                    env_keys.append(key_str)
-            
-            # 如果没有找到键，检查是否有env键包含字典
-            if not env_keys and 'env' in api_config and isinstance(api_config['env'], dict):
-                env_keys = list(api_config['env'].keys())
-            
-            env_count = len(env_keys)
+            env_count = len(api_config.get('env', {}))
             self.api_list.SetItem(item, 1, str(env_count))
             
             # 添加描述
@@ -660,170 +598,26 @@ class ApiMarketDialog(wx.Dialog):
         self.settings = self.config_manager.get_config()
         
         # 重新加载API配置
-        self.api_configs = {}
-        for api_name, api_config in self.settings.get('api', {}).items():
-            self.api_configs[api_name] = {}
-            
-            # 特殊处理可能的嵌套env结构
-            if 'env' in api_config and isinstance(api_config['env'], dict):
-                # 将嵌套的env字典转换为env.前缀格式
-                env_dict = api_config['env']
-                for env_key, env_value in env_dict.items():
-                    env_key_name = f"env.{env_key}"
-                    self.api_configs[api_name][env_key_name] = env_value
-                
-                # 复制除env外的其他键
-                for key, value in api_config.items():
-                    if key != 'env':
-                        self.api_configs[api_name][key] = value
-            else:
-                # 复制所有键
-                for key, value in api_config.items():
-                    self.api_configs[api_name][str(key)] = value
-            
+        self.api_configs = self.settings.get('api', {})
+
         # 更新列表
         self.load_api_configs()
 
     def on_save(self, event):
         """保存API配置"""
         try:
-            # 直接处理用户配置文件
-            config_path = str(self.config_manager.user_config_file)
+            self.config_manager.update_sys_config({'api': self.api_configs})
+            self.settings = self.config_manager.reload_config()
             
-            try:
-                # 读取当前用户配置文件
-                with open(config_path, 'r', encoding='utf-8') as f:
-                    current_config_str = f.read()
-                    
-                # 解析当前配置
-                current_config = {}
-                if current_config_str.strip():
-                    current_config = tomllib.loads(current_config_str)
-                
-                # 如果API配置列表为空，则删除api节
-                if self.api_configs:
-                    # 确保没有嵌套的env结构，修复env键格式
-                    processed_api_configs = {}
-                    for api_name, api_config in self.api_configs.items():
-                        processed_api_configs[api_name] = {}
-                        
-                        # 检查并删除多余的env子节
-                        if 'env' in api_config and isinstance(api_config['env'], dict):
-                            # 将嵌套格式转换为扁平的env.前缀格式
-                            for env_key, env_value in api_config['env'].items():
-                                env_key_name = f"env.{env_key}"
-                                processed_api_configs[api_name][env_key_name] = env_value
-                            
-                            # 复制除env外的所有键
-                            for key, value in api_config.items():
-                                if key != 'env':
-                                    processed_api_configs[api_name][key] = value
-                        else:
-                            # 确保所有env.键都使用正确的格式
-                            for key, value in api_config.items():
-                                processed_api_configs[api_name][key] = value
-                    
-                    # 用处理后的API配置替换原始配置
-                    current_config['api'] = processed_api_configs
-                else:
-                    # 如果API配置为空，则从配置中删除api节
-                    if 'api' in current_config:
-                        del current_config['api']
-                
-                # 创建临时输出缓冲区
-                temp_output = io.StringIO()
-                
-                # 写入现有配置的非api部分
-                if current_config_str.strip():
-                    # 获取原始配置文件中的所有节（sections）和顶级键
-                    sections = {}
-                    
-                    for line in current_config_str.split('\n'):
-                        line = line.strip()
-                        # 识别节的开始
-                        if line and line.startswith('[') and line.endswith(']') and not line.startswith('[api'):
-                            section_name = line[1:-1]  # 去掉方括号
-                            sections[section_name] = True
-                    
-                    # 写入原始配置的非api部分
-                    in_api_section = False
-                    for line in current_config_str.split('\n'):
-                        # 检查是否进入或离开api节
-                        if line.strip().startswith('[api'):
-                            in_api_section = True
-                            continue
-                        elif line.strip().startswith('[') and in_api_section:
-                            in_api_section = False
-                        
-                        # 如果不在api节内，则写入该行
-                        if not in_api_section:
-                            temp_output.write(line + '\n')
-                
-                # 自定义TOML写入，处理特殊情况的env.键
-                if 'api' in current_config:
-                    # 先写入头部
-                    temp_output.write('\n')
-                    
-                    # 遍历所有API配置
-                    for api_name, api_config in current_config['api'].items():
-                        # 写入API节
-                        temp_output.write(f'[api.{api_name}]\n')
-                        
-                        # 遍历所有API配置键
-                        for key, value in api_config.items():
-                            # 特殊处理env.前缀的键
-                            if isinstance(key, str) and key.startswith('env.'):
-                                # 不使用引号，直接使用原始的env.键
-                                if isinstance(value, list):
-                                    # 如果值是列表，按TOML格式写入
-                                    temp_output.write(f"{key} = [\n")
-                                    for item in value:
-                                        if isinstance(item, str):
-                                            temp_output.write(f'    "{item}",\n')
-                                        else:
-                                            temp_output.write(f"    {item},\n")
-                                    temp_output.write("]\n")
-                                elif isinstance(value, str):
-                                    # 如果值是字符串，加引号
-                                    temp_output.write(f'{key} = "{value}"\n')
-                                else:
-                                    # 其他类型值
-                                    temp_output.write(f"{key} = {value}\n")
-                            elif key == 'desc' and isinstance(value, str) and '\n' in value:
-                                # 多行字符串处理
-                                temp_output.write(f'desc = """\n{value}\n"""\n')
-                            else:
-                                # 使用tomli_w序列化单个键值对
-                                temp_buffer = io.BytesIO()
-                                tomli_w.dump({key: value}, temp_buffer, multiline_strings=True)
-                                key_value_str = temp_buffer.getvalue().decode('utf-8').strip()
-                                temp_output.write(key_value_str + '\n')
-                        
-                        # 在API节之间添加换行
-                        temp_output.write('\n')
-                
-                # 保存完整配置
-                with open(config_path, 'w', encoding='utf-8') as f:
-                    f.write(temp_output.getvalue())
-                
-                # 重新加载配置
-                self.config_manager.reload_config()
-                self.settings = self.config_manager.get_config()
-                
-                # 更新父窗口的配置
-                if hasattr(self.Parent, 'tm'):
-                    self.Parent.tm.settings = self.config_manager.get_config()
-                    if hasattr(self.Parent.tm, 'config'):
-                        self.Parent.tm.config = self.config_manager.get_config()
-                
-                # 显示保存成功的消息
-                wx.MessageBox("API配置已保存并应用", "成功", wx.OK | wx.ICON_INFORMATION)
-                
-                self.EndModal(wx.ID_OK)
-            except Exception as e:
-                traceback.print_exc()
-                raise Exception(f"处理配置文件时出错: {str(e)}")
-                
+            # 更新父窗口的配置
+            if hasattr(self.Parent, 'tm'):
+                self.Parent.tm.settings = self.config_manager.get_config()
+                if hasattr(self.Parent.tm, 'config'):
+                    self.Parent.tm.config = self.config_manager.get_config()
+            
+            # 显示保存成功的消息
+            wx.MessageBox("API配置已保存并应用", "成功", wx.OK | wx.ICON_INFORMATION)
+            self.EndModal(wx.ID_OK)
         except Exception as e:
             traceback.print_exc()
             wx.MessageBox(f"保存配置失败: {str(e)}", "错误", wx.OK | wx.ICON_ERROR)
