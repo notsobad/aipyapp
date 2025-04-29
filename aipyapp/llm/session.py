@@ -69,12 +69,7 @@ class Session:
         if not response.stream:
             response.parse()
         else:
-            with self.stream_processor.get_processor(client.name) as lm:
-                try:
-                    for token in response.parse_stream():
-                        lm.feed(token)
-                except Exception as e:
-                    self.log.exception(f"Error processing stream: {e}")
+            self.stream_processor(client.name, response.parse_stream())
 
         cm = response.message
         if cm:

@@ -1,9 +1,11 @@
 #! /usr/bin/env python3
 # -*- coding: utf-8 -*-
+import time
 
 from rich.live import Live
 from rich.panel import Panel
 from rich.text import Text
+from rich.syntax import Syntax
 from rich.markdown import Markdown
 
 from .. import event_bus, T
@@ -17,7 +19,7 @@ class LineReceiver(list):
     def content(self):
         return '\n'.join(self)
     
-    def feed(self, data: str):
+    def feeds(self, data: str):
         self.buffer += data
         new_lines = []
 
@@ -27,6 +29,14 @@ class LineReceiver(list):
             new_lines.append(line)
 
         return new_lines
+    
+    def feed(self, data: str):
+        line = None
+        self.buffer += data
+        if '\n' in self.buffer:
+            line, self.buffer = self.buffer.split('\n', 1)
+            self.append(line)
+        return line
 
 class LiveManager:
     def __init__(self, console, name):
@@ -50,7 +60,7 @@ class LiveManager:
 
     def feed(self, content):
         if not content: return
-        lines = self.lr.feed(content)
+        lines = self.lr.feeds(content)
         if not lines: return
         
         content = '\n'.join(lines)
@@ -73,9 +83,63 @@ class LiveManager:
         #if self.response_panel: self.console.print(self.response_panel)
         self.live.__exit__(exc_type, exc_val, exc_tb)
 
+class BlockManager:
+    def __init__(self, console, name):
+        self.name = name
+        self.console = console
+
+    def print_code_block(self, lr, tokens, language="python", max_lines=5, delay=0.05):
+        console = self.console
+        display_lines = []
+
+        console.record = False
+        with Live(console=console, refresh_per_second=10, vertical_overflow="crop") as live:
+            for token in tokens:
+                line = lr.feed(token)
+                if not line:
+                    continue
+                if line.startswith('````'):
+                    break
+
+                display_lines.append(line)
+                if len(display_lines) > max_lines:
+                    display_lines.pop(0)
+
+                code_block = "\n".join(display_lines)
+                syntax = Syntax(code_block, language, theme="monokai", line_numbers=False, word_wrap=True)
+                live.update(syntax)
+                time.sleep(delay)
+
+        console.record = True
+
+    def process(self, tokens):
+        block = []
+        code_block = None
+        lr = LineReceiver()
+        for token in tokens:
+            line = lr.feed(token)
+            if not line: continue
+
+            if line.startswith('````python'):
+                if block:
+                    self.console.print(Markdown('\n'.join(block)))
+                    block = []
+                self.print_code_block(lr, tokens)
+            else:
+                block.append(line)
+
+        if lr.buffer:
+            block.append(lr.buffer)
+        if block:
+            self.console.print(Markdown('\n'.join(block)))
+
 class StreamProcessor:
     def __init__(self, console):
         self.console = console
 
     def get_processor(self, name):
-        return LiveManager(self.console, name)
+        return BlockManager(self.console, name)
+
+    def __call__(self, name, tokens):
+        self.get_processor(name).process(tokens)
+        

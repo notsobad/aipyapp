@@ -19,8 +19,6 @@ from . import __version__, T, set_lang
 from .aipy import TaskManager
 from .aipy.config import ConfigManager
 
-__PACKAGE_NAME__ = "aipyapp"
-
 class PythonCompleter(WordCompleter):
     def __init__(self, ai):
         names = ['exit()']
@@ -48,11 +46,11 @@ def main(args):
     if update and update.get('has_update'):
         console.print(f"[bold red]🔔 号外❗ {T("Update available")}: {update.get('latest_version')}")
 
-    if not ai.llm:
+    if not ai.clients:
         console.print(f"[bold red]{T("No available LLM, please check the configuration file")}")
         return
     
-    names = ai.llm.names
+    names = ai.clients.names
     console.print(f"{T("Please use ai('task') to enter the task to be processed by AI (enter ai.use(llm) to switch to the following LLM:")}", style="green")
     console.print(f"[cyan]{T("Default")}: [green]{names['default']}，[cyan]{T("Enabled")}: [yellow]{' '.join(names['enabled'])}")
 
