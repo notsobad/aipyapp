@@ -25,7 +25,7 @@ from . import __version__
 from .aipy.config import ConfigManager, CONFIG_DIR
 from .aipy import TaskManager, event_bus
 from .aipy.i18n import T, set_lang
-from .gui import TrustTokenAuthDialog, ConfigDialog
+from .gui import TrustTokenAuthDialog, ConfigDialog, ApiMarketDialog
 
 __PACKAGE_NAME__ = "aipyapp"
 ChatEvent, EVT_CHAT = NewEvent()
@@ -316,6 +316,12 @@ class ChatFrame(wx.Frame):
         self.Bind(wx.EVT_MENU, self.on_config, id=self.ID_CONFIG)
         self.Bind(wx.EVT_MENU, self.on_clear_chat, id=wx.ID_CLEAR)
 
+        # Add API配置 menu item
+        self.ID_API_CONFIG = wx.NewIdRef()
+        menu_item = wx.MenuItem(edit_menu, self.ID_API_CONFIG, "API配置(&A)\tCtrl+A", "配置API市场")
+        edit_menu.Append(menu_item)
+        self.Bind(wx.EVT_MENU, self.on_api_config, id=self.ID_API_CONFIG)
+
         task_menu = wx.Menu()
         self.task_menu_item = task_menu.Append(wx.ID_STOP, "开始新任务(&B)", "开始一个新任务")
         self.task_menu_item.Enable(False)
@@ -476,6 +482,12 @@ class ChatFrame(wx.Frame):
             if values['timeout'] == 0:
                 del values['timeout']
             self.tm.config_manager.update_sys_config(values)
+        dialog.Destroy()
+
+    def on_api_config(self, event):
+        """打开API配置对话框"""
+        dialog = ApiMarketDialog(self, self.tm.config_manager)
+        dialog.ShowModal()
         dialog.Destroy()
 
 class AboutDialog(wx.Dialog):
