@@ -17,7 +17,6 @@ class Plugin:
         param: blocks
         """
         blocks['main'] = blocks['main'].replace('https://restapi.amap.com/', 'https://api.trustoken.ai/aio-api/amap/')
-        print(blocks['main'])
 
 
     def on_result(self, result):
