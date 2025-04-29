@@ -125,12 +125,19 @@ class ApiEditDialog(wx.Dialog):
         
         main_sizer.Add(name_sizer, 0, wx.EXPAND | wx.ALL, 10)
         
-        # API环境变量
+        # API环境变量标题行
+        env_header_sizer = wx.BoxSizer(wx.HORIZONTAL)
         env_label = wx.StaticText(self, label="API密钥设置:")
-        main_sizer.Add(env_label, 0, wx.ALL, 10)
+        add_env_button = wx.Button(self, label="添加环境变量")
+        add_env_button.Bind(wx.EVT_BUTTON, self.on_add_env)
         
-        # 环境变量列表
-        self.env_panel = ScrolledPanel(self)
+        env_header_sizer.Add(env_label, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 10)
+        env_header_sizer.Add(add_env_button, 0, wx.ALIGN_CENTER_VERTICAL)
+        main_sizer.Add(env_header_sizer, 0, wx.ALL, 10)
+        
+         # 环境变量列表
+        self.env_panel = wx.ScrolledWindow(self)
+        self.env_panel.SetScrollRate(0, 20)
         self.env_panel.SetBackgroundColour(wx.Colour(245, 245, 245))
         self.env_sizer = wx.BoxSizer(wx.VERTICAL)
         self.env_panel.SetSizer(self.env_sizer)
@@ -152,13 +159,7 @@ class ApiEditDialog(wx.Dialog):
         if self.is_new and not env_vars:
             self.add_env_control("api_key", ["填写您的API密钥", "API密钥描述"])
         
-        # 添加按钮
-        add_env_button = wx.Button(self, label="添加环境变量")
-        add_env_button.Bind(wx.EVT_BUTTON, self.on_add_env)
-        
-        self.env_panel.SetupScrolling()
-        main_sizer.Add(self.env_panel, 1, wx.EXPAND | wx.ALL, 10)
-        main_sizer.Add(add_env_button, 0, wx.ALIGN_CENTER | wx.ALL, 5)
+        main_sizer.Add(self.env_panel, 2, wx.EXPAND | wx.ALL, 10)  # 增加比例权重到2
         
         # 描述
         desc_sizer = wx.BoxSizer(wx.VERTICAL)
@@ -169,7 +170,7 @@ class ApiEditDialog(wx.Dialog):
         # 设置更大的字体和最小高度
         font = wx.Font(10, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL)
         self.desc_input.SetFont(font)
-        self.desc_input.SetMinSize((-1, 150))  # 设置最小高度
+        self.desc_input.SetMinSize((-1, 100))  # 设置最小高度
         
         if 'desc' in self.api_config:
             self.desc_input.SetValue(self.api_config['desc'])
@@ -177,7 +178,7 @@ class ApiEditDialog(wx.Dialog):
         # 添加提示文本
         desc_hint = wx.StaticText(self, label="提示: 描述支持多行文本，将以\"\"\"...\"\"\"格式保存")
         desc_hint.SetForegroundColour(wx.Colour(100, 100, 100))
-        desc_hint.SetFont(wx.Font(9, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_ITALIC, wx.FONTWEIGHT_NORMAL))
+        desc_hint.SetFont(wx.Font(9, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL))
         
         desc_sizer.Add(desc_label, 0, wx.ALL, 5)
         desc_sizer.Add(self.desc_input, 1, wx.EXPAND | wx.ALL, 5)
@@ -197,9 +198,15 @@ class ApiEditDialog(wx.Dialog):
         
         self.SetSizer(main_sizer)
         self.Layout()
+        
+        # 设置最小窗口大小
+        self.SetMinSize((600, 500)) 
     
     def add_env_control(self, key_name="", key_value=None):
         """添加一个环境变量控制项"""
+        if len(self.env_controls) >= 2:
+            return
+            
         if key_value is None:
             key_value = ["", "描述"]
         
@@ -209,23 +216,18 @@ class ApiEditDialog(wx.Dialog):
         
         # 变量名
         key_name_label = wx.StaticText(env_item, label="变量名:")
-        key_name_input = wx.TextCtrl(env_item)
+        key_name_input = wx.TextCtrl(env_item, size=(150, -1))
         key_name_input.SetValue(key_name)
-        
-        # 添加变量名提示
-        key_name_hint = wx.StaticText(env_item, label="可以直接输入完整变量名")
-        key_name_hint.SetForegroundColour(wx.Colour(100, 100, 100))
-        key_name_hint.SetFont(wx.Font(8, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_ITALIC, wx.FONTWEIGHT_NORMAL))
         
         # 值
         key_value_label = wx.StaticText(env_item, label="值:")
-        key_value_input = wx.TextCtrl(env_item)
+        key_value_input = wx.TextCtrl(env_item, size=(150, -1))
         if isinstance(key_value, list) and len(key_value) > 0:
             key_value_input.SetValue(key_value[0])
         
         # 描述
         key_desc_label = wx.StaticText(env_item, label="描述:")
-        key_desc_input = wx.TextCtrl(env_item)
+        key_desc_input = wx.TextCtrl(env_item, size=(150, -1))
         if isinstance(key_value, list) and len(key_value) > 1:
             key_desc_input.SetValue(key_value[1])
         
@@ -233,21 +235,21 @@ class ApiEditDialog(wx.Dialog):
         delete_button = wx.Button(env_item, label="移除")
         delete_button.Bind(wx.EVT_BUTTON, lambda evt, item=env_item: self.remove_env_item(item))
         
-        # 垂直布局
-        name_sizer = wx.BoxSizer(wx.VERTICAL)
-        name_sizer.Add(key_name_input, 0, wx.EXPAND)
-        name_sizer.Add(key_name_hint, 0, wx.EXPAND)
-        
+        # 添加到布局
         item_sizer.Add(key_name_label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
-        item_sizer.Add(name_sizer, 1, wx.ALL | wx.EXPAND, 5)
+        item_sizer.Add(key_name_input, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
         item_sizer.Add(key_value_label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
-        item_sizer.Add(key_value_input, 1, wx.ALL, 5)
+        item_sizer.Add(key_value_input, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
         item_sizer.Add(key_desc_label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
-        item_sizer.Add(key_desc_input, 1, wx.ALL, 5)
-        item_sizer.Add(delete_button, 0, wx.ALL, 5)
+        item_sizer.Add(key_desc_input, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
+        item_sizer.Add(delete_button, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
         
         env_item.SetSizer(item_sizer)
         self.env_sizer.Add(env_item, 0, wx.EXPAND | wx.ALL, 5)
+        
+        # 添加分隔线
+        separator = wx.StaticLine(self.env_panel)
+        self.env_sizer.Add(separator, 0, wx.EXPAND | wx.ALL, 5)
         
         self.env_controls.append({
             'panel': env_item,
@@ -257,7 +259,8 @@ class ApiEditDialog(wx.Dialog):
         })
         
         self.env_panel.Layout()
-        self.env_panel.SetupScrolling()
+        # 确保新添加的控件可见
+        self.env_panel.Scroll(0, self.env_sizer.GetSize().GetHeight())
     
     def remove_env_item(self, item):
         """移除环境变量控制项"""
@@ -272,6 +275,9 @@ class ApiEditDialog(wx.Dialog):
     
     def on_add_env(self, event):
         """添加新的环境变量"""
+        if len(self.env_controls) >= 2:
+            wx.MessageBox("最多只能添加两个环境变量", "提示", wx.OK | wx.ICON_INFORMATION)
+            return
         self.add_env_control()
     
     def get_api_config(self):
