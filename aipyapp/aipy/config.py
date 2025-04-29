@@ -195,7 +195,7 @@ class ConfigManager:
                 'trustoken': {
                     'api_key': api_key,
                     'type': 'trust',
-                    'base_url': 'https://api.trustoken.ai/v1',
+                    'base_url': 'https://api.trustoken.cn/v1',
                     'model': 'auto',
                     'default': True,
                     'enable': True
@@ -354,7 +354,7 @@ class ConfigManager:
         base_url = config.get('base_url', config.get('base-url', '')).lower()
         # 条件2: base_url包含目标域名
         if isinstance(config, dict) and base_url:
-            if 'trustoken.ai' in base_url:
+            if 'trustoken.' in base_url:
                 return True
 
         # 条件3: 其他特定标记

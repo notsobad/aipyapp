@@ -16,7 +16,7 @@ class Plugin:
         执行代码事件
         param: blocks
         """
-        blocks['main'] = blocks['main'].replace('https://restapi.amap.com/', 'https://api.trustoken.ai/aio-api/amap/')
+        blocks['main'] = blocks['main'].replace('https://restapi.amap.com/', 'https://api.trustoken.cn/aio-api/amap/')
 
 
     def on_result(self, result):
