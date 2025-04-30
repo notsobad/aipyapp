@@ -34,10 +34,9 @@ class EventBus:
     def pipeline(self, event_name: str, data, **kwargs):
         for handler in self._listeners.get(event_name, []):
             try:
-                data = handler(data, **kwargs)
+                handler(data, **kwargs)
             except Exception as e:
                 traceback.print_exc()
-        return data
 
     def collect(self, event_name: str, *args, **kwargs):
         try:
@@ -48,7 +47,7 @@ class EventBus:
         return ret
 
     def __call__(self, event_name: str, *args, **kwargs):
-        return self.pipeline(event_name, *args, **kwargs)
+        self.pipeline(event_name, *args, **kwargs)
 
 event_bus = EventBus()
 
