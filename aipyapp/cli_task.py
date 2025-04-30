@@ -122,8 +122,11 @@ class InteractiveConsole():
             elif cmd == CommandType.CMD_DONE:
                 break
             elif cmd == CommandType.CMD_USE:
-                ret = self.tm.llm.use(arg)
-                self.console.print('[green]Ok[/green]' if ret else '[red]Error[/red]')
+                try:
+                    task.session.use(arg)
+                    self.console.print('[green]Ok[/green]')
+                except Exception as e:
+                    self.console.print(f'[red]Error: {e}[/red]')
             elif cmd == CommandType.CMD_INVALID:
                 self.console.print(f'[red]Error: {arg}[/red]')
 
@@ -147,13 +150,16 @@ class InteractiveConsole():
                     task = self.tm.new_task()
                     self.start_task_mode(task, arg)
                 elif cmd == CommandType.CMD_USE:
-                    ret = self.tm.llm.use(arg)
-                    self.console.print('[green]Ok[/green]' if ret else '[red]Error[/red]')
+                    try:
+                        self.tm.clients.use(arg)
+                        self.console.print('[green]Ok[/green]')
+                    except Exception as e:
+                        self.console.print(f'[red]Error: {e}[/red]')
                 elif cmd == CommandType.CMD_INFO:
                     info = OrderedDict()
                     info['Config dir'] = str(CONFIG_DIR)
                     info['Work dir'] = str(self.tm.workdir)
-                    info['Current LLM'] = repr(self.tm.llm.current)
+                    info['Current LLM'] = repr(self.tm.clients.current)
                     show_info(self.console, info)
                 elif cmd == CommandType.CMD_EXIT:
                     break                    

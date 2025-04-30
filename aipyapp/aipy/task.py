@@ -48,6 +48,7 @@ class Task(Stoppable):
         self.log = logger.bind(src='task', id=self.task_id)
         self.start_time = None
         self.done_time = None
+        
     def save(self, path):
        if self.console.record:
            self.console.save_html(path, clear=False, code_format=CONSOLE_HTML_FORMAT)
