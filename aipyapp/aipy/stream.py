@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 import time
 
+from loguru import logger
 from rich.live import Live
 from rich.panel import Panel
 from rich.text import Text
@@ -83,55 +84,68 @@ class LiveManager:
         #if self.response_panel: self.console.print(self.response_panel)
         self.live.__exit__(exc_type, exc_val, exc_tb)
 
+class LiveBlock:
+    def __init__(self, language=None, delay=0.05):
+        self.language = language
+        self.delay = delay
+        self.live = None
+        self.lines = []
+        self.log = logger.bind(src='live')
+        self.log.info("LiveBlock initialized", language=self.language, delay=self.delay)
+
+    def start(self):
+        if not self.live:
+            self.live = Live(auto_refresh=False, vertical_overflow="crop")
+            self.live.__enter__()
+
+    def stop(self):
+        if self.live:
+            self.live.__exit__(None, None, None)
+            self.live = None
+
+    def reset(self, language=None):
+        self.language = language
+        self.lines = []
+        self.stop()
+        self.start()
+
+    def update(self, line):
+        if not self.live:
+            self.start()
+        self.lines.append(line)
+        content = '\n'.join(self.lines)
+        if self.language:
+            syntax = Syntax(content, self.language, theme="monokai", line_numbers=False, word_wrap=True)
+        else:
+            syntax = Markdown(content)
+        self.live.update(syntax, refresh=True)
+        time.sleep(self.delay)
+
 class BlockManager:
     def __init__(self, console, name):
         self.name = name
         self.console = console
-
-    def print_code_block(self, lr, tokens, language="python", max_lines=5, delay=0.05):
-        console = self.console
-        display_lines = []
-
-        console.record = False
-        with Live(console=console, refresh_per_second=10, vertical_overflow="crop") as live:
-            for token in tokens:
-                line = lr.feed(token)
-                if not line:
-                    continue
-                if line.startswith('````'):
-                    break
-
-                display_lines.append(line)
-                if len(display_lines) > max_lines:
-                    display_lines.pop(0)
-
-                code_block = "\n".join(display_lines)
-                syntax = Syntax(code_block, language, theme="monokai", line_numbers=False, word_wrap=True)
-                live.update(syntax)
-                time.sleep(delay)
-
-        console.record = True
+        self.log = logger.bind(src='block')
 
     def process(self, tokens):
         block = []
-        code_block = None
+        live = LiveBlock()
         lr = LineReceiver()
         for token in tokens:
             line = lr.feed(token)
             if not line: continue
 
             if line.startswith('````python'):
-                if block:
-                    self.console.print(Markdown('\n'.join(block)))
-                    block = []
-                self.print_code_block(lr, tokens)
+                live.reset(language="python")
+            elif line.startswith('````'):
+                live.reset()
             else:
-                block.append(line)
+                live.update(line)
 
         if lr.buffer:
-            block.append(lr.buffer)
-        if block:
-            self.console.print(Markdown('\n'.join(block)))
+            self.log.info("Updating live block", buffer=lr.buffer)
+            live.update(lr.buffer)
+        live.stop()
 
 class StreamProcessor:
     def __init__(self, console):
