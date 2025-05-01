@@ -13,6 +13,7 @@ from enum import Enum, auto
 from importlib.resources import read_text
 
 from loguru import logger
+from rich.text import Text
 from rich.panel import Panel
 from rich.align import Align
 from rich.syntax import Syntax
@@ -101,23 +102,23 @@ class Task(Stoppable):
     def process_code_reply(self, blocks, llm=None):
         event_bus('exec', blocks)
         code_block = blocks['main']
-        self.box(f"\n⚡ {T("Start executing code block")}:", code_block, lang='python')
+        self.box(f"⚡ {T("Start executing code block")}", code_block, lang='python', style="bold cyan", line_numbers=True)
         result = self.runner(code_block, blocks)
         event_bus('result', result)
         result = json.dumps(result, ensure_ascii=False, indent=4)
-        self.box(f"\n✅ {T("Execution result")}:\n", result, lang="json")
-        status = self.console.status(f"[dim white]{T("Start sending feedback")}...")
-        self.console.print(status)
+        self.box(f"✅ {T("Execution result")}", result, lang="json", style="bold cyan")
+        self.console.rule(f"[dim white]{T("Start sending feedback")}", characters='.')
         feed_back = f"# 最初任务\n{self.instruction}\n\n# 代码执行结果反馈\n{result}"
         return self.chat(feed_back, name=llm)
 
-    def box(self, title, content, align=None, lang=None):
+    def box(self, title, content, align=None, lang=None, style=None, line_numbers=False):
         if lang:
-            content = Syntax(content, lang, line_numbers=True, word_wrap=True)
+            content = Syntax(content, lang, line_numbers=line_numbers, word_wrap=True)
         if align:
             content = Align(content, align=align)
         
-        self.console.print(Panel(content, title=title))
+        self.console.rule(Text(title, style=style), style=style)
+        self.console.print(content)
 
     def print_summary(self):
         history = self.session.history
@@ -170,7 +171,7 @@ class Task(Stoppable):
         执行自动处理循环，直到 LLM 不再返回代码消息
         """
         self.log.info('Running task', instruction=instruction)
-        self.box(f"[yellow]{T("Start processing instruction")}", f'[red]{instruction}', align="center")
+        self.box(T("Start processing instruction"), f'[red]{instruction}', style="bold green")
         if not self.start_time:
             self.start_time = datetime.now()
             self.instruction = instruction
@@ -200,10 +201,8 @@ class Task(Stoppable):
         self.log.info('Task done')
         
     def chat(self, prompt, system_prompt=None, name=None):
-        status = self.console.status(f"[dim white]{T("Sending task to {}", self.session.name)} ...")
-        self.console.print(status)
+        self.console.rule(f"[dim white]{T('Sending msg to {}', self.session.name)}", characters='.')
         response = self.session.chat(prompt, system_prompt=system_prompt, name=name)
-        status.stop()
         return response
 
     def step(self):

@@ -38,7 +38,7 @@ Time(s),时间(秒)
 In Tokens,输入令牌数
 Out Tokens,输出令牌数
 Total Tokens,总令牌数
-"Sending task to {}",正在向 {} 下达任务
+"Sending msg to {}",正在向 {} 发送消息
 "Error loading configuration: {}",加载配置时出错: {}
 Please check the configuration file path and format.,请检查配置文件路径和格式。
 Configuration not loaded.,配置尚未加载。

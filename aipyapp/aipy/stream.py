@@ -85,11 +85,13 @@ class LiveManager:
         self.live.__exit__(exc_type, exc_val, exc_tb)
 
 class LiveBlock:
-    def __init__(self, language=None, delay=0.05):
+    def __init__(self, console, language=None, delay=0.05):
         self.language = language
         self.delay = delay
         self.live = None
         self.lines = []
+        self.console = console
+        self.content = None
         self.log = logger.bind(src='live')
         self.log.info("LiveBlock initialized", language=self.language, delay=self.delay)
 
@@ -102,6 +104,9 @@ class LiveBlock:
         if self.live:
             self.live.__exit__(None, None, None)
             self.live = None
+            if self.content:
+                segments = self.console.render(self.content)
+                self.console._record_buffer.extend(segments)
 
     def reset(self, language=None):
         self.language = language
@@ -120,6 +125,7 @@ class LiveBlock:
             syntax = Markdown(content)
         self.live.update(syntax, refresh=True)
         time.sleep(self.delay)
+        self.content = syntax
 
 class BlockManager:
     def __init__(self, console, name):
@@ -128,8 +134,7 @@ class BlockManager:
         self.log = logger.bind(src='block')
 
     def process(self, tokens):
-        block = []
-        live = LiveBlock()
+        live = LiveBlock(self.console)
         lr = LineReceiver()
         for token in tokens:
             line = lr.feed(token)
@@ -155,5 +160,6 @@ class StreamProcessor:
         return BlockManager(self.console, name)
 
     def __call__(self, name, tokens):
+        self.console.rule(f"[bold yellow]{name} {T('reply')}", style="bold yellow")
         self.get_processor(name).process(tokens)
         
