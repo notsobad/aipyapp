@@ -90,6 +90,7 @@ class TaskManager:
 
     def new_task(self, llm=None, max_rounds=None, system_prompt=None):
         console = Console(file=self.console.file, record=True)
+        console.gui = getattr(self.console, 'gui', False)
         session = self.clients.Session(name=llm)
         session.stream_processor = StreamProcessor(console)
         system_prompt = system_prompt or self.system_prompt

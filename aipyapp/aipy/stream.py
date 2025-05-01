@@ -7,6 +7,7 @@ from rich.live import Live
 from rich.panel import Panel
 from rich.text import Text
 from rich.syntax import Syntax
+from rich.console import Console
 from rich.markdown import Markdown
 
 from .. import event_bus, T
@@ -97,7 +98,11 @@ class LiveBlock:
 
     def start(self):
         if not self.live:
-            self.live = Live(auto_refresh=False, vertical_overflow="crop")
+            if getattr(self.console, 'gui', False):
+                console = Console(quiet=True)
+            else:
+                console = None
+            self.live = Live(auto_refresh=False, vertical_overflow="crop", console=console)
             self.live.__enter__()
 
     def stop(self):
@@ -140,6 +145,8 @@ class BlockManager:
             line = lr.feed(token)
             if not line: continue
 
+            event_bus.broadcast('response_stream', {'llm': self.name, 'content': line})
+
             if line.startswith('````python'):
                 live.reset(language="python")
             elif line.startswith('````'):
@@ -150,6 +157,7 @@ class BlockManager:
         if lr.buffer:
             self.log.info("Updating live block", buffer=lr.buffer)
             live.update(lr.buffer)
+            event_bus.broadcast('response_stream', {'llm': self.name, 'content': lr.buffer})
         live.stop()
 
 class StreamProcessor:
