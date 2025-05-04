@@ -1,12 +1,9 @@
 #! /usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-import time
 from abc import ABC, abstractmethod
 
 from loguru import logger
-
-from .. import Stoppable, T
 
 class BaseResponse(ABC):
     def __init__(self, response, stream=True):
@@ -26,7 +23,7 @@ class BaseResponse(ABC):
     def parse(self):
         pass
 
-class BaseClient(ABC, Stoppable):
+class BaseClient(ABC):
     MODEL = None
     BASE_URL = None
     MAX_TOKENS = 8192
@@ -34,9 +31,7 @@ class BaseClient(ABC, Stoppable):
     RESPONSE_CLASS = BaseResponse
 
     def __init__(self, config):
-        super().__init__()
         self.name = None
-        self.console = None
         self.max_tokens = config.get("max_tokens") or self.MAX_TOKENS
         self._model = config.get("model") or self.MODEL
         self._timeout = config.get("timeout")

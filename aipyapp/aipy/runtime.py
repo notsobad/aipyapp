@@ -22,11 +22,12 @@ def restore_output(func):
     return wrapper
 
 class Runtime(BaseRuntime):
-    def __init__(self, settings, console=None):
-        super().__init__()
-        self.console = console
-        self._auto_install = settings.get('auto_install')
-        self._auto_getenv = settings.get('auto_getenv')
+    def __init__(self, task):
+        super().__init__(task.envs)
+        self.task = task
+        self.console = task.console
+        self._auto_install = task.settings.get('auto_install')
+        self._auto_getenv = task.settings.get('auto_getenv')
 
     @restore_output
     def install_packages(self, *packages):
@@ -67,3 +68,6 @@ class Runtime(BaseRuntime):
     @restore_output
     def input(self, prompt=''):
         return self.console.input(prompt)    
+    
+    def get_code_by_id(self, code_id):
+        return self.task.code_blocks.get_code_by_id(code_id)

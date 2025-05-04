@@ -6,7 +6,6 @@ import json
 from collections import Counter
 from .base import BaseClient, BaseResponse
 from .session import ChatMessage
-from .. import T
 
 class OllamaResponse(BaseResponse):
     def _parse_usage(self, response):

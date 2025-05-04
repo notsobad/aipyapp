@@ -2,54 +2,53 @@
 # -*- coding: utf-8 -*-
 
 import os
-import re
-import time
 import json
 import uuid
 import platform
-from pathlib import Path
 from datetime import datetime
-from enum import Enum, auto
 from importlib.resources import read_text
 
 from loguru import logger
 from rich.text import Text
-from rich.panel import Panel
 from rich.align import Align
+from rich.table import Table
 from rich.syntax import Syntax
-from rich.markdown import Markdown
+from rich.console import Console
 
+from ..exec import Runner
 from .. import event_bus, Stoppable, T, __resources__
 from .utils import get_safe_filename
+from .blocks import CodeBlocks
+from .runtime import Runtime
+from .stream import StreamProcessor
 
 CONSOLE_HTML_FORMAT = read_text(__resources__, "console_white.tpl")
-
-class MsgType(Enum):
-    CODE = auto()
-    TEXT = auto()
 
 class Task(Stoppable):
     MAX_ROUNDS = 16
 
-    def __init__(self, system_prompt, max_rounds=None):
+    def __init__(self, tm, system_prompt, max_rounds=None):
         super().__init__()
         self.task_id = uuid.uuid4().hex
+        self.log = logger.bind(src='task', id=self.task_id)
+
+        console = Console(file=tm.console.file, record=True)
+        console.gui = getattr(tm.console, 'gui', False)
         self.instruction = None
-        self.console = None
+        self.console = console
+        self.settings = tm.settings
+        self.envs = tm.envs
         self.session = None
-        self.runtime = None
-        self.runner = None
         self.diagnose = None
         self.max_rounds = max_rounds
         self.system_prompt = system_prompt
-        self.pattern = re.compile(
-            r"^(`{4})(\w+)\s+([\w\-\.]+)\n(.*?)^\1\s*$",
-            re.DOTALL | re.MULTILINE
-        )
-        self.log = logger.bind(src='task', id=self.task_id)
         self.start_time = None
         self.done_time = None
-        
+        self.code_blocks = CodeBlocks(console)
+        self.stream_processor = StreamProcessor(console)
+        self.runtime = Runtime(self)
+        self.runner = Runner(self.runtime)
+
     def save(self, path):
        if self.console.record:
            self.console.save_html(path, clear=False, code_format=CONSOLE_HTML_FORMAT)
@@ -91,26 +90,35 @@ class Task(Stoppable):
         self.done_time = datetime.now()
         self.log.info('Task done', jsonname=jsonname, htmlname=htmlname)
 
-    def parse_reply(self, markdown):
-        code_blocks = {}
-        for match in self.pattern.finditer(markdown):
-            _, _, name, content = match.groups()
-            code_blocks[name] = content.rstrip('\n')
-
-        return code_blocks
-
-    def process_code_reply(self, blocks, llm=None):
-        event_bus('exec', blocks)
-        code_block = blocks['main']
+    def process_code_reply(self, code_id, llm=None):
+        block = self.code_blocks.get_block_by_id(code_id)
+        event_bus('exec', block)
+        code_block = block['content']
         self.box(f"⚡ {T("Start executing code block")}", code_block, lang='python', style="bold cyan", line_numbers=True)
-        result = self.runner(code_block, blocks)
+        result = self.runner(code_block)
+        result['id'] = code_id
         event_bus('result', result)
-        result = json.dumps(result, ensure_ascii=False, indent=4)
-        self.box(f"✅ {T("Execution result")}", result, lang="json", style="bold cyan")
+        results = json.dumps(result, ensure_ascii=False, indent=4)
+        self.box(f"✅ {T("Execution result")}", results, lang="json", style="bold cyan")
         self.console.rule(f"[dim white]{T("Start sending feedback")}", characters='.')
-        feed_back = f"# 最初任务\n{self.instruction}\n\n# 代码执行结果反馈\n{result}"
+        feed_back = f"# 最初任务\n{self.instruction}\n\n# 代码执行结果反馈\n{results}"
         return self.chat(feed_back, name=llm)
 
+    def process_reply(self, content, llm=None):
+        ret = self.code_blocks.parse(content)
+        results = ret['errors']
+        if results:
+            event_bus('results', results)
+            results = json.dumps(results, ensure_ascii=False, indent=4)
+            self.box(f"✅ {T("Execution result")}", results, lang="json", style="bold cyan")
+            self.console.rule(f"[dim white]{T("Start sending feedback")}", characters='.')
+            feed_back = f"# 消息解析错误\n{results}"
+            return self.chat(feed_back, name=llm)
+        
+        if ret['exec']:
+            return self.process_code_reply(ret['exec'], llm)
+        return None
+                
     def box(self, title, content, align=None, lang=None, style=None, line_numbers=False):
         if lang:
             content = Syntax(content, lang, line_numbers=line_numbers, word_wrap=True)
@@ -120,30 +128,29 @@ class Task(Stoppable):
         self.console.rule(Text(title, style=style), style=style)
         self.console.print(content)
 
-    def print_summary(self):
+    def print_summary(self, detail=False):
         history = self.session.history
-        """
-        table = Table(title=T("Task Summary"), show_lines=True)
+        if detail:
+            table = Table(title=T("Task Summary"), show_lines=True)
 
-        table.add_column(T("Round"), justify="center", style="bold cyan", no_wrap=True)
-        table.add_column(T("Time(s)"), justify="right")
-        table.add_column(T("In Tokens"), justify="right")
-        table.add_column(T("Out Tokens"), justify="right")
-        table.add_column(T("Total Tokens"), justify="right", style="bold magenta")
+            table.add_column(T("Round"), justify="center", style="bold cyan", no_wrap=True)
+            table.add_column(T("Time(s)"), justify="right")
+            table.add_column(T("In Tokens"), justify="right")
+            table.add_column(T("Out Tokens"), justify="right")
+            table.add_column(T("Total Tokens"), justify="right", style="bold magenta")
 
-        round = 1
-        for row in history.get_usage():
-            table.add_row(
-                str(round),
-                str(row["time"]),
-                str(row["input_tokens"]),
-                str(row["output_tokens"]),
-                str(row["total_tokens"]),
-            )
-            round += 1
-        self._console.print("\n")
-        self._console.print(table)
-        """
+            round = 1
+            for row in history.get_usage():
+                table.add_row(
+                    str(round),
+                    str(row["time"]),
+                    str(row["input_tokens"]),
+                    str(row["output_tokens"]),
+                    str(row["total_tokens"]),
+                )
+                round += 1
+            self._console.print("\n")
+            self._console.print(table)
         summary = history.get_summary()
         if 'time' in summary:
             summarys = "| {rounds} | {time:.3f}s | Tokens: {input_tokens}/{output_tokens}/{total_tokens}".format(**summary)
@@ -180,6 +187,7 @@ class Task(Stoppable):
             event_bus('task_start', prompt)
             instruction = json.dumps(prompt, ensure_ascii=False)
             system_prompt = self.system_prompt
+            self.session.stream_processor = StreamProcessor(self.console)
         else:
             system_prompt = None
         rounds = 1
@@ -188,17 +196,14 @@ class Task(Stoppable):
             max_rounds = self.MAX_ROUNDS
         response = self.chat(instruction, system_prompt=system_prompt, name=llm)
         while response and rounds <= max_rounds:
-            blocks = self.parse_reply(response.content)
-            if 'main' not in blocks:
-                break
+            response = self.process_reply(response.content)
             rounds += 1
-            response = self.process_code_reply(blocks, llm)
             if self.is_stopped():
                 self.log.info('Task stopped')
                 break
         self.print_summary()
         self.auto_save()
-        os.write(1, b'\a\a\a')
+        self.console.bell()
         self.log.info('Task done')
         
     def chat(self, prompt, system_prompt=None, name=None):

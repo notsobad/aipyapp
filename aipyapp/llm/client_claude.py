@@ -5,7 +5,6 @@ from collections import Counter
 
 from .base import BaseClient, BaseResponse
 from .session import ChatMessage
-from .. import T
 
 # https://docs.anthropic.com/en/api/messages
 class ClaudeResponse(BaseResponse):

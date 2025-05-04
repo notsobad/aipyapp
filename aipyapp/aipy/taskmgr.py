@@ -6,22 +6,21 @@ from pathlib import Path
 from collections import deque
 
 from loguru import logger
-from rich.console import Console
 
 from .. import T
 from .task import Task
 from ..llm import ClientManager
 from .config import CONFIG_DIR
-from ..exec import Runner
+
 from .plugin import PluginManager
 from .prompt import SYSTEM_PROMPT
 from .diagnose import Diagnose
-from .runtime import Runtime
-from .stream import StreamProcessor
+
+
 class TaskManager:
     MAX_TASKS = 16
 
-    def __init__(self, settings, console, runtime_cls=Runtime):
+    def __init__(self, settings, console):
         self.settings = settings
         self.console = console
         self.tasks = deque(maxlen=self.MAX_TASKS)
@@ -44,9 +43,7 @@ class TaskManager:
         self._init_environ()
         self._init_api()
         self.diagnose = Diagnose.create(settings)
-        self.clients = ClientManager(settings, console)
-        self.runtime = runtime_cls(settings, console)
-        self.runtime.envs = self.envs
+        self.clients = ClientManager(settings)
 
     @property
     def workdir(self):
@@ -89,17 +86,11 @@ class TaskManager:
         self.system_prompt = "\n".join(lines)
 
     def new_task(self, llm=None, max_rounds=None, system_prompt=None):
-        console = Console(file=self.console.file, record=True)
-        console.gui = getattr(self.console, 'gui', False)
         session = self.clients.Session(name=llm)
-        session.stream_processor = StreamProcessor(console)
         system_prompt = system_prompt or self.system_prompt
         max_rounds = max_rounds or self.settings.get('max_rounds')
-        task = Task(system_prompt, max_rounds=max_rounds)
-        task.console = console
+        task = Task(self, system_prompt, max_rounds=max_rounds)
         task.session = session
-        task.runtime = self.runtime
-        task.runner = Runner(self.runtime)
         task.diagnose = self.diagnose
         self.tasks.append(task)
         self.log.info('New task created', task_id=task.task_id)

@@ -7,8 +7,8 @@ from abc import ABC, abstractmethod
 from loguru import logger
 
 class BaseRuntime(ABC):
-    def __init__(self):
-        self.envs = {}
+    def __init__(self, envs=None):
+        self.envs = envs or {}
         self.packages = set()
         self.log = logger.bind(src='runtime')
 

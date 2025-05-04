@@ -34,7 +34,7 @@ class Runner():
     def __init__(self, runtime):
         self.runtime = runtime
         self.history = []
-        self._globals = {'runtime': runtime, '__session__': {}, '__name__': '__main__', 'input': self.runtime.input, '__history__': self.history}
+        self._globals = {'runtime': runtime, '__session__': {}, '__name__': '__main__', 'input': self.runtime.input}
         exec(INIT_IMPORTS, self._globals)
 
     def __repr__(self):
@@ -44,7 +44,7 @@ class Runner():
     def globals(self):
         return self._globals
     
-    def __call__(self, code_str, blocks):
+    def __call__(self, code_str):
         old_stdout, old_stderr = sys.stdout, sys.stderr
         captured_stdout = StringIO()
         captured_stderr = StringIO()
@@ -54,7 +54,6 @@ class Runner():
         session = self._globals['__session__'].copy()
         gs = self._globals.copy()
         gs['__result__'] = {}
-        gs['__code_blocks__'] = blocks
         try:
             exec(code_str, gs)
         except (SystemExit, Exception) as e:

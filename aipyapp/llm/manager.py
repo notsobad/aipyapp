@@ -60,9 +60,8 @@ CLIENTS = {
 }
 
 class ClientManager(object):
-    def __init__(self, settings, console):
+    def __init__(self, settings):
         self.clients = {}
-        self.console = console
         self.default = None
         self.current = None
         self._last = None
@@ -75,7 +74,7 @@ class ClientManager(object):
         client = CLIENTS.get(proto.lower())
         if not client:
             self.log.error('Unsupported LLM provider', proto=proto)
-            raise ValueError(f"Unsupported LLM provider: {proto}")
+            return None
         return client(config)
     
     def init_clients(self, settings):
@@ -92,14 +91,13 @@ class ClientManager(object):
                 names['error'].add(name)
                 continue
             
-            if not client.usable():
+            if not client or not client.usable():
                 names['disabled'].add(name)
                 self.log.error('LLM client not usable', name=name, config=config)
                 continue
 
             names['enabled'].add(name)
             client.name = name
-            client.console = self.console
             self.clients[name] = client
 
             if config.get('default', False) and not self.default:
@@ -139,30 +137,6 @@ class ClientManager(object):
 
     def get_client(self, name, default=None):
         return self.clients.get(name, default)
-    
-    def stop(self):
-        if self._last:
-            self._last.stop()
-
-    def __call__(self, instruction, *, system_prompt=None, name=None):
-        """ LLM 选择规则
-        1. 如果 name 为 None, 使用 current
-        2. 如果 name 存在，使用 name 对应的
-        3. 使用 default
-        """
-        if not name:
-            client = self.current
-        else:
-            client = self.clients.get(name, self.current)
-
-        if not client.usable():
-            self.console.print(f"[red]LLM: {name} {T("Not usable")}")
-            return None
-        
-        self._last = client
-        ret = client(instruction, system_prompt=system_prompt)
-        event_bus.broadcast('response_complete', {'llm': client.name, 'content': ret})
-        return ret
     
     def Session(self, name=None):
         client = self[name] if name else self.current
