@@ -90,34 +90,76 @@ class Task(Stoppable):
         self.done_time = datetime.now()
         self.log.info('Task done', jsonname=jsonname, htmlname=htmlname)
 
-    def process_code_reply(self, code_id, llm=None):
-        block = self.code_blocks.get_block_by_id(code_id)
-        event_bus('exec', block)
-        code_block = block['content']
-        self.box(f"⚡ {T("Start executing code block")}", code_block, lang='python', style="bold cyan", line_numbers=True)
-        result = self.runner(code_block)
-        result['id'] = code_id
-        event_bus('result', result)
-        results = json.dumps(result, ensure_ascii=False, indent=4)
-        self.box(f"✅ {T("Execution result")}", results, lang="json", style="bold cyan")
+    def process_code_reply(self, code_ids, llm=None):
+        results = []
+        for code_id in code_ids:
+            block = self.code_blocks.get_block_by_id(code_id)
+            event_bus('exec', block)
+            code_block = block['content']
+            self.box(f"⚡ {T("Start executing code block")}", code_block, lang='python', style="bold cyan", line_numbers=True)
+            result = self.runner(code_block)
+            result['id'] = code_id
+            results.append(result)
+            event_bus('result', result)
+
+        if len(results) == 1:
+            results = results[0]
+        json_results = json.dumps(results, ensure_ascii=False, indent=4)
+        self.box(f"✅ {T("Execution result")}", json_results, lang="json", style="bold cyan")
         self.console.rule(f"[dim white]{T("Start sending feedback")}", characters='.')
-        feed_back = f"# 最初任务\n{self.instruction}\n\n# 代码执行结果反馈\n{results}"
+        feed_back = f"# 最初任务\n{self.instruction}\n\n# 代码执行结果反馈\n{json_results}"
         return self.chat(feed_back, name=llm)
 
+    def print_blocks(self, blocks):
+        table = Table(title=T("New Code Blocks"), show_lines=True)
+        table.add_column(T("ID"), justify="center", style="bold cyan", no_wrap=True)
+        table.add_column(T("Language"), justify="center", style="green")
+        table.add_column(T("Base ID"), style="white")
+        table.add_column(T("Filename"), style="white")
+
+        for bid, block in blocks.items():
+            table.add_row(
+                bid,
+                block.get('language', ''),
+                block.get('base_id', ''),
+                block.get('filename', '')
+            )
+        self.console.print(table)
+
+    def print_cmds(self, cmds):
+        table = Table(title=T("Commands"), show_lines=True)
+        table.add_column(T("Command"), justify="center", style="bold cyan", no_wrap=True)
+        table.add_column(T("Args"), style="white")
+
+        for cmd in cmds:
+            table.add_row(
+                cmd[0],
+                cmd[1]
+            )
+        self.console.print(table)
+
     def process_reply(self, content, llm=None):
+        self.console.rule(f"[dim white]{T("Start parsing message")}", characters='.')
         ret = self.code_blocks.parse(content)
-        results = ret['errors']
-        if results:
-            event_bus('results', results)
-            results = json.dumps(results, ensure_ascii=False, indent=4)
-            self.box(f"✅ {T("Execution result")}", results, lang="json", style="bold cyan")
+        blocks = ret.get('blocks')
+        if blocks:
+            self.print_blocks(blocks)
+        cmds = ret.get('cmds')
+        if cmds:
+            self.print_cmds(cmds)
+        errors = ret['errors']
+        if errors:
+            event_bus('result', errors)
+            json_str = json.dumps(errors, ensure_ascii=False)
+            self.box(f"✅ {T("Execution result")}", json_str, lang="json", style="bold cyan")
             self.console.rule(f"[dim white]{T("Start sending feedback")}", characters='.')
-            feed_back = f"# 消息解析错误\n{results}"
-            return self.chat(feed_back, name=llm)
-        
-        if ret['exec']:
-            return self.process_code_reply(ret['exec'], llm)
-        return None
+            feed_back = f"# 消息解析错误\n{json_str}"
+            ret = self.chat(feed_back, name=llm)
+        elif ret['exec_ids']:
+            ret = self.process_code_reply(ret['exec_ids'], llm)
+        else:
+            ret = None
+        return ret
                 
     def box(self, title, content, align=None, lang=None, style=None, line_numbers=False):
         if lang:

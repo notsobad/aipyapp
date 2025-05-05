@@ -40,7 +40,7 @@ class Runtime(BaseRuntime):
         return False
     
     @restore_output
-    def getenv(self, name, default=None, *, desc=None):
+    def get_env(self, name, default=None, *, desc=None):
         self.console.print(f"\n⚠️ LLM {T("Request to obtain environment variable {}, purpose", name)}: {desc}")
         try:
             value = self.envs[name][0]
@@ -53,7 +53,7 @@ class Runtime(BaseRuntime):
                 value = self.console.input(f"💬 {T("Environment variable {} not found, please enter", name)}: ")
                 value = value.strip()
             if value:
-                self.setenv(name, value, desc)
+                self.set_env(name, value, desc)
         return value or default
     
     @restore_output

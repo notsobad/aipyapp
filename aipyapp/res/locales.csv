@@ -1,6 +1,8 @@
 id,zh
 Start processing instruction,开始处理指令
 Start executing code block,开始执行代码块
+Start parsing message,开始解析消息
+New Code Blocks,新代码块
 Execution result,执行结果
 Start sending feedback,开始反馈结果
 End processing instruction,结束处理指令

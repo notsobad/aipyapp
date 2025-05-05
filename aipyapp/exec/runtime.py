@@ -12,7 +12,7 @@ class BaseRuntime(ABC):
         self.packages = set()
         self.log = logger.bind(src='runtime')
 
-    def setenv(self, name, value, desc):
+    def set_env(self, name, value, desc):
         self.envs[name] = (value, desc)
 
     def ensure_packages(self, *packages, upgrade=False, quiet=True):
@@ -49,7 +49,7 @@ class BaseRuntime(ABC):
         pass
 
     @abstractmethod
-    def getenv(self, name, default=None, *, desc=None):
+    def get_env(self, name, default=None, *, desc=None):
         pass
     
     @abstractmethod

@@ -137,13 +137,18 @@ class BlockManager:
         self.name = name
         self.console = console
         self.log = logger.bind(src='block')
+        self.live = None
+
+    def is_aipy_tag(self, line):
+        return line.startswith("<!-- Block-") or line.startswith("<!-- Code-")
 
     def process(self, tokens):
         live = LiveBlock(self.console)
         lr = LineReceiver()
         for token in tokens:
             line = lr.feed(token)
-            if not line: continue
+            if not line or self.is_aipy_tag(line):
+                continue
 
             event_bus.broadcast('response_stream', {'llm': self.name, 'content': line})
 
@@ -154,7 +159,7 @@ class BlockManager:
             else:
                 live.update(line)
 
-        if lr.buffer:
+        if lr.buffer and not self.is_aipy_tag(lr.buffer):
             self.log.info("Updating live block", buffer=lr.buffer)
             live.update(lr.buffer)
             event_bus.broadcast('response_stream', {'llm': self.name, 'content': lr.buffer})
