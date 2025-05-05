@@ -92,6 +92,17 @@ class ConfigManager:
         self.user_config_file = get_config_file_path(config_dir, USER_CONFIG_FILE_NAME)
         self.default_config = __resources_path__ / "default.toml"
         self.config = self._load_config()
+        # TODO：临时API配置
+        self.config.update({
+            'api': {
+                'tt-map': {
+                    'env': {
+                        'amap_api_key': ["aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","最新高德地图 API Key"],
+                    },
+                    'desc': "高德地图（驾车、骑行、步行、公交路线规划，周边关键字搜索，天气查询，交通态势、店铺查询, 无法确定POI分类编码时请用关键字搜索API）"
+                }
+            }
+        })
         self.trust_token = TrustToken()
 
 
@@ -184,7 +195,7 @@ class ConfigManager:
                 'trustoken': {
                     'api_key': api_key,
                     'type': 'trust',
-                    'base_url': 'https://api.trustoken.ai/v1',
+                    'base_url': 'https://api.trustoken.cn/v1',
                     'model': 'auto',
                     'default': True,
                     'enable': True
@@ -343,7 +354,7 @@ class ConfigManager:
         base_url = config.get('base_url', config.get('base-url', '')).lower()
         # 条件2: base_url包含目标域名
         if isinstance(config, dict) and base_url:
-            if 'trustoken.ai' in base_url:
+            if 'trustoken.' in base_url:
                 return True
 
         # 条件3: 其他特定标记

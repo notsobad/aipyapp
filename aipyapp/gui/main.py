@@ -275,6 +275,12 @@ class ChatFrame(wx.Frame):
         edit_menu.Append(menu_item)
         self.Bind(wx.EVT_MENU, self.on_api_config, id=self.ID_API_CONFIG)
 
+        # Add API配置 menu item
+        self.ID_API_CONFIG = wx.NewIdRef()
+        menu_item = wx.MenuItem(edit_menu, self.ID_API_CONFIG, "API配置(&A)\tCtrl+A", "配置API市场")
+        edit_menu.Append(menu_item)
+        self.Bind(wx.EVT_MENU, self.on_api_config, id=self.ID_API_CONFIG)
+
         task_menu = wx.Menu()
         self.task_done_menu = task_menu.Append(wx.ID_STOP, "开始新任务(&B)", "开始一个新任务")
         self.task_done_menu.Enable(False)

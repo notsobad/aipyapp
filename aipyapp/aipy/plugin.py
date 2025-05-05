@@ -11,16 +11,19 @@ from .. import event_bus
 
 class PluginManager:
     def __init__(self, plugin_dir: str):
+        self.sys_plugin_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'plugins')
         self.plugin_dir = plugin_dir
         self.plugins: Dict[str, Any] = {}
 
     def load_plugins(self):
-        if not os.path.exists(self.plugin_dir):
-            return
+        """Load plugins from the plugin directory."""
+        for plugin_dir in [self.sys_plugin_dir, self.plugin_dir]:
+            if not os.path.exists(plugin_dir):
+                continue
+            for fname in os.listdir(plugin_dir):
+                if fname.endswith(".py") and not fname.startswith("_"):
+                    self._load_plugin(os.path.join(plugin_dir, fname))
 
-        for fname in os.listdir(self.plugin_dir):
-            if fname.endswith(".py") and not fname.startswith("_"):
-                self._load_plugin(os.path.join(self.plugin_dir, fname))
 
     def _load_plugin(self, filepath: str):
         plugin_id = os.path.basename(filepath)[:-3]
