@@ -14,6 +14,7 @@ from rich.align import Align
 from rich.table import Table
 from rich.syntax import Syntax
 from rich.console import Console
+import requests
 
 from ..exec import Runner
 from .. import event_bus, Stoppable, T, __resources__
@@ -21,6 +22,7 @@ from .utils import get_safe_filename
 from .blocks import CodeBlocks
 from .runtime import Runtime
 from .stream import StreamProcessor
+from .config import get_region_api
 
 CONSOLE_HTML_FORMAT = read_text(__resources__, "console_white.tpl")
 
@@ -89,6 +91,8 @@ class Task(Stoppable):
         self.diagnose.report_code_error(self.runner.history)
         self.done_time = datetime.now()
         self.log.info('Task done', jsonname=jsonname, htmlname=htmlname)
+        if self.settings.get('share_result'):
+            self.sync_to_cloud()
 
     def process_code_reply(self, code_ids, llm=None):
         results = []
@@ -241,3 +245,33 @@ class Task(Stoppable):
             self.console.print(f"❌ {T("No context information found")}")
             return
         self.process_reply(response)
+
+    def sync_to_cloud(self, verbose=True):
+        """ Sync result
+        """
+        url = get_region_api('share_url', self.settings)
+        
+        trustoken_apikey = self.settings.get('llm', {}).get('trustoken', {}).get('api_key')
+        if not trustoken_apikey:
+            return False
+        try:
+            response = requests.post(url, json={
+                'apikey': trustoken_apikey,
+                'author': os.getlogin(),
+                'instruction': self.instruction,
+                'llm': self.session.history.json(),
+                'runner': self.runner.history,
+            }, verify=True, timeout=30)
+        except Exception as e:
+            self.log.exception('Error sync result')
+            return False
+
+        status_code = response.status_code
+        if status_code in (200, 201):
+            if verbose:
+                self.console.print(f"[green]{T('upload success')}:", response.json())
+            return response.json()
+
+        if verbose:
+            self.console.print(f"[red]{T('upload failed', status_code)}:", response.text)
+        return False

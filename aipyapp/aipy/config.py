@@ -28,6 +28,7 @@ OLD_SETTINGS_FILES = [
 
 CONFIG_FILE_NAME = f"{__PACKAGE_NAME__}.toml"
 USER_CONFIG_FILE_NAME = "user_config.toml"
+LANG = get_system_language()
 
 def init_config_dir():
     """
@@ -86,6 +87,14 @@ def is_valid_api_key(api_key):
     pattern = r"^[A-Za-z0-9_-]{8,128}$"
     return bool(re.match(pattern, api_key))
 
+def get_region_api(name, config):
+    """ 获取特定的内部API地址, 参考default.toml
+    """
+    tt_api = config.get('tt_api', {})
+    conf = tt_api.get(name, {})
+    url = conf.get(LANG)
+    return url
+
 class ConfigManager:
     def __init__(self, config_dir=None):
         self.lang = get_system_language()
@@ -105,9 +114,9 @@ class ConfigManager:
             }
         })
         
+        #print(self.config.to_dict())
         coordinator_url = self.get_region_api('coordinator_url')
         self.trust_token = TrustToken(coordinator_url=coordinator_url)
-        #print(self.config.to_dict())
 
     def get_work_dir(self):
         if self.config.workdir:
@@ -371,7 +380,5 @@ class ConfigManager:
     def get_region_api(self, name):
         """ 获取特定的内部API地址, 参考default.toml
         """
-        tt_api = self.config.get('tt_api')
-        conf = tt_api.get(name)
-        url = conf.get(self.lang)
+        url = get_region_api(name, self.config)
         return url
