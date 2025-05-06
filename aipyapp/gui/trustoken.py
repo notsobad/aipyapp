@@ -209,7 +209,8 @@ if __name__ == "__main__":
         # config_manager.save_tt_config(token)
     
     # Create and show the dialog
-    dialog = TrustTokenAuthDialog(None)
+    url = os.getenv('COORDINATOR_URL', 'https://api.trustoken.cn/api')
+    dialog = TrustTokenAuthDialog(coordinator_url=url)
     if dialog.fetch_token(save_token):
         print("Authentication successful!")
     else:

@@ -4,7 +4,7 @@ from typing import Callable, Any, Dict, List
 
 from loguru import logger
 
-from .i18n import T, set_lang
+from .i18n import T, set_lang, get_system_language
 
 __version__ = '0.1.28b5'
 
@@ -66,5 +66,5 @@ class EventBus:
 
 event_bus = EventBus()
 
-__all__ = ['Stoppable', 'EventBus', 'event_bus', '__version__', 'T', 'set_lang', '__resources__']
+__all__ = ['Stoppable', 'EventBus', 'event_bus', '__version__', 'T', 'set_lang', '__resources__', 'get_system_language']
     
