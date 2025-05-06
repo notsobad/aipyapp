@@ -226,6 +226,10 @@ class ChatFrame(wx.Frame):
         self.aipython.start()
         self.Show()
 
+        update = self.tm.get_update()
+        if update and update.get('has_update'):
+            wx.CallLater(1000, self.append_message, '爱派', f"\n🔔 **号外❗** {T('Update available')}: `v{update.get('latest_version')}`")
+
     def make_input_panel(self, panel):
         self.container = wx.Panel(panel)
  

@@ -4,22 +4,19 @@
 import os
 import sys
 
-class Logger:
-    def __init__(self, file_path=os.devnull):
-        self.terminal = sys.stdout
-        self.log = open(file_path, "a", encoding="utf-8")
+if "pythonw" in sys.executable.lower():
+    sys.stdout = open(os.devnull, "w")
+    sys.stderr = open(os.devnull, "w")
 
-    def write(self, message):
-        self.terminal.write(message)
-        self.log.write(message)
+from loguru import logger
 
-    def flush(self):
-        self.terminal.flush()
-        self.log.flush()
+from .aipy.config import CONFIG_DIR
+
+logger.remove()
+logger.add(CONFIG_DIR / "aipyapp.log", format="{time:HH:mm:ss} | {level} | {message} | {extra}", level='INFO')
 
 def parse_args():
     import argparse
-    from .aipy.config import CONFIG_DIR
     config_help_message = (
         f"Specify the configuration directory.\nDefaults to {CONFIG_DIR} if not provided."
     )
@@ -43,8 +40,6 @@ def ensure_wxpython():
         assert cp.returncode == 0
 
 def mainw():
-    sys.stdout = Logger()
-    sys.stderr = Logger()
     args = parse_args()
     ensure_wxpython()
     from .wxgui import main as aipy_main

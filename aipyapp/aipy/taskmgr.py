@@ -40,6 +40,9 @@ class TaskManager:
     def workdir(self):
         return str(self._cwd)
 
+    def get_update(self, force=False):
+        return self.diagnose.check_update(force)
+    
     @property
     def busy(self):
         return self.task is not None

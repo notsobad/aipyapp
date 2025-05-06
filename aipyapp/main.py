@@ -50,6 +50,10 @@ def main(args):
         console.print_exception(e)
         return
 
+    update = ai.get_update(True)
+    if update and update.get('has_update'):
+        console.print(f"[bold red]🔔 号外❗ {T('Update available')}: {update.get('latest_version')}")
+
     if not ai.llm:
         console.print(f"[bold red]{T('no_available_llm')}")
         return
