@@ -96,7 +96,7 @@ class Task(Stoppable):
             block = self.code_blocks.get_block_by_id(code_id)
             event_bus('exec', block)
             code_block = block['content']
-            self.box(f"⚡ {T("Start executing code block")}", code_block, lang='python', style="bold cyan", line_numbers=True)
+            self.box(f"⚡ {T("Start executing code block")}: {code_id}", code_block, lang='python', style="bold cyan", line_numbers=True)
             result = self.runner(code_block)
             result['id'] = code_id
             results.append(result)
@@ -111,7 +111,7 @@ class Task(Stoppable):
         return self.chat(feed_back, name=llm)
 
     def print_blocks(self, blocks):
-        table = Table(title=T("New Code Blocks"), show_lines=True)
+        table = Table(title=T("Code Blocks"), show_lines=True)
         table.add_column(T("ID"), justify="center", style="bold cyan", no_wrap=True)
         table.add_column(T("Language"), justify="center", style="green")
         table.add_column(T("Base ID"), style="white")
@@ -126,27 +126,9 @@ class Task(Stoppable):
             )
         self.console.print(table)
 
-    def print_cmds(self, cmds):
-        table = Table(title=T("Commands"), show_lines=True)
-        table.add_column(T("Command"), justify="center", style="bold cyan", no_wrap=True)
-        table.add_column(T("Args"), style="white")
-
-        for cmd in cmds:
-            table.add_row(
-                cmd[0],
-                cmd[1]
-            )
-        self.console.print(table)
-
     def process_reply(self, content, llm=None):
         self.console.rule(f"[dim white]{T("Start parsing message")}", characters='.')
         ret = self.code_blocks.parse(content)
-        blocks = ret.get('blocks')
-        if blocks:
-            self.print_blocks(blocks)
-        cmds = ret.get('cmds')
-        if cmds:
-            self.print_cmds(cmds)
         errors = ret['errors']
         if errors:
             event_bus('result', errors)

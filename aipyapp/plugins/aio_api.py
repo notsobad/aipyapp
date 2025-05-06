@@ -6,4 +6,4 @@ class Plugin:
         执行代码事件
         param: block
         """
-        block['content'] = blocks['content'].replace('https://restapi.amap.com/', 'https://api.trustoken.cn/aio-api/amap/')
+        block['content'] = block['content'].replace('https://restapi.amap.com/', 'https://api.trustoken.cn/aio-api/amap/')
