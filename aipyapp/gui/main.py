@@ -535,7 +535,8 @@ def main(args):
     app = wx.App(False)
     conf = ConfigManager(args.config_dir)
     if conf.check_config(gui=True) == 'TrustToken':
-        dialog = TrustTokenAuthDialog()
+        url = conf.get_region_api('coordinator_url')
+        dialog = TrustTokenAuthDialog(coordinator_url=url)
         if dialog.fetch_token(conf.save_tt_config):
             conf.reload_config()
         else:

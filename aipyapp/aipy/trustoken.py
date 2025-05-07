@@ -6,20 +6,20 @@ import qrcode
 
 from .. import T
 
-COORDINATOR_URL = os.getenv('COORDINATOR_URL', 'https://api.trustoken.cn/api')
 POLL_INTERVAL = 5 # 轮询间隔（秒）
 
 class TrustTokenAPI:
     """Handles all HTTP operations for TrustToken binding and authentication."""
     
-    def __init__(self, coordinator_url=None):
+    def __init__(self, coordinator_url):
         """
         Initialize the TrustToken API handler.
         
         Args:
-            coordinator_url (str, optional): The coordinator server URL. Defaults to None.
+            coordinator_url (str): The coordinator server URL.
         """
-        self.coordinator_url = coordinator_url or COORDINATOR_URL
+        assert(coordinator_url)
+        self.coordinator_url = coordinator_url
 
     def request_binding(self):
         """Request binding from the coordinator server.
@@ -181,5 +181,6 @@ class TrustToken:
             return False
 
 if __name__ == "__main__":
-    tt = TrustToken()
+    url = os.getenv('COORDINATOR_URL', 'https://api.trustoken.cn/api')
+    tt = TrustToken(coordinator_url=url)
     tt.fetch_token(lambda token: print(f"Token: {token}"))
