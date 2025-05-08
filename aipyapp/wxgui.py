@@ -25,7 +25,8 @@ from . import __version__
 from .aipy.config import ConfigManager, CONFIG_DIR
 from .aipy import TaskManager, event_bus
 from .aipy.i18n import T, set_lang
-from .gui import TrustTokenAuthDialog, ConfigDialog, ApiMarketDialog
+from .gui import TrustTokenAuthDialog, ConfigDialog, ApiMarketDialog, show_provider_config
+from .config import LLMConfig
 
 __PACKAGE_NAME__ = "aipyapp"
 ChatEvent, EVT_CHAT = NewEvent()
@@ -326,6 +327,12 @@ class ChatFrame(wx.Frame):
         edit_menu.Append(menu_item)
         self.Bind(wx.EVT_MENU, self.on_api_config, id=self.ID_API_CONFIG)
 
+        # Add LLM配置向导 menu item
+        #self.ID_LLM_CONFIG = wx.NewIdRef()
+        #menu_item = wx.MenuItem(edit_menu, self.ID_LLM_CONFIG, "LLM配置向导(&L)\tCtrl+L", "配置LLM提供商")
+        #edit_menu.Append(menu_item)
+        #self.Bind(wx.EVT_MENU, self.on_llm_config, id=self.ID_LLM_CONFIG)
+
         task_menu = wx.Menu()
         self.task_menu_item = task_menu.Append(wx.ID_STOP, "开始新任务(&B)", "开始一个新任务")
         self.task_menu_item.Enable(False)
@@ -494,6 +501,10 @@ class ChatFrame(wx.Frame):
         dialog.ShowModal()
         dialog.Destroy()
 
+    def on_llm_config(self, event):
+        """打开LLM配置向导"""
+        show_provider_config(self.tm.llm_config, parent=self)
+
 class AboutDialog(wx.Dialog):
     def __init__(self, parent):
         super().__init__(parent, title="关于爱派", size=(400, 300))
@@ -561,14 +572,15 @@ def main(args):
     app = wx.App(False)
     default_config_path = resources.files(__PACKAGE_NAME__) / "default.toml"
     conf = ConfigManager(default_config_path, args.config_dir)
-    if conf.check_config(gui=True) == 'TrustToken':
-        dialog = TrustTokenAuthDialog()
-        if dialog.fetch_token(conf.save_tt_config):
-            conf.reload_config()
-        else:
-            return
+    llm_config = LLMConfig(CONFIG_DIR / "config")
     settings = conf.get_config()
-
+    if conf.check_config(gui=True) == 'TrustToken':
+        if llm_config.need_config():
+            show_provider_config(llm_config)
+            if llm_config.need_config():
+                return
+        settings["llm"] = llm_config.config
+        
     settings.gui = True
     settings.auto_install = True
     settings.auto_getenv = True
@@ -576,14 +588,15 @@ def main(args):
     lang = settings.get('lang')
     if lang: set_lang(lang)
 
-    quiet = False if args.debug else True
-    console = Console(quiet=quiet, record=True)
+    file = None if args.debug else open(os.devnull, 'w')
+    console = Console(file=file, record=True)
+    console.gui = True
     try:
         tm = TaskManager(settings, console=console)
     except Exception as e:
         traceback.print_exc()
         return
-    
     tm.config_manager = conf
+    tm.llm_config = llm_config
     ChatFrame(tm)
     app.MainLoop()

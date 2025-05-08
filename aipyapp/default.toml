@@ -22,6 +22,10 @@ system_prompt = """
 5. 如果用户任务中涉及保存你输出的内容，除用户指定目录外，默认的保存路径为当前工作目录。
 """
 
+[diagnose]
+api_url = "https://aipy.xxyy.eu.org/"
+api_key = "sk-aipy-2ej5NpKz8FrC7wGhV4YtXdQsLx9AMuB6vZRS3bTD"
+
 [llm.trustoken]
 type = "trust"
 api_key = ""

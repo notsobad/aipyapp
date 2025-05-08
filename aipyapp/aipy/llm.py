@@ -9,6 +9,7 @@ from abc import ABC, abstractmethod
 
 import openai
 import requests
+from loguru import logger
 from rich.live import Live
 from rich.panel import Panel
 from rich.text import Text
@@ -55,8 +56,7 @@ class LiveManager:
         self.full_response = None
 
     def __enter__(self):
-        console = self.console if self.console.quiet else None
-        self.live = Live(console=console, auto_refresh=False, vertical_overflow='visible', transient=True)
+        self.live = Live(auto_refresh=False, vertical_overflow='visible', transient=True)
         self.live.__enter__()
         status = self.console.status(f"[dim white]{self.name} {T('thinking')}...", spinner='runner')
         response_panel = Panel(status, title=self.title, border_style="blue")
@@ -447,8 +447,10 @@ class LLM(object):
         self._last = None
         self.history = ChatHistory()
         self.system_prompt = system_prompt
+        self.log = logger.bind(src='llm')
         names = defaultdict(set)
         for name, config in settings.llm.items():
+            self.log.info(f"LLM: {name} {config}")
             if not config.get('enable', True):
                 names['disabled'].add(name)
                 continue
