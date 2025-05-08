@@ -15,11 +15,13 @@ from rich.align import Align
 from rich.table import Table
 from rich.syntax import Syntax
 from rich.markdown import Markdown
+import requests
 
 from .i18n import T
 from .plugin import event_bus
 from .templates import CONSOLE_HTML_FORMAT
 from .utils import get_safe_filename
+from .config import get_region_api
 
 class MsgType(Enum):
     CODE = auto()
@@ -28,7 +30,7 @@ class MsgType(Enum):
 class Task:
     MAX_ROUNDS = 16
 
-    def __init__(self, instruction, *, system_prompt=None, max_rounds=None):
+    def __init__(self, instruction, *, system_prompt=None, max_rounds=None, settings=None):
         self.task_id = uuid.uuid4().hex
         self.instruction = instruction
         self.console = None
@@ -40,6 +42,7 @@ class Task:
             r"^(`{4})(\w+)\s+([\w\-\.]+)\n(.*?)^\1\s*$",
             re.DOTALL | re.MULTILINE
         )
+        self.settings = settings
         
     def save(self, path):
        if self._console.record:
@@ -96,6 +99,10 @@ class Task:
             self.console.save_html(filename, clear=True, code_format=CONSOLE_HTML_FORMAT)
         filename = str(Path(filename).resolve())
         self.console.print(f"[green]{T('task_saved')}: \"{filename}\"")
+
+        if self.settings.get('share_result'):
+            self.sync_to_cloud()
+        
         self.llm.clear()
         self.runner.clear()
         self.task_id = None
@@ -225,3 +232,33 @@ class Task:
             self.console.print(f"❌ {T('no_context')}")
             return
         self.process_reply(response)
+
+    def sync_to_cloud(self, verbose=True):
+        """ Sync result
+        """
+        url = get_region_api('share_url', self.settings)
+
+        trustoken_apikey = self.settings.get('llm', {}).get('trustoken', {}).get('api_key')
+        if not trustoken_apikey:
+            return False
+        try:
+            response = requests.post(url, json={
+                'apikey': trustoken_apikey,
+                'author': os.getlogin(),
+                'instruction': self.instruction,
+                'llm': self.llm.history.json(),
+                'runner': self.runner.history,
+            }, verify=True, timeout=30)
+        except Exception as e:
+            print(e)
+            return False
+
+        status_code = response.status_code
+        if status_code in (200, 201):
+            if verbose:
+                self.console.print(f"[green]{T('upload_success')}:", response.json())
+            return response.json()
+
+        if verbose:
+            self.console.print(f"[red]{T('upload_failed', status_code)}:", response.text)
+        return False

@@ -2,6 +2,7 @@ workdir = 'work'
 history = '.history.txt'
 record = true
 accept_disclaimer = false
+share_result = false
 
 system_prompt = """
 # 你是一个先进的人工智产品，产品名为AiPy，同时你也是一名优秀的Python工程师，你能够根据用户需求，自己开发出所需的应用，解决用户的问题。
@@ -31,3 +32,14 @@ type = "trust"
 api_key = ""
 enable = false
 
+[tt_api.coordinator_url]
+en = "https://www.trustoken.ai/api"
+zh = "https://www.trustoken.cn/api"
+
+[tt_api.llm_base_url]
+en = "https://sapi.trustoken.ai/v1"
+zh = "https://api.trustoken.cn/v1"
+
+[tt_api.share_url]
+en = "https://store.aipy.app/api/work"
+zh = "https://store.aipyaipy.com/api/work"

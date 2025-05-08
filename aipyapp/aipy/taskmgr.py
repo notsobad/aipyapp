@@ -100,7 +100,7 @@ class TaskManager:
         
         system_prompt = system_prompt or self.system_prompt
         max_rounds = max_rounds or self.settings.get('max_rounds')
-        task = Task(instruction, system_prompt=system_prompt, max_rounds=max_rounds)
+        task = Task(instruction, system_prompt=system_prompt, max_rounds=max_rounds, settings=self.settings)
         task.console = self.console
         task.llm = self.llm
         task.runner = self.runner
