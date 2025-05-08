@@ -17,6 +17,8 @@ from . import __version__
 from .aipy import TaskManager
 from .aipy.i18n import T, set_lang
 from .aipy.config import ConfigManager, CONFIG_DIR
+from .config import LLMConfig
+from .aipy.wizard import config_llm
 
 __PACKAGE_NAME__ = "aipyapp"
 
@@ -168,9 +170,15 @@ def main(args):
     console.print(f"[bold cyan]🚀 Python use - AIPython ({__version__}) [[green]https://aipy.app[/green]]")
     default_config_path = resources.files(__PACKAGE_NAME__) / "default.toml"
     conf = ConfigManager(default_config_path, args.config_dir)
-    conf.check_config()
+    llm_config = LLMConfig(CONFIG_DIR / "config")
     settings = conf.get_config()
-    #console.print(T('env_info').format(CONFIG_DIR, conf.get_work_dir()))
+    if conf.check_config(gui=True) == 'TrustToken':
+        if llm_config.need_config():
+            console.print("[yellow]未找到 LLM 配置，开始配置 LLM 提供商[/yellow]")
+            config = config_llm(llm_config)
+            if not config:
+                return
+        settings["llm"] = llm_config.config
 
     lang = settings.get('lang')
     if lang: set_lang(lang)

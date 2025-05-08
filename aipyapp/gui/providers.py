@@ -205,7 +205,7 @@ class ProviderConfigWizard(wx.adv.Wizard):
         max_tokens = self.model_page.get_max_tokens()
         temperature = self.model_page.get_temperature()
         provider_info = self.provider_config.providers[provider]
-        
+
         config = self.provider_config.config
         config[provider] = {
             "api_key": api_key,
@@ -242,7 +242,7 @@ class ProviderConfigWizard(wx.adv.Wizard):
                 self.log.info(f"获取模型列表成功: {data}")
                 if provider in ["OpenAI", "DeepSeek", "xAI", "Claude"]:
                     return [model["id"] for model in data["data"]]
-                elif provider == "Google Gemini":
+                elif provider == "Gemini":
                     return [model["name"] for model in data["models"]]
                 # 其他 provider 的模型解析逻辑
                 return []

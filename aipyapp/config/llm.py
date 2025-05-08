@@ -19,7 +19,7 @@ PROVIDERS = {
         "models_endpoint": "/models",
         "type": "deepseek"
     },
-    "Google Gemini": {
+    "Gemini": {
         "api_base": "https://generativelanguage.googleapis.com/v1beta/",
         "models_endpoint": "/models",
         "type": "gemini"
