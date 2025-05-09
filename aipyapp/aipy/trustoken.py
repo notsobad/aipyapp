@@ -1,11 +1,13 @@
 import os
 import time
+import webbrowser
+
 import requests
 import qrcode
 
-from .i18n import T
+from aipyapp.aipy.i18n import T
 
-COORDINATOR_URL = os.getenv('COORDINATOR_URL', 'https://api.trustoken.cn/api')
+COORDINATOR_URL = T('tt_coordinator_url')
 POLL_INTERVAL = 5 # 轮询间隔（秒）
 
 class TrustTokenAPI:
@@ -76,7 +78,7 @@ class TrustToken:
         self.api = TrustTokenAPI(coordinator_url)
         self.poll_interval = poll_interval or POLL_INTERVAL
 
-    def request_binding(self):
+    def request_binding(self, qrcode=False):
         """Request binding from the coordinator server.
         
         Returns:
@@ -91,20 +93,21 @@ class TrustToken:
         expires_in = data['expires_in']
 
         print(T('binding_request_sent').format(request_id, approval_url, expires_in))
-        print(T('scan_qr_code'))
-
-        try:
-            qr = qrcode.QRCode(
-                error_correction=qrcode.constants.ERROR_CORRECT_L,
-                border=1
-            )
-            qr.add_data(approval_url)
-            qr.make(fit=True)
-            qr.print_ascii(tty=True)
-            print(T('config_help'))
-        except Exception as e:
-            print(T('qr_code_display_failed').format(e))
-
+        if qrcode:
+            print(T('scan_qr_code'))
+            try:
+                qr = qrcode.QRCode(
+                    error_correction=qrcode.constants.ERROR_CORRECT_L,
+                    border=1
+                )
+                qr.add_data(approval_url)
+                qr.make(fit=True)
+                qr.print_ascii(tty=True)
+                print(T('config_help'))
+            except Exception as e:
+                print(T('qr_code_display_failed').format(e))
+        else:
+            webbrowser.open(approval_url)
         return request_id
 
     def poll_status(self, request_id, save_func=None):

@@ -3,6 +3,7 @@ import questionary
 import requests
 from loguru import logger
 from ..config.llm import LLMConfig, PROVIDERS
+from .trustoken import TrustToken
 
 providers = OrderedDict(PROVIDERS)
 
@@ -37,23 +38,57 @@ def get_models(provider: str, api_key: str) -> list:
         logger.error(f"获取模型列表失败: {str(e)}")
         return []  # 如果API调用失败，返回空列表
 
-def config_llm(llm_config, default=None):
+def select_provider(llm_config, default='TrustToken'):
+    """选择提供商"""
+    while True:
+        name = questionary.select(
+            "请选择 API 提供商：",
+            choices=[
+                questionary.Choice(title='TrusToken (小白模式，推荐)', value='TrustToken', description='TrusToken配置简单、已融合多模型'),
+                questionary.Choice(title='其它提供商（专家模式）', value='other')
+            ],
+            default=default
+        ).unsafe_ask()
+        if name == default:
+            return default
+
+        names = [name for name in providers.keys() if name != default]
+        names.append('<--')
+        name = questionary.select(
+            "请选择其它提供商：",
+            choices=names
+        ).unsafe_ask()
+        if name != '<--':
+            return name
+
+
+def config_llm(llm_config):
     """配置 LLM 提供商"""
-    
     # 第一步：选择提供商
-    name = questionary.select(
-        "请选择 API 提供商：",
-        choices=list(llm_config.providers.keys()),
-        default=default
-    ).ask()
+    name = select_provider(llm_config)
+    if not name:
+        return None
     provider = llm_config.providers[name]
     config = {"type": provider["type"]}
 
+    if name == 'TrustToken':
+        def save_token(token):
+            config['api_key'] = token
+
+        tt = TrustToken()
+        if tt.fetch_token(save_token):
+            config['model'] = 'auto'
+            llm_config.config[name] = config
+            llm_config.save_config(llm_config.config)
+            return llm_config.config
+        else:
+            return None
+        
     # 第二步：输入 API Key
     api_key = questionary.text(
-        f"请输入 {name} 的 API Key：",
-        validate=lambda x: len(x) > 8
-    ).ask()
+            f"请输入 {name} 的 API Key：",
+            validate=lambda x: len(x) > 8
+    ).unsafe_ask()
     config['api_key'] = api_key
 
     # 获取可用模型列表
@@ -66,7 +101,7 @@ def config_llm(llm_config, default=None):
     model = questionary.select(
         "请选择模型：",
         choices=available_models
-    ).ask()
+    ).unsafe_ask()
     config['model'] = model
 
     # 第四步：配置参数
@@ -74,14 +109,14 @@ def config_llm(llm_config, default=None):
         "请输入最大 Token 数（默认：8192）：",
         default="8192",
         validate=lambda x: x.isdigit() and int(x) > 0
-    ).ask()
+    ).unsafe_ask()
     config['max_tokens'] = int(max_tokens)
 
     temperature = questionary.text(
         "请输入 Temperature（0-1，默认：0.5）：",
-        default="0.5",
+        default="0.7",
         validate=lambda x: 0 <= float(x) <= 1
-    ).ask()
+    ).unsafe_ask()
     config['temperature'] = float(temperature)
 
     # 保存配置

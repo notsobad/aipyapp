@@ -410,7 +410,7 @@ class GrokClient(OpenAIBaseClient):
     PARAMS = {'stream_options': {'include_usage': True}}
 
 class TrustClient(OpenAIBaseClient): 
-    BASE_URL = 'https://api.trustoken.cn/v1'
+    BASE_URL = T('tt_base_url')
     MODEL = 'auto'
     PARAMS = {'stream_options': {'include_usage': True}}
 

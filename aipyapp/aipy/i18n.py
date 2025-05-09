@@ -63,7 +63,7 @@ MESSAGES = {
         'qr_code_display_failed': "(无法显示二维码: {})\n",
         'coordinator_request_error': "连接到协调服务器或请求时出错: {}",
         'unexpected_request_error': "请求过程中发生意外错误: {}",
-        'waiting_for_approval': "等待扫码授权",
+        'waiting_for_approval': "浏览器已打开Trustoken网站，请注册或登录授权",
         'current_status': "当前状态: {}...",
         'binding_expired': "\n绑定请求已过期。",
         'unknown_status': "\n收到未知状态: {}",
@@ -132,6 +132,8 @@ MESSAGES = {
         'Open work directory in file manager': '在文件管理器中打开工作目录',
         'requesting_binding': '正在申请绑定',
         'Update available': '发现新版本',
+        "tt_base_url": "https://api.trustoken.cn/v1",
+        "tt_coordinator_url": "https://www.trustoken.cn/api",
     },
     'en': {
         'start_instruction': 'Start processing instruction',
@@ -189,7 +191,7 @@ MESSAGES = {
         'qr_code_display_failed': "(Could not display QR code: {})\n",
         'coordinator_request_error': "Error connecting to coordinator or during request: {}",
         'unexpected_request_error': "An unexpected error occurred during request: {}",
-        'waiting_for_approval': "Waiting for approval",
+        'waiting_for_approval': "Browser has opened the Trustoken website, please register or login to authorize",
         'current_status': "Current status: {}...",
         'binding_expired': "\nBinding request expired.",
         'unknown_status': "\nUnknown status received: {}",
@@ -258,6 +260,8 @@ MESSAGES = {
         'Open work directory in file manager': 'Open work directory in file manager',
         'requesting_binding': 'Request binding',
         'Update available': 'Update available',
+        "tt_base_url": "https://sapi.trustoken.ai/v1",
+        "tt_coordinator_url": "https://www.trustoken.ai/api",
     }
 }
 

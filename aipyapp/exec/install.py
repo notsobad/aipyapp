@@ -6,7 +6,7 @@ import subprocess
 
 __cache__ = set()
 
-def ensure_packages(*packages, upgrade=False, quiet=True):
+def ensure_packages(*packages, upgrade=False, quiet=False):
     """
     安装多个 pip 包。包名以位置参数传入，其它选项必须使用关键字参数。
 

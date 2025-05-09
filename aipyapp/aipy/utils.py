@@ -35,9 +35,6 @@ def confirm(console, prompt, default="n", auto=None):
             break
     return response == "y"
 
-    cp = subprocess.run([sys.executable, "-m", "pip", "install"] + packages)
-    return cp.returncode == 0
-
 def confirm_disclaimer(console):
     console.print()
     panel = Panel.fit(DISCLAIMER_TEXT, title="[red]免责声明", border_style="red", padding=(1, 2))

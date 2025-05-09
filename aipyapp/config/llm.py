@@ -2,34 +2,56 @@
 # -*- coding: utf-8 -*-
 
 from .base import BaseConfig
+from ..aipy.i18n import T, __lang__
 
-PROVIDERS = {
-    "OpenAI": {
-        "api_base": "https://api.openai.com/v1",
-        "models_endpoint": "/models",
-        "type": "openai"
-    },
-    "xAI": {
-        "api_base": "https://api.x.ai/v1",
-        "models_endpoint": "/models",
-        "type": "grok"
-    },
-    "DeepSeek": {
-        "api_base": "https://api.deepseek.com",
-        "models_endpoint": "/models",
-        "type": "deepseek"
-    },
-    "Gemini": {
-        "api_base": "https://generativelanguage.googleapis.com/v1beta/",
-        "models_endpoint": "/models",
-        "type": "gemini"
-    },
-    "Claude": {
-        "api_base": "https://api.anthropic.com/v1",
-        "models_endpoint": "/models",
-        "type": "claude"
+if __lang__ == "zh":
+    PROVIDERS = {
+        "TrustToken": {
+            "api_base": T("tt_base_url"),
+            "models_endpoint": "/models",
+            "type": "trust",
+            "model": "auto"
+        },
+        "DeepSeek": {
+            "api_base": "https://api.deepseek.com",
+            "models_endpoint": "/models",
+            "type": "deepseek"
+        },
     }
-}
+else:
+    PROVIDERS = {
+        "TrustToken": {
+            "api_base": T("tt_base_url"),
+            "models_endpoint": "/models",
+            "type": "trust",
+            "model": "auto"
+        },
+        "DeepSeek": {
+            "api_base": "https://api.deepseek.com",
+            "models_endpoint": "/models",
+            "type": "deepseek"
+        },
+        "xAI": {
+            "api_base": "https://api.x.ai/v1",
+            "models_endpoint": "/models",
+            "type": "grok"
+        },
+        "Claude": {
+            "api_base": "https://api.anthropic.com/v1",
+            "models_endpoint": "/models",
+            "type": "claude"
+        },
+        "OpenAI": {
+            "api_base": "https://api.openai.com/v1",
+            "models_endpoint": "/models",
+            "type": "openai"
+        },
+        "Gemini": {
+            "api_base": "https://generativelanguage.googleapis.com/v1beta/",
+            "models_endpoint": "/models",
+            "type": "gemini"
+        },
+    }
 
 class LLMConfig(BaseConfig):
     FILE = "llm.json"
