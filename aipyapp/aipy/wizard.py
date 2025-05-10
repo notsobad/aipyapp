@@ -38,13 +38,13 @@ def get_models(provider: str, api_key: str) -> list:
         logger.error(f"获取模型列表失败: {str(e)}")
         return []  # 如果API调用失败，返回空列表
 
-def select_provider(llm_config, default='TrustToken'):
+def select_provider(llm_config, default='Trustoken'):
     """选择提供商"""
     while True:
         name = questionary.select(
             "请选择 API 提供商：",
             choices=[
-                questionary.Choice(title='TrusToken (小白模式，推荐)', value='TrustToken', description='TrusToken配置简单、已融合多模型'),
+                questionary.Choice(title='Trustoken (小白模式，推荐)', value='Trustoken', description='Trustoken配置简单、已融合多模型'),
                 questionary.Choice(title='其它提供商（专家模式）', value='other')
             ],
             default=default
@@ -71,7 +71,7 @@ def config_llm(llm_config):
     provider = llm_config.providers[name]
     config = {"type": provider["type"]}
 
-    if name == 'TrustToken':
+    if name == 'Trustoken':
         def save_token(token):
             config['api_key'] = token
 

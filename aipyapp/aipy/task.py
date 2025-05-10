@@ -238,7 +238,9 @@ class Task:
         """
         url = get_region_api('share_url', self.settings)
 
-        trustoken_apikey = self.settings.get('llm', {}).get('trustoken', {}).get('api_key')
+        trustoken_apikey = self.settings.get('llm', {}).get('Trustoken', {}).get('api_key')
+        if not trustoken_apikey:
+            trustoken_apikey = self.settings.get('llm', {}).get('trustoken', {}).get('api_key')
         if not trustoken_apikey:
             return False
         try:

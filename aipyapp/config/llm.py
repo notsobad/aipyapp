@@ -6,7 +6,7 @@ from ..aipy.i18n import T, __lang__
 
 if __lang__ == "zh":
     PROVIDERS = {
-        "TrustToken": {
+        "Trustoken": {
             "api_base": T("tt_base_url"),
             "models_endpoint": "/models",
             "type": "trust",
@@ -20,7 +20,7 @@ if __lang__ == "zh":
     }
 else:
     PROVIDERS = {
-        "TrustToken": {
+        "Trustoken": {
             "api_base": T("tt_base_url"),
             "models_endpoint": "/models",
             "type": "trust",
