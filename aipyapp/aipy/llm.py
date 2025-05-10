@@ -450,7 +450,6 @@ class LLM(object):
         self.log = logger.bind(src='llm')
         names = defaultdict(set)
         for name, config in settings.llm.items():
-            self.log.info(f"LLM: {name} {config}")
             if not config.get('enable', True):
                 names['disabled'].add(name)
                 continue

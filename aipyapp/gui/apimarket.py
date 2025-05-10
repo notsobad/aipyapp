@@ -1,16 +1,9 @@
-#!/usr/bin/env python
-#coding: utf-8
 
-import os
-import wx
-import json
-import wx.lib.agw.hyperlink as hl
-from wx.lib.scrolledpanel import ScrolledPanel
-import tomllib
-import tomli_w
-import io
-import copy
 import traceback
+
+import wx
+from loguru import logger
+from wx.lib.scrolledpanel import ScrolledPanel
 
 from ..aipy import T
 
@@ -399,6 +392,8 @@ class ApiMarketDialog(wx.Dialog):
         super().__init__(parent, title="API市场", size=(800, 600))
         
         self.config_manager = config_manager
+        self.log = logger.bind(src="apimarket")
+
         # 确保获取最新配置
         self.config_manager.reload_config()
         self.settings = config_manager.get_config()

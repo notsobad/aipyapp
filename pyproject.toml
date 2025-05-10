@@ -21,6 +21,7 @@ dependencies = [
     "qrcode>=8.1",
     "loguru>=0.7.3",
     "questionary>=2.1.0",
+    "wxpython>=4.2.3",
 ]
 
 [project.scripts]
