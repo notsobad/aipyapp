@@ -507,7 +507,7 @@ class ChatFrame(wx.Frame):
 
 class AboutDialog(wx.Dialog):
     def __init__(self, parent):
-        super().__init__(parent, title="关于爱派", size=(400, 300))
+        super().__init__(parent, title="关于爱派")
         
         self.SetBackgroundColour(wx.Colour(255, 255, 255))
         
@@ -517,13 +517,13 @@ class AboutDialog(wx.Dialog):
         logo_panel = wx.Panel(self)
         logo_sizer = wx.BoxSizer(wx.HORIZONTAL)
         
-        try:
-            icon_path = str(resources.files(__PACKAGE_NAME__) / "aipy.ico")
-            icon = wx.Icon(icon_path, wx.BITMAP_TYPE_ICO)
-            bitmap = wx.StaticBitmap(logo_panel, -1, icon.ConvertToBitmap())
-            logo_sizer.Add(bitmap, 0, wx.ALL | wx.ALIGN_CENTER, 10)
-        except:
-            pass
+        with resources.path("aipyapp", "aipy.ico") as icon_path:
+            icon = wx.Icon(str(icon_path), wx.BITMAP_TYPE_ICO)
+            bmp = wx.Bitmap()
+            bmp.CopyFromIcon(icon)
+            # Scale the bitmap to a more appropriate size
+            scaled_bmp = wx.Bitmap(bmp.ConvertToImage().Scale(48, 48, wx.IMAGE_QUALITY_HIGH))
+            logo_sizer.Add(wx.StaticBitmap(logo_panel, -1, scaled_bmp), 0, wx.ALL | wx.ALIGN_CENTER, 5)
             
         title = wx.StaticText(logo_panel, -1, "爱派")
         title.SetFont(wx.Font(24, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD))
@@ -560,12 +560,21 @@ class AboutDialog(wx.Dialog):
         bottom_sizer.Add(copyright, 0, wx.ALL | wx.ALIGN_CENTER, 5)
         
         ok_button = wx.Button(bottom_panel, wx.ID_OK, "确定")
+        ok_button.SetMinSize((100, 30))  # 设置按钮最小大小
         bottom_sizer.Add(ok_button, 0, wx.ALL | wx.ALIGN_CENTER, 10)
         
         bottom_panel.SetSizer(bottom_sizer)
         vbox.Add(bottom_panel, 0, wx.EXPAND | wx.ALL, 5)
         
         self.SetSizer(vbox)
+        
+        # 设置最小窗口大小
+        self.SetMinSize((400, 400))
+        
+        # 根据内容自动调整大小
+        self.Fit()
+        
+        # 居中显示
         self.Centre()
 
 def main(args):
