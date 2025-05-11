@@ -104,6 +104,8 @@ class TrustTokenPage(wx.adv.WizardPage):
         self.polling_timeout = 310  # 5分钟10秒
         self.init_ui()
         self.SetSize(800, 600)
+        # 绑定页面切换事件
+        self.GetParent().Bind(wx.adv.EVT_WIZARD_PAGE_CHANGING, self.on_page_changing)
 
     def init_ui(self):
         vbox = wx.BoxSizer(wx.VERTICAL)
@@ -257,6 +259,16 @@ class TrustTokenPage(wx.adv.WizardPage):
     def get_api_key(self):
         return self.api_key_text.GetValue()
 
+    def on_page_changing(self, event):
+        # 如果是当前页面，且是向前切换
+        if event.GetPage() == self and event.GetDirection():
+            api_key = self.get_api_key()
+            if not api_key:
+                wx.MessageBox("请先获取 API Key", "提示", wx.OK | wx.ICON_INFORMATION)
+                event.Veto()
+                return
+        event.Skip()
+
     def GetNext(self):
         return self.GetParent().model_page
 
@@ -406,7 +418,7 @@ class ModelPage(wx.adv.WizardPage):
             self.model_choice.SetItems(["auto"])
             self.model_choice.SetSelection(0)
             self.model_choice.Disable()  # 禁用选择
-            self.hint.SetLabel("TrustToken 使用自动模型选择")
+            self.hint.SetLabel("Trustoken 使用自动模型选择")
         else:
             self.model_choice.SetItems(models)
             self.model_choice.Enable()  # 启用选择

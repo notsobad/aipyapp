@@ -76,33 +76,29 @@ def config_llm(llm_config):
             config['api_key'] = token
 
         tt = TrustToken()
-        if tt.fetch_token(save_token):
-            config['model'] = 'auto'
-            llm_config.config[name] = config
-            llm_config.save_config(llm_config.config)
-            return llm_config.config
-        else:
+        if not tt.fetch_token(save_token):
             return None
         
-    # 第二步：输入 API Key
-    api_key = questionary.text(
-            f"请输入 {name} 的 API Key：",
-            validate=lambda x: len(x) > 8
-    ).unsafe_ask()
-    config['api_key'] = api_key
+        config['model'] = 'auto'
+    else:
+        api_key = questionary.text(
+                f"请输入 {name} 的 API Key：",
+                validate=lambda x: len(x) > 8
+        ).unsafe_ask()
+        config['api_key'] = api_key
 
-    # 获取可用模型列表
-    available_models = get_models(name, api_key)
-    if not available_models:
-        logger.warning(f"无法获取 {name} 的模型列表，请检查 API Key 是否正确")
-        return None
+        # 获取可用模型列表
+        available_models = get_models(name, api_key)
+        if not available_models:
+            logger.warning(f"无法获取 {name} 的模型列表，请检查 API Key 是否正确")
+            return None
 
-    # 第三步：选择模型
-    model = questionary.select(
-        "请选择模型：",
-        choices=available_models
-    ).unsafe_ask()
-    config['model'] = model
+        # 第三步：选择模型
+        model = questionary.select(
+            "请选择模型：",
+            choices=available_models
+        ).unsafe_ask()
+        config['model'] = model
 
     # 第四步：配置参数
     max_tokens = questionary.text(
@@ -120,6 +116,7 @@ def config_llm(llm_config):
     config['temperature'] = float(temperature)
 
     # 保存配置
+    config['enable'] = True
     current_config = llm_config.config
     current_config[name] = config
     llm_config.save_config(current_config)
