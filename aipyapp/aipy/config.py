@@ -13,7 +13,7 @@ from rich import print
 import tomli_w
 import qrcode
 
-from .. import T, __resources_path__
+from .. import T, __resources_path__, get_system_language
 from .trustoken import TrustToken
 import traceback
 
@@ -28,6 +28,7 @@ OLD_SETTINGS_FILES = [
 
 CONFIG_FILE_NAME = f"{__PACKAGE_NAME__}.toml"
 USER_CONFIG_FILE_NAME = "user_config.toml"
+LANG = get_system_language()
 
 def init_config_dir():
     """
@@ -86,8 +87,17 @@ def is_valid_api_key(api_key):
     pattern = r"^[A-Za-z0-9_-]{8,128}$"
     return bool(re.match(pattern, api_key))
 
+def get_region_api(name, config):
+    """ 获取特定的内部API地址, 参考default.toml
+    """
+    tt_api = config.get('tt_api', {})
+    conf = tt_api.get(name, {})
+    url = conf.get(LANG)
+    return url
+
 class ConfigManager:
     def __init__(self, config_dir=None):
+        self.lang = get_system_language()
         self.config_file = get_config_file_path(config_dir)
         self.user_config_file = get_config_file_path(config_dir, USER_CONFIG_FILE_NAME)
         self.default_config = __resources_path__ / "default.toml"
@@ -103,8 +113,10 @@ class ConfigManager:
                 }
             }
         })
-        self.trust_token = TrustToken()
-
+        
+        #print(self.config.to_dict())
+        coordinator_url = self.get_region_api('coordinator_url')
+        self.trust_token = TrustToken(coordinator_url=coordinator_url)
 
     def get_work_dir(self):
         if self.config.workdir:
@@ -190,12 +202,13 @@ class ConfigManager:
         return config
 
     def save_tt_config(self, api_key):
+        base_url = self.get_region_api('llm_base_url')
         config = {
             'llm': {
                 'trustoken': {
                     'api_key': api_key,
                     'type': 'trust',
-                    'base_url': 'https://api.trustoken.cn/v1',
+                    'base_url': base_url,
                     'model': 'auto',
                     'default': True,
                     'enable': True
@@ -363,3 +376,9 @@ class ConfigManager:
             return True
         
         return False
+    
+    def get_region_api(self, name):
+        """ 获取特定的内部API地址, 参考default.toml
+        """
+        url = get_region_api(name, self.config)
+        return url
