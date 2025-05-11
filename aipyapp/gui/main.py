@@ -166,7 +166,6 @@ class ChatFrame(wx.Frame):
             icon = wx.Icon(str(icon_path), wx.BITMAP_TYPE_ICO)
             self.SetIcon(icon)
 
-        self.SetBackgroundColour(wx.Colour(245, 245, 245))
         self.make_menu_bar()
         self.make_panel()
         self.statusbar = CStatusBar(self)
@@ -184,8 +183,6 @@ class ChatFrame(wx.Frame):
         self.container = wx.Panel(panel)
  
         self.input = wx.TextCtrl(self.container, style=wx.TE_MULTILINE)
-        self.input.SetBackgroundColour(wx.Colour(255, 255, 255))
-        self.input.SetForegroundColour(wx.Colour(33, 33, 33))
         self.input.SetMinSize((-1, 60))
         self.input.SetWindowStyleFlag(wx.BORDER_SIMPLE)
         self.input.Bind(wx.EVT_KEY_DOWN, self.on_key_down)
@@ -193,7 +190,6 @@ class ChatFrame(wx.Frame):
         self.done_button = wx.Button(self.container, label="结束", size=(50, -1))
         self.done_button.Hide()
         self.done_button.Bind(wx.EVT_BUTTON, self.on_done)
-        self.done_button.SetBackgroundColour(wx.Colour(255, 230, 230)) 
         self.send_button = wx.Button(self.container, label="发送", size=(50, -1))
         self.send_button.Bind(wx.EVT_BUTTON, self.on_send)
         self.container.Bind(wx.EVT_SIZE, self.on_container_resize)
@@ -203,8 +199,6 @@ class ChatFrame(wx.Frame):
         container = wx.Panel(panel)
         hbox = wx.BoxSizer(wx.HORIZONTAL)
         self.input = wx.TextCtrl(container, style=wx.TE_MULTILINE)
-        self.input.SetBackgroundColour(wx.Colour(255, 255, 255))
-        self.input.SetForegroundColour(wx.Colour(33, 33, 33))
         self.input.SetMinSize((-1, 80))
         self.input.SetWindowStyleFlag(wx.BORDER_SIMPLE)
         self.input.Bind(wx.EVT_KEY_DOWN, self.on_key_down)
@@ -214,7 +208,6 @@ class ChatFrame(wx.Frame):
         self.done_button = wx.Button(container, label="结束")
         self.done_button.Hide()
         self.done_button.Bind(wx.EVT_BUTTON, self.on_done)
-        self.done_button.SetBackgroundColour(wx.Colour(255, 230, 230)) 
         self.send_button = wx.Button(container, label="发送")
         self.send_button.Bind(wx.EVT_BUTTON, self.on_send)
         vbox.Add(self.done_button, 0, wx.ALIGN_CENTER | wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
@@ -268,12 +261,6 @@ class ChatFrame(wx.Frame):
         edit_menu.Append(menu_item)
         self.Bind(wx.EVT_MENU, self.on_config, id=self.ID_CONFIG)
         self.Bind(wx.EVT_MENU, self.on_clear_chat, id=wx.ID_CLEAR)
-
-        # Add API配置 menu item
-        self.ID_API_CONFIG = wx.NewIdRef()
-        menu_item = wx.MenuItem(edit_menu, self.ID_API_CONFIG, "API配置(&A)\tCtrl+A", "配置API市场")
-        edit_menu.Append(menu_item)
-        self.Bind(wx.EVT_MENU, self.on_api_config, id=self.ID_API_CONFIG)
 
         # Add API配置 menu item
         self.ID_API_CONFIG = wx.NewIdRef()

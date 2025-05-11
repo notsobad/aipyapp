@@ -6,7 +6,7 @@ from loguru import logger
 
 from .i18n import T, set_lang
 
-__version__ = '0.1.28b5'
+__version__ = '0.2.0b1'
 
 __resources__ = f'{__package__}.res'
 __resources_path__ = resources.files(__resources__)

@@ -6,9 +6,7 @@ from ..aipy.config import CONFIG_DIR
 
 class AboutDialog(wx.Dialog):
     def __init__(self, parent):
-        super().__init__(parent, title="关于爱派", size=(400, 300))
-        
-        self.SetBackgroundColour(wx.Colour(255, 255, 255))
+        super().__init__(parent, title="关于爱派")
         
         vbox = wx.BoxSizer(wx.VERTICAL)
         
@@ -62,4 +60,6 @@ class AboutDialog(wx.Dialog):
         vbox.Add(bottom_panel, 0, wx.EXPAND | wx.ALL, 5)
         
         self.SetSizer(vbox)
+        self.SetMinSize((400, 400))
+        self.Fit()
         self.Centre() 
