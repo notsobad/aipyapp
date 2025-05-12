@@ -258,8 +258,11 @@ class Task:
         status_code = response.status_code
         if status_code in (200, 201):
             if verbose:
-                self.console.print(f"[green]{T('upload_success')}:", response.json())
-            return response.json()
+                data = response.json()
+                url = data.get('url', '')
+                if url:
+                    self.console.print(f"[green]{T('upload_success', url)}[/green]")
+            return True
 
         if verbose:
             self.console.print(f"[red]{T('upload_failed', status_code)}:", response.text)
