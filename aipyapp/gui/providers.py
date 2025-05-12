@@ -42,7 +42,6 @@ class InitialProviderPage(wx.adv.WizardPage):
 
         # 提示信息
         self.hint = wx.StaticText(self, label="")
-        self.hint.SetForegroundColour(wx.Colour(100, 100, 100))
         # 设置文本自动换行
         self.hint.Wrap(400)
         vbox.Add(self.hint, 0, wx.ALL | wx.EXPAND, 10)

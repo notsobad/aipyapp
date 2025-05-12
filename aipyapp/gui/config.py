@@ -12,30 +12,24 @@ class ConfigDialog(wx.Dialog):
         super().__init__(parent, title=T('Configuration'), size=(500, 450))
         
         self.settings = settings
-        self.SetBackgroundColour(wx.Colour(245, 245, 245))
         
         vbox = wx.BoxSizer(wx.VERTICAL)
         
         # Main panel with content
         main_panel = wx.Panel(self)
-        main_panel.SetBackgroundColour(wx.Colour(245, 245, 245))
         main_vbox = wx.BoxSizer(wx.VERTICAL)
         
         # Work directory group
         work_dir_box = wx.StaticBox(main_panel, -1, T('Work Directory'))
-        work_dir_box.SetBackgroundColour(wx.Colour(245, 245, 245))
         work_dir_sizer = wx.StaticBoxSizer(work_dir_box, wx.VERTICAL)
         
         work_dir_panel = wx.Panel(main_panel)
-        work_dir_panel.SetBackgroundColour(wx.Colour(245, 245, 245))
         work_dir_inner_sizer = wx.BoxSizer(wx.HORIZONTAL)
         
         self.work_dir_text = wx.TextCtrl(work_dir_panel, -1, settings.workdir, style=wx.TE_READONLY)
-        self.work_dir_text.SetBackgroundColour(wx.Colour(255, 255, 255))
         work_dir_inner_sizer.Add(self.work_dir_text, 1, wx.ALL | wx.EXPAND, 5)
         
         browse_button = wx.Button(work_dir_panel, -1, T('Browse...'))
-        browse_button.SetBackgroundColour(wx.Colour(255, 255, 255))
         browse_button.Bind(wx.EVT_BUTTON, self.on_browse_work_dir)
         work_dir_inner_sizer.Add(browse_button, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
         
@@ -44,19 +38,16 @@ class ConfigDialog(wx.Dialog):
         
         # Add hint about creating new directory
         hint_text = wx.StaticText(main_panel, -1, T('You can create a new directory in the file dialog'))
-        hint_text.SetForegroundColour(wx.Colour(128, 128, 128))
         work_dir_sizer.Add(hint_text, 0, wx.LEFT | wx.BOTTOM, 5)
         
         main_vbox.Add(work_dir_sizer, 0, wx.ALL | wx.EXPAND, 10)
         
         # Settings group
         settings_box = wx.StaticBox(main_panel, -1, T('Settings'))
-        settings_box.SetBackgroundColour(wx.Colour(245, 245, 245))
         settings_sizer = wx.StaticBoxSizer(settings_box, wx.VERTICAL)
         
         # Max tokens slider
         tokens_panel = wx.Panel(main_panel)
-        tokens_panel.SetBackgroundColour(wx.Colour(245, 245, 245))
         tokens_sizer = wx.BoxSizer(wx.HORIZONTAL)
         
         tokens_label = wx.StaticText(tokens_panel, -1, T('Max Tokens') + ":")
@@ -67,7 +58,6 @@ class ConfigDialog(wx.Dialog):
                                      minValue=64,
                                      maxValue=128*1024,
                                      style=wx.SL_HORIZONTAL | wx.SL_AUTOTICKS)
-        self.tokens_slider.SetBackgroundColour(wx.Colour(255, 255, 255))
         self.tokens_slider.SetTickFreq(1000)
         self.tokens_slider.SetForegroundColour(wx.Colour(0, 0, 0))
         tokens_sizer.Add(self.tokens_slider, 1, wx.ALL | wx.EXPAND, 5)
@@ -80,7 +70,6 @@ class ConfigDialog(wx.Dialog):
         
         # Timeout slider
         timeout_panel = wx.Panel(main_panel)
-        timeout_panel.SetBackgroundColour(wx.Colour(245, 245, 245))
         timeout_sizer = wx.BoxSizer(wx.HORIZONTAL)
         
         timeout_label = wx.StaticText(timeout_panel, -1, T('Timeout (seconds)') + ":")
@@ -91,9 +80,7 @@ class ConfigDialog(wx.Dialog):
                                       minValue=0,
                                       maxValue=120,
                                       style=wx.SL_HORIZONTAL | wx.SL_AUTOTICKS)
-        self.timeout_slider.SetBackgroundColour(wx.Colour(255, 255, 255))
         self.timeout_slider.SetTickFreq(30)
-        self.timeout_slider.SetForegroundColour(wx.Colour(0, 0, 0))
         timeout_sizer.Add(self.timeout_slider, 1, wx.ALL | wx.EXPAND, 5)
         
         self.timeout_text = wx.StaticText(timeout_panel, -1, str(self.timeout_slider.GetValue()))
@@ -104,7 +91,6 @@ class ConfigDialog(wx.Dialog):
         
         # Max rounds slider
         rounds_panel = wx.Panel(main_panel)
-        rounds_panel.SetBackgroundColour(wx.Colour(245, 245, 245))
         rounds_sizer = wx.BoxSizer(wx.HORIZONTAL)
         
         rounds_label = wx.StaticText(rounds_panel, -1, T('Max Rounds') + ":")
@@ -115,9 +101,7 @@ class ConfigDialog(wx.Dialog):
                                      minValue=1,
                                      maxValue=64,
                                      style=wx.SL_HORIZONTAL | wx.SL_AUTOTICKS)
-        self.rounds_slider.SetBackgroundColour(wx.Colour(255, 255, 255))
         self.rounds_slider.SetTickFreq(8)
-        self.rounds_slider.SetForegroundColour(wx.Colour(0, 0, 0))
         rounds_sizer.Add(self.rounds_slider, 1, wx.ALL | wx.EXPAND, 5)
         
         self.rounds_text = wx.StaticText(rounds_panel, -1, str(self.rounds_slider.GetValue()))
@@ -133,14 +117,11 @@ class ConfigDialog(wx.Dialog):
         
         # Buttons panel at bottom
         button_panel = wx.Panel(self)
-        button_panel.SetBackgroundColour(wx.Colour(245, 245, 245))
         button_sizer = wx.BoxSizer(wx.HORIZONTAL)
         
         ok_button = wx.Button(button_panel, wx.ID_OK, T('OK'))
-        ok_button.SetBackgroundColour(wx.Colour(255, 255, 255))
         ok_button.SetMinSize((100, 30))
         cancel_button = wx.Button(button_panel, wx.ID_CANCEL, T('Cancel'))
-        cancel_button.SetBackgroundColour(wx.Colour(255, 255, 255))
         cancel_button.SetMinSize((100, 30))
         
         button_sizer.Add(ok_button, 0, wx.ALL, 5)

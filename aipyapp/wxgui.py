@@ -216,7 +216,6 @@ class ChatFrame(wx.Frame):
         icon = wx.Icon(str(resources.files(__PACKAGE_NAME__) / "aipy.ico"), wx.BITMAP_TYPE_ICO)
         self.SetIcon(icon)
 
-        self.SetBackgroundColour(wx.Colour(245, 245, 245))
         self.make_menu_bar()
         self.make_panel()
         self.statusbar = CStatusBar(self)
@@ -235,8 +234,6 @@ class ChatFrame(wx.Frame):
         self.container = wx.Panel(panel)
  
         self.input = wx.TextCtrl(self.container, style=wx.TE_MULTILINE)
-        self.input.SetBackgroundColour(wx.Colour(255, 255, 255))
-        self.input.SetForegroundColour(wx.Colour(33, 33, 33))
         self.input.SetMinSize((-1, 60))
         self.input.SetWindowStyleFlag(wx.BORDER_SIMPLE)
         self.input.Bind(wx.EVT_KEY_DOWN, self.on_key_down)
@@ -244,7 +241,6 @@ class ChatFrame(wx.Frame):
         self.done_button = wx.Button(self.container, label="结束", size=(50, -1))
         self.done_button.Hide()
         self.done_button.Bind(wx.EVT_BUTTON, self.on_done)
-        self.done_button.SetBackgroundColour(wx.Colour(255, 230, 230)) 
         self.send_button = wx.Button(self.container, label="发送", size=(50, -1))
         self.send_button.Bind(wx.EVT_BUTTON, self.on_send)
         self.container.Bind(wx.EVT_SIZE, self.on_container_resize)
@@ -254,8 +250,6 @@ class ChatFrame(wx.Frame):
         container = wx.Panel(panel)
         hbox = wx.BoxSizer(wx.HORIZONTAL)
         self.input = wx.TextCtrl(container, style=wx.TE_MULTILINE)
-        self.input.SetBackgroundColour(wx.Colour(255, 255, 255))
-        self.input.SetForegroundColour(wx.Colour(33, 33, 33))
         self.input.SetMinSize((-1, 80))
         self.input.SetWindowStyleFlag(wx.BORDER_SIMPLE)
         self.input.Bind(wx.EVT_KEY_DOWN, self.on_key_down)
@@ -303,7 +297,6 @@ class ChatFrame(wx.Frame):
 
     def make_menu_bar(self):
         menu_bar = wx.MenuBar()
-        menu_bar.SetBackgroundColour(wx.Colour(240, 240, 240))
         
         file_menu = wx.Menu()
         file_menu.Append(wx.ID_SAVE, "保存聊天记录为 HTML(&S)\tCtrl+S", "保存当前聊天记录为 HTML 文件")
@@ -508,8 +501,6 @@ class ChatFrame(wx.Frame):
 class AboutDialog(wx.Dialog):
     def __init__(self, parent):
         super().__init__(parent, title="关于爱派")
-        
-        self.SetBackgroundColour(wx.Colour(255, 255, 255))
         
         vbox = wx.BoxSizer(wx.VERTICAL)
         

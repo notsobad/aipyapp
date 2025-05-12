@@ -16,8 +16,6 @@ class ApiItemPanel(wx.Panel):
         self.on_edit = on_edit
         self.on_delete = on_delete
 
-        self.SetBackgroundColour(wx.Colour(245, 245, 245))
-        
         # 创建布局
         main_sizer = wx.BoxSizer(wx.VERTICAL)
         
@@ -98,7 +96,6 @@ class ApiEditDialog(wx.Dialog):
         self.api_name = api_name
         self.api_config = api_config or {"desc": ""}
         
-        self.SetBackgroundColour(wx.Colour(245, 245, 245))
         self._init_ui()
         
     def _init_ui(self):
@@ -131,7 +128,6 @@ class ApiEditDialog(wx.Dialog):
          # 环境变量列表
         self.env_panel = wx.ScrolledWindow(self)
         self.env_panel.SetScrollRate(0, 20)
-        self.env_panel.SetBackgroundColour(wx.Colour(245, 245, 245))
         self.env_sizer = wx.BoxSizer(wx.VERTICAL)
         self.env_panel.SetSizer(self.env_sizer)
         
@@ -170,7 +166,6 @@ class ApiEditDialog(wx.Dialog):
             
         # 添加提示文本
         desc_hint = wx.StaticText(self, label="提示: 描述支持多行文本，将以\"\"\"...\"\"\"格式保存")
-        desc_hint.SetForegroundColour(wx.Colour(100, 100, 100))
         desc_hint.SetFont(wx.Font(9, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL))
         
         desc_sizer.Add(desc_label, 0, wx.ALL, 5)
@@ -204,7 +199,6 @@ class ApiEditDialog(wx.Dialog):
             key_value = ["", "描述"]
         
         env_item = wx.Panel(self.env_panel)
-        env_item.SetBackgroundColour(wx.Colour(245, 245, 245))
         item_sizer = wx.BoxSizer(wx.HORIZONTAL)
         
         # 变量名
@@ -304,7 +298,6 @@ class ApiDetailsDialog(wx.Dialog):
     def __init__(self, parent, api_name, api_config):
         super().__init__(parent, title=f"API详情: {api_name}", size=(500, 400))
         
-        self.SetBackgroundColour(wx.Colour(245, 245, 245))
         self.api_name = api_name
         self.api_config = api_config
         self._init_ui()
@@ -315,7 +308,6 @@ class ApiDetailsDialog(wx.Dialog):
         
         # 创建滚动面板
         scroll_panel = ScrolledPanel(self)
-        scroll_panel.SetBackgroundColour(wx.Colour(245, 245, 245))
         scroll_sizer = wx.BoxSizer(wx.VERTICAL)
         
         # 描述
@@ -340,7 +332,6 @@ class ApiDetailsDialog(wx.Dialog):
                 display_key = key_name
                 
                 env_panel = wx.Panel(scroll_panel)
-                env_panel.SetBackgroundColour(wx.Colour(245, 245, 245))
                 
                 env_box = wx.BoxSizer(wx.VERTICAL)
                 
@@ -401,8 +392,6 @@ class ApiMarketDialog(wx.Dialog):
         # 复制API配置
         self.api_configs = self.settings.get('api', {})
         
-        self.SetBackgroundColour(wx.Colour(245, 245, 245))
-        
         # 创建界面
         self._init_ui()
     
@@ -440,7 +429,6 @@ class ApiMarketDialog(wx.Dialog):
         
         # 添加操作提示
         help_text = wx.StaticText(self, label="提示: 右键点击API项可进行查看、编辑和删除操作")
-        help_text.SetForegroundColour(wx.Colour(100, 100, 100))
         help_text.SetFont(wx.Font(9, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_ITALIC, wx.FONTWEIGHT_NORMAL))
         
         # 加载API配置到列表
