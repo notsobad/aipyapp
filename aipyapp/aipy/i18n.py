@@ -14,7 +14,7 @@ MESSAGES = {
         'start_feedback': '开始反馈结果',
         'end_instruction': '结束处理指令',
         'no_context': '未找到上下文信息',
-        'upload_success': '文章上传成功',
+        'upload_success': '上传成功，私密保存地址：{}',
         'upload_failed': '上传失败 (状态码: {})',
         'reset_warning': '严重警告：这将重新初始化❗❗❗',
         'reset_confirm': '如果你确定要继续，请输入 y',
