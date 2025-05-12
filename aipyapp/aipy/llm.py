@@ -123,13 +123,12 @@ class BaseClient(ABC):
     MODEL = None
     BASE_URL = None
     RPS = 2
-    MAX_TOKENS = 8192
     PARAMS = {}
 
     def __init__(self, config):
         self.name = None
         self.console = None
-        self.max_tokens = config.get("max_tokens") or self.MAX_TOKENS
+        self.max_tokens = config.get("max_tokens")
         self._model = config.get("model") or self.MODEL
         self._timeout = config.get("timeout")
         self._api_key = config.get("api_key")
@@ -144,7 +143,7 @@ class BaseClient(ABC):
             self._params['temperature'] = temperature
 
     def __repr__(self):
-        return f"{self.__class__.__name__}<{self.name}>: ({self._model}, {self._base_url})"
+        return f"{self.__class__.__name__}<{self.name}>: ({self._model}, {self.max_tokens}, {self._base_url})"
     
     def is_stopped(self):
         return event_bus.is_stopped()
@@ -439,6 +438,7 @@ class LLM(object):
         'trust': TrustClient,
         'azure': AzureOpenAIClient
     }
+    MAX_TOKENS = 8192
 
     def __init__(self, settings, console,system_prompt=None):
         self.llms = {}
@@ -449,6 +449,7 @@ class LLM(object):
         self.system_prompt = system_prompt
         self.log = logger.bind(src='llm')
         names = defaultdict(set)
+        max_tokens = settings.get('max_tokens', self.MAX_TOKENS)
         for name, config in settings.llm.items():
             if not config.get('enable', True):
                 names['disabled'].add(name)
@@ -464,6 +465,8 @@ class LLM(object):
             names['enabled'].add(name)
             client.name = name
             client.console = console
+            if not client.max_tokens:
+                client.max_tokens = max_tokens
             self.llms[name] = client
 
             if config.get('default', False) and not self.default:
