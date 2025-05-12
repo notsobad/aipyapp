@@ -7,6 +7,7 @@ import wx.adv
 from loguru import logger
 from typing import List
 from ..aipy.trustoken import TrustTokenAPI
+from ..aipy.i18n import T
 
 import time
 import webbrowser
@@ -23,17 +24,17 @@ class InitialProviderPage(wx.adv.WizardPage):
         vbox = wx.BoxSizer(wx.VERTICAL)
 
         # 标题
-        title = wx.StaticText(self, label="选择 LLM 提供商")
+        title = wx.StaticText(self, label=T('Select LLM Provider'))
         title.SetFont(wx.Font(12, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD))
         vbox.Add(title, 0, wx.ALL | wx.ALIGN_CENTER, 10)
 
         # Provider 选择
-        provider_box = wx.StaticBox(self, label="提供商")
+        provider_box = wx.StaticBox(self, label=T('Provider'))
         provider_sizer = wx.StaticBoxSizer(provider_box, wx.VERTICAL)
         
         self.provider_choice = wx.Choice(
             self,
-            choices=["Trustoken", "其它"]
+            choices=['Trustoken', T('Other')]
         )
         self.provider_choice.SetSelection(0)  # 默认选中 TrustToken
         self.provider_choice.Bind(wx.EVT_CHOICE, self.on_provider_selected)
@@ -52,19 +53,19 @@ class InitialProviderPage(wx.adv.WizardPage):
 
     def on_provider_selected(self, event):
         provider = self.provider_choice.GetStringSelection()
-        if provider == "Trustoken":
-            self.hint.SetLabel("""Trustoken 是一个智能的 API Key 管理服务：
+        if provider == 'Trustoken':
+            self.hint.SetLabel(f"""{T('Trustoken is an intelligent API Key management service')}：
 
-1. 自动获取和管理 API Key
-2. 支持多个 LLM 提供商
-3. 自动选择最优模型
-4. 建议小白用户选择，配置方便、功能丰富""")
+1. {T('Auto get and manage API Key')}
+2. {T('Support multiple LLM providers')}
+3. {T('Auto select optimal model')}
+4. {T('Recommended for beginners, easy to configure and feature-rich')}""")
         else:
-            self.hint.SetLabel("""选择其它提供商需要手动配置：
+            self.hint.SetLabel(f"""{T('Select other providers requires manual configuration')}：
 
-1. 需要自行申请 API Key
-2. 手动输入 API Key
-3. 手动选择模型""")
+1. {T('Need to apply for API Key yourself')}
+2. {T('Manually input API Key')}
+3. {T('Manually select model')}""")
         # 重新计算换行
         self.hint.Wrap(400)
 
@@ -77,7 +78,7 @@ class InitialProviderPage(wx.adv.WizardPage):
             if index >= 0:
                 selection = self.provider_choice.GetString(index)
             else:
-                selection = "Trustoken"  # 如果索引也无效，返回默认值
+                selection = 'Trustoken'  # 如果索引也无效，返回默认值
         return selection
 
     def GetNext(self):
@@ -110,7 +111,7 @@ class TrustTokenPage(wx.adv.WizardPage):
         vbox = wx.BoxSizer(wx.VERTICAL)
 
         # 标题
-        title = wx.StaticText(self, label="Trustoken 配置")
+        title = wx.StaticText(self, label=T('Trustoken Configuration'))
         title.SetFont(wx.Font(12, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD))
         vbox.Add(title, 0, wx.ALL | wx.ALIGN_CENTER, 10)
 
@@ -126,7 +127,7 @@ class TrustTokenPage(wx.adv.WizardPage):
         vbox.Add(api_key_sizer, 0, wx.EXPAND | wx.ALL, 5)
 
         # 获取按钮
-        self.fetch_button = wx.Button(self, label="自动打开浏览器获取 API Key")
+        self.fetch_button = wx.Button(self, label=T('Auto open browser to get API Key'))
         self.fetch_button.Bind(wx.EVT_BUTTON, self.on_fetch)
         vbox.Add(self.fetch_button, 0, wx.ALL | wx.ALIGN_CENTER, 10)
 
@@ -134,7 +135,7 @@ class TrustTokenPage(wx.adv.WizardPage):
         self.status_text = wx.StaticText(self, label="")
         vbox.Add(self.status_text, 0, wx.ALL | wx.EXPAND, 5)
 
-        self.url_ctrl = wx.adv.HyperlinkCtrl(self, label='你也可以点击此链接打开浏览器获取API Key', style=wx.adv.HL_ALIGN_LEFT | wx.adv.HL_CONTEXTMENU)
+        self.url_ctrl = wx.adv.HyperlinkCtrl(self, label=T('You can also click this link to open browser to get API Key'), style=wx.adv.HL_ALIGN_LEFT | wx.adv.HL_CONTEXTMENU)
         self.url_ctrl.Hide()
         vbox.Add(self.url_ctrl, 0, wx.ALL, 5)
 
@@ -168,7 +169,7 @@ class TrustTokenPage(wx.adv.WizardPage):
             time_remaining = int(self.polling_timeout - elapsed)
             
         wx.CallAfter(self.progress_bar.SetValue, progress)
-        wx.CallAfter(self.time_text.SetLabel, f"剩余时间: {time_remaining}秒")
+        wx.CallAfter(self.time_text.SetLabel, f"{T('Remaining time')}: {time_remaining}{T('seconds')}")
         
     def _poll_status(self, save_func):
         self.start_time = time.time()
@@ -181,7 +182,7 @@ class TrustTokenPage(wx.adv.WizardPage):
                 continue
                 
             status = data.get('status')
-            wx.CallAfter(self._update_status, f"当前状态: {status}")
+            wx.CallAfter(self._update_status, f"{T('Current status')}: {status}")
             
             if status == 'approved':
                 if save_func:
@@ -189,20 +190,20 @@ class TrustTokenPage(wx.adv.WizardPage):
                 wx.CallAfter(self._on_success)
                 return True
             elif status == 'expired':
-                wx.CallAfter(self._update_status, "绑定已过期")
+                wx.CallAfter(self._update_status, T('Binding expired'))
                 wx.CallAfter(self._on_failure)
                 return False
             elif status == 'pending':
                 pass
             else:
-                wx.CallAfter(self._update_status, f"未知状态: {status}")
+                wx.CallAfter(self._update_status, f"{T('Unknown status')}: {status}")
                 wx.CallAfter(self._on_failure)
                 return False
                 
             time.sleep(self.poll_interval)
             
         if not self.stop_polling:
-            wx.CallAfter(self._update_status, "等待超时")
+            wx.CallAfter(self._update_status, T('Waiting timeout'))
             wx.CallAfter(self._on_failure)
         return False
 
@@ -212,18 +213,17 @@ class TrustTokenPage(wx.adv.WizardPage):
     def _on_success(self):
         self._toggle_progress(False)
         self.fetch_button.Enable()
-        self.status_text.SetLabel("API Key 获取成功！")
+        self.status_text.SetLabel(T('API Key obtained successfully'))
         self.Layout()  # 强制重新布局
-
 
     def _on_failure(self):
         self._toggle_progress(False)
         self.fetch_button.Enable()
-        self.status_text.SetLabel("API Key 获取失败，请重试")
+        self.status_text.SetLabel(T('API Key acquisition failed, please try again'))
         self.Layout()  # 强制重新布局
 
     def on_fetch(self, event):
-        self.status_text.SetLabel("正在申请绑定")
+        self.status_text.SetLabel(T('Requesting binding'))
         self.fetch_button.Disable()
         
         data = self.api.request_binding()
@@ -235,7 +235,7 @@ class TrustTokenPage(wx.adv.WizardPage):
         self.request_id = data['request_id']
         expires_in = data['expires_in']
         self.polling_timeout = expires_in
-        self._update_status("等待用户确认")
+        self._update_status(T('Waiting for user confirmation'))
         
         # 打开浏览器
         self.url_ctrl.SetURL(approval_url)
@@ -248,7 +248,9 @@ class TrustTokenPage(wx.adv.WizardPage):
         
         # 开始轮询
         self.polling_thread = threading.Thread(
-            target=self._poll_status, args=(self._save_token,))
+            target=self._poll_status,
+            args=(self._save_token,)
+        )
         self.polling_thread.daemon = True
         self.polling_thread.start()
 
@@ -263,7 +265,7 @@ class TrustTokenPage(wx.adv.WizardPage):
         if event.GetPage() == self and event.GetDirection():
             api_key = self.get_api_key()
             if not api_key:
-                wx.MessageBox("请先获取 API Key", "提示", wx.OK | wx.ICON_INFORMATION)
+                wx.MessageBox(T('Please get API Key first'), T('Hint'), wx.OK | wx.ICON_INFORMATION)
                 event.Veto()
                 return
         event.Skip()
@@ -285,12 +287,12 @@ class ProviderPage(wx.adv.WizardPage):
         vbox = wx.BoxSizer(wx.VERTICAL)
 
         # 标题
-        title = wx.StaticText(self, label="选择 LLM 提供商")
+        title = wx.StaticText(self, label=T('Select LLM Provider'))
         title.SetFont(wx.Font(12, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD))
         vbox.Add(title, 0, wx.ALL | wx.ALIGN_CENTER, 10)
 
         # Provider 选择
-        provider_box = wx.StaticBox(self, label="提供商")
+        provider_box = wx.StaticBox(self, label=T('Provider'))
         provider_sizer = wx.StaticBoxSizer(provider_box, wx.VERTICAL)
         
         # 过滤掉 TrustToken
@@ -315,7 +317,7 @@ class ProviderPage(wx.adv.WizardPage):
         vbox.Add(api_key_sizer, 0, wx.EXPAND | wx.ALL, 5)
 
         # 提示信息
-        hint = wx.StaticText(self, label="请选择提供商并输入 API Key，点击下一步验证")
+        hint = wx.StaticText(self, label=T('Please select provider and input API Key, click Next to verify'))
         hint.SetForegroundColour(wx.Colour(100, 100, 100))
         vbox.Add(hint, 0, wx.ALL, 10)
 
@@ -351,12 +353,12 @@ class ModelPage(wx.adv.WizardPage):
         vbox = wx.BoxSizer(wx.VERTICAL)
 
         # 标题
-        title = wx.StaticText(self, label="选择模型")
+        title = wx.StaticText(self, label=T('Select Model'))
         title.SetFont(wx.Font(12, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD))
         vbox.Add(title, 0, wx.ALL | wx.ALIGN_CENTER, 10)
 
         # Model 选择
-        model_box = wx.StaticBox(self, label="可用模型")
+        model_box = wx.StaticBox(self, label=T('Available Models'))
         model_sizer = wx.StaticBoxSizer(model_box, wx.VERTICAL)
         
         self.model_choice = wx.Choice(self)
@@ -364,66 +366,32 @@ class ModelPage(wx.adv.WizardPage):
         vbox.Add(model_sizer, 0, wx.EXPAND | wx.ALL, 5)
 
         # Max Tokens 配置
-        max_tokens_box = wx.StaticBox(self, label="最大 Token 数")
+        max_tokens_box = wx.StaticBox(self, label=T('Max Tokens'))
         max_tokens_sizer = wx.StaticBoxSizer(max_tokens_box, wx.VERTICAL)
         
         self.max_tokens_text = wx.TextCtrl(self, value="8192")
         max_tokens_sizer.Add(self.max_tokens_text, 0, wx.EXPAND | wx.ALL, 5)
         vbox.Add(max_tokens_sizer, 0, wx.EXPAND | wx.ALL, 5)
 
-        # Temperature 配置
-        temp_box = wx.StaticBox(self, label="Temperature (%)")
-        temp_sizer = wx.StaticBoxSizer(temp_box, wx.VERTICAL)
-        
-        temp_hbox = wx.BoxSizer(wx.HORIZONTAL)
-        self.temp_slider = wx.Slider(
-            self,
-            value=70,
-            minValue=0,
-            maxValue=100,
-            style=wx.SL_HORIZONTAL | wx.SL_LABELS
-        )
-        self.temp_slider.Bind(wx.EVT_SLIDER, self.on_temp_changed)
-        temp_hbox.Add(self.temp_slider, 1, wx.EXPAND | wx.ALL, 5)
-        
-        self.temp_text = wx.TextCtrl(self, value="0.7", size=(60, -1))
-        self.temp_text.Bind(wx.EVT_TEXT, self.on_temp_text_changed)
-        temp_hbox.Add(self.temp_text, 0, wx.ALL, 5)
-        
-        temp_sizer.Add(temp_hbox, 0, wx.EXPAND | wx.ALL, 5)
-        vbox.Add(temp_sizer, 0, wx.EXPAND | wx.ALL, 5)
-
         # 提示信息
-        self.hint = wx.StaticText(self, label="请选择要使用的模型并配置参数")
+        self.hint = wx.StaticText(self, label=T('Please select model to use and configure parameters'))
         self.hint.SetForegroundColour(wx.Colour(100, 100, 100))
         vbox.Add(self.hint, 0, wx.ALL, 10)
 
         self.SetSizer(vbox)
-
-    def on_temp_changed(self, event):
-        value = self.temp_slider.GetValue() / 100.0
-        self.temp_text.SetValue(f"{value:.2f}")
-
-    def on_temp_text_changed(self, event):
-        try:
-            value = float(self.temp_text.GetValue())
-            if 0 <= value <= 1.0:
-                self.temp_slider.SetValue(int(value * 100))
-        except ValueError:
-            pass
 
     def set_models(self, models: List[str], selected_model: str = None, is_trust_token: bool = False):
         if is_trust_token:
             self.model_choice.SetItems(["auto"])
             self.model_choice.SetSelection(0)
             self.model_choice.Disable()  # 禁用选择
-            self.hint.SetLabel("Trustoken 使用自动模型选择")
+            self.hint.SetLabel(T('Trustoken uses automatic model selection'))
         else:
             self.model_choice.SetItems(models)
             self.model_choice.Enable()  # 启用选择
             if selected_model and selected_model in models:
                 self.model_choice.SetStringSelection(selected_model)
-            self.hint.SetLabel("请选择要使用的模型并配置参数")
+            self.hint.SetLabel(T('Please select model to use and configure parameters'))
 
     def get_selected_model(self):
         return self.model_choice.GetStringSelection()
@@ -434,12 +402,6 @@ class ModelPage(wx.adv.WizardPage):
         except ValueError:
             return 8192
 
-    def get_temperature(self):
-        try:
-            return float(self.temp_text.GetValue())
-        except ValueError:
-            return 0.5
-
     def GetNext(self):
         return None
 
@@ -448,7 +410,7 @@ class ModelPage(wx.adv.WizardPage):
 
 class ProviderConfigWizard(wx.adv.Wizard):
     def __init__(self, llm_config, parent):
-        super().__init__(parent, title="LLM Provider 配置向导")
+        super().__init__(parent, title=T('LLM Provider Configuration Wizard'))
         self.provider_config = llm_config
         self.init_ui()
         self.SetPageSize((600, 400))
@@ -507,7 +469,6 @@ class ProviderConfigWizard(wx.adv.Wizard):
             
         selected_model = self.model_page.get_selected_model()
         max_tokens = self.model_page.get_max_tokens()
-        temperature = self.model_page.get_temperature()
         provider_info = self.provider_config.providers[provider]
 
         config = self.provider_config.config
@@ -516,13 +477,12 @@ class ProviderConfigWizard(wx.adv.Wizard):
             "models": self.model_page.model_choice.GetItems(),
             "model": selected_model,
             "max_tokens": max_tokens,
-            "temperature": temperature,
             "type": provider_info["type"],
             "enable": True
         }
 
         self.provider_config.save_config(config)
-        wx.MessageBox("配置已保存", "成功", wx.OK | wx.ICON_INFORMATION)
+        wx.MessageBox(T('Configuration saved'), T('Success'), wx.OK | wx.ICON_INFORMATION)
 
     def get_models(self, provider: str, api_key: str) -> List[str]:
         provider_info = self.provider_config.providers[provider]
@@ -552,7 +512,7 @@ class ProviderConfigWizard(wx.adv.Wizard):
                 # 其他 provider 的模型解析逻辑
                 return []
         except Exception as e:
-            wx.MessageBox(f"获取模型列表失败: {str(e)}", "错误", wx.OK | wx.ICON_ERROR)
+            wx.MessageBox(f"{T('Model list acquisition failed')}: {str(e)}", T('Error'), wx.OK | wx.ICON_ERROR)
             return []
 
 def show_provider_config(llm_config, parent=None):

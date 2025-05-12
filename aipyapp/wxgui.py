@@ -31,8 +31,8 @@ from .config import LLMConfig
 
 __PACKAGE_NAME__ = "aipyapp"
 ChatEvent, EVT_CHAT = NewEvent()
-AVATARS = {'我': '🧑', 'BB-8': '🤖', '图灵': '🧠', '爱派': '🐙'}
-TITLE = "🐙爱派，您的干活牛🐂马🐎，啥都能干！"
+AVATARS = {T('Me'): '🧑', 'BB-8': '🤖', T('Turing'): '🧠', T('AIPy'): '🐙'}
+TITLE = T('AIPY - Your AI Assistant')
 
 matplotlib.use('Agg')
 
@@ -71,7 +71,7 @@ class AIPython(threading.Thread):
         wx.PostEvent(self.gui, evt)
 
     def on_display(self, image):
-        user = '图灵'
+        user = T('Turing')
         if image['path']:
             base64_data = image_to_base64(image['path'])
             content = base64_data if base64_data else image['path']
@@ -83,14 +83,14 @@ class AIPython(threading.Thread):
         wx.PostEvent(self.gui, evt)
 
     def on_response_complete(self, msg):
-        user = '图灵' #msg['llm']
+        user = T('Turing') #msg['llm']
         #content = f"```markdown\n{msg['content']}\n```"
         evt = ChatEvent(user=user, msg=msg['content'])
         wx.PostEvent(self.gui, evt)
 
     def on_summary(self, summary):
-        user = '爱派'
-        evt = ChatEvent(user=user, msg=f'结束处理指令 {summary}')
+        user = T('AIPy')
+        evt = ChatEvent(user=user, msg=f'{T("End processing instruction")} {summary}')
         wx.PostEvent(self.gui, evt)
 
     def on_exec(self, blocks):
@@ -102,7 +102,7 @@ class AIPython(threading.Thread):
     def on_result(self, result):
         user = 'BB-8'
         content = json.dumps(result, indent=4, ensure_ascii=False)
-        content = f'运行结果如下\n```json\n{content}\n```'
+        content = f'{T("Run result")}\n```json\n{content}\n```'
         evt = ChatEvent(user=user, msg=content)
         wx.PostEvent(self.gui, evt)
 
@@ -179,7 +179,7 @@ class CStatusBar(wx.StatusBar):
             self.current_llm = label
             self.SetStatusText(f"{label} ▾", 2)
         else:
-            wx.MessageBox(f"LLM {label} 不可用", "警告", wx.OK|wx.ICON_WARNING)
+            wx.MessageBox(T('LLM {} is not available').format(label), T('Warning'), wx.OK|wx.ICON_WARNING)
 
     def on_open_work_dir(self, event):
         """打开工作目录"""
@@ -211,8 +211,11 @@ class ChatFrame(wx.Frame):
         super().__init__(None, title=TITLE, size=(1024, 768))
         
         self.tm = tm
+        self.log = logger.bind(src='gui')
         self.task_queue = queue.Queue()
         self.aipython = AIPython(self)
+        self.welcomed = False  # 添加初始化标志
+        self.html_file_path = os.path.abspath(resources.files(__PACKAGE_NAME__) / "chatroom.html")
 
         icon = wx.Icon(str(resources.files(__PACKAGE_NAME__) / "aipy.ico"), wx.BITMAP_TYPE_ICO)
         self.SetIcon(icon)
@@ -221,15 +224,12 @@ class ChatFrame(wx.Frame):
         self.make_panel()
         self.statusbar = CStatusBar(self)
         self.SetStatusBar(self.statusbar)
-        self.statusbar.SetStatusText("按 Ctrl+Enter 发送消息", 0)
+        self.statusbar.SetStatusText(T('Press Ctrl+Enter to send message'), 0)
 
         self.Bind(EVT_CHAT, self.on_chat)
+        self.webview.Bind(wx.html2.EVT_WEBVIEW_TITLE_CHANGED, self.on_webview_title_changed)
         self.aipython.start()
         self.Show()
-
-        update = self.tm.get_update()
-        if update and update.get('has_update'):
-            wx.CallLater(1000, self.append_message, '爱派', f"\n🔔 **号外❗** {T('Update available')}: `v{update.get('latest_version')}`")
 
     def make_input_panel(self, panel):
         self.container = wx.Panel(panel)
@@ -239,10 +239,10 @@ class ChatFrame(wx.Frame):
         self.input.SetWindowStyleFlag(wx.BORDER_SIMPLE)
         self.input.Bind(wx.EVT_KEY_DOWN, self.on_key_down)
 
-        self.done_button = wx.Button(self.container, label="结束", size=(50, -1))
+        self.done_button = wx.Button(self.container, label=T('End'), size=(50, -1))
         self.done_button.Hide()
         self.done_button.Bind(wx.EVT_BUTTON, self.on_done)
-        self.send_button = wx.Button(self.container, label="发送", size=(50, -1))
+        self.send_button = wx.Button(self.container, label=T('Send'), size=(50, -1))
         self.send_button.Bind(wx.EVT_BUTTON, self.on_send)
         self.container.Bind(wx.EVT_SIZE, self.on_container_resize)
         return self.container
@@ -257,11 +257,11 @@ class ChatFrame(wx.Frame):
         hbox.Add(self.input, proportion=1, flag=wx.EXPAND | wx.ALL, border=5)
 
         vbox = wx.BoxSizer(wx.VERTICAL)
-        self.done_button = wx.Button(container, label="结束")
+        self.done_button = wx.Button(container, label=T('End'))
         self.done_button.Hide()
         self.done_button.Bind(wx.EVT_BUTTON, self.on_done)
         self.done_button.SetBackgroundColour(wx.Colour(255, 230, 230)) 
-        self.send_button = wx.Button(container, label="发送")
+        self.send_button = wx.Button(container, label=T('Send'))
         self.send_button.Bind(wx.EVT_BUTTON, self.on_send)
         vbox.Add(self.done_button, 0, wx.ALIGN_CENTER | wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
         vbox.AddSpacer(10)
@@ -276,9 +276,8 @@ class ChatFrame(wx.Frame):
         panel = wx.Panel(self)
         vbox = wx.BoxSizer(wx.VERTICAL)
 
-        html_file_path = os.path.abspath(resources.files(__PACKAGE_NAME__) / "chatroom.html")
         self.webview = wx.html2.WebView.New(panel)
-        self.webview.LoadURL(f'file://{html_file_path}')
+        self.webview.LoadURL(f'file://{self.html_file_path}')
         self.webview.SetWindowStyleFlag(wx.BORDER_NONE)
         vbox.Add(self.webview, proportion=1, flag=wx.EXPAND | wx.ALL, border=12)
 
@@ -297,66 +296,49 @@ class ChatFrame(wx.Frame):
         self.panel = panel
 
     def make_menu_bar(self):
-        menu_bar = wx.MenuBar()
+        menubar = wx.MenuBar()
         
+        # 文件菜单
         file_menu = wx.Menu()
-        file_menu.Append(wx.ID_SAVE, "保存聊天记录为 HTML(&S)\tCtrl+S", "保存当前聊天记录为 HTML 文件")
+        save_item = file_menu.Append(wx.ID_SAVE, T('Save chat history as HTML'))
+        clear_item = file_menu.Append(wx.ID_CLEAR, T('Clear chat'))
         file_menu.AppendSeparator()
-        file_menu.Append(wx.ID_EXIT, "退出(&Q)\tCtrl+Q", "退出程序")
-        self.Bind(wx.EVT_MENU, self.on_save_html, id=wx.ID_SAVE)
-        self.Bind(wx.EVT_MENU, self.on_exit, id=wx.ID_EXIT)
-
-        edit_menu = wx.Menu()
-        edit_menu.Append(wx.ID_CLEAR, T('Clear chat') + "(&C)", T('Clear all messages'))
-        edit_menu.AppendSeparator()
-        self.ID_CONFIG = wx.NewIdRef()
-        menu_item = wx.MenuItem(edit_menu, self.ID_CONFIG, T('Configuration') + "(&O)\tCtrl+O", T('Configure program parameters'))
-        edit_menu.Append(menu_item)
-        self.Bind(wx.EVT_MENU, self.on_config, id=self.ID_CONFIG)
-        self.Bind(wx.EVT_MENU, self.on_clear_chat, id=wx.ID_CLEAR)
-
-        # Add API配置 menu item
-        self.ID_API_CONFIG = wx.NewIdRef()
-        menu_item = wx.MenuItem(edit_menu, self.ID_API_CONFIG, "API配置(&A)\tCtrl+A", "配置API市场")
-        edit_menu.Append(menu_item)
-        self.Bind(wx.EVT_MENU, self.on_api_config, id=self.ID_API_CONFIG)
-
-        # Add LLM配置向导 menu item
-        #self.ID_LLM_CONFIG = wx.NewIdRef()
-        #menu_item = wx.MenuItem(edit_menu, self.ID_LLM_CONFIG, "LLM配置向导(&L)\tCtrl+L", "配置LLM提供商")
-        #edit_menu.Append(menu_item)
-        #self.Bind(wx.EVT_MENU, self.on_llm_config, id=self.ID_LLM_CONFIG)
-
-        task_menu = wx.Menu()
-        self.task_menu_item = task_menu.Append(wx.ID_STOP, "开始新任务(&B)", "开始一个新任务")
-        self.task_menu_item.Enable(False)
-        self.Bind(wx.EVT_MENU, self.on_done, id=wx.ID_STOP)
+        exit_item = file_menu.Append(wx.ID_EXIT, T('Exit'))
+        menubar.Append(file_menu, T('File'))
         
-        menu_bar.Append(file_menu, "文件(&F)")
-        menu_bar.Append(edit_menu, "编辑(&E)")
-        menu_bar.Append(task_menu, "任务(&T)")
-
+        # 编辑菜单
+        edit_menu = wx.Menu()
+        config_item = edit_menu.Append(wx.ID_ANY, T('Configuration'))
+        api_market_item = edit_menu.Append(wx.ID_ANY, T('API Market'))
+        menubar.Append(edit_menu, T('Edit'))
+        
+        # 任务菜单
+        task_menu = wx.Menu()
+        self.new_task_item = task_menu.Append(wx.ID_NEW, T('Start new task'))
+        menubar.Append(task_menu, T('Task'))
+        
+        # 帮助菜单
         help_menu = wx.Menu()
-        self.ID_WEBSITE = wx.NewIdRef()
-        menu_item = wx.MenuItem(help_menu, self.ID_WEBSITE, "官网(&W)\tCtrl+W", "官方网站")
-        help_menu.Append(menu_item)
-        self.ID_FORUM = wx.NewIdRef()
-        menu_item = wx.MenuItem(help_menu, self.ID_FORUM, "论坛(&W)\tCtrl+F", "官方论坛")
-        help_menu.Append(menu_item)
-        self.ID_GROUP = wx.NewIdRef()
-        menu_item = wx.MenuItem(help_menu, self.ID_GROUP, "微信群(&G)\tCtrl+G", "官方微信群")
-        help_menu.Append(menu_item)
+        website_item = help_menu.Append(wx.ID_ANY, T('Website'))
+        forum_item = help_menu.Append(wx.ID_ANY, T('Forum'))
+        wechat_item = help_menu.Append(wx.ID_ANY, T('WeChat Group'))
         help_menu.AppendSeparator()
-        self.ID_ABOUT = wx.NewIdRef()
-        menu_item = wx.MenuItem(help_menu, self.ID_ABOUT, "关于(&A)", "关于爱派")
-        help_menu.Append(menu_item)
-        self.Bind(wx.EVT_MENU, self.on_open_website, id=self.ID_WEBSITE)
-        self.Bind(wx.EVT_MENU, self.on_open_website, id=self.ID_FORUM)
-        self.Bind(wx.EVT_MENU, self.on_open_website, id=self.ID_GROUP)
-        self.Bind(wx.EVT_MENU, self.on_about, id=self.ID_ABOUT)
-        menu_bar.Append(help_menu, "帮助(&H)")
-
-        self.SetMenuBar(menu_bar)
+        about_item = help_menu.Append(wx.ID_ABOUT, T('About'))
+        menubar.Append(help_menu, T('Help'))
+        
+        self.SetMenuBar(menubar)
+        
+        # 绑定事件
+        self.Bind(wx.EVT_MENU, self.on_save_html, save_item)
+        self.Bind(wx.EVT_MENU, self.on_clear_chat, clear_item)
+        self.Bind(wx.EVT_MENU, self.on_exit, exit_item)
+        self.Bind(wx.EVT_MENU, self.on_done, self.new_task_item)
+        self.Bind(wx.EVT_MENU, self.on_config, config_item)
+        self.Bind(wx.EVT_MENU, self.on_api_market, api_market_item)
+        self.Bind(wx.EVT_MENU, self.on_open_website, website_item)
+        self.Bind(wx.EVT_MENU, self.on_open_website, forum_item)
+        self.Bind(wx.EVT_MENU, self.on_open_website, wechat_item)
+        self.Bind(wx.EVT_MENU, self.on_about, about_item)
 
     def on_exit(self, event):
         self.task_queue.put('exit')
@@ -366,9 +348,10 @@ class ChatFrame(wx.Frame):
     def on_done(self, event):
         self.tm.done()
         self.done_button.Hide()
-        self.SetStatusText("当前任务已结束", 0)
-        self.task_menu_item.Enable(False)
+        self.SetStatusText(T('Current task has ended'), 0)
+        self.new_task_item.Enable(False)
         self.SetTitle(TITLE)
+        self.clear_chat()
 
     def on_container_resize(self, event):
         container_size = event.GetSize()
@@ -390,7 +373,18 @@ class ChatFrame(wx.Frame):
         event.Skip()
 
     def on_clear_chat(self, event):
-        pass
+        self.webview.LoadURL(f'file://{self.html_file_path}')
+
+    def clear_chat(self):
+        """清空聊天记录"""
+        js_code = """
+        const chatContainer = document.querySelector('.chat-container');
+        chatContainer.innerHTML = '';
+        lastUser = '';
+        lastMessage = null;
+        lastRawContent = '';
+        """
+        self.webview.RunScript(js_code)
 
     def on_open_website(self, event):
         if event.GetId() == self.ID_WEBSITE:
@@ -414,7 +408,7 @@ class ChatFrame(wx.Frame):
             wx.MessageBox(f"save html error: {e}", "Error")
 
     def save_html_content(self, html_content):
-        with FileDialog(self, "保存聊天记录为 HTML 文件", wildcard="HTML 文件 (*.html)|*.html",
+        with FileDialog(self, T('Save chat history as HTML file'), wildcard="HTML file (*.html)|*.html",
                         style=FD_SAVE | FD_OVERWRITE_PROMPT) as dialog:
             if dialog.ShowModal() == wx.ID_CANCEL:
                 return
@@ -424,7 +418,7 @@ class ChatFrame(wx.Frame):
                 with open(path, 'w', encoding='utf-8') as file:
                     file.write(html_content)
             except IOError:
-                wx.LogError(f"无法保存文件：{path}")
+                wx.LogError(f"{T('Failed to save file')}: {path}")
 
     def on_key_down(self, event):
         keycode = event.GetKeyCode()
@@ -446,14 +440,14 @@ class ChatFrame(wx.Frame):
             self.container.Hide()
             self.done_button.Hide()
             wx.BeginBusyCursor()
-            self.SetStatusText("操作进行中，请稍候...", 0)
-            self.task_menu_item.Enable(False)
+            self.SetStatusText(T('Operation in progress, please wait...'), 0)
+            self.new_task_item.Enable(False)
         else:
             self.container.Show()
             self.done_button.Show()
             wx.EndBusyCursor()
-            self.SetStatusText("操作完成。如果开始下一个任务，请点击'结束'按钮", 0)
-            self.task_menu_item.Enable(self.aipython.can_done())
+            self.SetStatusText(T('Operation completed. If you start a new task, please click the "End" button'), 0)
+            self.new_task_item.Enable(self.aipython.can_done())
         self.panel.Layout()
         self.panel.Refresh()
 
@@ -463,9 +457,9 @@ class ChatFrame(wx.Frame):
             return
         
         if not self.tm.busy:
-            self.SetTitle(f"[当前任务] {text}")
+            self.SetTitle(f"[{T('Current task')}] {text}")
 
-        self.append_message('我', text)
+        self.append_message(T('Me'), text)
         self.input.Clear()
         self.toggle_input()
         self.task_queue.put(text)
@@ -489,7 +483,7 @@ class ChatFrame(wx.Frame):
             self.tm.config_manager.update_sys_config(values)
         dialog.Destroy()
 
-    def on_api_config(self, event):
+    def on_api_market(self, event):
         """打开API配置对话框"""
         dialog = ApiMarketDialog(self, self.tm.config_manager)
         dialog.ShowModal()
@@ -499,74 +493,62 @@ class ChatFrame(wx.Frame):
         """打开LLM配置向导"""
         show_provider_config(self.tm.llm_config, parent=self)
 
+    def on_webview_title_changed(self, event):
+        """WebView 标题改变时的处理"""
+        if not self.welcomed:
+            wx.CallLater(100, self.append_message, T('AIPy'), T('welcome_message'))
+            self.welcomed = True
+
+            # 检查更新
+            try:
+                update = self.tm.get_update()
+                if update and update.get('has_update'):
+                    wx.CallLater(1000, self.append_message, T('AIPy'), f"\n🔔 **{T('Update available')}❗**: `v{update.get('latest_version')}`")
+            except Exception as e:
+                self.log.error(f"检查更新时出错: {e}")
+            
+        event.Skip()
+
 class AboutDialog(wx.Dialog):
     def __init__(self, parent):
-        super().__init__(parent, title="关于爱派")
+        super().__init__(parent, title=T('About AIPY'), size=(400, 300))
         
+        # 创建垂直布局
         vbox = wx.BoxSizer(wx.VERTICAL)
         
-        # Logo and title
-        logo_panel = wx.Panel(self)
-        logo_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        # 添加标题
+        title = wx.StaticText(self, label=T('AIPY - Your AI Assistant'))
+        title.SetFont(wx.Font(16, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD))
+        vbox.Add(title, 0, wx.ALL|wx.ALIGN_CENTER, 10)
         
-        with resources.path("aipyapp", "aipy.ico") as icon_path:
-            icon = wx.Icon(str(icon_path), wx.BITMAP_TYPE_ICO)
-            bmp = wx.Bitmap()
-            bmp.CopyFromIcon(icon)
-            # Scale the bitmap to a more appropriate size
-            scaled_bmp = wx.Bitmap(bmp.ConvertToImage().Scale(48, 48, wx.IMAGE_QUALITY_HIGH))
-            logo_sizer.Add(wx.StaticBitmap(logo_panel, -1, scaled_bmp), 0, wx.ALL | wx.ALIGN_CENTER, 5)
-            
-        title = wx.StaticText(logo_panel, -1, "爱派")
-        title.SetFont(wx.Font(24, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD))
-        logo_sizer.Add(title, 0, wx.ALL | wx.ALIGN_CENTER, 10)
+        # 添加描述
+        desc = wx.StaticText(self, label=T('AIPY is an intelligent assistant that can help you complete various tasks.'))
+        desc.Wrap(350)
+        vbox.Add(desc, 0, wx.ALL|wx.ALIGN_CENTER, 10)
         
-        logo_panel.SetSizer(logo_sizer)
-        vbox.Add(logo_panel, 0, wx.ALL | wx.ALIGN_CENTER, 10)
+        # 添加版本信息
+        version = wx.StaticText(self, label=f"{T('Version')}: {__version__}")
+        vbox.Add(version, 0, wx.ALL|wx.ALIGN_CENTER, 5)
         
-        # Version and description
-        version = wx.StaticText(self, -1, f"版本: {__version__}")
-        vbox.Add(version, 0, wx.ALL | wx.ALIGN_CENTER, 5)
+        # 添加配置目录信息
+        config_dir = wx.StaticText(self, label=f"{T('Current configuration directory')}: {CONFIG_DIR}")
+        config_dir.Wrap(350)
+        vbox.Add(config_dir, 0, wx.ALL|wx.ALIGN_CENTER, 5)
         
-        description = wx.StaticText(self, -1, "爱派是一个智能助手，可以帮助您完成各种任务。")
-        vbox.Add(description, 0, wx.ALL | wx.ALIGN_CENTER, 5)
+        # 添加工作目录信息
+        work_dir = wx.StaticText(self, label=f"{T('Current working directory')}: {parent.tm.workdir}")
+        work_dir.Wrap(350)
+        vbox.Add(work_dir, 0, wx.ALL|wx.ALIGN_CENTER, 5)
         
-        # Add some space
-        vbox.AddSpacer(15)
+        # 添加团队信息
+        team = wx.StaticText(self, label=T('AIPY Team'))
+        vbox.Add(team, 0, wx.ALL|wx.ALIGN_CENTER, 10)
         
-        tm = parent.tm
-        # Configuration directory
-        config_dir = wx.StaticText(self, -1, f"当前配置目录: {CONFIG_DIR}")
-        vbox.Add(config_dir, 0, wx.ALL | wx.ALIGN_CENTER, 5)
-        work_dir = wx.StaticText(self, -1, f"当前工作目录: {tm.workdir}")
-        vbox.Add(work_dir, 0, wx.ALL | wx.ALIGN_CENTER, 5)
-
-        # Add flexible space to push copyright and button to bottom
-        vbox.AddStretchSpacer()
-        
-        # Copyright and OK button at bottom
-        bottom_panel = wx.Panel(self)
-        bottom_sizer = wx.BoxSizer(wx.VERTICAL)
-        
-        copyright = wx.StaticText(bottom_panel, -1, "© 2025 爱派团队")
-        bottom_sizer.Add(copyright, 0, wx.ALL | wx.ALIGN_CENTER, 5)
-        
-        ok_button = wx.Button(bottom_panel, wx.ID_OK, "确定")
-        ok_button.SetMinSize((100, 30))  # 设置按钮最小大小
-        bottom_sizer.Add(ok_button, 0, wx.ALL | wx.ALIGN_CENTER, 10)
-        
-        bottom_panel.SetSizer(bottom_sizer)
-        vbox.Add(bottom_panel, 0, wx.EXPAND | wx.ALL, 5)
+        # 添加确定按钮
+        ok_button = wx.Button(self, wx.ID_OK, T('OK'))
+        vbox.Add(ok_button, 0, wx.ALL|wx.ALIGN_CENTER, 10)
         
         self.SetSizer(vbox)
-        
-        # 设置最小窗口大小
-        self.SetMinSize((400, 400))
-        
-        # 根据内容自动调整大小
-        self.Fit()
-        
-        # 居中显示
         self.Centre()
 
 def main(args):

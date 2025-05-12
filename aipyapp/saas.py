@@ -174,11 +174,11 @@ def main(args):
     settings = conf.get_config()
     if conf.check_config(gui=True) == 'TrustToken':
         if llm_config.need_config():
-            console.print("[yellow]未找到 LLM 配置，开始配置 LLM 提供商[/yellow]")
+            console.print(f"[yellow]{T('Starting LLM Provider Configuration Wizard')}[/yellow]")
             try:
                 config = config_llm(llm_config)
             except KeyboardInterrupt:
-                console.print("[yellow]用户取消配置[/yellow]")
+                console.print(f"[yellow]{T('User cancelled configuration')}[/yellow]")
                 return
             if not config:
                 return

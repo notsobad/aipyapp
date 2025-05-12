@@ -4,6 +4,7 @@ import requests
 from loguru import logger
 from ..config.llm import LLMConfig, PROVIDERS
 from .trustoken import TrustToken
+from .i18n import T
 
 providers = OrderedDict(PROVIDERS)
 
@@ -42,10 +43,10 @@ def select_provider(llm_config, default='Trustoken'):
     """选择提供商"""
     while True:
         name = questionary.select(
-            "请选择 API 提供商：",
+            T('Select LLM Provider'),
             choices=[
-                questionary.Choice(title='Trustoken (小白模式，推荐)', value='Trustoken', description='Trustoken配置简单、已融合多模型'),
-                questionary.Choice(title='其它提供商（专家模式）', value='other')
+                questionary.Choice(title=T('Trustoken is an intelligent API Key management service'), value='Trustoken', description=T('Recommended for beginners, easy to configure and feature-rich')),
+                questionary.Choice(title=T('Other'), value='other')
             ],
             default=default
         ).unsafe_ask()
@@ -55,7 +56,7 @@ def select_provider(llm_config, default='Trustoken'):
         names = [name for name in providers.keys() if name != default]
         names.append('<--')
         name = questionary.select(
-            "请选择其它提供商：",
+            T('Select other providers'),
             choices=names
         ).unsafe_ask()
         if name != '<--':
@@ -82,7 +83,7 @@ def config_llm(llm_config):
         config['model'] = 'auto'
     else:
         api_key = questionary.text(
-                f"请输入 {name} 的 API Key：",
+                T('Enter your API key'),
                 validate=lambda x: len(x) > 8
         ).unsafe_ask()
         config['api_key'] = api_key
@@ -90,26 +91,26 @@ def config_llm(llm_config):
         # 获取可用模型列表
         available_models = get_models(name, api_key)
         if not available_models:
-            logger.warning(f"无法获取 {name} 的模型列表，请检查 API Key 是否正确")
+            logger.warning(T('Model list acquisition failed'))
             return None
 
         # 第三步：选择模型
         model = questionary.select(
-            "请选择模型：",
+            T('Available Models'),
             choices=available_models
         ).unsafe_ask()
         config['model'] = model
 
     # 第四步：配置参数
     max_tokens = questionary.text(
-        "请输入最大 Token 数（默认：8192）：",
+        T('Max Tokens'),
         default="8192",
         validate=lambda x: x.isdigit() and int(x) > 0
     ).unsafe_ask()
     config['max_tokens'] = int(max_tokens)
 
     temperature = questionary.text(
-        "请输入 Temperature（0-1，默认：0.5）：",
+        T('Temperature (%)'),
         default="0.7",
         validate=lambda x: 0 <= float(x) <= 1
     ).unsafe_ask()

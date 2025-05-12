@@ -3,13 +3,14 @@
 
 import os
 import wx
+import wx.adv
 from wx import DirDialog, FD_SAVE, FD_OVERWRITE_PROMPT
 from wx.lib.agw.floatspin import FloatSpin, EVT_FLOATSPIN, FS_LEFT, FS_RIGHT, FS_CENTRE, FS_READONLY
 from aipyapp.aipy.i18n import T
 
 class ConfigDialog(wx.Dialog):
     def __init__(self, parent, settings):
-        super().__init__(parent, title=T('Configuration'), size=(500, 450))
+        super().__init__(parent, title=T('Configuration'))
         
         self.settings = settings
         
@@ -111,7 +112,10 @@ class ConfigDialog(wx.Dialog):
         settings_sizer.Add(rounds_panel, 0, wx.ALL | wx.EXPAND, 5)
         
         main_vbox.Add(settings_sizer, 0, wx.ALL | wx.EXPAND, 10)
-        
+
+        self.url_ctrl = wx.adv.HyperlinkCtrl(main_panel, label=T('Click here for more information'), url="https://d.aipyaipy.com/d/162", style=wx.adv.HL_ALIGN_LEFT | wx.adv.HL_CONTEXTMENU)
+        main_vbox.Add(self.url_ctrl, 0, wx.ALL, 10)
+
         main_panel.SetSizer(main_vbox)
         vbox.Add(main_panel, 1, wx.EXPAND)
         
@@ -136,6 +140,8 @@ class ConfigDialog(wx.Dialog):
         self.rounds_slider.Bind(wx.EVT_SLIDER, self.on_rounds_slider)
         
         self.SetSizer(vbox)
+        self.SetMinSize((500, 450))
+        self.Fit()
         self.Centre()
         
     def on_browse_work_dir(self, event):
