@@ -17,6 +17,7 @@ import wx
 import wx.html2
 import matplotlib
 import matplotlib.pyplot as plt
+from loguru import logger
 from rich.console import Console
 from wx.lib.newevent import NewEvent
 from wx import FileDialog, FD_SAVE, FD_OVERWRITE_PROMPT
@@ -586,9 +587,10 @@ def main(args):
     settings.auto_getenv = True
 
     lang = settings.get('lang')
-    if lang: set_lang(lang)
+    if lang:
+        set_lang(lang)
 
-    file = None if args.debug else open(os.devnull, 'w')
+    file = None if args.debug else open(os.devnull, 'w', encoding='utf-8')
     console = Console(file=file, record=True)
     console.gui = True
     try:
