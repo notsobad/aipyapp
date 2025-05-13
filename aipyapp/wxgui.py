@@ -25,7 +25,7 @@ from wx import FileDialog, FD_SAVE, FD_OVERWRITE_PROMPT
 from . import __version__
 from .aipy.config import ConfigManager, CONFIG_DIR
 from .aipy import TaskManager, event_bus
-from .aipy.i18n import T, set_lang
+from .aipy.i18n import T, set_lang, __lang__
 from .gui import TrustTokenAuthDialog, ConfigDialog, ApiMarketDialog, show_provider_config
 from .config import LLMConfig
 
@@ -320,8 +320,10 @@ class ChatFrame(wx.Frame):
         # 帮助菜单
         help_menu = wx.Menu()
         website_item = help_menu.Append(wx.ID_ANY, T('Website'))
-        forum_item = help_menu.Append(wx.ID_ANY, T('Forum'))
-        wechat_item = help_menu.Append(wx.ID_ANY, T('WeChat Group'))
+        #forum_item = help_menu.Append(wx.ID_ANY, T('Forum'))
+        if __lang__ == 'zh':
+            wechat_item = help_menu.Append(wx.ID_ANY, T('WeChat Group'))
+            self.Bind(wx.EVT_MENU, self.on_open_website, wechat_item)
         help_menu.AppendSeparator()
         about_item = help_menu.Append(wx.ID_ABOUT, T('About'))
         menubar.Append(help_menu, T('Help'))
@@ -336,8 +338,7 @@ class ChatFrame(wx.Frame):
         self.Bind(wx.EVT_MENU, self.on_config, config_item)
         self.Bind(wx.EVT_MENU, self.on_api_market, api_market_item)
         self.Bind(wx.EVT_MENU, self.on_open_website, website_item)
-        self.Bind(wx.EVT_MENU, self.on_open_website, forum_item)
-        self.Bind(wx.EVT_MENU, self.on_open_website, wechat_item)
+        #self.Bind(wx.EVT_MENU, self.on_open_website, forum_item)
         self.Bind(wx.EVT_MENU, self.on_about, about_item)
 
     def on_exit(self, event):
@@ -387,12 +388,21 @@ class ChatFrame(wx.Frame):
         self.webview.RunScript(js_code)
 
     def on_open_website(self, event):
-        if event.GetId() == self.ID_WEBSITE:
-            url = "https://aipy.app"
-        elif event.GetId() == self.ID_FORUM:
-            url = "https://d.aipy.app"
-        elif event.GetId() == self.ID_GROUP:
-            url = "https://d.aipy.app/d/13"
+        """打开网站"""
+        menu_item = self.GetMenuBar().FindItemById(event.GetId())
+        if not menu_item:
+            return
+            
+        label = menu_item.GetItemLabel()
+        if label == T('Website'):
+            url = T("https://aipy.app")
+        elif label == T('Forum'):
+            url = T("https://d.aipy.app")
+        elif label == T('WeChat Group'):
+            url = T("https://d.aipy.app/d/13")
+        else:
+            return
+            
         wx.LaunchDefaultBrowser(url)
 
     def on_about(self, event):

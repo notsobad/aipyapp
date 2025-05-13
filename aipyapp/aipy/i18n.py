@@ -274,6 +274,9 @@ MESSAGES = {
         'Failed to apply configuration': '应用配置失败',
         'Starting LLM Provider Configuration Wizard': '未找到 LLM 配置，开始配置 LLM 提供商',
         'User cancelled configuration': '用户取消配置',
+        "https://aipy.app": "https://www.aipyaipy.com",
+        "https://d.aipy.app": "https://d.aipyaipy.com",
+        "https://d.aipy.app/d/13": "https://d.aipyaipy.com/d/13",
     },
     'en': {
         'start_instruction': 'Start processing instruction',
@@ -534,6 +537,9 @@ MESSAGES = {
         'Select other providers': 'Select other providers',
         'Starting LLM Provider Configuration Wizard': 'Starting LLM Provider Configuration Wizard',
         'User cancelled configuration': 'User cancelled configuration',
+        "https://aipy.app": "https://aipy.app",
+        "https://d.aipy.app": "https://d.aipy.app",
+        "https://d.aipy.app/d/13": "https://d.aipy.app/d/13",        
     }
 }
 
