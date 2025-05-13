@@ -159,14 +159,23 @@ class ConfigManager:
     def get_config(self):
         return self.config
 
-    def update_sys_config(self, new_config):
+    def update_sys_config(self, new_config, overwrite=False):
         """更新aipyapp.toml配置文件
         :param new_config: 新配置字典, 如 {"workdir": "/path/to/workdir"}
         """
         # 加载系统配置文件
         assert(isinstance(new_config, dict))
 
-        config = self._load_config(settings_files=[self.config_file])
+        if overwrite:
+            # 如果需要覆盖，则直接使用新的配置
+            config = Dynaconf(
+                settings_files=[],
+                envvar_prefix="AIPY",
+                merge_enabled=True,
+            )
+        else:
+            config = self._load_config(settings_files=[self.config_file])
+
         config.update(new_config)
         
         # 保存到配置文件
@@ -199,6 +208,18 @@ class ConfigManager:
             # 4. 写入尾部注释
             f.write("\n".join(footer_comments))
         return config
+
+    def update_api_config(self, new_api_config):
+        """更新配置文件中的API定义"""
+        assert(isinstance(new_api_config, dict))
+        assert('api' in new_api_config)
+        config = self._load_config(settings_files=[self.config_file])
+        cfg_dict = lowercase_keys(config.to_dict())
+        cfg_dict.pop('api', None)
+        cfg_dict.update(new_api_config)
+
+        # 配置overwrite
+        self.update_sys_config(cfg_dict, overwrite=True)
 
     def save_tt_config(self, api_key):
         base_url = self.get_region_api('llm_base_url')

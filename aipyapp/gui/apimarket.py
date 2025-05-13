@@ -459,7 +459,6 @@ class ApiMarketDialog(wx.Dialog):
     def load_api_configs(self):
         """加载API配置到列表"""
         self.api_list.DeleteAllItems()
-        
         if not self.api_configs:
             no_api_item = self.api_list.InsertItem(0, T('No API configured'))
             self.api_list.SetItem(no_api_item, 2, T('Click "Add New API" button to add API configuration'))
@@ -578,6 +577,8 @@ class ApiMarketDialog(wx.Dialog):
         if result == wx.ID_YES:
             del self.api_configs[api_name]
             self.load_api_configs()
+
+            self.config_manager.update_api_config({'api': self.api_configs})
     
     def on_refresh(self, event):
         """刷新API列表"""
