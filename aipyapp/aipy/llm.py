@@ -212,21 +212,32 @@ class OpenAIBaseClient(BaseClient):
         history.add("system", system_prompt)
 
     def _parse_usage(self, usage):
+        try:
+            reasoning_tokens = usage.completion_tokens_details.reasoning_tokens
+        except Exception:
+            reasoning_tokens = 0
+
         usage = Counter({'total_tokens': usage.total_tokens,
                 'input_tokens': usage.prompt_tokens,
-                'output_tokens': usage.completion_tokens})
+                'output_tokens': usage.completion_tokens + reasoning_tokens})
         return usage
     
     def _parse_stream_response(self, response):
         usage = Counter()
         with LiveManager(self.console, self.name) as lm:
             for chunk in response:
+                #print(chunk)
                 if hasattr(chunk, 'usage') and chunk.usage is not None:
                     usage = self._parse_usage(chunk.usage)
 
-                if chunk.choices and chunk.choices[0].delta.content:
-                    content = chunk.choices[0].delta.content
-                    lm.process_chunk(content)
+                if chunk.choices:
+                    delta = chunk.choices[0].delta
+                    if delta.content:
+                        content = delta.content
+                        lm.process_chunk(content)
+                    elif hasattr(delta, 'reasoning_content') and delta.reasoning_content:
+                        reason = delta.reasoning_content
+                        lm.process_chunk(reason)
 
                 if self.is_stopped():
                     break
