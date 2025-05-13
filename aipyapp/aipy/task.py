@@ -243,6 +243,7 @@ class Task:
             trustoken_apikey = self.settings.get('llm', {}).get('trustoken', {}).get('api_key')
         if not trustoken_apikey:
             return False
+        self.console.print(f"[yellow]{T('sync_to_cloud')}")
         try:
             response = requests.post(url, json={
                 'apikey': trustoken_apikey,
