@@ -59,11 +59,11 @@ class ConfigDialog(wx.Dialog):
                                      minValue=64,
                                      maxValue=128*1024,
                                      style=wx.SL_HORIZONTAL | wx.SL_AUTOTICKS)
-        self.tokens_slider.SetTickFreq(1000)
-        self.tokens_slider.SetForegroundColour(wx.Colour(0, 0, 0))
+        self.tokens_slider.SetTickFreq(100)
         tokens_sizer.Add(self.tokens_slider, 1, wx.ALL | wx.EXPAND, 5)
         
         self.tokens_text = wx.StaticText(tokens_panel, -1, str(self.tokens_slider.GetValue()))
+        self.tokens_text.SetMinSize((50, -1))
         tokens_sizer.Add(self.tokens_text, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
         
         tokens_panel.SetSizer(tokens_sizer)
