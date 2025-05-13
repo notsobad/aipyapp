@@ -31,8 +31,7 @@ from .config import LLMConfig
 
 __PACKAGE_NAME__ = "aipyapp"
 ChatEvent, EVT_CHAT = NewEvent()
-AVATARS = {T('Me'): '🧑', 'BB-8': '🤖', T('Turing'): '🧠', T('AIPy'): '🐙'}
-TITLE = T('AIPY - Your AI Assistant')
+
 
 matplotlib.use('Agg')
 
@@ -207,15 +206,20 @@ class FileDropTarget(wx.FileDropTarget):
 
 
 class ChatFrame(wx.Frame):
+    
+
     def __init__(self, tm):
-        super().__init__(None, title=TITLE, size=(1024, 768))
+        title = T('AIPY - Your AI Assistant')
+        super().__init__(None, title=title, size=(1024, 768))
         
         self.tm = tm
+        self.title = title
         self.log = logger.bind(src='gui')
         self.task_queue = queue.Queue()
         self.aipython = AIPython(self)
         self.welcomed = False  # 添加初始化标志
         self.html_file_path = os.path.abspath(resources.files(__PACKAGE_NAME__) / "chatroom.html")
+        self.avatars = {T('Me'): '🧑', 'BB-8': '🤖', T('Turing'): '🧠', T('AIPy'): '🐙'}
 
         icon = wx.Icon(str(resources.files(__PACKAGE_NAME__) / "aipy.ico"), wx.BITMAP_TYPE_ICO)
         self.SetIcon(icon)
@@ -351,7 +355,7 @@ class ChatFrame(wx.Frame):
         self.done_button.Hide()
         self.SetStatusText(T('Current task has ended'), 0)
         self.new_task_item.Enable(False)
-        self.SetTitle(TITLE)
+        self.SetTitle(self.title)
         self.clear_chat()
 
     def on_container_resize(self, event):
@@ -480,7 +484,7 @@ class ChatFrame(wx.Frame):
         self.append_message(user, text)
 
     def append_message(self, user, text):
-        avatar = AVATARS[user]
+        avatar = self.avatars[user]
         js_code = f'appendMessage("{avatar}", "{user}", {repr(text)});'
         self.webview.RunScript(js_code)
 
@@ -526,10 +530,23 @@ class AboutDialog(wx.Dialog):
         # 创建垂直布局
         vbox = wx.BoxSizer(wx.VERTICAL)
         
+        logo_panel = wx.Panel(self)
+        logo_sizer = wx.BoxSizer(wx.HORIZONTAL)
+
+        with resources.path("aipyapp", "aipy.ico") as icon_path:
+            icon = wx.Icon(str(icon_path), wx.BITMAP_TYPE_ICO)
+            bmp = wx.Bitmap()
+            bmp.CopyFromIcon(icon)
+            # Scale the bitmap to a more appropriate size
+            scaled_bmp = wx.Bitmap(bmp.ConvertToImage().Scale(48, 48, wx.IMAGE_QUALITY_HIGH))
+            logo_sizer.Add(wx.StaticBitmap(logo_panel, -1, scaled_bmp), 0, wx.ALL | wx.ALIGN_CENTER, 5)
+
         # 添加标题
-        title = wx.StaticText(self, label=T('AIPY - Your AI Assistant'))
+        title = wx.StaticText(logo_panel, -1, label=T('AIPy'))
         title.SetFont(wx.Font(16, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD))
-        vbox.Add(title, 0, wx.ALL|wx.ALIGN_CENTER, 10)
+        logo_sizer.Add(title, 0, wx.ALL|wx.ALIGN_CENTER, 10)
+        logo_panel.SetSizer(logo_sizer)
+        vbox.Add(logo_panel, 0, wx.ALL|wx.ALIGN_CENTER, 10)
         
         # 添加描述
         desc = wx.StaticText(self, label=T('AIPY is an intelligent assistant that can help you complete various tasks.'))
@@ -565,8 +582,10 @@ def main(args):
     app = wx.App(False)
     default_config_path = resources.files(__PACKAGE_NAME__) / "default.toml"
     conf = ConfigManager(default_config_path, args.config_dir)
-    llm_config = LLMConfig(CONFIG_DIR / "config")
     settings = conf.get_config()
+    lang = settings.get('lang')
+    if lang: set_lang(lang)
+    llm_config = LLMConfig(CONFIG_DIR / "config")
     if conf.check_config(gui=True) == 'TrustToken':
         if llm_config.need_config():
             show_provider_config(llm_config)
@@ -577,10 +596,6 @@ def main(args):
     settings.gui = True
     settings.auto_install = True
     settings.auto_getenv = True
-
-    lang = settings.get('lang')
-    if lang:
-        set_lang(lang)
 
     file = None if args.debug else open(os.devnull, 'w', encoding='utf-8')
     console = Console(file=file, record=True)

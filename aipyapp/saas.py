@@ -170,8 +170,10 @@ def main(args):
     console.print(f"[bold cyan]🚀 Python use - AIPython ({__version__}) [[green]https://aipy.app[/green]]")
     default_config_path = resources.files(__PACKAGE_NAME__) / "default.toml"
     conf = ConfigManager(default_config_path, args.config_dir)
-    llm_config = LLMConfig(CONFIG_DIR / "config")
     settings = conf.get_config()
+    lang = settings.get('lang')
+    if lang: set_lang(lang)
+    llm_config = LLMConfig(CONFIG_DIR / "config")
     if conf.check_config(gui=True) == 'TrustToken':
         if llm_config.need_config():
             console.print(f"[yellow]{T('Starting LLM Provider Configuration Wizard')}[/yellow]")
@@ -183,9 +185,6 @@ def main(args):
             if not config:
                 return
         settings["llm"] = llm_config.config
-
-    lang = settings.get('lang')
-    if lang: set_lang(lang)
 
     if args.fetch_config:
         conf.fetch_config()
