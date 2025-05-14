@@ -31,7 +31,7 @@ class InitialProviderPage(wx.adv.WizardPage):
         # Provider 选择
         provider_box = wx.StaticBox(self, label=T('Provider'))
         provider_sizer = wx.StaticBoxSizer(provider_box, wx.VERTICAL)
-        
+
         self.provider_choice = wx.Choice(
             self,
             choices=['Trustoken', T('Other')]
@@ -118,7 +118,7 @@ class TrustTokenPage(wx.adv.WizardPage):
         # API Key 显示
         api_key_box = wx.StaticBox(self, label="API Key")
         api_key_sizer = wx.StaticBoxSizer(api_key_box, wx.VERTICAL)
-        
+
         self.api_key_text = wx.TextCtrl(
             self,
             style=wx.TE_READONLY
@@ -159,7 +159,7 @@ class TrustTokenPage(wx.adv.WizardPage):
     def _update_progress(self):
         if not self.start_time:
             return
-            
+
         elapsed = time.time() - self.start_time
         if elapsed >= self.polling_timeout:
             progress = 100
@@ -167,23 +167,23 @@ class TrustTokenPage(wx.adv.WizardPage):
         else:
             progress = int((elapsed / self.polling_timeout) * 100)
             time_remaining = int(self.polling_timeout - elapsed)
-            
+
         wx.CallAfter(self.progress_bar.SetValue, progress)
         wx.CallAfter(self.time_text.SetLabel, f"{T('Remaining time')}: {time_remaining}{T('seconds')}")
-        
+
     def _poll_status(self, save_func):
         self.start_time = time.time()
         while not self.stop_polling and time.time() - self.start_time < self.polling_timeout:
             self._update_progress()
-            
+
             data = self.api.check_status(self.request_id)
             if not data:
                 time.sleep(self.poll_interval)
                 continue
-                
+
             status = data.get('status')
             wx.CallAfter(self._update_status, f"{T('Current status')}: {status}")
-            
+
             if status == 'approved':
                 if save_func:
                     save_func(data['secret_token'])
@@ -199,9 +199,9 @@ class TrustTokenPage(wx.adv.WizardPage):
                 wx.CallAfter(self._update_status, f"{T('Unknown status')}: {status}")
                 wx.CallAfter(self._on_failure)
                 return False
-                
+
             time.sleep(self.poll_interval)
-            
+
         if not self.stop_polling:
             wx.CallAfter(self._update_status, T('Waiting timeout'))
             wx.CallAfter(self._on_failure)
@@ -225,27 +225,27 @@ class TrustTokenPage(wx.adv.WizardPage):
     def on_fetch(self, event):
         self.status_text.SetLabel(T('Requesting binding'))
         self.fetch_button.Disable()
-        
+
         data = self.api.request_binding()
         if not data:
             self._on_failure()
             return
-            
+
         approval_url = data['approval_url']
         self.request_id = data['request_id']
         expires_in = data['expires_in']
         self.polling_timeout = expires_in
         self._update_status(T('Waiting for user confirmation'))
-        
+
         # 打开浏览器
         self.url_ctrl.SetURL(approval_url)
         self.url_ctrl.Show()
         webbrowser.open(approval_url)
-        
+
         # 显示进度组并重新布局
         self._toggle_progress(True)
         self.Layout()
-        
+
         # 开始轮询
         self.polling_thread = threading.Thread(
             target=self._poll_status,
@@ -294,13 +294,15 @@ class ProviderPage(wx.adv.WizardPage):
         # Provider 选择
         provider_box = wx.StaticBox(self, label=T('Provider'))
         provider_sizer = wx.StaticBoxSizer(provider_box, wx.VERTICAL)
-        
+
         # 过滤掉 TrustToken
         providers = [name for name in self.provider_config.providers.keys() if name != "Trustoken"]
         self.provider_choice = wx.Choice(
             self,
             choices=providers
         )
+        if providers:  # 确保列表不为空
+            self.provider_choice.SetSelection(0)  # 默认选中第一个选项
         self.provider_choice.Bind(wx.EVT_CHOICE, self.on_provider_selected)
         provider_sizer.Add(self.provider_choice, 0, wx.EXPAND | wx.ALL, 5)
         vbox.Add(provider_sizer, 0, wx.EXPAND | wx.ALL, 5)
@@ -308,7 +310,7 @@ class ProviderPage(wx.adv.WizardPage):
         # API Key 输入
         api_key_box = wx.StaticBox(self, label="API Key")
         api_key_sizer = wx.StaticBoxSizer(api_key_box, wx.VERTICAL)
-        
+
         self.api_key_text = wx.TextCtrl(
             self,
             size=(400, -1)
@@ -360,7 +362,7 @@ class ModelPage(wx.adv.WizardPage):
         # Model 选择
         model_box = wx.StaticBox(self, label=T('Available Models'))
         model_sizer = wx.StaticBoxSizer(model_box, wx.VERTICAL)
-        
+
         self.model_choice = wx.Choice(self)
         model_sizer.Add(self.model_choice, 0, wx.EXPAND | wx.ALL, 5)
         vbox.Add(model_sizer, 0, wx.EXPAND | wx.ALL, 5)
@@ -368,7 +370,7 @@ class ModelPage(wx.adv.WizardPage):
         # Max Tokens 配置
         max_tokens_box = wx.StaticBox(self, label=T('Max Tokens'))
         max_tokens_sizer = wx.StaticBoxSizer(max_tokens_box, wx.VERTICAL)
-        
+
         self.max_tokens_text = wx.TextCtrl(self, value="8192")
         max_tokens_sizer.Add(self.max_tokens_text, 0, wx.EXPAND | wx.ALL, 5)
         vbox.Add(max_tokens_sizer, 0, wx.EXPAND | wx.ALL, 5)
@@ -391,6 +393,8 @@ class ModelPage(wx.adv.WizardPage):
             self.model_choice.Enable()  # 启用选择
             if selected_model and selected_model in models:
                 self.model_choice.SetStringSelection(selected_model)
+            elif models:  # 如果有模型列表但没有指定选择的模型，默认选择第一个
+                self.model_choice.SetSelection(0)
             self.hint.SetLabel(T('Please select model to use and configure parameters'))
 
     def get_selected_model(self):
@@ -432,7 +436,7 @@ class ProviderConfigWizard(wx.adv.Wizard):
         if event.GetPage() == self.model_page:
             # 从第一步进入第二步时，验证 API Key 并获取模型列表
             provider = self.provider_page.get_provider()
-            api_key = self.provider_page.get_api_key()           
+            api_key = self.provider_page.get_api_key()
             if not provider or not api_key:
                 self.model_page.prev_page = self.trust_token_page
                 provider = "Trustoken"
@@ -466,7 +470,7 @@ class ProviderConfigWizard(wx.adv.Wizard):
         else:
             provider = self.provider_page.get_provider()
             api_key = self.provider_page.get_api_key()
-            
+
         selected_model = self.model_page.get_selected_model()
         max_tokens = self.model_page.get_max_tokens()
         provider_info = self.provider_config.providers[provider]
@@ -489,7 +493,7 @@ class ProviderConfigWizard(wx.adv.Wizard):
         headers = {
             "Content-Type": "application/json"
         }
-        
+
         if provider == "Claude":
             headers["x-api-key"] = api_key
             headers["anthropic-version"] = "2023-06-01"
@@ -519,4 +523,4 @@ def show_provider_config(llm_config, parent=None):
     wizard = ProviderConfigWizard(llm_config, parent)
     wizard.RunWizard(wizard.initial_page)
     wizard.Destroy()
-    return wx.ID_OK 
+    return wx.ID_OK

@@ -3,8 +3,7 @@
 from collections import OrderedDict
 
 from .base import BaseConfig
-from ..aipy.i18n import T, __lang__
-
+from ..aipy.i18n import T, get_lang
 
 PROVIDERS = {
     "Trustoken": {
@@ -41,7 +40,7 @@ PROVIDERS = {
 }
 
 def get_providers():
-    if __lang__ == "zh":
+    if get_lang() == "zh":
         providers = OrderedDict()
         providers["Trustoken"] = PROVIDERS["Trustoken"]
         providers["DeepSeek"] = PROVIDERS["DeepSeek"]

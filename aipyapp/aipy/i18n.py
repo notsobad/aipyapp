@@ -547,6 +547,9 @@ MESSAGES = {
 
 __lang__ = 'en'
 
+def get_lang():
+    return __lang__
+
 def set_lang(lang=None):
     global __lang__, MESSAGES
     if lang and lang in MESSAGES:
