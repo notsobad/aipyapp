@@ -6,8 +6,6 @@ from ..config.llm import LLMConfig, PROVIDERS
 from .trustoken import TrustToken
 from .i18n import T
 
-providers = OrderedDict(PROVIDERS)
-
 def get_models(provider: str, api_key: str) -> list:
     """获取可用的模型列表"""
     provider_info = providers[provider]
@@ -53,7 +51,7 @@ def select_provider(llm_config, default='Trustoken'):
         if name == default:
             return default
 
-        names = [name for name in providers.keys() if name != default]
+        names = [name for name in llm_config.providers.keys() if name != default]
         names.append('<--')
         name = questionary.select(
             T('Select other providers'),
@@ -109,10 +107,17 @@ def config_llm(llm_config):
     ).unsafe_ask()
     config['max_tokens'] = int(max_tokens)
 
+    def is_valid_temperature(s: str) -> bool:
+        try:
+            temp = float(s)
+            return temp >= 0  # 通常 temperature 不允许为负数
+        except ValueError:
+            return False
+        
     temperature = questionary.text(
         T('Temperature (%)'),
         default="0.7",
-        validate=lambda x: 0 <= float(x) <= 1
+        validate=is_valid_temperature
     ).unsafe_ask()
     config['temperature'] = float(temperature)
 

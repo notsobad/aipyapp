@@ -282,6 +282,7 @@ class ProviderPage(wx.adv.WizardPage):
         self.provider_config = provider_config
         self.init_ui()
         self.SetSize(800, 600)
+        self.GetParent().Bind(wx.adv.EVT_WIZARD_PAGE_CHANGING, self.on_page_changing)
 
     def init_ui(self):
         vbox = wx.BoxSizer(wx.VERTICAL)
@@ -343,6 +344,16 @@ class ProviderPage(wx.adv.WizardPage):
     def GetPrev(self):
         return self.GetParent().initial_page
 
+    def on_page_changing(self, event):
+        # 如果是当前页面，且是向前切换
+        if event.GetPage() == self and event.GetDirection():
+            api_key = self.get_api_key()
+            if not api_key:
+                wx.MessageBox(T('Please get API Key first'), T('Hint'), wx.OK | wx.ICON_INFORMATION)
+                event.Veto()
+                return
+        event.Skip()
+        
 class ModelPage(wx.adv.WizardPage):
     def __init__(self, parent, provider_config):
         super().__init__(parent)

@@ -6,6 +6,7 @@ import re
 import json
 import uuid
 import platform
+import locale
 from pathlib import Path
 from datetime import date
 from enum import Enum, auto
@@ -184,6 +185,7 @@ class Task:
         prompt['python_version'] = platform.python_version()
         prompt['platform'] = platform.platform()
         prompt['today'] = date.today().isoformat()
+        prompt['locale'] = locale.getlocale()
         prompt['work_dir'] = '工作目录为当前目录，默认在当前目录下创建文件'
         if getattr(self.console, 'gui', False):
             prompt['matplotlib'] = "我现在用的是 matplotlib 的 Agg 后端，请默认用 plt.savefig() 保存图片后用 runtime.display() 显示，禁止使用 plt.show()"

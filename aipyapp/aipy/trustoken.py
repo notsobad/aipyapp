@@ -7,7 +7,6 @@ import qrcode
 
 from aipyapp.aipy.i18n import T
 
-COORDINATOR_URL = T('tt_coordinator_url')
 POLL_INTERVAL = 5 # 轮询间隔（秒）
 
 class TrustTokenAPI:
@@ -20,7 +19,7 @@ class TrustTokenAPI:
         Args:
             coordinator_url (str, optional): The coordinator server URL. Defaults to None.
         """
-        self.coordinator_url = coordinator_url or COORDINATOR_URL
+        self.coordinator_url = coordinator_url or T('tt_coordinator_url')
 
     def request_binding(self):
         """Request binding from the coordinator server.

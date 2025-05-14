@@ -525,7 +525,7 @@ class ChatFrame(wx.Frame):
 
 class AboutDialog(wx.Dialog):
     def __init__(self, parent):
-        super().__init__(parent, title=T('About AIPY'), size=(400, 300))
+        super().__init__(parent, title=T('About AIPY'))
         
         # 创建垂直布局
         vbox = wx.BoxSizer(wx.VERTICAL)
@@ -576,6 +576,8 @@ class AboutDialog(wx.Dialog):
         vbox.Add(ok_button, 0, wx.ALL|wx.ALIGN_CENTER, 10)
         
         self.SetSizer(vbox)
+        self.SetMinSize((400, 320))
+        self.Fit()
         self.Centre()
 
 def main(args):

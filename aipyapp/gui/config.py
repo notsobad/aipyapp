@@ -85,6 +85,7 @@ class ConfigDialog(wx.Dialog):
         timeout_sizer.Add(self.timeout_slider, 1, wx.ALL | wx.EXPAND, 5)
         
         self.timeout_text = wx.StaticText(timeout_panel, -1, str(self.timeout_slider.GetValue()))
+        self.timeout_text.SetMinSize((50, -1))
         timeout_sizer.Add(self.timeout_text, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
         
         timeout_panel.SetSizer(timeout_sizer)
