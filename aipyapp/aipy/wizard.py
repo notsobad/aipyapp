@@ -6,7 +6,7 @@ from ..config.llm import LLMConfig, PROVIDERS
 from .trustoken import TrustToken
 from .i18n import T
 
-def get_models(provider: str, api_key: str) -> list:
+def get_models(providers, provider, api_key: str) -> list:
     """获取可用的模型列表"""
     provider_info = providers[provider]
     headers = {
@@ -87,7 +87,7 @@ def config_llm(llm_config):
         config['api_key'] = api_key
 
         # 获取可用模型列表
-        available_models = get_models(name, api_key)
+        available_models = get_models(llm_config.providers, name, api_key)
         if not available_models:
             logger.warning(T('Model list acquisition failed'))
             return None
@@ -98,28 +98,6 @@ def config_llm(llm_config):
             choices=available_models
         ).unsafe_ask()
         config['model'] = model
-
-    # 第四步：配置参数
-    max_tokens = questionary.text(
-        T('Max Tokens'),
-        default="8192",
-        validate=lambda x: x.isdigit() and int(x) > 0
-    ).unsafe_ask()
-    config['max_tokens'] = int(max_tokens)
-
-    def is_valid_temperature(s: str) -> bool:
-        try:
-            temp = float(s)
-            return temp >= 0  # 通常 temperature 不允许为负数
-        except ValueError:
-            return False
-        
-    temperature = questionary.text(
-        T('Temperature (%)'),
-        default="0.7",
-        validate=is_valid_temperature
-    ).unsafe_ask()
-    config['temperature'] = float(temperature)
 
     # 保存配置
     config['enable'] = True

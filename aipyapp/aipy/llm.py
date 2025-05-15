@@ -51,9 +51,12 @@ class LiveManager:
         self.name = name
         self.console = console
         self.lr = LineReceiver()
+        self.lr_reason = LineReceiver()
         self.title = f"{self.name} {T('llm_response')}"
         self.response_panel = None
         self.full_response = None
+        self.full_reason = None
+
 
     def __enter__(self):
         self.live = Live(auto_refresh=False, vertical_overflow='visible', transient=True)
@@ -73,7 +76,8 @@ class LiveManager:
         if hasattr(self.console, 'gui'):
             self.console.print(content, end="", highlight=False)
 
-        full_response = self.lr.content
+        full_response = self.lr.content if not self.full_reason else f'{self.full_reason}\n# {T('llm_response')}\n{self.lr.content}'
+
         try:
             md = Markdown(full_response)
             response_panel = Panel(md, title=self.title, border_style="green")
@@ -83,7 +87,28 @@ class LiveManager:
         self.live.update(response_panel, refresh=True)
         self.response_panel = response_panel
         self.full_response = full_response
-    
+
+    def process_reason(self, content):
+        if not content: return
+        lines = self.lr_reason.feed(content)
+        if not lines: return
+        
+        content = '\n'.join(lines)
+        event_bus.broadcast('response_stream', {'llm': self.name, 'content': content, 'reason': True})
+        if hasattr(self.console, 'gui'):
+            self.console.print(content, end="", highlight=False)
+
+        full_reason = f"# {T('think')}\n{self.lr_reason.content}"
+        try:
+            md = Markdown(full_reason)
+            response_panel = Panel(md, title=self.title, border_style="green")
+        except Exception:
+            text = Text(full_reason)
+            response_panel = Panel(text, title=self.title, border_style="yellow")
+        self.live.update(response_panel, refresh=True)
+        self.response_panel = response_panel
+        self.full_reason = full_reason
+
     def __exit__(self, exc_type, exc_val, exc_tb):
         if self.lr.buffer:
             self.process_chunk('\n')
@@ -128,11 +153,12 @@ class BaseClient(ABC):
     def __init__(self, config):
         self.name = None
         self.console = None
+        self.config = config
         self.max_tokens = config.get("max_tokens")
         self._model = config.get("model") or self.MODEL
         self._timeout = config.get("timeout")
         self._api_key = config.get("api_key")
-        self._base_url = config.get("base_url") or self.BASE_URL
+        self._base_url = self.get_base_url()
         self._stream = config.get("stream", True)
         self._client = None
         self._params = {}
@@ -144,6 +170,9 @@ class BaseClient(ABC):
 
     def __repr__(self):
         return f"{self.__class__.__name__}<{self.name}>: ({self._model}, {self.max_tokens}, {self._base_url})"
+    
+    def get_base_url(self):
+        return self.config.get("base_url") or self.BASE_URL
     
     def is_stopped(self):
         return event_bus.is_stopped()
@@ -237,7 +266,7 @@ class OpenAIBaseClient(BaseClient):
                         lm.process_chunk(content)
                     elif hasattr(delta, 'reasoning_content') and delta.reasoning_content:
                         reason = delta.reasoning_content
-                        lm.process_chunk(reason)
+                        lm.process_reason(reason)
 
                 if self.is_stopped():
                     break
@@ -420,10 +449,12 @@ class GrokClient(OpenAIBaseClient):
     PARAMS = {'stream_options': {'include_usage': True}}
 
 class TrustClient(OpenAIBaseClient): 
-    BASE_URL = T('tt_base_url')
     MODEL = 'auto'
     PARAMS = {'stream_options': {'include_usage': True}}
 
+    def get_base_url(self):
+        return self.config.get("base_url") or T('tt_base_url')
+    
 class AzureOpenAIClient(OpenAIBaseClient): 
     MODEL = 'gpt-4o'
 
