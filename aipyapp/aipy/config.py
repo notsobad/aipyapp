@@ -85,6 +85,10 @@ def is_valid_api_key(api_key):
     pattern = r"^[A-Za-z0-9_-]{8,128}$"
     return bool(re.match(pattern, api_key))
 
+def get_mcp(config_dir=None):
+    mcp_config_file = get_config_file_path(config_dir, MCP_CONFIG_FILE_NAME)
+    return MCPToolManager(mcp_config_file)
+
 class ConfigManager:
     def __init__(self, default_config="default.toml",  config_dir=None):
         self.config_file = get_config_file_path(config_dir)
@@ -92,9 +96,8 @@ class ConfigManager:
         self.default_config = default_config
         self.config = self._load_config()
         
-        self.config.update({'mcp_tools': self.get_mcp_tools(config_dir)})
+        self.config.update({'_config_dir': config_dir})
 
-        #self.config.update({'mcp'})
         # TODO：临时API配置
         self.config.update({
             'api': {
@@ -108,18 +111,6 @@ class ConfigManager:
         })
         self.trust_token = TrustToken()
         #print(self.config.to_dict())
-
-    def get_mcp_tools(self, config_dir=None):
-        """
-        获取 MCP 工具列表
-        :param config_dir: 配置目录
-        :return: 工具列表
-        """
-        mcp_config_file = get_config_file_path(config_dir, MCP_CONFIG_FILE_NAME)
-        
-        mcp = MCPToolManager(mcp_config_file)
-        tools = mcp.list_tools()
-        return tools
 
     def get_work_dir(self):
         if self.config.workdir:

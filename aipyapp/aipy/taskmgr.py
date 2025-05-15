@@ -11,7 +11,7 @@ from .runner import Runner
 from .plugin import PluginManager
 from .prompt import SYSTEM_PROMPT
 from .diagnose import Diagnose
-from .config import PLUGINS_DIR
+from .config import PLUGINS_DIR, get_mcp
 
 class TaskManager:
     def __init__(self, settings, console):
@@ -30,12 +30,14 @@ class TaskManager:
             self._cwd = workdir
         else:
             self._cwd = Path.cwd()
+        self.mcp = get_mcp(settings.get('_config_dir'))
         self._init_environ()
         self._init_api()
         self._init_mcp()
         self.diagnose = Diagnose.create(settings)
         self.runner = Runner(settings, console, envs=self.envs)
         self.llm = LLM(settings, console, system_prompt=self.system_prompt)
+
 
     @property
     def workdir(self):
@@ -97,7 +99,7 @@ class TaskManager:
 
     def _init_mcp(self):
         """初始化 MCP 工具提示信息"""
-        mcp_tools = self.settings.get('mcp_tools')
+        mcp_tools = self.mcp.list_tools()
         if not mcp_tools:
             return
         
@@ -119,7 +121,7 @@ class TaskManager:
         
         system_prompt = system_prompt or self.system_prompt
         max_rounds = max_rounds or self.settings.get('max_rounds')
-        task = Task(instruction, system_prompt=system_prompt, max_rounds=max_rounds, settings=self.settings)
+        task = Task(instruction, system_prompt=system_prompt, max_rounds=max_rounds, settings=self.settings, mcp=self.mcp)
         task.console = self.console
         task.llm = self.llm
         task.runner = self.runner

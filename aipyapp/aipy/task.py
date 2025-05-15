@@ -30,7 +30,7 @@ class MsgType(Enum):
 class Task:
     MAX_ROUNDS = 16
 
-    def __init__(self, instruction, *, system_prompt=None, max_rounds=None, settings=None):
+    def __init__(self, instruction, *, system_prompt=None, max_rounds=None, settings=None, mcp=None):
         self.task_id = uuid.uuid4().hex
         self.instruction = instruction
         self.console = None
@@ -43,6 +43,7 @@ class Task:
             re.DOTALL | re.MULTILINE
         )
         self.settings = settings
+        self.mcp = mcp
         
     def save(self, path):
        if self._console.record:
@@ -176,6 +177,7 @@ class Task:
         feedback_response = self.llm(feed_back, name=llm)
         return feedback_response
 
+    
     def box(self, title, content, align=None, lang=None):
         if hasattr(self.console, 'gui'):
             # Using Mocked console. Dont use Panel
