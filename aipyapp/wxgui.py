@@ -206,8 +206,6 @@ class FileDropTarget(wx.FileDropTarget):
 
 
 class ChatFrame(wx.Frame):
-    
-
     def __init__(self, tm):
         title = T('AIPY - Your AI Assistant')
         super().__init__(None, title=title, size=(1024, 768))
@@ -218,10 +216,11 @@ class ChatFrame(wx.Frame):
         self.task_queue = queue.Queue()
         self.aipython = AIPython(self)
         self.welcomed = False  # 添加初始化标志
-        self.html_file_path = os.path.abspath(resources.files(__PACKAGE_NAME__) / "chatroom.html")
+        resources_dir = resources.files(f"{__PACKAGE_NAME__}.res")
+        self.html_file_path = os.path.abspath(resources_dir / "chatroom.html")
         self.avatars = {T('Me'): '🧑', 'BB-8': '🤖', T('Turing'): '🧠', T('AIPy'): '🐙'}
 
-        icon = wx.Icon(str(resources.files(__PACKAGE_NAME__) / "aipy.ico"), wx.BITMAP_TYPE_ICO)
+        icon = wx.Icon(str(resources_dir / "aipy.ico"), wx.BITMAP_TYPE_ICO)
         self.SetIcon(icon)
 
         self.make_menu_bar()
@@ -533,7 +532,7 @@ class AboutDialog(wx.Dialog):
         logo_panel = wx.Panel(self)
         logo_sizer = wx.BoxSizer(wx.HORIZONTAL)
 
-        with resources.path("aipyapp", "aipy.ico") as icon_path:
+        with resources.path(f"{__PACKAGE_NAME__}.res", "aipy.ico") as icon_path:
             icon = wx.Icon(str(icon_path), wx.BITMAP_TYPE_ICO)
             bmp = wx.Bitmap()
             bmp.CopyFromIcon(icon)
