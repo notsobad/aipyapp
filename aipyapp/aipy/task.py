@@ -114,7 +114,53 @@ class Task:
             _, _, name, content = match.groups()
             code_blocks[name] = content.rstrip('\n')
 
+        if not code_blocks:
+            # 尝试解析mcp
+            code_blocks['mcp_tools'] = self._parse_mcp(markdown)
         return code_blocks
+
+    def _parse_mcp(self, content):
+        """
+        解析可能包含 MCP 工具调用的 JSON 字符串
+
+        参数:
+            content: 可能是纯 JSON 字符串或包含 JSON 的 Markdown
+
+        返回:
+            成功时返回解析后的 MCP 调用字典 (包含 action, name, arguments 等字段)
+            失败时返回 None
+        """
+        # 首先尝试从可能的 markdown 中提取 JSON 部分
+        if 'call_tool' not in content:
+            return None
+
+        json_content = content.strip()
+
+        # 查找 markdown 中的 JSON 代码块
+        #json_pattern = re.compile(r"```(?:json)?\s*\n(.*?)\n```", re.DOTALL)
+        #match = json_pattern.search(content)
+        #if match:
+        #    json_content = match.group(1).strip()
+
+        # 尝试解析 JSON
+        try:
+            data = json.loads(json_content)
+
+            # 验证格式
+            if not isinstance(data, dict):
+                return None
+
+            # 检查必需字段
+            if 'action' not in data or 'name' not in data:
+                return None
+
+            # 检查 arguments 格式
+            if 'arguments' in data and not isinstance(data['arguments'], dict):
+                return None
+
+            return data
+        except (json.JSONDecodeError, TypeError):
+            return None
 
     def process_code_reply(self, blocks, llm=None):
         event_bus('exec', blocks)
@@ -213,10 +259,16 @@ class Task:
         response = self.llm(instruction, system_prompt=system_prompt, name=llm)
         while response and rounds <= max_rounds:
             blocks = self.parse_reply(response)
-            if 'main' not in blocks:
+
+            if 'mcp_tools' not in blocks and 'main' not in blocks:
                 break
+
+            if 'mcp_tools' in blocks:
+                pass
+            else:
+                response = self.process_code_reply(blocks, llm)
+
             rounds += 1
-            response = self.process_code_reply(blocks, llm)
             if event_bus.is_stopped():
                 break
         self.print_summary()
