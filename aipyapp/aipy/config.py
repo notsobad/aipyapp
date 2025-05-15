@@ -1,21 +1,17 @@
 import sys
-import time
-import requests # Import requests library
-import os
 import re
 import io
 import datetime
-import webbrowser
 from pathlib import Path
+import traceback
 
 from dynaconf import Dynaconf
 from rich import print
 import tomli_w
-import qrcode
 
 from .i18n import T, get_system_language
 from .trustoken import TrustToken
-import traceback
+from .mcp import MCPToolManager
 
 __PACKAGE_NAME__ = "aipyapp"
 
@@ -28,6 +24,7 @@ OLD_SETTINGS_FILES = [
 
 CONFIG_FILE_NAME = f"{__PACKAGE_NAME__}.toml"
 USER_CONFIG_FILE_NAME = "user_config.toml"
+MCP_CONFIG_FILE_NAME = "mcp.json"
 LANG = get_system_language()
 
 def init_config_dir():
@@ -94,6 +91,10 @@ class ConfigManager:
         self.user_config_file = get_config_file_path(config_dir, USER_CONFIG_FILE_NAME)
         self.default_config = default_config
         self.config = self._load_config()
+        
+        self.config.update({'mcp_tools': self.get_mcp_tools(config_dir)})
+
+        #self.config.update({'mcp'})
         # TODO：临时API配置
         self.config.update({
             'api': {
@@ -107,6 +108,18 @@ class ConfigManager:
         })
         self.trust_token = TrustToken()
         #print(self.config.to_dict())
+
+    def get_mcp_tools(self, config_dir=None):
+        """
+        获取 MCP 工具列表
+        :param config_dir: 配置目录
+        :return: 工具列表
+        """
+        mcp_config_file = get_config_file_path(config_dir, MCP_CONFIG_FILE_NAME)
+        
+        mcp = MCPToolManager(mcp_config_file)
+        tools = mcp.list_tools()
+        return tools
 
     def get_work_dir(self):
         if self.config.workdir:

@@ -54,10 +54,25 @@ class MCPToolManager:
         self.config_reader = MCPConfigReader(config_path)
         self.mcp_servers = self.config_reader.get_mcp_servers()
         self._tools_cache = {}  # 缓存已获取的工具列表
-        print(self.mcp_servers)
         
     def list_tools(self):
-        """返回所有MCP服务器的工具列表"""
+        """返回所有MCP服务器的工具列表
+        [{'description': 'Get weather alerts for a US state.\n'
+                           '\n'
+                           '    Args:\n'
+                           '        state: Two-letter US state code (e.g. CA, '
+                           'NY)\n'
+                           '    ',
+            'inputSchema': {'properties': {'state': {'title': 'State',
+                                                     'type': 'string'}},
+                            'required': ['state'],
+                            'title': 'get_alertsArguments',
+                            'type': 'object'},
+            'name': 'get_alerts',
+            'server': 'server1'
+            },
+        ]
+        """
         all_tools = []
         for server_name, server_config in self.mcp_servers.items():
             # 如果缓存中没有该服务器的工具，则获取

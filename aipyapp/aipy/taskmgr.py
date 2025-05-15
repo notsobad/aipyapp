@@ -3,7 +3,7 @@
 
 import os
 from pathlib import Path
-
+import json
 from .i18n import T
 from .task import Task
 from .llm import LLM
@@ -32,6 +32,7 @@ class TaskManager:
             self._cwd = Path.cwd()
         self._init_environ()
         self._init_api()
+        self._init_mcp()
         self.diagnose = Diagnose.create(settings)
         self.runner = Runner(settings, console, envs=self.envs)
         self.llm = LLM(settings, console, system_prompt=self.system_prompt)
@@ -92,6 +93,24 @@ class TaskManager:
                 lines.append(f"- {name}: {desc}")
                 self.envs[name] = (value, desc)
 
+        self.system_prompt = "\n".join(lines)
+
+    def _init_mcp(self):
+        """初始化 MCP 工具提示信息"""
+        mcp_tools = self.settings.get('mcp_tools')
+        if not mcp_tools:
+            return
+        
+        tools_json = json.dumps(mcp_tools, ensure_ascii=False)
+        lines = [self.system_prompt]
+        lines.append("""\n# 工具调用
+你是一个能够使用外部工具来辅助用户完成任务的智能助手，请判断是否需要使用外部工具来回答用户的问题。如果需要，请以 JSON 格式输出你的决策和调用参数，格式如下：
+{"action": "call_tool", "name": "tool_name", "arguments": {"arg_name": "arg_value", ...}}
+如果不需要使用工具，请直接回复用户。
+以下是你可用的工具，以 JSON 数组形式提供：
+""")
+        lines.append(f"```json\n{tools_json}\n```")
+        # 更新系统提示
         self.system_prompt = "\n".join(lines)
 
     def new_task(self, instruction, llm=None, max_rounds=None, system_prompt=None):
