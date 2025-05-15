@@ -54,7 +54,7 @@ class MCPToolManager:
         self.config_reader = MCPConfigReader(config_path)
         self.mcp_servers = self.config_reader.get_mcp_servers()
         self._tools_cache = {}  # 缓存已获取的工具列表
-        
+
     def list_tools(self):
         """返回所有MCP服务器的工具列表
         [{'description': 'Get weather alerts for a US state.\n'
@@ -81,7 +81,7 @@ class MCPToolManager:
                     # 创建服务器参数
                     if "url" in server_config:
                         # HTTP/SSE 类型的服务器，暂不支持
-                        print(f"Skipping HTTP/SSE server {server_name}: {server_config['url']}")
+                        #print(f"Skipping HTTP/SSE server {server_name}: {server_config['url']}")
                         continue
                     
                     server_params = StdioServerParameters(
@@ -93,7 +93,7 @@ class MCPToolManager:
                     # 获取工具列表
                     client = MCPClientSync(server_params)
                     tools = client.list_tools()
-                    print(tools)
+                    #print(tools)
                     # 为每个工具添加服务器标识
                     for tool in tools:
                         tool["server"] = server_name
@@ -105,13 +105,27 @@ class MCPToolManager:
             
             # 添加到总工具列表
             all_tools.extend(self._tools_cache[server_name])
-        
         return all_tools
     
+    def get_all_tools(self):
+        """返回所有工具的列表"""
+
+        if self._tools_cache:
+            all_tools = []
+            for server_name, tools in self._tools_cache.items():
+                for tool in tools:
+                    tool["server"] = server_name
+                    all_tools.append(tool)
+        else:
+            all_tools = self.list_tools()
+        return all_tools
+
     def call_tool(self, tool_name, arguments):
         """调用指定名称的工具，自动选择最匹配的服务器"""
         # 获取所有工具
-        all_tools = self.list_tools()
+        all_tools = self.get_all_tools()
+        if not all_tools:
+            raise ValueError("No tools available to call.")
         
         # 查找匹配的工具
         matching_tools = [t for t in all_tools if t["name"] == tool_name]

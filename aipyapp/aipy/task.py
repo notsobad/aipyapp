@@ -117,10 +117,13 @@ class Task:
 
         if not code_blocks:
             # 尝试解析mcp
-            code_blocks['mcp_tools'] = self._parse_mcp(markdown)
+            json_content = self._parse_mcp(markdown)
+            if json_content:
+                code_blocks['call_tool'] = json_content
+
         return code_blocks
 
-    def _parse_mcp(self, content):
+    def _parse_mcp(self, content: str):
         """
         解析可能包含 MCP 工具调用的 JSON 字符串
 
@@ -128,7 +131,7 @@ class Task:
             content: 可能是纯 JSON 字符串或包含 JSON 的 Markdown
 
         返回:
-            成功时返回解析后的 MCP 调用字典 (包含 action, name, arguments 等字段)
+            成功时返回JSON字符串 (包含 action, name, arguments 等字段)
             失败时返回 None
         """
         # 首先尝试从可能的 markdown 中提取 JSON 部分
@@ -159,7 +162,7 @@ class Task:
             if 'arguments' in data and not isinstance(data['arguments'], dict):
                 return None
 
-            return data
+            return json_content
         except (json.JSONDecodeError, TypeError):
             return None
 
@@ -177,7 +180,27 @@ class Task:
         feedback_response = self.llm(feed_back, name=llm)
         return feedback_response
 
-    
+    def process_mcp_reply(self, blocks, llm=None):
+        """处理 MCP 工具调用的回复"""
+
+        event_bus('tool_call', blocks)
+        json_content = blocks['call_tool']
+        self.box(f"\n⚡ {T('call_tool')}:", json_content, lang='json')
+
+        call_tool = json.loads(json_content)
+        result = self.mcp.call_tool(call_tool['name'], call_tool['arguments'])
+        event_bus('result', result)
+        result = json.dumps(result, ensure_ascii=False, indent=4)
+        self.box(f"\n✅ {T('call_tool_result')}:\n", result, lang="json")
+
+        status = self.console.status(f"[dim white]{T('start_feedback')}...")
+        self.console.print(status)
+        feed_back = f"# MCP 调用\n{self.instruction}\n\n# 执行结果反馈\n{result}"
+        feedback_response = self.llm(feed_back, name=llm)
+
+        return feedback_response
+
+
     def box(self, title, content, align=None, lang=None):
         if hasattr(self.console, 'gui'):
             # Using Mocked console. Dont use Panel
@@ -262,11 +285,11 @@ class Task:
         while response and rounds <= max_rounds:
             blocks = self.parse_reply(response)
 
-            if 'mcp_tools' not in blocks and 'main' not in blocks:
+            if 'call_tool' not in blocks and 'main' not in blocks:
                 break
 
-            if 'mcp_tools' in blocks:
-                pass
+            if 'call_tool' in blocks:
+                response = self.process_mcp_reply(blocks, llm)
             else:
                 response = self.process_code_reply(blocks, llm)
 
