@@ -22,7 +22,6 @@ from .i18n import T
 from .plugin import event_bus
 from .templates import CONSOLE_HTML_FORMAT
 from .utils import get_safe_filename
-from .config import get_region_api
 
 class MsgType(Enum):
     CODE = auto()
@@ -238,7 +237,7 @@ class Task:
     def sync_to_cloud(self, verbose=True):
         """ Sync result
         """
-        url = get_region_api('share_url', self.settings)
+        url = T('tt_share_url')
 
         trustoken_apikey = self.settings.get('llm', {}).get('Trustoken', {}).get('api_key')
         if not trustoken_apikey:
