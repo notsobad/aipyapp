@@ -31,15 +31,3 @@ api_key = "sk-aipy-2ej5NpKz8FrC7wGhV4YtXdQsLx9AMuB6vZRS3bTD"
 type = "trust"
 api_key = ""
 enable = false
-
-[tt_api.coordinator_url]
-en = "https://www.trustoken.ai/api"
-zh = "https://www.trustoken.cn/api"
-
-[tt_api.llm_base_url]
-en = "https://sapi.trustoken.ai/v1"
-zh = "https://api.trustoken.cn/v1"
-
-[tt_api.share_url]
-en = "https://store.aipy.app/api/work"
-zh = "https://store.aipyaipy.com/api/work"
