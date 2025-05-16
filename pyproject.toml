@@ -23,6 +23,7 @@ dependencies = [
     "questionary>=2.1.0",
     "wxpython>=4.2.3",
     "mcp[cli]>=1.8.1",
+    "openpyxl>=3.1.5",
 ]
 
 [project.scripts]

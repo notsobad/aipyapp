@@ -81,14 +81,14 @@ class Task:
             return
 
     def done(self):
-        #import pdb;pdb.set_trace()
         instruction = self.instruction
         task = {'instruction': instruction}
         task['llm'] = self.llm.history.json()
         task['runner'] = self.runner.history
         filename = get_safe_filename(instruction, extension='.json') or f"{self.task_id}.json"
         try:
-            json.dump(task, open(filename, 'w'), ensure_ascii=False, indent=4)
+            with open(filename, 'w', encoding='utf-8') as file:
+                json.dump(task, file, ensure_ascii=False, indent=4)
         except Exception as e:
             self.console.print_exception()
 
