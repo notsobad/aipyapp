@@ -1,21 +1,17 @@
 import sys
-import time
-import requests # Import requests library
-import os
 import re
 import io
 import datetime
-import webbrowser
 from pathlib import Path
+import traceback
 
 from dynaconf import Dynaconf
 from rich import print
 import tomli_w
-import qrcode
 
 from .i18n import T, get_system_language
 from .trustoken import TrustToken
-import traceback
+from .libmcp import MCPToolManager
 
 __PACKAGE_NAME__ = "aipyapp"
 
@@ -28,6 +24,7 @@ OLD_SETTINGS_FILES = [
 
 CONFIG_FILE_NAME = f"{__PACKAGE_NAME__}.toml"
 USER_CONFIG_FILE_NAME = "user_config.toml"
+MCP_CONFIG_FILE_NAME = "mcp.json"
 LANG = get_system_language()
 
 def init_config_dir():
@@ -50,7 +47,7 @@ def init_config_dir():
 CONFIG_DIR = init_config_dir()
 PLUGINS_DIR = CONFIG_DIR / "plugins"
 
-def get_config_file_path(config_dir=None, file_name=CONFIG_FILE_NAME):
+def get_config_file_path(config_dir=None, file_name=CONFIG_FILE_NAME, create=True):
     """
     获取配置文件的完整路径
     :return: 配置文件的完整路径
@@ -63,7 +60,7 @@ def get_config_file_path(config_dir=None, file_name=CONFIG_FILE_NAME):
     config_file_path = config_dir / file_name
 
     # 如果配置文件不存在，则创建一个空文件
-    if not config_file_path.exists():
+    if not config_file_path.exists() and create:
         try:
             config_file_path.touch()
         except Exception as e:
@@ -88,12 +85,22 @@ def is_valid_api_key(api_key):
     pattern = r"^[A-Za-z0-9_-]{8,128}$"
     return bool(re.match(pattern, api_key))
 
+def get_mcp(config_dir=None):
+    mcp_config_file = get_config_file_path(config_dir, MCP_CONFIG_FILE_NAME, create=False)
+    # exists and not empty
+    if not mcp_config_file.exists() or mcp_config_file.stat().st_size == 0:
+        return None
+    return MCPToolManager(mcp_config_file)
+
 class ConfigManager:
     def __init__(self, default_config="default.toml",  config_dir=None):
         self.config_file = get_config_file_path(config_dir)
         self.user_config_file = get_config_file_path(config_dir, USER_CONFIG_FILE_NAME)
         self.default_config = default_config
         self.config = self._load_config()
+        
+        self.config.update({'_config_dir': config_dir})
+
         # TODO：临时API配置
         self.config.update({
             'api': {

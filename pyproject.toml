@@ -3,7 +3,7 @@ name = "aipyapp"
 dynamic = ["version"]
 description = "AIPyApp: AI-Powered Python & Python-Powered AI"
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 dependencies = [
     "anthropic>=0.49.0",
     "beautifulsoup4>=4.13.3",
@@ -22,6 +22,7 @@ dependencies = [
     "loguru>=0.7.3",
     "questionary>=2.1.0",
     "wxpython>=4.2.3",
+    "mcp[cli]>=1.8.1",
     "openpyxl>=3.1.5",
 ]
 
@@ -37,3 +38,7 @@ build-backend = "hatchling.build"
 
 [tool.hatch.version]
 path = "aipyapp/__init__.py"
+
+[[tool.uv.index]]
+url = "https://mirrors.aliyun.com/pypi/simple/"
+default = true

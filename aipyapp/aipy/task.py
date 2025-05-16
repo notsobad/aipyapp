@@ -30,7 +30,7 @@ class MsgType(Enum):
 class Task:
     MAX_ROUNDS = 16
 
-    def __init__(self, instruction, *, system_prompt=None, max_rounds=None, settings=None):
+    def __init__(self, instruction, *, system_prompt=None, max_rounds=None, settings=None, mcp=None):
         self.task_id = uuid.uuid4().hex
         self.instruction = instruction
         self.console = None
@@ -43,6 +43,7 @@ class Task:
             re.DOTALL | re.MULTILINE
         )
         self.settings = settings
+        self.mcp = mcp
         
     def save(self, path):
        if self._console.record:
@@ -114,7 +115,50 @@ class Task:
             _, _, name, content = match.groups()
             code_blocks[name] = content.rstrip('\n')
 
+        if self.mcp and not code_blocks:
+            # 尝试解析mcp
+            json_content = self._parse_mcp(markdown)
+            if json_content:
+                code_blocks['call_tool'] = json_content
+
         return code_blocks
+
+    def _parse_mcp(self, content: str):
+        """
+        解析可能包含 MCP 工具调用的 JSON 字符串
+
+        参数:
+            content: 可能是纯 JSON 字符串或包含 JSON 的 Markdown
+
+        返回:
+            成功时返回JSON字符串 (包含 action, name, arguments 等字段)
+            失败时返回 None
+        """
+        # 首先尝试从可能的 markdown 中提取 JSON 部分
+        if 'call_tool' not in content:
+            return None
+
+        json_content = content.replace('```json', '').replace('```', '').strip()
+
+        # 尝试解析 JSON
+        try:
+            data = json.loads(json_content)
+
+            # 验证格式
+            if not isinstance(data, dict):
+                return None
+
+            # 检查必需字段
+            if 'action' not in data or 'name' not in data:
+                return None
+
+            # 检查 arguments 格式
+            if 'arguments' in data and not isinstance(data['arguments'], dict):
+                return None
+
+            return json_content
+        except (json.JSONDecodeError, TypeError):
+            return None
 
     def process_code_reply(self, blocks, llm=None):
         event_bus('exec', blocks)
@@ -129,6 +173,36 @@ class Task:
         feed_back = f"# 最初任务\n{self.instruction}\n\n# 代码执行结果反馈\n{result}"
         feedback_response = self.llm(feed_back, name=llm)
         return feedback_response
+
+    def process_mcp_reply(self, blocks, llm=None):
+        """处理 MCP 工具调用的回复"""
+
+        event_bus('tool_call', blocks)
+        json_content = blocks['call_tool']
+        self.box(f"\n⚡ {T('call_tool')}:", json_content, lang='json')
+
+        call_tool = json.loads(json_content)
+        result = self.mcp.call_tool(call_tool['name'], call_tool['arguments'])
+        event_bus('result', result)
+        result = json.dumps(result, ensure_ascii=False, indent=4)
+        self.box(f"\n✅ {T('call_tool_result')}:\n", result, lang="json")
+
+        status = self.console.status(f"[dim white]{T('start_feedback')}...")
+        self.console.print(status)
+        #feed_back = f"# MCP 调用\n{self.instruction}\n\n# 执行结果反馈\n````json\n{result}````"
+        feed_back = f"""# MCP 调用
+
+{self.instruction}
+
+# 执行结果反馈
+
+````json
+{result}
+````"""
+        feedback_response = self.llm(feed_back, name=llm)
+
+        return feedback_response
+
 
     def box(self, title, content, align=None, lang=None):
         if hasattr(self.console, 'gui'):
@@ -213,10 +287,16 @@ class Task:
         response = self.llm(instruction, system_prompt=system_prompt, name=llm)
         while response and rounds <= max_rounds:
             blocks = self.parse_reply(response)
-            if 'main' not in blocks:
+
+            if 'call_tool' not in blocks and 'main' not in blocks:
                 break
+
+            if 'call_tool' in blocks:
+                response = self.process_mcp_reply(blocks, llm)
+            else:
+                response = self.process_code_reply(blocks, llm)
+
             rounds += 1
-            response = self.process_code_reply(blocks, llm)
             if event_bus.is_stopped():
                 break
         self.print_summary()
