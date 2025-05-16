@@ -22,6 +22,7 @@ dependencies = [
     "loguru>=0.7.3",
     "questionary>=2.1.0",
     "wxpython>=4.2.3",
+    "openpyxl>=3.1.5",
 ]
 
 [project.scripts]
