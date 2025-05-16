@@ -54,6 +54,7 @@ class MCPToolManager:
         self.config_reader = MCPConfigReader(config_path)
         self.mcp_servers = self.config_reader.get_mcp_servers()
         self._tools_cache = {}  # 缓存已获取的工具列表
+        self._inited = False
 
     def list_tools(self):
         """返回所有MCP服务器的工具列表
@@ -105,12 +106,13 @@ class MCPToolManager:
             
             # 添加到总工具列表
             all_tools.extend(self._tools_cache[server_name])
+            self._inited = True
         return all_tools
     
     def get_all_tools(self):
         """返回所有工具的列表"""
 
-        if self._tools_cache:
+        if self._inited:
             all_tools = []
             for server_name, tools in self._tools_cache.items():
                 for tool in tools:
@@ -119,6 +121,12 @@ class MCPToolManager:
         else:
             all_tools = self.list_tools()
         return all_tools
+
+    def get_all_servers(self) -> dict:
+        """返回所有服务器的列表"""
+        if not self._inited:
+            self.list_tools()
+        return self._tools_cache
 
     def call_tool(self, tool_name, arguments):
         """调用指定名称的工具，自动选择最匹配的服务器"""
@@ -178,24 +186,3 @@ class MCPToolManager:
         # 调用工具
         client = MCPClientSync(server_params)
         return client.call_tool(tool_name, arguments)
-
-# Example usage
-if __name__ == "__main__":
-    # 配置文件路径
-    config_path = os.path.join(os.path.dirname(__file__), "mcp.json")
-    
-    # 创建工具管理器
-    tool_manager = MCPToolManager(config_path)
-    
-    # 列出所有工具
-    tools = tool_manager.list_tools()
-    print(f"Available tools: {json.dumps(tools, indent=2)}")
-    
-    # 调用天气警报工具示例
-    try:
-        #result = tool_manager.call_tool("get_alerts", {"state": "CA"})
-        #print(f"Weather alerts result: {json.dumps(result, indent=2)}")
-        result = tool_manager.call_tool("cap", {"msg": "hello world"})
-        print(f"Uppercase result: {json.dumps(result, indent=2)}")
-    except Exception as e:
-        print(f"Error calling tool: {e}")

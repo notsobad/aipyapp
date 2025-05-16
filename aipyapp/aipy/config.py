@@ -11,7 +11,7 @@ import tomli_w
 
 from .i18n import T, get_system_language
 from .trustoken import TrustToken
-from .mcp import MCPToolManager
+from .libmcp import MCPToolManager
 
 __PACKAGE_NAME__ = "aipyapp"
 

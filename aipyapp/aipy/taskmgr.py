@@ -104,7 +104,12 @@ class TaskManager:
         mcp_tools = self.mcp.list_tools()
         if not mcp_tools:
             return
-        
+        mcp_servers = self.mcp.get_all_servers()
+        self.console.print(T('found_mcp').format(len(mcp_servers), len(mcp_tools)))
+        for server_name, server_config in mcp_servers.items():
+            self.console.print(T('mcp_info').format(server_name, len(server_config)))
+            
+
         tools_json = json.dumps(mcp_tools, ensure_ascii=False)
         lines = [self.system_prompt]
         lines.append("""\n# 工具调用

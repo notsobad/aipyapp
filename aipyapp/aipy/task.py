@@ -138,13 +138,7 @@ class Task:
         if 'call_tool' not in content:
             return None
 
-        json_content = content.strip()
-
-        # 查找 markdown 中的 JSON 代码块
-        #json_pattern = re.compile(r"```(?:json)?\s*\n(.*?)\n```", re.DOTALL)
-        #match = json_pattern.search(content)
-        #if match:
-        #    json_content = match.group(1).strip()
+        json_content = content.replace('```json', '').replace('```', '').strip()
 
         # 尝试解析 JSON
         try:
