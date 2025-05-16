@@ -115,7 +115,7 @@ class Task:
             _, _, name, content = match.groups()
             code_blocks[name] = content.rstrip('\n')
 
-        if not code_blocks:
+        if self.mcp and not code_blocks:
             # 尝试解析mcp
             json_content = self._parse_mcp(markdown)
             if json_content:

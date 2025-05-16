@@ -47,7 +47,7 @@ def init_config_dir():
 CONFIG_DIR = init_config_dir()
 PLUGINS_DIR = CONFIG_DIR / "plugins"
 
-def get_config_file_path(config_dir=None, file_name=CONFIG_FILE_NAME):
+def get_config_file_path(config_dir=None, file_name=CONFIG_FILE_NAME, create=True):
     """
     获取配置文件的完整路径
     :return: 配置文件的完整路径
@@ -60,7 +60,7 @@ def get_config_file_path(config_dir=None, file_name=CONFIG_FILE_NAME):
     config_file_path = config_dir / file_name
 
     # 如果配置文件不存在，则创建一个空文件
-    if not config_file_path.exists():
+    if not config_file_path.exists() and create:
         try:
             config_file_path.touch()
         except Exception as e:
@@ -86,7 +86,10 @@ def is_valid_api_key(api_key):
     return bool(re.match(pattern, api_key))
 
 def get_mcp(config_dir=None):
-    mcp_config_file = get_config_file_path(config_dir, MCP_CONFIG_FILE_NAME)
+    mcp_config_file = get_config_file_path(config_dir, MCP_CONFIG_FILE_NAME, create=False)
+    # exists and not empty
+    if not mcp_config_file.exists() or mcp_config_file.stat().st_size == 0:
+        return None
     return MCPToolManager(mcp_config_file)
 
 class ConfigManager:

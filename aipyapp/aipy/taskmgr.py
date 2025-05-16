@@ -99,6 +99,8 @@ class TaskManager:
 
     def _init_mcp(self):
         """初始化 MCP 工具提示信息"""
+        if not self.mcp:
+            return
         mcp_tools = self.mcp.list_tools()
         if not mcp_tools:
             return
