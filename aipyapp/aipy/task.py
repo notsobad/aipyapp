@@ -39,7 +39,7 @@ class Task:
         self.max_rounds = max_rounds
         self.system_prompt = system_prompt
         self.pattern = re.compile(
-            r"^(`{4})(\w+)\s+([\w\-\.]+)\n(.*?)^\1\s*$",
+            r"^(`{3,4})(\w+)\s+([\w\-\.]+)\n(.*?)^\1\s*$",
             re.DOTALL | re.MULTILINE
         )
         self.settings = settings
