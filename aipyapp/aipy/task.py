@@ -195,7 +195,16 @@ class Task:
 
         status = self.console.status(f"[dim white]{T('start_feedback')}...")
         self.console.print(status)
-        feed_back = f"# MCP 调用\n{self.instruction}\n\n# 执行结果反馈\n{result}"
+        #feed_back = f"# MCP 调用\n{self.instruction}\n\n# 执行结果反馈\n````json\n{result}````"
+        feed_back = f"""# MCP 调用
+
+{self.instruction}
+
+# 执行结果反馈
+
+````json
+{result}
+````"""
         feedback_response = self.llm(feed_back, name=llm)
 
         return feedback_response

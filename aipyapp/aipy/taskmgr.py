@@ -106,7 +106,7 @@ class TaskManager:
         tools_json = json.dumps(mcp_tools, ensure_ascii=False)
         lines = [self.system_prompt]
         lines.append("""\n# 工具调用
-你是一个能够使用外部工具来辅助用户完成任务的智能助手，请判断是否需要使用外部工具来回答用户的问题。如果需要调用工具，请以 JSON 格式输出你的决策和调用参数，并且仅返回json，不输出其他内容，格式如下：
+你是一个能够使用外部工具来辅助用户完成任务的智能助手，请判断是否需要使用外部工具来回答用户的问题。**如果需要调用工具，请以 JSON 格式输出你的决策和调用参数，并且仅返回json，不输出其他内容**。json格式如下：
 {"action": "call_tool", "name": "tool_name", "arguments": {"arg_name": "arg_value", ...}}
 如果不需要使用工具，请直接回复用户。
 以下是你可用的工具，以 JSON 数组形式提供：
