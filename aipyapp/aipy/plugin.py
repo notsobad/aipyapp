@@ -53,6 +53,8 @@ event_bus = EventBus()
 
 class PluginManager:
     def __init__(self, plugin_dir: str):
+        # Get the system plugin directory
+        # This is the directory where the `aio_api.py` file is located
         self.sys_plugin_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'plugins')
         self.plugin_dir = plugin_dir
         self.plugins: Dict[str, Any] = {}

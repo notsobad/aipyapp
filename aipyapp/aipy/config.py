@@ -48,6 +48,7 @@ def init_config_dir():
     return config_dir
 
 CONFIG_DIR = init_config_dir()
+PLUGINS_DIR = CONFIG_DIR / "plugins"
 
 def get_config_file_path(config_dir=None, file_name=CONFIG_FILE_NAME):
     """
