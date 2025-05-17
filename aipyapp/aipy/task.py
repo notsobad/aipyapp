@@ -5,18 +5,20 @@ import os
 import re
 import json
 import uuid
+import time
 import platform
 import locale
 from pathlib import Path
 from datetime import date
 from enum import Enum, auto
 
+import requests
+from loguru import logger
 from rich.panel import Panel
 from rich.align import Align
 from rich.table import Table
 from rich.syntax import Syntax
 from rich.markdown import Markdown
-import requests
 
 from .i18n import T
 from .plugin import event_bus
@@ -44,6 +46,8 @@ class Task:
         )
         self.settings = settings
         self.mcp = mcp
+        self.start_time = None
+        self.log = logger.bind(src='task', id=self.task_id)
         
     def save(self, path):
        if self._console.record:
@@ -221,35 +225,33 @@ class Task:
         
         self.console.print(Panel(content, title=title))
 
-    def print_summary(self):
+    def print_summary(self, detail=False):
         history = self.llm.history
-        """
-        table = Table(title=T("Task Summary"), show_lines=True)
+        if detail:
+            table = Table(title=T("Task Summary"), show_lines=True)
 
-        table.add_column(T("Round"), justify="center", style="bold cyan", no_wrap=True)
-        table.add_column(T("Time(s)"), justify="right")
-        table.add_column(T("In Tokens"), justify="right")
-        table.add_column(T("Out Tokens"), justify="right")
-        table.add_column(T("Total Tokens"), justify="right", style="bold magenta")
+            table.add_column(T("Round"), justify="center", style="bold cyan", no_wrap=True)
+            table.add_column(T("Time(s)"), justify="right")
+            table.add_column(T("In Tokens"), justify="right")
+            table.add_column(T("Out Tokens"), justify="right")
+            table.add_column(T("Total Tokens"), justify="right", style="bold magenta")
 
-        round = 1
-        for row in history.get_usage():
-            table.add_row(
-                str(round),
-                str(row["time"]),
-                str(row["input_tokens"]),
-                str(row["output_tokens"]),
-                str(row["total_tokens"]),
-            )
-            round += 1
-        self._console.print("\n")
-        self._console.print(table)
-        """
+            round = 1
+            for row in history.get_usage():
+                table.add_row(
+                    str(round),
+                    str(row["time"]),
+                    str(row["input_tokens"]),
+                    str(row["output_tokens"]),
+                    str(row["total_tokens"]),
+                )
+                round += 1
+            self._console.print("\n")
+            self._console.print(table)
+
         summary = history.get_summary()
-        if 'time' in summary:
-            summarys = "| {rounds} | {time:.3f}s | Tokens: {input_tokens}/{output_tokens}/{total_tokens}".format(**summary)
-        else:
-            summarys = ''
+        summary['elapsed_time'] = time.time() - self.start_time
+        summarys = "| {rounds} | {time:.3f}s/{elapsed_time:.3f}s | Tokens: {input_tokens}/{output_tokens}/{total_tokens}".format(**summary)
         event_bus.broadcast('summary', summarys)
         self.console.print(f"\n⏹ [cyan]{T('end_instruction')} {summarys}")
 
@@ -259,10 +261,11 @@ class Task:
         prompt['platform'] = platform.platform()
         prompt['today'] = date.today().isoformat()
         prompt['locale'] = locale.getlocale()
+        prompt['think_and_reply_language'] = '始终根据用户查询的语言来进行所有内部思考和回复，即用户使用什么语言，你就要用什么语言思考和回复。'
         prompt['work_dir'] = '工作目录为当前目录，默认在当前目录下创建文件'
         if getattr(self.console, 'gui', False):
             prompt['matplotlib'] = "我现在用的是 matplotlib 的 Agg 后端，请默认用 plt.savefig() 保存图片后用 runtime.display() 显示，禁止使用 plt.show()"
-            prompt['wxPython'] = "你回复的Markdown 消息中，可以用 ![图片](图片路径) 的格式引用之前创建的图片，会显示在 wx.html2 的 WebView 中"
+            #prompt['wxPython'] = "你回复的Markdown 消息中，可以用 ![图片](图片路径) 的格式引用之前创建的图片，会显示在 wx.html2 的 WebView 中"
         else:
             prompt['TERM'] = os.environ.get('TERM')
             prompt['LC_TERMINAL'] = os.environ.get('LC_TERMINAL')
@@ -272,6 +275,7 @@ class Task:
         """
         执行自动处理循环，直到 LLM 不再返回代码消息
         """
+        self.start_time = time.time()
         self.box(f"[yellow]{T('start_instruction')}", f'[red]{instruction or self.instruction}', align="center")
         if not instruction:
             prompt = self.build_user_prompt()
@@ -300,7 +304,7 @@ class Task:
             if event_bus.is_stopped():
                 break
         self.print_summary()
-        os.write(1, b'\a\a\a')
+        self.console.bell()
 
     def chat(self, prompt):
         system_prompt = None if self.llm.history else self.system_prompt

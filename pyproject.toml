@@ -8,7 +8,6 @@ dependencies = [
     "anthropic>=0.49.0",
     "beautifulsoup4>=4.13.3",
     "dynaconf>=3.2.10",
-    "google-api-python-client>=2.166.0",
     "openai>=1.68.2",
     "pandas>=2.2.3",
     "prompt-toolkit>=3.0.50",
@@ -41,4 +40,4 @@ path = "aipyapp/__init__.py"
 
 [[tool.uv.index]]
 url = "https://mirrors.aliyun.com/pypi/simple/"
-default = true
+default = false

@@ -220,9 +220,9 @@ class BaseClient(ABC):
         with self.console.status(f"[dim white]{T('sending_task', self.name)} ..."):
             response = self.get_completion(history.get_messages())
         self.console.record = True
-        end = time.time()
         if response:
             msg = self.parse_response(response)
+            end = time.time()
             msg.usage['time'] = round(end - start, 3)
             history.add_message(msg)
             response = msg.content

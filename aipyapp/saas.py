@@ -78,7 +78,7 @@ class InteractiveConsole():
         self.tm = tm
         self.names = tm.llm.names
         completer = WordCompleter(['/use', 'use', '/done','done', '/info', 'info'] + list(self.names['enabled']), ignore_case=True)
-        self.history = FileHistory(str(Path.cwd() / settings.history))
+        self.history = FileHistory(str(CONFIG_DIR / ".history"))
         self.session = PromptSession(history=self.history, completer=completer)
         self.console = console
         self.style_main = Style.from_dict({"prompt": "green"})
