@@ -577,5 +577,8 @@ class LLM(object):
         
         self._last = llm
         ret = llm(self.history, instruction, system_prompt=system_prompt)
-        event_bus.broadcast('response_complete', {'llm': llm.name, 'content': ret})
+        if ret:
+            event_bus.broadcast('response_complete', {'llm': llm.name, 'content': ret})
+        else:
+            self.log.error(f"LLM: {llm.name} response is None")
         return ret

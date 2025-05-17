@@ -5,8 +5,8 @@ import os
 import sys
 
 if "pythonw" in sys.executable.lower():
-    sys.stdout = open(os.devnull, "w")
-    sys.stderr = open(os.devnull, "w")
+    sys.stdout = open(os.devnull, "w", encoding='utf-8')
+    sys.stderr = open(os.devnull, "w", encoding='utf-8')
 
 from loguru import logger
 
