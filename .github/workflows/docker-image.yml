@@ -5,8 +5,8 @@ on:
     tags:
       - "v*"
     paths:
-      - 'Dockerfile'
-      - 'Dockerfile.deb'
+      - 'docker/Dockerfile'
+      - 'docker/Dockerfile.deb'
       - 'aipyapp/**'
       - 'pyproject.toml'
   workflow_dispatch:
@@ -29,7 +29,7 @@ jobs:
         with:
           platforms: linux/amd64
           push: true
-          file: Dockerfile
+          file: docker/Dockerfile
           tags: ${{ secrets.DOCKERHUB_USERNAME }}/aipy:amd64-latest
 
   build-arm64:
@@ -53,7 +53,7 @@ jobs:
         with:
           platforms: linux/arm64
           push: true
-          file: Dockerfile.deb
+          file: docker/Dockerfile.deb
           tags: ${{ secrets.DOCKERHUB_USERNAME }}/aipy:arm64-latest
 
   manifest:
