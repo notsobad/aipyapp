@@ -76,6 +76,9 @@ class MCPToolManager:
         """
         all_tools = []
         for server_name, server_config in self.mcp_servers.items():
+            # 去掉禁用的server，即 disabled: true or enabled: false
+            if server_config.get("disabled", False) or server_config.get("enabled", True) is False:
+                continue
             # 如果缓存中没有该服务器的工具，则获取
             if server_name not in self._tools_cache:
                 try:
