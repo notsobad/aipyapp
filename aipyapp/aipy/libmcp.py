@@ -1,8 +1,54 @@
-import asyncio
+import re
 import json
+import asyncio
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
-import os
+
+# 预编译正则表达式
+CODE_BLOCK_PATTERN = re.compile(r'```(?:json)?\s*([\s\S]*?)\s*```')
+JSON_PATTERN = re.compile(r'(\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\})')
+
+def extract_call_tool(text) -> str:
+    """
+    Extract MCP call_tool JSON from text.
+
+    Args:
+        text (str): The input text that may contain MCP call_tool JSON.
+
+    Returns:
+        str: The JSON str if found and valid, otherwise empty str.
+    """
+
+    # 使用预编译的正则模式
+    code_blocks = CODE_BLOCK_PATTERN.findall(text)
+
+    # Potential JSON candidates to check
+    candidates = code_blocks.copy()
+
+    # 使用预编译的正则模式
+    standalone_jsons = JSON_PATTERN.findall(text)
+    candidates.extend(standalone_jsons)
+
+    # Try to parse each candidate
+    for candidate in candidates:
+        candidate = candidate.strip()
+        try:
+            data = json.loads(candidate)
+            # Validate that it's a call_tool action
+            if not isinstance(data, dict):
+                continue
+            if 'action' not in data or 'name' not in data:
+                continue
+            if 'arguments' in data and not isinstance(data['arguments'], dict):
+                continue
+
+            # return json string. not dict
+            return json.dumps(data, ensure_ascii=False)
+        except json.JSONDecodeError:
+            continue
+
+    return ''
+
 
 class MCPConfigReader:
     def __init__(self, config_path):
@@ -76,6 +122,9 @@ class MCPToolManager:
         """
         all_tools = []
         for server_name, server_config in self.mcp_servers.items():
+            # 去掉禁用的server，即 disabled: true or enabled: false
+            if server_config.get("disabled", False) or server_config.get("enabled", True) is False:
+                continue
             # 如果缓存中没有该服务器的工具，则获取
             if server_name not in self._tools_cache:
                 try:
