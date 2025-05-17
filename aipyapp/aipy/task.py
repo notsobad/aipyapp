@@ -22,6 +22,7 @@ from .i18n import T
 from .plugin import event_bus
 from .templates import CONSOLE_HTML_FORMAT
 from .utils import get_safe_filename
+from .libmcp import extract_call_tool
 
 class MsgType(Enum):
     CODE = auto()
@@ -117,48 +118,11 @@ class Task:
 
         if self.mcp and not code_blocks:
             # 尝试解析mcp
-            json_content = self._parse_mcp(markdown)
+            json_content = extract_call_tool(markdown)
             if json_content:
                 code_blocks['call_tool'] = json_content
 
         return code_blocks
-
-    def _parse_mcp(self, content: str):
-        """
-        解析可能包含 MCP 工具调用的 JSON 字符串
-
-        参数:
-            content: 可能是纯 JSON 字符串或包含 JSON 的 Markdown
-
-        返回:
-            成功时返回JSON字符串 (包含 action, name, arguments 等字段)
-            失败时返回 None
-        """
-        # 首先尝试从可能的 markdown 中提取 JSON 部分
-        if 'call_tool' not in content:
-            return None
-
-        json_content = content.replace('```json', '').replace('```', '').strip()
-
-        # 尝试解析 JSON
-        try:
-            data = json.loads(json_content)
-
-            # 验证格式
-            if not isinstance(data, dict):
-                return None
-
-            # 检查必需字段
-            if 'action' not in data or 'name' not in data:
-                return None
-
-            # 检查 arguments 格式
-            if 'arguments' in data and not isinstance(data['arguments'], dict):
-                return None
-
-            return json_content
-        except (json.JSONDecodeError, TypeError):
-            return None
 
     def process_code_reply(self, blocks, llm=None):
         event_bus('exec', blocks)
@@ -189,11 +153,7 @@ class Task:
 
         status = self.console.status(f"[dim white]{T('start_feedback')}...")
         self.console.print(status)
-        #feed_back = f"# MCP 调用\n{self.instruction}\n\n# 执行结果反馈\n````json\n{result}````"
-        feed_back = f"""# MCP 调用
-
-{self.instruction}
-
+        feed_back = f"""# MCP 调用\n\n{self.instruction}\n
 # 执行结果反馈
 
 ````json
