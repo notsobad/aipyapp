@@ -296,7 +296,7 @@ MESSAGES = {
         'end_instruction': 'End processing instruction',
         'no_context': 'No context information found',
         'sync_to_cloud': 'Uploading result, please wait...',
-        'upload_success': 'Article uploaded successfully',
+        'upload_success': 'Article uploaded successfully, {}',
         'upload_failed': 'Upload failed (status code: {})',
         'reset_warning': 'Severe warning: This will reinitialize❗❗❗',
         'reset_confirm': 'If you are sure to continue, enter y',
