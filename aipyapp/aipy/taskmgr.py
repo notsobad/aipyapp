@@ -11,7 +11,7 @@ from .runner import Runner
 from .plugin import PluginManager
 from .prompt import SYSTEM_PROMPT
 from .diagnose import Diagnose
-from .config import PLUGINS_DIR, get_mcp
+from .config import PLUGINS_DIR, get_mcp, get_tt_api_key, get_tt_aio_api
 
 class TaskManager:
     def __init__(self, settings, console):
@@ -32,6 +32,7 @@ class TaskManager:
             self._cwd = Path.cwd()
         self.mcp = get_mcp(settings.get('_config_dir'))
         self._init_environ()
+        self.tt_api_key = get_tt_api_key(settings)
         self._init_api()
         self._init_mcp()
         self.diagnose = Diagnose.create(settings)
@@ -73,9 +74,12 @@ class TaskManager:
             os.environ[name] = value
 
     def _init_api(self):
-        api = self.settings.get('api')
-        if not api:
-            return
+        api = self.settings.get('api', {})
+
+        # update tt aio api, for map and search
+        tt_aio_api = get_tt_aio_api(self.tt_api_key)
+        api.update(tt_aio_api)
+
         lines = [self.system_prompt]
         for api_name, api_conf in api.items():
             lines.append(f"## {api_name} API")

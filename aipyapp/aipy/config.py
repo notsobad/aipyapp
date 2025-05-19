@@ -27,6 +27,50 @@ USER_CONFIG_FILE_NAME = "user_config.toml"
 MCP_CONFIG_FILE_NAME = "mcp.json"
 LANG = get_system_language()
 
+def get_tt_aio_api(tt_api_key) -> dict:
+    """
+    获取 TrustToken AIO API Key
+    :param tt_api_key: API Key
+
+    """
+    if not tt_api_key:
+        tt_api_key = "DEMO_KEY"
+
+    tt_aio_api = {
+        'tt_aio_map': {
+            'env': {
+                'tt_aio_map': [tt_api_key,"最新地图API Key"],
+            },
+            'desc': "高德地图（驾车、骑行、步行、公交路线规划，周边关键字搜索，天气查询，交通态势、店铺查询, 无法确定POI分类编码时请用关键字搜索API）"
+        },
+        'tt_aio_search': {
+            'env': {
+                'tt_aio_search': [tt_api_key,"最新网络搜索API Key"],
+            },
+    'desc': """网络搜索服务，可用于搜索网络信息，接口调用示例如下：
+curl  -X POST https://api.trustoken.cn/aio-api/search/unified \
+--header "Authorization: Bearer xxxxx" \
+--header "Content-Type: application/json" \
+--data '{"query": "网络搜索内容", "contents":{"markdownText":true}}'
+接口返回的数据样例：
+{
+"pageItems": [{
+    "title": "网页标题",
+    "link": "https://...",
+    "snippet": "网页摘要",
+    "publishedTime": "2025-03-09T22:13:38+08:00",
+    "markdownText": "网页内容",
+    "images": [
+        "图片地址"
+    ],
+    "hostname": "网站名",
+}]
+}"""
+        }
+    }
+
+    return tt_aio_api
+
 def init_config_dir():
     """
     获取平台相关的配置目录，并确保目录存在
@@ -92,6 +136,21 @@ def get_mcp(config_dir=None):
         return None
     return MCPToolManager(mcp_config_file)
 
+def get_tt_api_key(settings=None) -> str:
+    """获取 TrustToken API Key
+    :param settings: 配置对象
+    :return: API Key 字符串
+    """
+    if not settings or not isinstance(settings, Dynaconf):
+        return ""
+
+    key = settings.get('llm', {}).get('Trustoken', {}).get('api_key')
+    if not key:
+        key = settings.get('llm', {}).get('trustoken', {}).get('api_key')
+    if not key:
+        return ""
+    return key
+
 class ConfigManager:
     def __init__(self, default_config="default.toml",  config_dir=None):
         self.config_file = get_config_file_path(config_dir)
@@ -101,17 +160,6 @@ class ConfigManager:
         
         self.config.update({'_config_dir': config_dir})
 
-        # TODO：临时API配置
-        self.config.update({
-            'api': {
-                'tt-map': {
-                    'env': {
-                        'amap_api_key': ["aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","最新高德地图 API Key"],
-                    },
-                    'desc': "高德地图（驾车、骑行、步行、公交路线规划，周边关键字搜索，天气查询，交通态势、店铺查询, 无法确定POI分类编码时请用关键字搜索API）"
-                }
-            }
-        })
         self.trust_token = TrustToken()
         #print(self.config.to_dict())
 
@@ -119,7 +167,6 @@ class ConfigManager:
         if self.config.workdir:
             return Path.cwd() / self.config.workdir
         return Path.cwd()
-
 
     def _load_config(self, settings_files=[]):
         """加载配置文件
@@ -234,7 +281,6 @@ class ConfigManager:
         }
         self.update_sys_config(config)
         return config
-
 
     def check_llm(self):
         """检查是否有可用的LLM配置。
