@@ -47,7 +47,7 @@ def get_tt_aio_api(tt_api_key) -> dict:
             'env': {
                 'tt_aio_search': [tt_api_key,"最新网络搜索API Key"],
             },
-    'desc': """网络搜索服务，可用于搜索网络信息，接口调用示例如下：
+    'desc': """联网搜索服务，可用于搜索网络信息，仅在必须联网搜索时调用，接口调用示例如下：
 curl  -X POST https://api.trustoken.cn/aio-api/search/unified \
 --header "Authorization: Bearer xxxxx" \
 --header "Content-Type: application/json" \
