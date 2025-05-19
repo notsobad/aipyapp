@@ -76,7 +76,7 @@ class LiveManager:
         if hasattr(self.console, 'gui'):
             self.console.print(content, end="", highlight=False)
 
-        full_response = self.lr.content if not self.full_reason else f'{self.full_reason}\n# {T('llm_response')}\n{self.lr.content}'
+        full_response = self.lr.content if not self.full_reason else f"{self.full_reason}\n# {T('llm_response')}\n{self.lr.content}"
 
         try:
             md = Markdown(full_response)
