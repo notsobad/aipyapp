@@ -242,7 +242,7 @@ class OpenAIBaseClient(BaseClient):
 
     def _parse_usage(self, usage):
         try:
-            reasoning_tokens = usage.completion_tokens_details.reasoning_tokens
+            reasoning_tokens = int(usage.completion_tokens_details.reasoning_tokens)
         except Exception:
             reasoning_tokens = 0
 
