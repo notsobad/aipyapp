@@ -1,6 +1,13 @@
+import io
+import os
+import sys
 import re
 import json
 import asyncio
+import contextlib
+import tempfile
+
+from loguru import logger
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 
@@ -68,11 +75,48 @@ class MCPConfigReader:
             return {}
 
 class MCPClientSync:
-    def __init__(self, server_params):
+    def __init__(self, server_params, suppress_output=True):
         self.server_params = server_params
+        self.suppress_output = suppress_output
+
+    @contextlib.contextmanager
+    def _suppress_stdout_stderr(self):
+        """上下文管理器：临时重定向 stdout 和 stderr 到 /dev/null 或临时文件"""
+        if not self.suppress_output:
+            yield  # 如果不需要抑制输出，直接返回
+            return
+
+        # 保存原始的 stdout 和 stderr
+        #original_stdout = sys.stdout
+        original_stderr = sys.stderr
+
+        try:
+            # 在 Unix 系统上重定向到 /dev/null
+            if os.name == 'posix':
+                # 目前windows下会报错，其他系统暂未发现问题，这里就不处理
+                yield
+                #with open(os.devnull, 'w') as devnull:
+                #    #sys.stdout = devnull
+                #    sys.stderr = devnull
+                #    yield
+            # 在 Windows 或其他系统上使用临时文件
+            else:
+                with tempfile.TemporaryFile('w+') as stderr_file:
+                    #sys.stdout = stdout_file
+                    sys.stderr = stderr_file
+                    yield
+        finally:
+            # 恢复原始的 stdout 和 stderr
+            #sys.stdout = original_stdout
+            sys.stderr = original_stderr
 
     def _run_async(self, coro):
-        return asyncio.run(coro)
+        with self._suppress_stdout_stderr():
+            try:
+                return asyncio.run(coro)
+            except Exception as e:
+                print(f"Error running async function: {e}")
+                raise
 
     def list_tools(self):
         return self._run_async(self._list_tools())
@@ -81,19 +125,27 @@ class MCPClientSync:
         return self._run_async(self._call_tool(tool_name, arguments))
 
     async def _list_tools(self):
-        async with stdio_client(self.server_params) as (read, write):
-            async with ClientSession(read, write) as session:
-                await session.initialize()
-                server_tools = await session.list_tools()
-                tools = server_tools.model_dump().get("tools", [])
-                return tools
+        try:
+            async with stdio_client(self.server_params) as (read, write):
+                async with ClientSession(read, write) as session:
+                    await session.initialize()
+                    server_tools = await session.list_tools()
+                    tools = server_tools.model_dump().get("tools", [])
+                    return tools
+        except Exception as e:
+            logger.exception(f"Failed to list tools: {e}")
+            return []
 
     async def _call_tool(self, tool_name, arguments):
-        async with stdio_client(self.server_params) as (read, write):
-            async with ClientSession(read, write) as session:
-                await session.initialize()
-                result = await session.call_tool(tool_name, arguments=arguments)
-                return result.model_dump()
+        try:
+            async with stdio_client(self.server_params) as (read, write):
+                async with ClientSession(read, write) as session:
+                    await session.initialize()
+                    result = await session.call_tool(tool_name, arguments=arguments)
+                    return result.model_dump()
+        except Exception as e:
+            logger.exception(f"Failed to call tool {tool_name}: {e}")
+            raise
 
 class MCPToolManager:
     def __init__(self, config_path):
