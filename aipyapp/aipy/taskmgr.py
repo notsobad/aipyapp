@@ -39,7 +39,6 @@ class TaskManager:
         self.runner = Runner(settings, console, envs=self.envs)
         self.llm = LLM(settings, console, system_prompt=self.system_prompt)
 
-
     @property
     def workdir(self):
         return str(self._cwd)
@@ -105,6 +104,7 @@ class TaskManager:
         """初始化 MCP 工具提示信息"""
         if not self.mcp:
             return
+        self.console.print(T('mcp_init'))
         mcp_tools = self.mcp.list_tools()
         if not mcp_tools:
             return
