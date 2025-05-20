@@ -136,9 +136,17 @@ class InteractiveConsole():
             self.console.print_exception()
         self.console.print(f"{T('ai_mode_exit')}", style="cyan")
 
+    def info(self):
+        info = OrderedDict()
+        info['Config dir'] = str(CONFIG_DIR)
+        info['Work dir'] = str(self.tm.workdir)
+        info['Current LLM'] = repr(self.tm.llm.current)
+        show_info(self.console, info)
+
     def run(self):
         self.console.print(f"{T('banner1')}", style="green")
         self.console.print(f"[cyan]{T('default')}: [green]{self.names['default']}，[cyan]{T('enabled')}: [yellow]{' '.join(self.names['enabled'])}")
+        self.info()
         while True:
             try:
                 user_input = self.input_with_possible_multiline(">> ").strip()
@@ -153,11 +161,7 @@ class InteractiveConsole():
                     ret = self.tm.llm.use(arg)
                     self.console.print('[green]Ok[/green]' if ret else '[red]Error[/red]')
                 elif cmd == CommandType.CMD_INFO:
-                    info = OrderedDict()
-                    info['Config dir'] = str(CONFIG_DIR)
-                    info['Work dir'] = str(self.tm.workdir)
-                    info['Current LLM'] = repr(self.tm.llm.current)
-                    show_info(self.console, info)
+                    self.info()
                 elif cmd == CommandType.CMD_EXIT:
                     break                    
                 elif cmd == CommandType.CMD_INVALID:
