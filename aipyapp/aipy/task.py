@@ -25,7 +25,7 @@ from .plugin import event_bus
 from .templates import CONSOLE_HTML_FORMAT
 from .utils import get_safe_filename
 from .libmcp import extract_call_tool
-
+from .blocks import CodeBlocks
 class MsgType(Enum):
     CODE = auto()
     TEXT = auto()
@@ -35,6 +35,7 @@ class Task:
 
     def __init__(self, instruction, *, system_prompt=None, max_rounds=None, settings=None, mcp=None):
         self.task_id = uuid.uuid4().hex
+        self.log = logger.bind(src='task', id=self.task_id)
         self.instruction = instruction
         self.console = None
         self.llm = None
@@ -48,7 +49,7 @@ class Task:
         self.settings = settings
         self.mcp = mcp
         self.start_time = None
-        self.log = logger.bind(src='task', id=self.task_id)
+        self.code_blocks = CodeBlocks(self.console)
         
     def save(self, path):
        if self._console.record:

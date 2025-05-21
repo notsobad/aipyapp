@@ -23,6 +23,7 @@ dependencies = [
     "wxpython>=4.2.3",
     "mcp[cli]>=1.8.1",
     "openpyxl>=3.1.5",
+    "diff-match-patch>=20241021",
 ]
 
 [project.scripts]
