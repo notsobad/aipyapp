@@ -6,6 +6,7 @@ import json
 import asyncio
 import contextlib
 import tempfile
+import time
 
 from loguru import logger
 from mcp import ClientSession, StdioServerParameters
@@ -81,33 +82,24 @@ class MCPClientSync:
 
     @contextlib.contextmanager
     def _suppress_stdout_stderr(self):
-        """上下文管理器：临时重定向 stdout 和 stderr 到 /dev/null 或临时文件"""
+        """上下文管理器：临时重定向 stdout 和 stderr 到空设备"""
         if not self.suppress_output:
             yield  # 如果不需要抑制输出，直接返回
             return
 
         # 保存原始的 stdout 和 stderr
-        #original_stdout = sys.stdout
+        original_stdout = sys.stdout
         original_stderr = sys.stderr
 
         try:
-            # 在 Unix 系统上重定向到 /dev/null
-            if os.name == 'posix':
-                # 目前windows下会报错，其他系统暂未发现问题，这里就不处理
+            # 使用 os.devnull - 跨平台解决方案
+            with open(os.devnull, 'w') as devnull:
+                sys.stdout = devnull
+                sys.stderr = devnull
                 yield
-                #with open(os.devnull, 'w') as devnull:
-                #    #sys.stdout = devnull
-                #    sys.stderr = devnull
-                #    yield
-            # 在 Windows 或其他系统上使用临时文件
-            else:
-                with tempfile.TemporaryFile('w+') as stderr_file:
-                    #sys.stdout = stdout_file
-                    sys.stderr = stderr_file
-                    yield
         finally:
             # 恢复原始的 stdout 和 stderr
-            #sys.stdout = original_stdout
+            sys.stdout = original_stdout
             sys.stderr = original_stderr
 
     def _run_async(self, coro):
@@ -158,10 +150,75 @@ class MCPClientSync:
 
 class MCPToolManager:
     def __init__(self, config_path):
+        self.config_path = config_path
         self.config_reader = MCPConfigReader(config_path)
         self.mcp_servers = self.config_reader.get_mcp_servers()
         self._tools_cache = {}  # 缓存已获取的工具列表
         self._inited = False
+        # 设置缓存文件路径，与配置文件同目录
+        self._cache_file = os.path.join(os.path.dirname(config_path), "mcp_tools_cache.json")
+        self._config_mtime = os.path.getmtime(config_path) if os.path.exists(config_path) else 0
+
+    def _is_cache_valid(self):
+        """检查缓存文件是否有效"""
+        # 如果缓存文件不存在，缓存无效
+        if not os.path.exists(self._cache_file):
+            return False
+
+        # 如果配置文件修改时间晚于缓存创建时间，缓存无效
+        if os.path.exists(self.config_path):
+            config_mtime = os.path.getmtime(self.config_path)
+            cache_mtime = os.path.getmtime(self._cache_file)
+            if config_mtime > cache_mtime:
+                return False
+
+        return True
+
+    def _save_cache(self):
+        """保存工具列表到缓存文件"""
+        try:
+            cache_data = {
+                "config_mtime": self._config_mtime,
+                "tools_cache": self._tools_cache
+            }
+            with open(self._cache_file, 'w', encoding='utf-8') as f:
+                json.dump(cache_data, f, ensure_ascii=False, indent=2)
+            logger.debug(f"工具列表缓存已保存到 {self._cache_file}")
+            return True
+        except Exception as e:
+            logger.exception(f"保存工具列表缓存失败: {e}")
+            return False
+
+    def _load_cache(self):
+        """从缓存文件加载工具列表"""
+        if not self._is_cache_valid():
+            return False
+
+        try:
+            with open(self._cache_file, 'r', encoding='utf-8') as f:
+                cache_data = json.load(f)
+
+            config_mtime = cache_data.get("config_mtime", 0)
+
+            # 检查配置文件修改时间是否与缓存中的一致, mcp.json可能从别的地方复制过来，修改时间异常
+            if self._config_mtime != config_mtime:
+                logger.debug("配置文件已被修改，需要重新获取工具列表")
+                return False
+
+            # 检查缓存时间是否超过48小时
+            current_time = time.time()
+            if current_time - config_mtime > 172800:  # 48小时 = 48 * 60 * 60 = 172800秒
+                logger.debug("缓存已超过48小时，需要重新获取工具列表")
+                return False
+
+            self._tools_cache = cache_data.get("tools_cache", {})
+            self._config_mtime = config_mtime
+            self._inited = True
+            logger.debug(f"已从缓存加载工具列表: {self._cache_file}")
+            return True
+        except Exception as e:
+            logger.exception(f"加载工具列表缓存失败: {e}")
+            return False
 
     def list_tools(self):
         """返回所有MCP服务器的工具列表
@@ -181,6 +238,15 @@ class MCPToolManager:
             },
         ]
         """
+        # 尝试从缓存加载
+        if self._load_cache():
+            # 如果成功加载缓存，直接返回结果
+            all_tools = []
+            for server_name, tools in self._tools_cache.items():
+                all_tools.extend(tools)
+            return all_tools
+
+        # 缓存无效或加载失败，重新获取工具列表
         all_tools = []
         for server_name, server_config in self.mcp_servers.items():
             # 去掉禁用的server，即 disabled: true or enabled: false
@@ -217,8 +283,12 @@ class MCPToolManager:
             # 添加到总工具列表
             all_tools.extend(self._tools_cache[server_name])
             self._inited = True
+
+        # 保存到缓存
+        self._save_cache()
+
         return all_tools
-    
+
     def get_all_tools(self):
         """返回所有工具的列表"""
 
