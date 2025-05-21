@@ -42,18 +42,18 @@ def ensure_wxpython():
 def mainw():
     args = parse_args()
     ensure_wxpython()
-    from .wxgui import main as aipy_main
+    from .gui.main import main as aipy_main
     aipy_main(args)
 
 def main():
     args = parse_args()
     if args.python:
-        from .main import main as aipy_main
+        from .cli_python import main as aipy_main
     elif args.gui:
         ensure_wxpython()
-        from .wxgui import main as aipy_main
+        from .gui.main import main as aipy_main
     else:
-        from .saas import main as aipy_main
+        from .cli_task import main as aipy_main
     aipy_main(args)
 
 if __name__ == '__main__':

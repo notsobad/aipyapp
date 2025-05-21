@@ -5,11 +5,12 @@ import os
 import re
 import sys
 from functools import wraps
+from importlib.resources import read_text
 
 from rich.panel import Panel
 
 from .i18n import T
-from .templates import DISCLAIMER_TEXT
+from .. import __respkg__
 
 def restore_output(func):
     @wraps(func)
@@ -36,6 +37,7 @@ def confirm(console, prompt, default="n", auto=None):
     return response == "y"
 
 def confirm_disclaimer(console):
+    DISCLAIMER_TEXT = read_text(__respkg__, "DISCLAIMER.md")
     console.print()
     panel = Panel.fit(DISCLAIMER_TEXT, title="[red]免责声明", border_style="red", padding=(1, 2))
     console.print(panel)

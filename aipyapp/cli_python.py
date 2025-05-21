@@ -1,10 +1,8 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-import os
 import code
 import builtins
 from pathlib import Path
-import importlib.resources as resources
 
 from rich.console import Console
 from prompt_toolkit import PromptSession
@@ -20,8 +18,6 @@ from .aipy import TaskManager
 from .aipy.i18n import T, set_lang
 from .aipy.config import ConfigManager
 
-__PACKAGE_NAME__ = "aipyapp"
-
 class PythonCompleter(WordCompleter):
     def __init__(self, ai):
         names = ['exit()']
@@ -29,15 +25,11 @@ class PythonCompleter(WordCompleter):
         names += [f"ai.{attr}" for attr in dir(ai) if not attr.startswith('_')]
         super().__init__(names, ignore_case=True)
     
-def get_default_config():
-    default_config_path = resources.files(__PACKAGE_NAME__) / "default.toml"
-    return str(default_config_path)
-
 def main(args):
     console = Console(record=True)
     console.print(f"[bold cyan]🚀 Python use - AIPython ({__version__}) [[green]https://aipy.app[/green]]")
 
-    conf = ConfigManager(get_default_config(), args.config_dir)
+    conf = ConfigManager(args.config_dir)
     conf.check_config()
     settings = conf.get_config()
 

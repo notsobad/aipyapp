@@ -9,6 +9,7 @@ from dynaconf import Dynaconf
 from rich import print
 import tomli_w
 
+from .. import __respath__
 from .i18n import T, get_system_language
 from .trustoken import TrustToken
 from .libmcp import MCPToolManager
@@ -152,10 +153,10 @@ def get_tt_api_key(settings=None) -> str:
     return key
 
 class ConfigManager:
-    def __init__(self, default_config="default.toml",  config_dir=None):
+    def __init__(self, config_dir=None):
         self.config_file = get_config_file_path(config_dir)
         self.user_config_file = get_config_file_path(config_dir, USER_CONFIG_FILE_NAME)
-        self.default_config = default_config
+        self.default_config = __respath__ / "default.toml"
         self.config = self._load_config()
         
         self.config.update({'_config_dir': config_dir})

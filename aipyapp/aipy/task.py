@@ -10,7 +10,7 @@ import platform
 import locale
 from pathlib import Path
 from datetime import date
-from enum import Enum, auto
+from importlib.resources import read_text
 
 import requests
 from loguru import logger
@@ -21,14 +21,14 @@ from rich.syntax import Syntax
 from rich.markdown import Markdown
 
 from .i18n import T
+from .. import __respkg__
 from .plugin import event_bus
-from .templates import CONSOLE_HTML_FORMAT
 from .utils import get_safe_filename
 from .libmcp import extract_call_tool
 from .blocks import CodeBlocks
-class MsgType(Enum):
-    CODE = auto()
-    TEXT = auto()
+
+CONSOLE_WHITE_HTML = read_text(__respkg__, "console_white.html")
+CONSOLE_CODE_HTML = read_text(__respkg__, "console_code.html")
 
 class Task:
     MAX_ROUNDS = 16
@@ -53,30 +53,15 @@ class Task:
         
     def save(self, path):
        if self._console.record:
-           self._console.save_html(path, clear=False, code_format=CONSOLE_HTML_FORMAT)
+           self._console.save_html(path, clear=False, code_format=CONSOLE_WHITE_HTML)
 
     def save_html(self, path, task):
-        # 获取当前代码所在目录下的template.html作为模版文件
-        # 读取模版文件
-        # 将模版文件中的{{code}}替换为task转换为json
-        # 保存为新的html文件
-        template_path = Path(__file__).resolve().parent / 'template.html'
-        try:
-            with open(template_path, 'r') as f:
-                template_content = f.read()
-        except FileNotFoundError:
-            self.console.print(f"[red]Error: template.html not found at {template_path}[/red]")
-            return
-        except Exception as e:
-            self.console.print_exception()
-            return
-
         if 'llm' in task and isinstance(task['llm'], list) and len(task['llm']) > 0:
             if task['llm'][0]['role'] == 'system':
                 task['llm'].pop(0)
 
         task_json = json.dumps(task, ensure_ascii=False)
-        html_content = template_content.replace('{{code}}', task_json)
+        html_content = CONSOLE_CODE_HTML.replace('{{code}}', task_json)
 
         try:
             with open(path, 'w', encoding='utf-8') as f:
@@ -103,7 +88,7 @@ class Task:
             # Only save new html in gui mode for now.
             self.save_html(filename, task)
         else:
-            self.console.save_html(filename, clear=True, code_format=CONSOLE_HTML_FORMAT)
+            self.console.save_html(filename, clear=True, code_format=CONSOLE_WHITE_HTML)
         filename = str(Path(filename).resolve())
         self.console.print(f"[green]{T('task_saved')}: \"{filename}\"")
 

@@ -22,12 +22,12 @@ from rich.console import Console
 from wx.lib.newevent import NewEvent
 from wx import FileDialog, FD_SAVE, FD_OVERWRITE_PROMPT
 
-from . import __version__
-from .aipy.config import ConfigManager, CONFIG_DIR
-from .aipy import TaskManager, event_bus
-from .aipy.i18n import T, set_lang, __lang__
-from .gui import TrustTokenAuthDialog, ConfigDialog, ApiMarketDialog, show_provider_config
-from .config import LLMConfig
+from .. import __version__
+from ..aipy.config import ConfigManager, CONFIG_DIR
+from ..aipy import TaskManager, event_bus
+from ..aipy.i18n import T, set_lang, __lang__
+from . import TrustTokenAuthDialog, ConfigDialog, ApiMarketDialog, show_provider_config
+from ..config import LLMConfig
 
 __PACKAGE_NAME__ = "aipyapp"
 ChatEvent, EVT_CHAT = NewEvent()
@@ -581,8 +581,7 @@ class AboutDialog(wx.Dialog):
 
 def main(args):
     app = wx.App(False)
-    default_config_path = resources.files(__PACKAGE_NAME__) / "default.toml"
-    conf = ConfigManager(default_config_path, args.config_dir)
+    conf = ConfigManager(args.config_dir)
     settings = conf.get_config()
     lang = settings.get('lang')
     if lang: set_lang(lang)

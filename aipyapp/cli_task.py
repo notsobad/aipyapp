@@ -2,8 +2,6 @@
 # -*- coding: utf-8 -*-
 import sys
 from enum import Enum, auto
-from pathlib import Path
-import importlib.resources as resources
 from collections import OrderedDict
 
 from rich.console import Console
@@ -19,8 +17,6 @@ from .aipy.i18n import T, set_lang
 from .aipy.config import ConfigManager, CONFIG_DIR
 from .config import LLMConfig
 from .aipy.wizard import config_llm
-
-__PACKAGE_NAME__ = "aipyapp"
 
 class CommandType(Enum):
     CMD_DONE = auto()
@@ -172,8 +168,7 @@ class InteractiveConsole():
 def main(args):
     console = Console(record=True)
     console.print(f"[bold cyan]🚀 Python use - AIPython ({__version__}) [[green]https://aipy.app[/green]]")
-    default_config_path = resources.files(__PACKAGE_NAME__) / "default.toml"
-    conf = ConfigManager(default_config_path, args.config_dir)
+    conf = ConfigManager(args.config_dir)
     settings = conf.get_config()
     lang = settings.get('lang')
     if lang: set_lang(lang)
