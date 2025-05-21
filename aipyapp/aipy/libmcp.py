@@ -126,23 +126,32 @@ class MCPClientSync:
 
     async def _list_tools(self):
         try:
+            tools = []
             async with stdio_client(self.server_params) as (read, write):
                 async with ClientSession(read, write) as session:
                     await session.initialize()
                     server_tools = await session.list_tools()
                     tools = server_tools.model_dump().get("tools", [])
-                    return tools
+            if sys.platform == "win32":
+                # FIX windows下抛异常的问题
+                await asyncio.sleep(3)
+            return tools
         except Exception as e:
             logger.exception(f"Failed to list tools: {e}")
             return []
 
     async def _call_tool(self, tool_name, arguments):
         try:
+            ret = {}
             async with stdio_client(self.server_params) as (read, write):
                 async with ClientSession(read, write) as session:
                     await session.initialize()
                     result = await session.call_tool(tool_name, arguments=arguments)
-                    return result.model_dump()
+                    ret = result.model_dump()
+            if sys.platform == "win32":
+                # FIX windows下抛异常的问题
+                await asyncio.sleep(3)
+            return ret
         except Exception as e:
             logger.exception(f"Failed to call tool {tool_name}: {e}")
             raise
