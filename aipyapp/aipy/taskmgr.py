@@ -13,6 +13,7 @@ from .prompt import SYSTEM_PROMPT
 from .diagnose import Diagnose
 from .config import PLUGINS_DIR, get_mcp, get_tt_api_key, get_tt_aio_api
 
+
 class TaskManager:
     def __init__(self, settings, console):
         self.settings = settings
@@ -45,7 +46,7 @@ class TaskManager:
 
     def get_update(self, force=False):
         return self.diagnose.check_update(force)
-    
+
     @property
     def busy(self):
         return self.task is not None
@@ -58,13 +59,13 @@ class TaskManager:
     def done(self):
         if not self.task:
             return
-        
+
         self.diagnose.report_code_error(self.runner.history)
         self.task.done()
         self.task = None
 
     def save(self, path):
-        if self.task:  
+        if self.task:
             self.task.save(path)
 
     def _init_environ(self):
@@ -83,7 +84,7 @@ class TaskManager:
         for api_name, api_conf in api.items():
             lines.append(f"## {api_name} API")
             desc = api_conf.get('desc')
-            if desc: 
+            if desc:
                 lines.append(f"### API {T('description')}\n{desc}")
 
             envs = api_conf.get('env')
@@ -104,15 +105,18 @@ class TaskManager:
         """初始化 MCP 工具提示信息"""
         if not self.mcp:
             return
-        self.console.print(T('mcp_init'))
+        self.console.print(">>", T('mcp_init'))
         mcp_tools = self.mcp.list_tools()
         if not mcp_tools:
             return
         mcp_servers = self.mcp.get_all_servers()
-        self.console.print(T('found_mcp').format(len(mcp_servers), len(mcp_tools)))
+        self.console.print(
+            ">>", T('found_mcp').format(len(mcp_servers), len(mcp_tools))
+        )
         for server_name, server_config in mcp_servers.items():
-            self.console.print(T('mcp_info').format(server_name, len(server_config)))
-            
+            self.console.print(
+                "*", T('mcp_info').format(server_name, len(server_config))
+            )
 
         tools_json = json.dumps(mcp_tools, ensure_ascii=False)
         lines = [self.system_prompt]
@@ -129,7 +133,7 @@ class TaskManager:
     def new_task(self, instruction, llm=None, system_prompt=None):
         if llm and not self.llm.use(llm):
             return None
-        
+
         system_prompt = system_prompt or self.system_prompt
         task = Task(instruction, system_prompt=system_prompt, settings=self.settings, mcp=self.mcp)
         task.console = self.console

@@ -5,6 +5,7 @@
 - 增加 blocks.py
 - 修改 aipy/config.py，__init__  参数里去掉 default.toml，改成内部获取
 - 下任务接口里去掉 max_rounds 参数
+- Merge MCP changes
 
 # 0.1.28
 - 日志记录
