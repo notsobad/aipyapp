@@ -20,13 +20,14 @@ OLD_SETTINGS_FILES = [
     Path.home() / '.aipy.toml',
     Path('aipython.toml').resolve(),
     Path('.aipy.toml').resolve(),
-    Path('aipy.toml').resolve()
+    Path('aipy.toml').resolve(),
 ]
 
 CONFIG_FILE_NAME = f"{__PACKAGE_NAME__}.toml"
 USER_CONFIG_FILE_NAME = "user_config.toml"
 MCP_CONFIG_FILE_NAME = "mcp.json"
 LANG = get_system_language()
+
 
 def get_tt_aio_api(tt_api_key) -> dict:
     """
@@ -39,16 +40,12 @@ def get_tt_aio_api(tt_api_key) -> dict:
 
     tt_aio_api = {
         'tt_aio_map': {
-            'env': {
-                'tt_aio_map': [tt_api_key,"最新地图API Key"],
-            },
-            'desc': "高德地图（驾车、骑行、步行、公交路线规划，周边关键字搜索，天气查询，交通态势、店铺查询, 无法确定POI分类编码时请用关键字搜索API）"
+            'env': {'tt_aio_map': [tt_api_key, "最新地图API Key"]},
+            'desc': "高德地图（驾车、骑行、步行、公交路线规划，周边关键字搜索，天气查询，交通态势、店铺查询, 无法确定POI分类编码时请用关键字搜索API）",
         },
         'tt_aio_search': {
-            'env': {
-                'tt_aio_search': [tt_api_key,"最新网络搜索API Key"],
-            },
-    'desc': """联网搜索服务，可用于搜索网络信息，仅在必须联网搜索时调用，接口调用示例如下：
+            'env': {'tt_aio_search': [tt_api_key, "最新网络搜索API Key"]},
+            'desc': """联网搜索服务，可用于搜索网络信息, *注意：不支持指定网站搜索*。仅在必须联网搜索时调用，接口调用示例如下：
 curl  -X POST https://api.trustoken.cn/aio-api/search/unified \
 --header "Authorization: Bearer xxxxx" \
 --header "Content-Type: application/json" \
@@ -66,11 +63,12 @@ curl  -X POST https://api.trustoken.cn/aio-api/search/unified \
     ],
     "hostname": "网站名",
 }]
-}"""
-        }
+}""",
+        },
     }
 
     return tt_aio_api
+
 
 def init_config_dir():
     """
@@ -89,8 +87,10 @@ def init_config_dir():
 
     return config_dir
 
+
 CONFIG_DIR = init_config_dir()
 PLUGINS_DIR = CONFIG_DIR / "plugins"
+
 
 def get_config_file_path(config_dir=None, file_name=CONFIG_FILE_NAME, create=True):
     """
@@ -114,11 +114,13 @@ def get_config_file_path(config_dir=None, file_name=CONFIG_FILE_NAME, create=Tru
 
     return config_file_path
 
+
 def lowercase_keys(d):
     """递归地将字典中的所有键转换为小写"""
     if not isinstance(d, dict):
         return d
     return {k.lower(): lowercase_keys(v) for k, v in d.items()}
+
 
 def is_valid_api_key(api_key):
     """
@@ -130,12 +132,16 @@ def is_valid_api_key(api_key):
     pattern = r"^[A-Za-z0-9_-]{8,128}$"
     return bool(re.match(pattern, api_key))
 
+
 def get_mcp(config_dir=None):
-    mcp_config_file = get_config_file_path(config_dir, MCP_CONFIG_FILE_NAME, create=False)
+    mcp_config_file = get_config_file_path(
+        config_dir, MCP_CONFIG_FILE_NAME, create=False
+    )
     # exists and not empty
     if not mcp_config_file.exists() or mcp_config_file.stat().st_size == 0:
         return None
     return MCPToolManager(mcp_config_file)
+
 
 def get_tt_api_key(settings=None) -> str:
     """获取 TrustToken API Key
@@ -152,17 +158,18 @@ def get_tt_api_key(settings=None) -> str:
         return ""
     return key
 
+
 class ConfigManager:
     def __init__(self, config_dir=None):
         self.config_file = get_config_file_path(config_dir)
         self.user_config_file = get_config_file_path(config_dir, USER_CONFIG_FILE_NAME)
         self.default_config = __respath__ / "default.toml"
         self.config = self._load_config()
-        
+
         self.config.update({'_config_dir': config_dir})
 
         self.trust_token = TrustToken()
-        #print(self.config.to_dict())
+        # print(self.config.to_dict())
 
     def get_work_dir(self):
         if self.config.workdir:
@@ -176,32 +183,32 @@ class ConfigManager:
         """
         if not settings_files:
             # 新版本配置文件
-            settings_files = [self.default_config, self.user_config_file, self.config_file]
+            settings_files = [
+                self.default_config,
+                self.user_config_file,
+                self.config_file,
+            ]
         # 读取配置文件
         try:
             config = Dynaconf(
-                settings_files=settings_files,
-                envvar_prefix="AIPY",
-                merge_enabled=True,
+                settings_files=settings_files, envvar_prefix="AIPY", merge_enabled=True
             )
 
             # check if it's a valid config
-            assert(config.to_dict())
+            assert config.to_dict()
         except Exception as e:
             # 配置加载异常处理
-            #print(T('error_loading_config'), str(e))
+            # print(T('error_loading_config'), str(e))
             # 回退到一个空配置实例，避免后续代码因 config 未定义而出错
             config = Dynaconf(
-                settings_files=[],
-                envvar_prefix="AIPY",
-                merge_enabled=True,
-                )
+                settings_files=[], envvar_prefix="AIPY", merge_enabled=True
+            )
         return config
 
     def reload_config(self):
         self.config = self._load_config()
         return self.config
-    
+
     def get_config(self):
         return self.config
 
@@ -210,35 +217,31 @@ class ConfigManager:
         :param new_config: 新配置字典, 如 {"workdir": "/path/to/workdir"}
         """
         # 加载系统配置文件
-        assert(isinstance(new_config, dict))
+        assert isinstance(new_config, dict)
 
         if overwrite:
             # 如果需要覆盖，则直接使用新的配置
             config = Dynaconf(
-                settings_files=[],
-                envvar_prefix="AIPY",
-                merge_enabled=True,
+                settings_files=[], envvar_prefix="AIPY", merge_enabled=True
             )
         else:
             config = self._load_config(settings_files=[self.config_file])
 
         config.update(new_config)
-        
+
         # 保存到配置文件
         header_comments = [
             f"# Configuration file for {__PACKAGE_NAME__}",
-            "# Auto-generated on " + datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "# Auto-generated on "
+            + datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             f"# 请勿直接修改此文件，除非您了解具体配置格式，如果自定义配置，请放到{self.user_config_file}",
             f"# Please do not edit this file directly unless you understand the format. If you want to customize the configuration, please edit {self.user_config_file}",
-            ""
-        ]
-        footer_comments = [
             "",
-            "# End of configuration file"
         ]
-        #print(config.to_dict())
+        footer_comments = ["", "# End of configuration file"]
+        # print(config.to_dict())
         cfg_dict = lowercase_keys(config.to_dict())
-        
+
         with open(self.config_file, "w", encoding="utf-8") as f:
             # 1. 写入头部注释
             f.write("\n".join(header_comments) + "\n")
@@ -257,8 +260,8 @@ class ConfigManager:
 
     def update_api_config(self, new_api_config):
         """更新配置文件中的API定义"""
-        assert(isinstance(new_api_config, dict))
-        assert('api' in new_api_config)
+        assert isinstance(new_api_config, dict)
+        assert 'api' in new_api_config
         config = self._load_config(settings_files=[self.config_file])
         cfg_dict = lowercase_keys(config.to_dict())
         cfg_dict.pop('api', None)
@@ -276,7 +279,7 @@ class ConfigManager:
                     'base_url': T('tt_base_url'),
                     'model': 'auto',
                     'default': True,
-                    'enable': True
+                    'enable': True,
                 }
             }
         }
@@ -299,8 +302,7 @@ class ConfigManager:
         return llms
 
     def fetch_config(self):
-        """从tt获取配置并保存到配置文件中。
-        """
+        """从tt获取配置并保存到配置文件中。"""
         self.trust_token.fetch_token(self.save_tt_config)
 
     def check_config(self, gui=False):
@@ -323,7 +325,8 @@ class ConfigManager:
 
             # 如果仍然没有可用的 LLM 配置，则从网络拉取
             if not self.check_llm():
-                if gui: return 'TrustToken'
+                if gui:
+                    return 'TrustToken'
                 self.fetch_config()
                 self.reload_config()
 
@@ -349,13 +352,10 @@ class ConfigManager:
             if not path.exists():
                 continue
 
-
             try:
-                config = Dynaconf(
-                    settings_files=[path],
-                )
+                config = Dynaconf(settings_files=[path])
                 config_dict = config.to_dict()
-                assert(config_dict)
+                assert config_dict
 
                 try:
                     content = path.read_text(encoding='utf-8')
@@ -366,7 +366,7 @@ class ConfigManager:
                         print(f"Error reading file {path}: {e}")
                         continue
 
-                combined_toml_content += content + "\n\n" # Add separator
+                combined_toml_content += content + "\n\n"  # Add separator
 
                 # 文件内容、格式都正常，则准备迁移
                 migrated_files.append(str(path))
@@ -383,7 +383,11 @@ class ConfigManager:
         if not combined_toml_content:
             return
 
-        print(T('attempting_migration').format(', '.join(migrated_files), ', '.join(backup_files)))
+        print(
+            T('attempting_migration').format(
+                ', '.join(migrated_files), ', '.join(backup_files)
+            )
+        )
 
         # Write combined content to user_config.toml
         try:
@@ -401,27 +405,29 @@ class ConfigManager:
             llm_config = temp_config.get('llm', {})
 
             for section_name, section_data in llm_config.items():
-                if isinstance(section_data, dict) and self._is_tt_config(section_name, section_data):
+                if isinstance(section_data, dict) and self._is_tt_config(
+                    section_name, section_data
+                ):
                     api_key = section_data.get('api_key', section_data.get('api-key'))
                     if api_key:
-                        #print("Token found:", api_key)
+                        # print("Token found:", api_key)
                         self.save_tt_config(api_key)
                         print(T('migrate_config').format(self.config_file))
                         break
 
         except Exception as e:
             pass
-        
+
         return True
 
     def _is_tt_config(self, name, config):
         """
         判断配置是否符合特定条件
-        
+
         参数:
             name: 配置名称
             config: 配置内容字典
-        
+
         返回: 如果符合条件返回True
         """
         # 条件1: 配置名称包含目标关键字
@@ -438,5 +444,5 @@ class ConfigManager:
         # type == trust, 且没有base_url.
         if isinstance(config, dict) and config.get('type') == 'trust' and not base_url:
             return True
-        
+
         return False

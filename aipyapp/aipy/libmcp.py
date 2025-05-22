@@ -172,11 +172,16 @@ class MCPToolManager:
         if not os.path.exists(self._cache_file):
             return False
 
+        # 检查缓存文件的创建时间是否超过48小时
+        current_time = time.time()
+        cache_mtime = os.path.getmtime(self._cache_file)
+        if current_time - cache_mtime > 172800:  # 48小时 = 48 * 60 * 60 = 172800秒
+            logger.debug("缓存已超过48小时，需要重新获取工具列表")
+            return False
+
         # 如果配置文件修改时间晚于缓存创建时间，缓存无效
         if os.path.exists(self.config_path):
-            config_mtime = os.path.getmtime(self.config_path)
-            cache_mtime = os.path.getmtime(self._cache_file)
-            if config_mtime > cache_mtime:
+            if self._config_mtime > cache_mtime:
                 return False
 
         return True
@@ -210,12 +215,6 @@ class MCPToolManager:
             # 检查配置文件修改时间是否与缓存中的一致, mcp.json可能从别的地方复制过来，修改时间异常
             if self._config_mtime != config_mtime:
                 logger.debug("配置文件已被修改，需要重新获取工具列表")
-                return False
-
-            # 检查缓存时间是否超过48小时
-            current_time = time.time()
-            if current_time - config_mtime > 172800:  # 48小时 = 48 * 60 * 60 = 172800秒
-                logger.debug("缓存已超过48小时，需要重新获取工具列表")
                 return False
 
             self._tools_cache = cache_data.get("tools_cache", {})
