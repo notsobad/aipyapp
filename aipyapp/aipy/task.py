@@ -33,14 +33,14 @@ CONSOLE_CODE_HTML = read_text(__respkg__, "console_code.html")
 class Task:
     MAX_ROUNDS = 16
 
-    def __init__(self, instruction, *, system_prompt=None, max_rounds=None, settings=None, mcp=None):
+    def __init__(self, instruction, *, system_prompt=None, settings=None, mcp=None):
         self.task_id = uuid.uuid4().hex
         self.log = logger.bind(src='task', id=self.task_id)
         self.instruction = instruction
         self.console = None
         self.llm = None
         self.runner = None
-        self.max_rounds = max_rounds
+        self.max_rounds = settings.get('max_rounds', self.MAX_ROUNDS)
         self.system_prompt = system_prompt
         self.pattern = re.compile(
             r"^(`{3,4})(\w+)\s+([\w\-\.]+)\n(.*?)^\1\s*$",
@@ -230,10 +230,14 @@ class Task:
             system_prompt = self.system_prompt
         else:
             system_prompt = None
+
+        self.loop(instruction, system_prompt, llm)
+
+
+    def loop(self, instruction, system_prompt=None, llm=None):
+        """ Execute the task loop """
         rounds = 1
-        max_rounds = max_rounds or self.max_rounds
-        if not max_rounds or max_rounds < 1:
-            max_rounds = self.MAX_ROUNDS
+        max_rounds = self.max_rounds
         response = self.llm(instruction, system_prompt=system_prompt, name=llm)
         while response and rounds <= max_rounds:
             blocks = self.parse_reply(response)
@@ -251,6 +255,18 @@ class Task:
                 break
         self.print_summary()
         self.console.bell()
+
+
+    def start(self, instruction):
+        """ Start a new task """
+        self.start_time = time.time()
+        self.instruction = instruction
+        self.box(f"[yellow]{T('start_instruction')}", f'[red]{instruction}', align="center")
+        prompt = self.build_user_prompt()
+        instruction = json.dumps(prompt, ensure_ascii=False)
+        system_prompt = self.system_prompt
+        self.loop(instruction, system_prompt)
+        
 
     def chat(self, prompt):
         system_prompt = None if self.llm.history else self.system_prompt

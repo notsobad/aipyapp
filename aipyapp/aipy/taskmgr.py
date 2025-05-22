@@ -126,23 +126,22 @@ class TaskManager:
         # 更新系统提示
         self.system_prompt = "\n".join(lines)
 
-    def new_task(self, instruction, llm=None, max_rounds=None, system_prompt=None):
+    def new_task(self, instruction, llm=None, system_prompt=None):
         if llm and not self.llm.use(llm):
             return None
         
         system_prompt = system_prompt or self.system_prompt
-        max_rounds = max_rounds or self.settings.get('max_rounds')
-        task = Task(instruction, system_prompt=system_prompt, max_rounds=max_rounds, settings=self.settings, mcp=self.mcp)
+        task = Task(instruction, system_prompt=system_prompt, settings=self.settings, mcp=self.mcp)
         task.console = self.console
         task.llm = self.llm
         task.runner = self.runner
         self.task = task
         return task
     
-    def __call__(self, instruction, llm=None, max_rounds=None, system_prompt=None):
+    def __call__(self, instruction, llm=None, system_prompt=None):
         if self.task:
-            self.task.run(instruction=instruction, llm=llm, max_rounds=max_rounds)
+            self.task.run(instruction=instruction, llm=llm, system_prompt=system_prompt)
         else:
-            task = self.new_task(instruction, llm=llm, max_rounds=max_rounds, system_prompt=system_prompt)
+            task = self.new_task(instruction, llm=llm, system_prompt=system_prompt)
             self.task = task
             task.run()

@@ -1,3 +1,10 @@
+# 0.1.29
+## b0
+- 修补打卡记录任务的代码错误
+- 所有非代码文件都移到 res/ 目录下，例如 default.toml 和 HTML 模版等
+- 增加 blocks.py
+- 修改 aipy/config.py，__init__  参数里去掉 default.toml，改成内部获取
+- 下任务接口里去掉 max_rounds 参数
 
 # 0.1.28
 - 日志记录
