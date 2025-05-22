@@ -10,6 +10,8 @@ from loguru import logger
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 
+from .i18n import T
+
 # 预编译正则表达式
 CODE_BLOCK_PATTERN = re.compile(r"```(?:json)?\s*([\s\S]*?)\s*```")
 JSON_PATTERN = re.compile(r"(\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\})")
@@ -269,6 +271,7 @@ class MCPToolManager:
                         # print(f"Skipping HTTP/SSE server {server_name}: {server_config['url']}")
                         continue
 
+                    print(">> Loading MCP", server_name)
                     server_params = StdioServerParameters(
                         command=server_config.get("command"),
                         args=server_config.get("args", []),

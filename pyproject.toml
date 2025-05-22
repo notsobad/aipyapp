@@ -41,3 +41,20 @@ path = "aipyapp/__init__.py"
 [[tool.uv.index]]
 url = "https://mirrors.aliyun.com/pypi/simple/"
 default = false
+
+[tool.ruff]
+# 启用格式化和 lint 规则
+select = ["E", "F"]
+ignore = []
+line-length = 88
+
+[tool.ruff.format]
+quote-style = "preserve"
+indent-style = "space"
+line-ending = "auto"
+# 跳过特定字符串格式化
+skip-magic-trailing-comma = true
+
+[tool.ruff.lint]
+# 启用 isort 规则
+extend-select = []
