@@ -151,7 +151,8 @@ class BaseClient(ABC):
     PARAMS = {}
 
     def __init__(self, config):
-        self.name = None
+        self.name = config['name']
+        self.log = logger.bind(src='llm', name=self.name)
         self.console = None
         self.config = config
         self.max_tokens = config.get("max_tokens")
@@ -216,10 +217,10 @@ class BaseClient(ABC):
         history.add("user", prompt)
 
         start = time.time()
-        self.console.record = False
-        with self.console.status(f"[dim white]{T('sending_task', self.name)} ..."):
-            response = self.get_completion(history.get_messages())
-        self.console.record = True
+        #self.console.record = False
+        #with self.console.status(f"[dim white]{T('sending_task', self.name)} ..."):
+        response = self.get_completion(history.get_messages())
+        #self.console.record = True
         if response:
             msg = self.parse_response(response)
             end = time.time()
@@ -468,18 +469,19 @@ class AzureOpenAIClient(OpenAIBaseClient):
     def _get_client(self):
         from openai import AzureOpenAI
         return AzureOpenAI(azure_endpoint=self._end_point, api_key=self._api_key, api_version="2024-02-01")
-            
+
+CLIENTS = {
+    "openai": OpenAIClient,
+    "ollama": OllamaClient,
+    "claude": ClaudeClient,
+    "gemini": GeminiClient,
+    "deepseek": DeepSeekClient,
+    'grok': GrokClient,
+    'trust': TrustClient,
+    'azure': AzureOpenAIClient
+}
+
 class LLM(object):
-    CLIENTS = {
-        "openai": OpenAIClient,
-        "ollama": OllamaClient,
-        "claude": ClaudeClient,
-        "gemini": GeminiClient,
-        "deepseek": DeepSeekClient,
-        'grok': GrokClient,
-        'trust': TrustClient,
-        'azure': AzureOpenAIClient
-    }
     MAX_TOKENS = 8192
 
     def __init__(self, settings, console,system_prompt=None):
@@ -496,7 +498,8 @@ class LLM(object):
             if not config.get('enable', True):
                 names['disabled'].add(name)
                 continue
-
+            
+            config['name'] = name
             try:
                 client = self.get_client(config)
             except Exception as e:
@@ -545,7 +548,7 @@ class LLM(object):
     def get_client(self, config):
         proto = config.get("type", "openai")
 
-        client = self.CLIENTS.get(proto.lower())
+        client = CLIENTS.get(proto.lower())
         if not client:
             raise ValueError(f"Unsupported LLM provider: {proto}")
         return client(config)
