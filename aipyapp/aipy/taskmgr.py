@@ -35,7 +35,7 @@ class TaskManager:
         self._init_environ()
         self.tt_api_key = get_tt_api_key(settings)
         self._init_api()
-        #self._init_mcp()
+        self._init_mcp()
         self.diagnose = Diagnose.create(settings)
         self.runner = Runner(settings, console, envs=self.envs)
         self.llm = LLM(settings, console, system_prompt=self.system_prompt)

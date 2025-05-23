@@ -83,7 +83,8 @@ def process_mcp_ret(console, arg, ret):
         if mcp_enabled:
             for server_name, info in mcp_servers.items():
                 console.print(
-                    "*", server_name, info.get("tools_count"), info.get("enabled", False)
+                    "[*]" if info.get("enabled", False) else "[ ]",
+                    server_name, info.get("tools_count"), "tools"
                 )
     else:
         #console.print(f"[red]{T('mcp_error')}: {ret.get('message', '')}[/red]")
