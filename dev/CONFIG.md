@@ -39,6 +39,7 @@ max_tokens = 8192
 - default: 是否为默认 LLM，默认为 `false`。
 - timeout: LLM 的请求超时时间，单位为秒，默认无超时。
 - max_tokens: LLM 的最大 token 数，默认为 8192。
+- tls_verify: true|false, 是否启用证书校验。这在某些环境中（特别是使用自签名证书或需要绕过SSL验证的场景）会很有用。
 
 LLM 类型列表
 | 类型 | 描述 |

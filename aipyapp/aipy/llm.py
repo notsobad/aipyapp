@@ -9,6 +9,7 @@ from abc import ABC, abstractmethod
 
 import openai
 import requests
+import httpx
 from loguru import logger
 from rich.live import Live
 from rich.panel import Panel
@@ -161,6 +162,7 @@ class BaseClient(ABC):
         self._api_key = config.get("api_key")
         self._base_url = self.get_base_url()
         self._stream = config.get("stream", True)
+        self._tls_verify = bool(config.get("tls_verify", True))
         self._client = None
         self._params = {}
         if self.PARAMS:
@@ -236,7 +238,15 @@ class OpenAIBaseClient(BaseClient):
         return super().usable() and self._api_key
     
     def _get_client(self):
-        return openai.Client(api_key=self._api_key, base_url=self._base_url, timeout=self._timeout)
+    
+        return openai.Client(
+            api_key=self._api_key,
+            base_url=self._base_url,
+            timeout=self._timeout,
+            http_client=httpx.Client(
+                verify=self._tls_verify
+            )
+        )
     
     def add_system_prompt(self, history, system_prompt):
         history.add("system", system_prompt)
