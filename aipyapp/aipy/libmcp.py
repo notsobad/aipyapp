@@ -165,6 +165,21 @@ class MCPToolManager:
         self._config_mtime = (
             os.path.getmtime(config_path) if os.path.exists(config_path) else 0
         )
+        # 全局启用/禁用标志
+        self._globally_enabled = True
+        # 服务器状态缓存，记录每个服务器的启用/禁用状态
+        self._server_status = {}
+        self._init_server_status()
+
+    def _init_server_status(self):
+        """初始化服务器状态，从配置文件中读取初始状态"""
+        for server_name, server_config in self.mcp_servers.items():
+            # 服务器默认启用，除非配置中明确设置为disabled: true或enabled: false
+            is_enabled = not (
+                server_config.get("disabled", False)
+                or server_config.get("enabled", True) is False
+            )
+            self._server_status[server_name] = is_enabled
 
     def _is_cache_valid(self):
         """检查缓存文件是否有效"""
@@ -244,19 +259,25 @@ class MCPToolManager:
             },
         ]
         """
+        # 如果全局禁用，直接返回空列表
+        if not self._globally_enabled:
+            return []
+            
         # 尝试从缓存加载
         if self._load_cache():
             # 如果成功加载缓存，直接返回结果
             all_tools = []
             for server_name, tools in self._tools_cache.items():
-                all_tools.extend(tools)
+                # 只返回启用的服务器的工具
+                if self._server_status.get(server_name, True):
+                    all_tools.extend(tools)
             return all_tools
 
         # 缓存无效或加载失败，重新获取工具列表
         all_tools = []
         for server_name, server_config in self.mcp_servers.items():
-            # 去掉禁用的server，即 disabled: true or enabled: false
-            if (
+            # 去掉禁用的server，包括运行时禁用的和配置文件中禁用的
+            if not self._server_status.get(server_name, True) or (
                 server_config.get("disabled", False)
                 or server_config.get("enabled", True) is False
             ):
@@ -299,29 +320,42 @@ class MCPToolManager:
 
         return all_tools
 
-    def get_all_tools(self):
+    def _get_all_tools(self):
         """返回所有工具的列表"""
+        # 如果全局禁用，直接返回空列表
+        if not self._globally_enabled:
+            return []
 
         if self._inited:
             all_tools = []
             for server_name, tools in self._tools_cache.items():
-                for tool in tools:
-                    tool["server"] = server_name
-                    all_tools.append(tool)
+                # 只包含启用的服务器
+                if self._server_status.get(server_name, True):
+                    for tool in tools:
+                        tool["server"] = server_name
+                        all_tools.append(tool)
         else:
             all_tools = self.list_tools()
         return all_tools
-
+        
     def get_all_servers(self) -> dict:
-        """返回所有服务器的列表"""
+        """返回所有服务器的列表及其启用状态"""
         if not self._inited:
             self.list_tools()
-        return self._tools_cache
+        
+        # 返回服务器列表及其启用状态
+        servers_info = {}
+        for server_name, tools in self._tools_cache.items():
+            servers_info[server_name] = {
+                "enabled": self._server_status.get(server_name, True),
+                "tools_count": len(tools)
+            }
+        return servers_info
 
     def call_tool(self, tool_name, arguments):
         """调用指定名称的工具，自动选择最匹配的服务器"""
         # 获取所有工具
-        all_tools = self.get_all_tools()
+        all_tools = self._get_all_tools()
         if not all_tools:
             raise ValueError("No tools available to call.")
 
@@ -378,3 +412,106 @@ class MCPToolManager:
         # 调用工具
         client = MCPClientSync(server_params)
         return client.call_tool(tool_name, arguments)
+
+    def process_command(self, args):
+        """处理命令行参数，执行相应操作
+        
+        Args:
+            args (list): 命令行参数列表，例如 [], ["enable"], ["disable"], 
+                         ["enable", "playwright"], ["disable", "playwright"]
+        
+        Returns:
+            dict: 执行结果
+        """
+        assert len(args) > 0, "No arguments provided"
+        # 第一个参数是action
+        action = args[0].lower() or "list"
+        
+        # 处理全局启用/禁用命令
+        if action == "enable" or action == "disable":
+            # 检查是全局操作还是针对特定服务器
+            if len(args) == 1:
+                # 全局启用/禁用
+                if action == "enable":
+                    self._globally_enabled = True
+                    return {
+                        "status": "success",
+                        "action": "global_enable",
+                        "globally_enabled": self._globally_enabled,
+                        "servers": self.get_all_servers(),
+                        "tools_count": len(self.list_tools())
+                    }
+                else:  # disable
+                    self._globally_enabled = False
+                    return {
+                        "status": "success",
+                        "action": "global_disable",
+                        "globally_enabled": self._globally_enabled,
+                        "servers": self.get_all_servers(),
+                        "tools_count": 0
+                    }
+            elif len(args) == 2:
+                # 针对特定服务器的启用/禁用
+                server_name = args[1]
+
+                # 处理特殊情况：星号操作符，对所有服务器执行相同操作
+                if server_name == "*":
+                    # 遍历所有服务器并设置状态（不改变全局启用/禁用状态）
+                    for srv_name in self.mcp_servers.keys():
+                        self._server_status[srv_name] = (action == "enable")
+
+                    # 刷新工具列表
+                    self.list_tools()
+                    return {
+                        "status": "success",
+                        "action": f"all_servers_{action}",
+                        "globally_enabled": self._globally_enabled,
+                        "servers": self.get_all_servers(),
+                        "tools_count": len(self.list_tools())
+                    }
+
+                # 检查服务器是否存在
+                if server_name not in self.mcp_servers:
+                    return {
+                        "status": "error",
+                        "message": f"Unknown server: {server_name}"
+                    }
+
+                if action == "enable":
+                    self._server_status[server_name] = True
+                    # 刷新工具列表
+                    self.list_tools()
+                    return {
+                        "status": "success",
+                        "action": "server_enable",
+                        "server": server_name,
+                        "globally_enabled": self._globally_enabled,
+                        "servers": self.get_all_servers(),
+                        "tools_count": len(self.list_tools())
+                    }
+                else:  # disable
+                    self._server_status[server_name] = False
+                    # 刷新工具列表
+                    self.list_tools()
+                    return {
+                        "status": "success",
+                        "action": "server_disable",
+                        "server": server_name,
+                        "globally_enabled": self._globally_enabled,
+                        "servers": self.get_all_servers(),
+                        "tools_count": len(self.list_tools())
+                    }
+        elif action == "list":
+            return {
+                "status": "success",
+                "action": "list",
+                "globally_enabled": self._globally_enabled,
+                "servers": self.get_all_servers(),
+                "tools_count": len(self.list_tools())
+            }
+
+        # 如果没有匹配任何已知命令
+        return {
+            "status": "error",
+            "message": f"Invalid command: {' '.join(args)}"
+        }

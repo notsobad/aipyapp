@@ -113,11 +113,16 @@ class TaskManager:
         self.console.print(
             ">>", T('found_mcp').format(len(mcp_servers), len(mcp_tools))
         )
-        for server_name, server_config in mcp_servers.items():
+        for server_name, info in mcp_servers.items():
             self.console.print(
-                "*", T('mcp_info').format(server_name, len(server_config))
+                "*", T('mcp_info').format(server_name, info.get("tools_count"))
             )
 
+    def _update_mcp_prompt(self, prompt):
+        """更新 MCP 工具提示信息"""
+        mcp_tools = self.mcp.list_tools()
+        if not mcp_tools:
+            return prompt
         tools_json = json.dumps(mcp_tools, ensure_ascii=False)
         lines = [self.system_prompt]
         lines.append("""\n## MCP工具调用规则：
@@ -129,13 +134,16 @@ class TaskManager:
 """)
         lines.append(f"```json\n{tools_json}\n```")
         # 更新系统提示
-        self.system_prompt = "\n".join(lines)
+        return "\n".join(lines)
 
     def new_task(self, instruction, llm=None, system_prompt=None):
         if llm and not self.llm.use(llm):
             return None
 
         system_prompt = system_prompt or self.system_prompt
+        if self.mcp:
+            system_prompt = self._update_mcp_prompt(system_prompt)
+
         task = Task(instruction, system_prompt=system_prompt, settings=self.settings, mcp=self.mcp)
         task.console = self.console
         task.llm = self.llm
