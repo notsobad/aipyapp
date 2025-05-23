@@ -25,6 +25,7 @@ class CommandType(Enum):
     CMD_INVALID = auto()
     CMD_TEXT = auto()
     CMD_INFO = auto()
+    CMD_MCP = auto()
 
 def parse_command(input_str, llms=set()):
     lower = input_str.lower()
@@ -49,6 +50,10 @@ def parse_command(input_str, llms=set()):
         arg = input_str[4:].strip()
         if arg in llms:
             return CommandType.CMD_USE, arg
+    
+    if lower.startswith("/mcp"):
+        args = input_str[4:].strip().split(" ")
+        return CommandType.CMD_MCP, args
                
     return CommandType.CMD_TEXT, input_str
 
@@ -69,11 +74,25 @@ def show_info(console, info):
 
     console.print(table)
 
+def process_mcp_ret(console, arg, ret):
+    if ret.get("status", "success") == "success":
+        #console.print(f"[green]{T('mcp_success')}: {ret.get('message', '')}[/green]")
+        mcp_enabled = ret.get("globally_enabled", False)
+        console.print("MCP服务启用：", mcp_enabled)
+        mcp_servers = ret.get("servers", [])
+        if mcp_enabled:
+            for server_name, info in mcp_servers.items():
+                console.print(
+                    "*", server_name, info.get("tools_count"), info.get("enabled", False)
+                )
+    else:
+        #console.print(f"[red]{T('mcp_error')}: {ret.get('message', '')}[/red]")
+        console.print("操作失败", ret.get("message", ''))
 class InteractiveConsole():
     def __init__(self, tm, console, settings):
         self.tm = tm
         self.names = tm.llm.names
-        completer = WordCompleter(['/use', 'use', '/done','done', '/info', 'info'] + list(self.names['enabled']), ignore_case=True)
+        completer = WordCompleter(['/use', 'use', '/done','done', '/info', 'info', '/mcp'] + list(self.names['enabled']), ignore_case=True)
         self.history = FileHistory(str(CONFIG_DIR / ".history"))
         self.session = PromptSession(history=self.history, completer=completer)
         self.console = console
@@ -159,7 +178,10 @@ class InteractiveConsole():
                 elif cmd == CommandType.CMD_INFO:
                     self.info()
                 elif cmd == CommandType.CMD_EXIT:
-                    break                    
+                    break
+                elif cmd == CommandType.CMD_MCP:
+                    ret = self.tm.mcp.process_command(arg)
+                    process_mcp_ret(self.console, arg, ret)
                 elif cmd == CommandType.CMD_INVALID:
                     self.console.print('[red]Error[/red]')
             except (EOFError, KeyboardInterrupt):
