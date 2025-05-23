@@ -181,8 +181,11 @@ class InteractiveConsole():
                 elif cmd == CommandType.CMD_EXIT:
                     break
                 elif cmd == CommandType.CMD_MCP:
-                    ret = self.tm.mcp.process_command(arg)
-                    process_mcp_ret(self.console, arg, ret)
+                    if self.tm.mcp:
+                        ret = self.tm.mcp.process_command(arg)
+                        process_mcp_ret(self.console, arg, ret)
+                    else:
+                        self.console.print("MCP config not found")
                 elif cmd == CommandType.CMD_INVALID:
                     self.console.print('[red]Error[/red]')
             except (EOFError, KeyboardInterrupt):
