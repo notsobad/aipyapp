@@ -302,7 +302,7 @@ MESSAGES = {
         'upload_failed': 'Upload failed (status code: {})',
         'reset_warning': 'Severe warning: This will reinitialize❗❗❗',
         'reset_confirm': 'If you are sure to continue, enter y',
-        'llm_response': 'reply',
+        'llm_response': 'Reply',
         'env_description': 'Environment variable name and meaning',
         'description': 'Description',
         'unknown_format': 'Unsupported file format',

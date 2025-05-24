@@ -4,6 +4,7 @@ import sys
 from enum import Enum, auto
 from collections import OrderedDict
 
+from rich import print
 from rich.console import Console
 from rich.table import Table
 from prompt_toolkit import PromptSession
@@ -57,7 +58,7 @@ def parse_command(input_str, llms=set()):
                
     return CommandType.CMD_TEXT, input_str
 
-def show_info(console, info):
+def show_info(info):
     info['Python'] = sys.executable
     info['Python version'] = sys.version
     info['Base Prefix'] = sys.base_prefix
@@ -72,7 +73,7 @@ def show_info(console, info):
             value,
         )
 
-    console.print(table)
+    print(table)
 
 def process_mcp_ret(console, arg, ret):
     if ret.get("status", "success") == "success":
@@ -92,7 +93,7 @@ def process_mcp_ret(console, arg, ret):
 class InteractiveConsole():
     def __init__(self, tm, console, settings):
         self.tm = tm
-        self.names = tm.llm.names
+        self.names = tm.client_manager.names
         completer = WordCompleter(['/use', 'use', '/done','done', '/info', 'info', '/mcp'] + list(self.names['enabled']), ignore_case=True)
         self.history = FileHistory(str(CONFIG_DIR / ".history"))
         self.session = PromptSession(history=self.history, completer=completer)
@@ -156,8 +157,8 @@ class InteractiveConsole():
         info = OrderedDict()
         info['Config dir'] = str(CONFIG_DIR)
         info['Work dir'] = str(self.tm.workdir)
-        info['Current LLM'] = repr(self.tm.llm.current)
-        show_info(self.console, info)
+        info['Current LLM'] = repr(self.tm.client_manager.current)
+        show_info(info)
 
     def run(self):
         self.console.print(f"{T('banner1')}", style="green")
@@ -174,7 +175,7 @@ class InteractiveConsole():
                     task = self.tm.new_task(arg)
                     self.start_task_mode(task)
                 elif cmd == CommandType.CMD_USE:
-                    ret = self.tm.llm.use(arg)
+                    ret = self.tm.client_manager.use(arg)
                     self.console.print('[green]Ok[/green]' if ret else '[red]Error[/red]')
                 elif cmd == CommandType.CMD_INFO:
                     self.info()
@@ -225,7 +226,7 @@ def main(args):
     if update and update.get('has_update'):
         console.print(f"[bold red]🔔 号外❗ {T('Update available')}: {update.get('latest_version')}")
    
-    if not tm.llm:
+    if not tm.client_manager:
         console.print(f"[bold red]{T('no_available_llm')}")
         return
     

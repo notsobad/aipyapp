@@ -2,17 +2,17 @@
 # -*- coding: utf-8 -*-
 
 import os
-from pathlib import Path
 import json
+from pathlib import Path
+
 from .i18n import T
 from .task import Task
-from .llm import LLM
 from .runner import Runner
 from .plugin import PluginManager
 from .prompt import SYSTEM_PROMPT
 from .diagnose import Diagnose
+from .llm import ClientManager
 from .config import PLUGINS_DIR, get_mcp, get_tt_api_key, get_tt_aio_api
-
 
 class TaskManager:
     def __init__(self, settings, console):
@@ -38,7 +38,7 @@ class TaskManager:
         self._init_mcp()
         self.diagnose = Diagnose.create(settings)
         self.runner = Runner(settings, console, envs=self.envs)
-        self.llm = LLM(settings, console, system_prompt=self.system_prompt)
+        self.client_manager = ClientManager(settings)
 
     @property
     def workdir(self):
@@ -146,7 +146,7 @@ class TaskManager:
 
         task = Task(instruction, system_prompt=system_prompt, settings=self.settings, mcp=self.mcp)
         task.console = self.console
-        task.llm = self.llm
+        task.client = self.client_manager.Client()
         task.runner = self.runner
         self.task = task
         return task

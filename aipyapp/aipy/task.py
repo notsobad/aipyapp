@@ -38,7 +38,7 @@ class Task:
         self.log = logger.bind(src='task', id=self.task_id)
         self.instruction = instruction
         self.console = None
-        self.llm = None
+        self.client = None
         self.runner = None
         self.max_rounds = settings.get('max_rounds', self.MAX_ROUNDS)
         self.system_prompt = system_prompt
@@ -74,7 +74,7 @@ class Task:
     def done(self):
         instruction = self.instruction
         task = {'instruction': instruction}
-        task['llm'] = self.llm.history.json()
+        task['llm'] = self.client.history.json()
         task['runner'] = self.runner.history
         filename = get_safe_filename(instruction, extension='.json') or f"{self.task_id}.json"
         try:
@@ -95,7 +95,6 @@ class Task:
         if self.settings.get('share_result'):
             self.sync_to_cloud()
         
-        self.llm.clear()
         self.runner.clear()
         self.task_id = None
         self.instruction = None
@@ -114,7 +113,7 @@ class Task:
 
         return code_blocks
 
-    def process_code_reply(self, blocks, llm=None):
+    def process_code_reply(self, blocks):
         event_bus('exec', blocks)
         code_block = blocks['main']
         self.box(f"\n⚡ {T('start_execute')}:", code_block, lang='python')
@@ -125,10 +124,10 @@ class Task:
         status = self.console.status(f"[dim white]{T('start_feedback')}...")
         self.console.print(status)
         feed_back = f"# 最初任务\n{self.instruction}\n\n# 代码执行结果反馈\n{result}"
-        feedback_response = self.llm(feed_back, name=llm)
+        feedback_response = self.chat(feed_back)
         return feedback_response
 
-    def process_mcp_reply(self, blocks, llm=None):
+    def process_mcp_reply(self, blocks):
         """处理 MCP 工具调用的回复"""
 
         event_bus('tool_call', blocks)
@@ -149,30 +148,22 @@ class Task:
 ````json
 {result}
 ````"""
-        feedback_response = self.llm(feed_back, name=llm)
-
+        feedback_response = self.chat(feed_back)
         return feedback_response
 
-
     def box(self, title, content, align=None, lang=None):
-        if hasattr(self.console, 'gui'):
-            # Using Mocked console. Dont use Panel
-
-            if lang == 'json':
-                # Only print execute result.
-                self.console.print(f"\n{title}")
-                self.console.print(content)
-            return
-
         if lang:
             content = Syntax(content, lang, line_numbers=True, word_wrap=True)
+        else:
+            content = Markdown(content)
+            
         if align:
             content = Align(content, align=align)
         
         self.console.print(Panel(content, title=title))
 
     def print_summary(self, detail=False):
-        history = self.llm.history
+        history = self.client.history
         if detail:
             table = Table(title=T("Task Summary"), show_lines=True)
 
@@ -217,7 +208,17 @@ class Task:
             prompt['LC_TERMINAL'] = os.environ.get('LC_TERMINAL')
         return prompt
 
-    def run(self, instruction=None, *, llm=None, max_rounds=None):
+    def chat(self, instruction, *, system_prompt=None):
+        msg = self.client(instruction, system_prompt=system_prompt)
+        if msg.role == 'error':
+            self.console.print(f"[red]{msg.content}[/red]")
+            return None
+        if msg.reason:
+            self.box(f"[yellow]{T('think')}", f'[red]{msg.reason}')
+        self.box(f"[yellow]{T('llm_response')}", f'{msg.content}')
+        return msg.content
+
+    def run(self, instruction=None, *, max_rounds=None):
         """
         执行自动处理循环，直到 LLM 不再返回代码消息
         """
@@ -231,14 +232,14 @@ class Task:
         else:
             system_prompt = None
 
-        self.loop(instruction, system_prompt, llm)
+        self.loop(instruction, system_prompt)
 
 
-    def loop(self, instruction, system_prompt=None, llm=None):
+    def loop(self, instruction, system_prompt=None):
         """ Execute the task loop """
         rounds = 1
         max_rounds = self.max_rounds
-        response = self.llm(instruction, system_prompt=system_prompt, name=llm)
+        response = self.chat(instruction, system_prompt=system_prompt)
         while response and rounds <= max_rounds:
             blocks = self.parse_reply(response)
 
@@ -246,16 +247,15 @@ class Task:
                 break
 
             if 'call_tool' in blocks:
-                response = self.process_mcp_reply(blocks, llm)
+                response = self.process_mcp_reply(blocks)
             else:
-                response = self.process_code_reply(blocks, llm)
+                response = self.process_code_reply(blocks)
 
             rounds += 1
             if event_bus.is_stopped():
                 break
         self.print_summary()
         self.console.bell()
-
 
     def start(self, instruction):
         """ Start a new task """
@@ -266,19 +266,6 @@ class Task:
         instruction = json.dumps(prompt, ensure_ascii=False)
         system_prompt = self.system_prompt
         self.loop(instruction, system_prompt)
-        
-
-    def chat(self, prompt):
-        system_prompt = None if self.llm.history else self.system_prompt
-        response, ok = self.llm(prompt, system_prompt=system_prompt)
-        self.console.print(Markdown(response))
-
-    def step(self):
-        response = self.llm.get_last_message()
-        if not response:
-            self.console.print(f"❌ {T('no_context')}")
-            return
-        self.process_reply(response)
 
     def sync_to_cloud(self, verbose=True):
         """ Sync result
