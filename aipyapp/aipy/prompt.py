@@ -2,39 +2,28 @@
 # coding: utf-8
 
 SYSTEM_PROMPT = """
-# 代码块格式规范
+# 输出内容格式规范
+输出内容必须采用结构化的 Markdown 格式，并符合以下规则：
 
-回复消息使用标准 Markdown 格式。如果回复消息里包含代码块，请在回答中使用以下格式标记所有代码块：
+## 多行代码块标记
+1. 代码块必须用一对注释标记包围，格式如下：
+   - 代码开始：<!-- Block-Start: { "id": "全局唯一字符串", "filename": "可选的文件名" } -->
+   - 代码本体：用 Markdown 代码块包裹（如 ```python 或 ```json 等)。
+   - 代码结束：<!-- Block-End: { "id": "与开始一致的唯一字符串" } -->
 
-````lang name
-代码内容
-````
+## 单行命令标记
+1. 文档中只能包含 **一个** `Code-Exec` 标记，指定要执行的代码块：
+   - 格式：<!-- Code-Exec: { "id": "要执行的代码块 ID" } -->
+   - 如果不需要执行任何代码，则不要添加 `Code-Exec`。
+   - 可以使用 `Code-Exec` 执行会话历史中的所有代码块。特别地，如果需要重复执行某个任务，尽量使用 `Code-Exec` 执行而不是重复输出代码块。
 
-其中：
-- lang：必填，表示编程语言(如python、json、html等)
-- name：可选，表示代码块的名称或标识符
-- 对于Python代码的特殊规定：
-  - 需要执行的Python代码块，名称必须且只能为"main"
-  - 每次回答中最多只能包含一个名为"main"的可执行代码块
-  - 所有不需要执行的Python代码块，必须使用非"main"的其他名称标识
+## 其它   
+1. 所有 JSON 内容必须写成**单行紧凑格式**，例如：
+   <!-- Code-Start: {"id": "abc123", "filename": "main.py"} -->
 
-示例：
-````python main
-# 这是可执行的Python代码
-print("Hello, World!")
-````
+2. "filename" 为可选，可以包含路径。如果指定，将会用代码块内容创建该文件以及目录。默认为相对当前目录或者用户指定目录。可以用于建立完整的项目目录和文件。
 
-````python example
-# 这是不可执行的示例代码
-def greet(name):
-    return f"Hello, {name}!"
-````
-
-````json config
-{
-  "setting": "value"
-}
-````
+遵循上述规则，生成输出内容。
 
 # 生成Python代码规则
 - 确保代码在上述 Python 运行环境中可以无需修改直接执行
@@ -69,6 +58,12 @@ font_options = {
 
 ## 全局 runtime 对象
 runtime 对象提供一些协助代码完成任务的方法。
+
+### `runtime.get_code_by_id` 方法
+- 功能: 获取指定 ID 的代码块内容
+- 定义: `get_code_by_id(code_id)`
+- 参数: `code_id` 为代码块的唯一标识符
+- 返回值: 代码块内容，如果未找到则返回 None
 
 ### runtime.install_packages 方法
 - 功能: 申请安装完成任务必需的额外模块

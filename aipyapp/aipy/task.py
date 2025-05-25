@@ -27,7 +27,6 @@ from ..exec import Runner
 from .runtime import Runtime
 from .plugin import event_bus
 from .utils import get_safe_filename
-from .libmcp import extract_call_tool
 from .blocks import CodeBlocks
 from .interface import Stoppable
 
@@ -127,39 +126,50 @@ class Task(Stoppable):
         if self.settings.get('share_result'):
             self.sync_to_cloud()
         
-    def parse_reply(self, markdown):
-        code_blocks = {}
-        for match in self.pattern.finditer(markdown):
-            _, _, name, content = match.groups()
-            code_blocks[name] = content.rstrip('\n')
+    def process_reply(self, markdown):
+        #self.console.print(f"{T('Start parsing message')}...", style='dim white')
+        ret = self.code_blocks.parse(markdown)
+        errors = ret['errors']
+        if errors:
+            event_bus('result', errors)
+            json_str = json.dumps(errors, ensure_ascii=False)
+            self.box(f"✅ {T("Message parse result")}", json_str, lang="json", style="bold cyan")
+            self.console.print(f"{T("Start sending feedback")}...", style='dim white')
+            feed_back = f"# 消息解析错误\n{json_str}"
+            ret = self.chat(feed_back)
+        elif ret['exec_ids']:
+            ret = self.process_code_reply(ret['exec_ids'])
+        elif ret['call_tool']:
+            ret = self.process_mcp_reply(ret['call_tool'])
+        else:
+            ret = None
+        return ret
 
-        if self.mcp and not code_blocks:
-            # 尝试解析mcp
-            json_content = extract_call_tool(markdown)
-            if json_content:
-                code_blocks['call_tool'] = json_content
+    def process_code_reply(self, code_ids):
+        results = []
+        for code_id in code_ids:
+            block = self.code_blocks.get_block_by_id(code_id)
+            event_bus('exec', block)
+            code_block = block['content']
+            self.box(f"⚡ {T("start_execute")}: {code_id}", code_block, lang='python')
+            result = self.runner(code_block)
+            result['id'] = code_id
+            results.append(result)
+            event_bus('result', result)
 
-        return code_blocks
+        if len(results) == 1:
+            results = results[0]
+        json_results = json.dumps(results, ensure_ascii=False, indent=4)
+        self.box(f"✅ {T("execute_result")}", json_results, lang="json")
+        self.console.print(f"{T("start_feedback")}...", style='dim white')
+        feed_back = f"# 最初任务\n{self.instruction}\n\n# 代码执行结果反馈\n{json_results}"
+        return self.chat(feed_back)
 
-    def process_code_reply(self, blocks):
-        event_bus('exec', blocks)
-        code_block = blocks['main']
-        self.box(f"\n⚡ {T('start_execute')}:", code_block, lang='python')
-        result = self.runner(code_block)
-        event_bus('result', result)
-        result = json.dumps(result, ensure_ascii=False, indent=4)
-        self.box(f"\n✅ {T('execute_result')}:\n", result, lang="json")
-        status = self.console.status(f"[dim white]{T('start_feedback')}...")
-        self.console.print(status)
-        feed_back = f"# 最初任务\n{self.instruction}\n\n# 代码执行结果反馈\n{result}"
-        feedback_response = self.chat(feed_back)
-        return feedback_response
-
-    def process_mcp_reply(self, blocks):
+    def process_mcp_reply(self, json_content):
         """处理 MCP 工具调用的回复"""
-
-        event_bus('tool_call', blocks)
-        json_content = blocks['call_tool']
+        block = {'content': json_content, 'language': 'json'}
+        event_bus('tool_call', block)
+        json_content = block['content']
         self.box(f"\n⚡ {T('call_tool')}:", json_content, lang='json')
 
         call_tool = json.loads(json_content)
@@ -168,8 +178,7 @@ class Task(Stoppable):
         result = json.dumps(result, ensure_ascii=False, indent=4)
         self.box(f"\n✅ {T('call_tool_result')}:\n", result, lang="json")
 
-        status = self.console.status(f"[dim white]{T('start_feedback')}...")
-        self.console.print(status)
+        self.console.print(f"{T('start_feedback')}...", style='dim white')
         feed_back = f"""# MCP 调用\n\n{self.instruction}\n
 # 执行结果反馈
 
@@ -268,15 +277,7 @@ class Task(Stoppable):
         max_rounds = self.max_rounds
         response = self.chat(instruction, system_prompt=system_prompt)
         while response and rounds <= max_rounds:
-            blocks = self.parse_reply(response)
-            if 'call_tool' not in blocks and 'main' not in blocks:
-                break
-
-            if 'call_tool' in blocks:
-                response = self.process_mcp_reply(blocks)
-            else:
-                response = self.process_code_reply(blocks)
-
+            response = self.process_reply(response)
             rounds += 1
             if self.is_stopped():
                 self.log.info('Task stopped')

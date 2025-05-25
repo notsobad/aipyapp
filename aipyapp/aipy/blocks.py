@@ -9,6 +9,8 @@ from collections import OrderedDict
 from loguru import logger
 import diff_match_patch as dmp_module
 
+from .libmcp import extract_call_tool
+
 class CodeBlocks:
     def __init__(self, console):
         self.console = console
@@ -79,7 +81,7 @@ class CodeBlocks:
         self.save_block(block)
         return None
 
-    def parse(self, markdown_text):
+    def parse(self, markdown_text, parse_mcp=False):
         blocks = OrderedDict()
         errors = []
         for match in self.code_pattern.finditer(markdown_text):
@@ -149,7 +151,15 @@ class CodeBlocks:
             if error:
                 errors.append(error)
 
-        return {'errors': errors, 'exec_ids': exec_ids, 'cmds': cmds, 'blocks': blocks}
+        ret = {'errors': errors, 'exec_ids': exec_ids, 'cmds': cmds, 'blocks': blocks, 'call_tool': None}
+
+        if parse_mcp and not blocks:
+            json_content = extract_call_tool(markdown_text)
+            if json_content:
+                ret['call_tool'] = json_content
+                self.log.info("Parsed MCP call_tool", json_content=json_content)
+
+        return ret
     
     def get_code_by_id(self, code_id):
         try:
