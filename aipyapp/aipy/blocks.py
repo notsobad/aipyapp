@@ -19,7 +19,7 @@ class CodeBlocks:
             re.DOTALL
         )
         self.line_pattern = re.compile(
-            r'<!--\s*Code-(\w+):\s*(\{.*?\})\s*-->'
+            r'<!--\s*Cmd-(\w+):\s*(\{.*?\})\s*-->'
         )
         self.log = logger.bind(src='code_blocks')
 
@@ -80,8 +80,8 @@ class CodeBlocks:
             try:
                 line_meta = json.loads(json_str)
             except json.JSONDecodeError as e:
-                self.log.error("Invalid JSON in Code-{cmd} block", json_str=json_str, reason=e)
-                error = {f'Invalid JSON in Code-{cmd} block': {'json_str': json_str, 'reason': str(e)}}
+                self.log.error("Invalid JSON in Cmd-{cmd} block", json_str=json_str, reason=e)
+                error = {f'Invalid JSON in Cmd-{cmd} block': {'json_str': json_str, 'reason': str(e)}}
                 errors.append(error)
                 continue
 
@@ -89,13 +89,13 @@ class CodeBlocks:
             if cmd == 'Exec':
                 exec_id = line_meta.get("id")
                 if not exec_id:
-                    error = {'Code-Exec block without id': {'json_str': json_str}}
+                    error = {'Cmd-Exec block without id': {'json_str': json_str}}
                 elif exec_id not in self.blocks:
-                    error = {'Code-Exec block not found': {'exec_id': exec_id}}
+                    error = {'Cmd-Exec block not found': {'exec_id': exec_id}}
                 else:
                     exec_ids.append(exec_id)
             else:
-                error = {f'Unknown command in Code-{cmd} block': {'cmd': cmd}}
+                error = {f'Unknown command in Cmd-{cmd} block': {'cmd': cmd}}
 
             if error:
                 errors.append(error)

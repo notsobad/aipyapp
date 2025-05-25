@@ -93,8 +93,10 @@ class LiveManager:
         lines = lr.feed(content)
         if not lines: return
 
-        content = '\n'.join(lines)
-        event_bus.broadcast('response_stream', {'llm': self.name, 'content': content, 'reason': reason})
+        lines2 = [line for line in lines if not line.startswith('<!-- Block-') and not line.startswith('<!-- Cmd-')]
+        if lines2:
+            content = '\n'.join(lines2)
+            event_bus.broadcast('response_stream', {'llm': self.name, 'content': content, 'reason': reason})
 
         if self.quiet: return
 
