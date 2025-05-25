@@ -104,9 +104,9 @@ class AIPython(threading.Thread):
         evt = ChatEvent(user=user, msg=f'{T("End processing instruction")} {summary}')
         wx.PostEvent(self.gui, evt)
 
-    def on_exec(self, blocks):
+    def on_exec(self, block):
         user = 'BB-8'
-        content = f"```python\n{blocks['main']}\n```"
+        content = f"```{block['language']}\n{block['content']}\n```"
         evt = ChatEvent(user=user, msg=content)
         wx.PostEvent(self.gui, evt)
 
