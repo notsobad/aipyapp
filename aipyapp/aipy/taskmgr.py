@@ -4,6 +4,9 @@
 import os
 import json
 from pathlib import Path
+from collections import deque
+
+from loguru import logger
 
 from .i18n import T
 from .task import Task
@@ -15,11 +18,14 @@ from .llm import ClientManager
 from .config import PLUGINS_DIR, get_mcp, get_tt_api_key, get_tt_aio_api
 
 class TaskManager:
+    MAX_TASKS = 16
+
     def __init__(self, settings, console):
         self.settings = settings
         self.console = console
-        self.task = None
+        self.tasks = deque(maxlen=self.MAX_TASKS)
         self.envs = {}
+        self.log = logger.bind(src='taskmgr')
         self.config_files = settings._loaded_files
         self.system_prompt = f"{settings.system_prompt}\n{SYSTEM_PROMPT}"
         self.plugin_manager = PluginManager(PLUGINS_DIR)
@@ -47,26 +53,10 @@ class TaskManager:
     def get_update(self, force=False):
         return self.diagnose.check_update(force)
 
-    @property
-    def busy(self):
-        return self.task is not None
-
     def use(self, name):
-        ret = self.llm.use(name)
+        ret = self.client_manager.use(name)
         self.console.print('[green]Ok[/green]' if ret else '[red]Error[/red]')
         return ret
-
-    def done(self):
-        if not self.task:
-            return
-
-        self.diagnose.report_code_error(self.runner.history)
-        self.task.done()
-        self.task = None
-
-    def save(self, path):
-        if self.task:
-            self.task.save(path)
 
     def _init_environ(self):
         envs = self.settings.get('environ', {})
@@ -136,25 +126,17 @@ class TaskManager:
         # 更新系统提示
         return "\n".join(lines)
 
-    def new_task(self, instruction, llm=None, system_prompt=None):
-        if llm and not self.llm.use(llm):
-            return None
-
+    def new_task(self, system_prompt=None):
         system_prompt = system_prompt or self.system_prompt
         if self.mcp:
             system_prompt = self._update_mcp_prompt(system_prompt)
 
-        task = Task(instruction, system_prompt=system_prompt, settings=self.settings, mcp=self.mcp)
-        task.console = self.console
+        task = Task(self)
         task.client = self.client_manager.Client()
         task.runner = self.runner
-        self.task = task
+        task.diagnose = self.diagnose
+        task.system_prompt = system_prompt
+        task.mcp = self.mcp
+        self.tasks.append(task)
+        self.log.info('New task created', task_id=task.task_id)
         return task
-    
-    def __call__(self, instruction, llm=None, system_prompt=None):
-        if self.task:
-            self.task.run(instruction=instruction, llm=llm, system_prompt=system_prompt)
-        else:
-            task = self.new_task(instruction, llm=llm, system_prompt=system_prompt)
-            self.task = task
-            task.run()

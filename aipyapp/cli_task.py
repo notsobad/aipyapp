@@ -72,7 +72,6 @@ def show_info(info):
             key,
             value,
         )
-
     print(table)
 
 def process_mcp_ret(console, arg, ret):
@@ -90,6 +89,7 @@ def process_mcp_ret(console, arg, ret):
     else:
         #console.print(f"[red]{T('mcp_error')}: {ret.get('message', '')}[/red]")
         console.print("操作失败", ret.get("message", ''))
+        
 class InteractiveConsole():
     def __init__(self, tm, console, settings):
         self.tm = tm
@@ -118,17 +118,17 @@ class InteractiveConsole():
                 break
         return "\n".join(lines)
 
-    def run_task(self, task, instruction=None):
+    def run_task(self, task, instruction):
         try:
-            task.run(instruction=instruction)
+            task.run(instruction)
         except (EOFError, KeyboardInterrupt):
             pass
         except Exception as e:
             self.console.print_exception()
 
-    def start_task_mode(self, task):
+    def start_task_mode(self, task, instruction):
         self.console.print(f"{T('ai_mode_enter')}", style="cyan")
-        self.run_task(task)
+        self.run_task(task, instruction)
         while True:
             try:
                 user_input = self.input_with_possible_multiline(">>> ", is_ai=True).strip()
@@ -142,13 +142,13 @@ class InteractiveConsole():
             elif cmd == CommandType.CMD_DONE:
                 break
             elif cmd == CommandType.CMD_USE:
-                ret = self.tm.llm.use(arg)
+                ret = task.use(arg)
                 self.console.print('[green]Ok[/green]' if ret else '[red]Error[/red]')
             elif cmd == CommandType.CMD_INVALID:
                 self.console.print(f'[red]Error: {arg}[/red]')
 
         try:
-            self.tm.done()
+            task.done()
         except Exception as e:
             self.console.print_exception()
         self.console.print(f"{T('ai_mode_exit')}", style="cyan")
@@ -164,6 +164,7 @@ class InteractiveConsole():
         self.console.print(f"{T('banner1')}", style="green")
         self.console.print(f"[cyan]{T('default')}: [green]{self.names['default']}，[cyan]{T('enabled')}: [yellow]{' '.join(self.names['enabled'])}")
         self.info()
+        tm = self.tm
         while True:
             try:
                 user_input = self.input_with_possible_multiline(">> ").strip()
@@ -172,18 +173,18 @@ class InteractiveConsole():
 
                 cmd, arg = parse_command(user_input, self.names['enabled'])
                 if cmd == CommandType.CMD_TEXT:
-                    task = self.tm.new_task(arg)
-                    self.start_task_mode(task)
+                    task = tm.new_task()
+                    self.start_task_mode(task, arg)
                 elif cmd == CommandType.CMD_USE:
-                    ret = self.tm.client_manager.use(arg)
+                    ret = tm.client_manager.use(arg)
                     self.console.print('[green]Ok[/green]' if ret else '[red]Error[/red]')
                 elif cmd == CommandType.CMD_INFO:
                     self.info()
                 elif cmd == CommandType.CMD_EXIT:
                     break
                 elif cmd == CommandType.CMD_MCP:
-                    if self.tm.mcp:
-                        ret = self.tm.mcp.process_command(arg)
+                    if tm.mcp:
+                        ret = tm.mcp.process_command(arg)
                         process_mcp_ret(self.console, arg, ret)
                     else:
                         self.console.print("MCP config not found")

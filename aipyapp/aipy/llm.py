@@ -4,8 +4,8 @@ from collections import Counter, defaultdict
 
 from loguru import logger
 from rich.live import Live
-from rich.panel import Panel
 from rich.text import Text
+from rich.console import Console
 from rich.markdown import Markdown
 
 from .i18n import T
@@ -69,6 +69,9 @@ class LiveManager:
         self.lr = LineReceiver()
         self.lr_reason = LineReceiver()
         self.title = f"{self.name} {T('llm_response')}"
+        self.reason_started = False
+        self.display_lines = []
+        self.max_lines = 10
 
     @property
     def content(self):
@@ -79,25 +82,32 @@ class LiveManager:
         return self.lr_reason.content
     
     def __enter__(self):
-        self.live = Live(auto_refresh=False, vertical_overflow='visible', console=None)
+        self.live = Live(auto_refresh=False, vertical_overflow='crop', transient=True)
         self.live.__enter__()
         return self
 
     def process_chunk(self, content, *, reason=False):
         if not content: return
+ 
         lr = self.lr_reason if reason else self.lr
         lines = lr.feed(content)
         if not lines: return
-        
+
+        if reason and not self.reason_started:
+            self.display_lines.append("<think>")
+            self.reason_started = True
+        elif not reason and self.reason_started:
+            self.display_lines.append("</think>")
+            self.reason_started = False
+       
         content = '\n'.join(lines)
         event_bus.broadcast('response_stream', {'llm': self.name, 'content': content, 'reason': reason})
 
-        full_response = f"# {T('think')}\n{lr.content}" if reason else f"# {T('llm_response')}\n{lr.content}"
-        try:
-            rich_text = Markdown(full_response)
-        except Exception:
-            rich_text = Text(full_response)
-        self.live.update(rich_text, refresh=True)
+        self.display_lines.extend(lines)
+        while len(self.display_lines) > self.max_lines:
+            self.display_lines.pop(0)
+        content = '\n'.join(self.display_lines)
+        self.live.update(Text(content, style="dim white"), refresh=True)
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         if self.lr_reason.buffer:
@@ -191,6 +201,10 @@ class Client:
         self.history = ChatHistory()
         self.log = logger.bind(src='client', name=self.current.name)
 
+    @property
+    def name(self):
+        return self.current.name
+    
     def use(self, name):
         client = self.manager.get_client(name)
         if client and client.usable():

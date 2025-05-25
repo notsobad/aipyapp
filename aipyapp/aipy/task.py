@@ -18,6 +18,7 @@ from rich.panel import Panel
 from rich.align import Align
 from rich.table import Table
 from rich.syntax import Syntax
+from rich.console import Console
 from rich.markdown import Markdown
 
 from .i18n import T
@@ -33,27 +34,35 @@ CONSOLE_CODE_HTML = read_text(__respkg__, "console_code.html")
 class Task:
     MAX_ROUNDS = 16
 
-    def __init__(self, instruction, *, system_prompt=None, settings=None, mcp=None):
+    def __init__(self, manager):
+        self.manager = manager
         self.task_id = uuid.uuid4().hex
         self.log = logger.bind(src='task', id=self.task_id)
-        self.instruction = instruction
-        self.console = None
+        self.settings = manager.settings
+        self.console = Console(file=manager.console.file, record=True)
+        self.max_rounds = self.settings.get('max_rounds', self.MAX_ROUNDS)
+
         self.client = None
         self.runner = None
-        self.max_rounds = settings.get('max_rounds', self.MAX_ROUNDS)
-        self.system_prompt = system_prompt
+        self.instruction = None
+        self.system_prompt = None
+        self.diagnose = None
+        self.start_time = None
+        
         self.pattern = re.compile(
             r"^(`{3,4})(\w+)\s+([\w\-\.]+)\n(.*?)^\1\s*$",
             re.DOTALL | re.MULTILINE
         )
-        self.settings = settings
-        self.mcp = mcp
-        self.start_time = None
         self.code_blocks = CodeBlocks(self.console)
         
+    def use(self, name):
+        ret = self.client.use(name)
+        self.console.print('[green]Ok[/green]' if ret else '[red]Error[/red]')
+        return ret
+
     def save(self, path):
-       if self._console.record:
-           self._console.save_html(path, clear=False, code_format=CONSOLE_WHITE_HTML)
+       if self.console.record:
+           self.console.save_html(path, clear=False, code_format=CONSOLE_WHITE_HTML)
 
     def save_html(self, path, task):
         if 'llm' in task and isinstance(task['llm'], list) and len(task['llm']) > 0:
@@ -62,43 +71,55 @@ class Task:
 
         task_json = json.dumps(task, ensure_ascii=False)
         html_content = CONSOLE_CODE_HTML.replace('{{code}}', task_json)
-
         try:
             with open(path, 'w', encoding='utf-8') as f:
                 f.write(html_content)
-                self.console.print(f"[green]Task saved to {path}[/green]")
         except Exception as e:
             self.console.print_exception()
-            return
-
-    def done(self):
+        
+    def _auto_save(self):
         instruction = self.instruction
         task = {'instruction': instruction}
         task['llm'] = self.client.history.json()
+        task['envs'] = self.manager.envs
         task['runner'] = self.runner.history
-        filename = get_safe_filename(instruction, extension='.json') or f"{self.task_id}.json"
+
+        filename = f"{self.task_id}.json"
         try:
-            with open(filename, 'w', encoding='utf-8') as file:
-                json.dump(task, file, ensure_ascii=False, indent=4)
+            json.dump(task, open(filename, 'w', encoding='utf-8'), ensure_ascii=False, indent=4)
         except Exception as e:
-            self.console.print_exception()
+            self.log.exception('Error saving task')
 
-        filename = get_safe_filename(instruction) or f"{self.task_id}.html"
-        if hasattr(self.console, 'gui'):
-            # Only save new html in gui mode for now.
-            self.save_html(filename, task)
-        else:
-            self.console.save_html(filename, clear=True, code_format=CONSOLE_WHITE_HTML)
-        filename = str(Path(filename).resolve())
+        filename = f"{self.task_id}.html"
+        self.save_html(filename, task)
+        self.log.info('Task auto saved')
+
+    def done(self):
+        curname = f"{self.task_id}.json"
+        jsonname = get_safe_filename(self.instruction, extension='.json')
+        if jsonname and os.path.exists(curname):
+            try:
+                os.rename(curname, jsonname)
+            except Exception as e:
+                self.log.exception('Error renaming task json file')
+
+        curname = f"{self.task_id}.html"
+        htmlname = get_safe_filename(self.instruction, extension='.html')
+        if htmlname and os.path.exists(curname):
+            try:
+                os.rename(curname, htmlname)
+            except Exception as e:
+                self.log.exception('Error renaming task html file')
+
+        self.diagnose.report_code_error(self.runner.history)
+        self.done_time = time.time()
+        self.runner.clear()
+        self.log.info('Task done', jsonname=jsonname, htmlname=htmlname)
+        filename = str(Path(htmlname).resolve())
         self.console.print(f"[green]{T('task_saved')}: \"{filename}\"")
-
         if self.settings.get('share_result'):
             self.sync_to_cloud()
         
-        self.runner.clear()
-        self.task_id = None
-        self.instruction = None
-
     def parse_reply(self, markdown):
         code_blocks = {}
         for match in self.pattern.finditer(markdown):
@@ -156,7 +177,7 @@ class Task:
             content = Syntax(content, lang, line_numbers=True, word_wrap=True)
         else:
             content = Markdown(content)
-            
+
         if align:
             content = Align(content, align=align)
         
@@ -214,17 +235,20 @@ class Task:
             self.console.print(f"[red]{msg.content}[/red]")
             return None
         if msg.reason:
-            self.box(f"[yellow]{T('think')}", f'[red]{msg.reason}')
-        self.box(f"[yellow]{T('llm_response')}", f'{msg.content}')
+            content = f"{msg.reason}\n\n-----\n\n{msg.content}"
+        else:
+            content = msg.content
+        self.box(f"[yellow]{T('llm_response')} ({self.client.name})", content)
         return msg.content
 
-    def run(self, instruction=None, *, max_rounds=None):
+    def run(self, instruction):
         """
         执行自动处理循环，直到 LLM 不再返回代码消息
         """
-        self.start_time = time.time()
-        self.box(f"[yellow]{T('start_instruction')}", f'[red]{instruction or self.instruction}', align="center")
-        if not instruction:
+        self.box(f"[yellow]{T('start_instruction')}", instruction, align="center")
+        if not self.start_time:
+            self.start_time = time.time()
+            self.instruction = instruction
             prompt = self.build_user_prompt()
             event_bus('task_start', prompt)
             instruction = json.dumps(prompt, ensure_ascii=False)
@@ -232,11 +256,6 @@ class Task:
         else:
             system_prompt = None
 
-        self.loop(instruction, system_prompt)
-
-
-    def loop(self, instruction, system_prompt=None):
-        """ Execute the task loop """
         rounds = 1
         max_rounds = self.max_rounds
         response = self.chat(instruction, system_prompt=system_prompt)
@@ -254,18 +273,11 @@ class Task:
             rounds += 1
             if event_bus.is_stopped():
                 break
-        self.print_summary()
-        self.console.bell()
 
-    def start(self, instruction):
-        """ Start a new task """
-        self.start_time = time.time()
-        self.instruction = instruction
-        self.box(f"[yellow]{T('start_instruction')}", f'[red]{instruction}', align="center")
-        prompt = self.build_user_prompt()
-        instruction = json.dumps(prompt, ensure_ascii=False)
-        system_prompt = self.system_prompt
-        self.loop(instruction, system_prompt)
+        self.print_summary()
+        self._auto_save()
+        self.console.bell()
+        self.log.info('Loop done', rounds=rounds)
 
     def sync_to_cloud(self, verbose=True):
         """ Sync result
