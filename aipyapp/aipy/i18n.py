@@ -106,6 +106,7 @@ MESSAGES = {
         'Edit': '编辑',
         'Task': '任务',
         'Stop task': '停止任务',
+        'Share task': '分享任务',
         'Current task has ended': '当前任务已结束',
         'Operation in progress, please wait...': '操作进行中，请稍候...',
         'Operation completed. If you want to start the next task, please click the "End" button': '操作完成。如果开始下一个任务，请点击"结束"按钮',
@@ -285,6 +286,11 @@ MESSAGES = {
         "https://aipy.app": "https://www.aipyaipy.com",
         "https://d.aipy.app": "https://d.aipyaipy.com",
         "https://d.aipy.app/d/13": "https://d.aipyaipy.com/d/13",
+        'Share result': '分享结果',
+        'Share failed': '分享失败',
+        'Share success': '分享成功',
+        'Click the link below to view the task record': '点击下方链接查看任务记录',
+        'View task record': '查看任务记录',
     },
     'en': {
         'start_instruction': 'Start processing instruction',
@@ -385,6 +391,7 @@ MESSAGES = {
         'Edit': 'Edit',
         'Task': 'Task',
         'Stop task': 'Stop task',
+        'Share task': 'Share task',
         'Current task has ended': 'Current task has ended',
         'Operation in progress, please wait...': 'Operation in progress, please wait...',
         'Operation completed. If you want to start the next task, please click the "End" button': 'Operation completed. If you want to start the next task, please click the "End" button',
@@ -556,6 +563,11 @@ MESSAGES = {
         "https://aipy.app": "https://aipy.app",
         "https://d.aipy.app": "https://d.aipy.app",
         "https://d.aipy.app/d/13": "https://d.aipy.app/d/13",        
+        'Share result': 'Share result',
+        'Share failed': 'Share failed',
+        'Share success': 'Share success',
+        'Click the link below to view the task record': 'Click the link below to view the task record',
+        'View task record': 'View task record',
     }
 }
 

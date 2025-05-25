@@ -20,6 +20,7 @@ import matplotlib.pyplot as plt
 from loguru import logger
 from rich.console import Console
 from wx.lib.newevent import NewEvent
+from wx.lib.agw.hyperlink import HyperLinkCtrl
 from wx import FileDialog, FD_SAVE, FD_OVERWRITE_PROMPT
 
 from .. import __version__
@@ -337,6 +338,9 @@ class ChatFrame(wx.Frame):
         self.stop_task_item = task_menu.Append(wx.ID_ANY, T('Stop task'))
         self.stop_task_item.Enable(False)
         self.Bind(wx.EVT_MENU, self.on_stop_task, self.stop_task_item)
+        self.share_task_item = task_menu.Append(wx.ID_ANY, T('Share task'))
+        self.share_task_item.Enable(False)
+        self.Bind(wx.EVT_MENU, self.on_share_task, self.share_task_item)
         menubar.Append(task_menu, T('Task'))
 
         # 帮助菜单
@@ -479,6 +483,7 @@ class ChatFrame(wx.Frame):
             self.SetStatusText(T('Operation in progress, please wait...'), 0)
             self.new_task_item.Enable(False)
             self.stop_task_item.Enable(True)
+            self.share_task_item.Enable(False)
         else:
             self.container.Show()
             self.done_button.Show()
@@ -486,6 +491,8 @@ class ChatFrame(wx.Frame):
             self.SetStatusText(T('Operation completed. If you start a new task, please click the "End" button'), 0)
             self.new_task_item.Enable(self.aipython.can_done())
             self.stop_task_item.Enable(False)
+            self.share_task_item.Enable(True)
+
         self.panel.Layout()
         self.panel.Refresh()
 
@@ -547,6 +554,24 @@ class ChatFrame(wx.Frame):
             
         event.Skip()
 
+    def on_share_task(self, event):
+        """分享当前任务记录"""
+        try:
+            html_content = self.webview.GetPageSource()
+            result = self.tm.diagnose.report_data(html_content, 'task_record.html')
+            if result.get('success'):
+                dialog = ShareResultDialog(self, result['url'])
+                dialog.ShowModal()
+                dialog.Destroy()
+            else:
+                dialog = ShareResultDialog(self, None, result.get('error'))
+                dialog.ShowModal()
+                dialog.Destroy()
+        except Exception as e:
+            dialog = ShareResultDialog(self, None, str(e))
+            dialog.ShowModal()
+            dialog.Destroy()
+
 class AboutDialog(wx.Dialog):
     def __init__(self, parent):
         super().__init__(parent, title=T('About AIPY'))
@@ -603,6 +628,51 @@ class AboutDialog(wx.Dialog):
         self.SetMinSize((400, 320))
         self.Fit()
         self.Centre()
+
+class ShareResultDialog(wx.Dialog):
+    def __init__(self, parent, url, error=None):
+        super().__init__(parent, title=T('Share result'), size=(400, 200))
+        self.SetBackgroundColour(wx.Colour(245, 245, 245))
+        
+        vbox = wx.BoxSizer(wx.VERTICAL)
+        
+        if error:
+            # 显示错误信息
+            error_text = wx.StaticText(self, label=T('Share failed'))
+            error_text.SetForegroundColour(wx.Colour(255, 0, 0))
+            error_text.SetFont(wx.Font(12, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD))
+            vbox.Add(error_text, 0, wx.ALL | wx.ALIGN_CENTER, 10)
+            
+            error_msg = wx.StaticText(self, label=error)
+            error_msg.Wrap(350)
+            vbox.Add(error_msg, 0, wx.ALL | wx.ALIGN_CENTER, 10)
+        else:
+            # 显示成功信息
+            success_text = wx.StaticText(self, label=T('Share success'))
+            success_text.SetForegroundColour(wx.Colour(0, 128, 0))
+            success_text.SetFont(wx.Font(12, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD))
+            vbox.Add(success_text, 0, wx.ALL | wx.ALIGN_CENTER, 10)
+            
+            # 添加提示文本
+            hint_text = wx.StaticText(self, label=T('Click the link below to view the task record:'))
+            vbox.Add(hint_text, 0, wx.ALL | wx.ALIGN_CENTER, 5)
+            
+            # 添加可点击的链接
+            link = HyperLinkCtrl(self, -1, T('View task record'), URL=url)
+            link.SetFont(wx.Font(10, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL))
+            link.SetColours("BLUE", "BLUE", "BLUE")
+            link.EnableRollover(True)
+            link.SetUnderlines(False, False, True)
+            vbox.Add(link, 0, wx.ALL | wx.ALIGN_CENTER, 5)
+        
+        # 添加确定按钮
+        ok_button = wx.Button(self, wx.ID_OK, T('OK'))
+        ok_button.SetBackgroundColour(wx.Colour(255, 255, 255))
+        vbox.Add(ok_button, 0, wx.ALL | wx.ALIGN_CENTER, 10)
+        
+        self.SetSizer(vbox)
+        self.Centre()
+
 
 def main(args):
     app = wx.App(False)
