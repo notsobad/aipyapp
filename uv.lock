@@ -13,7 +13,6 @@ source = { editable = "." }
 dependencies = [
     { name = "anthropic" },
     { name = "beautifulsoup4" },
-    { name = "diff-match-patch" },
     { name = "dynaconf" },
     { name = "loguru" },
     { name = "mcp", extra = ["cli"] },
@@ -35,7 +34,6 @@ dependencies = [
 requires-dist = [
     { name = "anthropic", specifier = ">=0.49.0" },
     { name = "beautifulsoup4", specifier = ">=4.13.3" },
-    { name = "diff-match-patch", specifier = ">=20241021" },
     { name = "dynaconf", specifier = ">=3.2.10" },
     { name = "loguru", specifier = ">=0.7.3" },
     { name = "mcp", extras = ["cli"], specifier = ">=1.8.1" },
@@ -273,15 +271,6 @@ source = { registry = "https://mirrors.aliyun.com/pypi/simple/" }
 sdist = { url = "https://mirrors.aliyun.com/pypi/packages/a9/95/a3dbbb5028f35eafb79008e7522a75244477d2838f38cbb722248dabc2a8/cycler-0.12.1.tar.gz", hash = "sha256:88bb128f02ba341da8ef447245a9e138fae777f6a23943da4540077d3601eb1c" }
 wheels = [
     { url = "https://mirrors.aliyun.com/pypi/packages/e7/05/c19819d5e3d95294a6f5947fb9b9629efb316b96de511b418c53d245aae6/cycler-0.12.1-py3-none-any.whl", hash = "sha256:85cef7cff222d8644161529808465972e51340599459b8ac3ccbac5a854e0d30" },
-]
-
-[[package]]
-name = "diff-match-patch"
-version = "20241021"
-source = { registry = "https://mirrors.aliyun.com/pypi/simple/" }
-sdist = { url = "https://mirrors.aliyun.com/pypi/packages/0e/ad/32e1777dd57d8e85fa31e3a243af66c538245b8d64b7265bec9a61f2ca33/diff_match_patch-20241021.tar.gz", hash = "sha256:beae57a99fa48084532935ee2968b8661db861862ec82c6f21f4acdd6d835073" }
-wheels = [
-    { url = "https://mirrors.aliyun.com/pypi/packages/f7/bb/2aa9b46a01197398b901e458974c20ed107935c26e44e37ad5b0e5511e44/diff_match_patch-20241021-py3-none-any.whl", hash = "sha256:93cea333fb8b2bc0d181b0de5e16df50dd344ce64828226bda07728818936782" },
 ]
 
 [[package]]

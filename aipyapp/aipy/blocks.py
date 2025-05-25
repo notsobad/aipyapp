@@ -7,7 +7,6 @@ from pathlib import Path
 from collections import OrderedDict
 
 from loguru import logger
-import diff_match_patch as dmp_module
 
 from .libmcp import extract_call_tool
 
@@ -23,7 +22,6 @@ class CodeBlocks:
             r'<!--\s*Code-(\w+):\s*(\{.*?\})\s*-->'
         )
         self.log = logger.bind(src='code_blocks')
-        self.dmp = dmp_module.diff_match_patch()
 
     def save_block(self, block):
         if block and block.get('filename'):
@@ -35,51 +33,6 @@ class CodeBlocks:
             except Exception as e:
                 self.log.error("Failed to save file", filename=block['filename'], reason=e)
                 self.console.print("❌ Failed to save file", filename=block['filename'], reason=e)
-
-    def apply_patch(self, patch_meta):
-        code_id = patch_meta.get("id")
-        patch_id = patch_meta.get("patch_id")
-        filename = patch_meta.get("filename")
-
-        if patch_id not in self.blocks:
-            self.log.error("Patch id not found", patch_id=patch_id)
-            return {'Patch id not found': {'patch_id': patch_id}}
-
-        patch_block = self.blocks[patch_id]
-        if patch_block.get('language') != 'dmp':
-            self.log.error("Patch language is not dmp", patch_id=patch_id)
-            return {'Patch language is not dmp': {'patch_id': patch_id}}
-
-        base_id = patch_block.get('base_id')
-        if not base_id or base_id not in self.blocks:
-            self.log.error("No base id or base id not found", patch_id=patch_id)
-            return {'No base id or base id not found': {'patch_id': patch_id}}
-
-        if code_id in self.blocks:
-            self.log.error("Code id already exists", code_id=code_id)
-            return {'Code id already exists': {'code_id': code_id}}
-
-        self.log.info("Applying patch", code_id=code_id, base_id=base_id, patch_id=patch_id, filename=filename)
-
-        code = self.blocks[base_id]['content']
-        patch = self.blocks[patch_id]['content']
-        try:
-            diff = self.dmp.patch_fromText(patch)
-            new_code, _ = self.dmp.patch_apply(diff, code)
-        except Exception as e:
-            self.log.error("Failed to apply patch", patch_id=patch_id, base_id=base_id, reason=e)
-            return {'Failed to apply patch': {'patch_id': patch_id, 'base_id': base_id, 'reason': str(e)}}
-        
-        block = {
-            'language': self.blocks[base_id]['language'],
-            'content': new_code.strip(),
-            'filename': filename,
-            'base_id': base_id,
-            'patch_id': patch_id
-        }
-        self.blocks[code_id] = block
-        self.save_block(block)
-        return None
 
     def parse(self, markdown_text, parse_mcp=False):
         blocks = OrderedDict()
@@ -121,11 +74,9 @@ class CodeBlocks:
         self.blocks.update(blocks)
 
         exec_ids = []
-        cmds = []
         line_matches = self.line_pattern.findall(markdown_text)
         for line_match in line_matches:
             cmd, json_str = line_match
-            cmds.append((cmd, json_str))
             try:
                 line_meta = json.loads(json_str)
             except json.JSONDecodeError as e:
@@ -135,9 +86,7 @@ class CodeBlocks:
                 continue
 
             error = None
-            if cmd == 'Patch':
-                error = self.apply_patch(line_meta)
-            elif cmd == 'Exec':
+            if cmd == 'Exec':
                 exec_id = line_meta.get("id")
                 if not exec_id:
                     error = {'Code-Exec block without id': {'json_str': json_str}}
@@ -151,7 +100,7 @@ class CodeBlocks:
             if error:
                 errors.append(error)
 
-        ret = {'errors': errors, 'exec_ids': exec_ids, 'cmds': cmds, 'blocks': blocks, 'call_tool': None}
+        ret = {'errors': errors, 'exec_ids': exec_ids, 'blocks': blocks, 'call_tool': None}
 
         if parse_mcp and not blocks:
             json_content = extract_call_tool(markdown_text)
