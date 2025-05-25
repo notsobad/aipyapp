@@ -14,11 +14,12 @@ from importlib.resources import read_text
 
 import requests
 from loguru import logger
+from rich.rule import Rule
 from rich.panel import Panel
 from rich.align import Align
 from rich.table import Table
 from rich.syntax import Syntax
-from rich.console import Console
+from rich.console import Console, Group
 from rich.markdown import Markdown
 
 from .i18n import T
@@ -133,7 +134,7 @@ class Task(Stoppable):
         if errors:
             event_bus('result', errors)
             json_str = json.dumps(errors, ensure_ascii=False)
-            self.box(f"✅ {T("Message parse result")}", json_str, lang="json", style="bold cyan")
+            self.box(f"✅ {T("Message parse result")}", json_str, lang="json")
             self.console.print(f"{T("Start sending feedback")}...", style='dim white')
             feed_back = f"# 消息解析错误\n{json_str}"
             ret = self.chat(feed_back)
@@ -145,22 +146,35 @@ class Task(Stoppable):
             ret = None
         return ret
 
+    def print_code_result(self, code_id, code_content, result):
+        line_numbers = True if 'traceback' in result else False
+        syntax_code = Syntax(code_content, 'python', line_numbers=line_numbers, word_wrap=True)
+        syntax_result = Syntax(result, 'json', line_numbers=False, word_wrap=True)
+        group = Group(syntax_code, Rule(), syntax_result)
+        panel = Panel(group, title=code_id)
+        self.console.print(panel)
+
     def process_code_reply(self, code_ids):
         results = []
+        json_results = []
         for code_id in code_ids:
             block = self.code_blocks.get_block_by_id(code_id)
             event_bus('exec', block)
             code_block = block['content']
-            self.box(f"⚡ {T("start_execute")}: {code_id}", code_block, lang='python')
+            self.console.print(f"⚡ {T('start_execute')}: {code_id}", style='dim white')
             result = self.runner(code_block)
+            json_result = json.dumps(result, ensure_ascii=False, indent=4)
             result['id'] = code_id
             results.append(result)
+            json_results.append(json_result)
+            self.print_code_result(code_id, code_block, json_result)
             event_bus('result', result)
 
-        if len(results) == 1:
-            results = results[0]
-        json_results = json.dumps(results, ensure_ascii=False, indent=4)
-        self.box(f"✅ {T("execute_result")}", json_results, lang="json")
+        if len(json_results) == 1:
+            json_results = json_results[0]
+        else:
+            json_results = json.dumps(results, ensure_ascii=False, indent=4)
+        
         self.console.print(f"{T("start_feedback")}...", style='dim white')
         feed_back = f"# 最初任务\n{self.instruction}\n\n# 代码执行结果反馈\n{json_results}"
         return self.chat(feed_back)
