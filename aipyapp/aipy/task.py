@@ -27,14 +27,16 @@ from .plugin import event_bus
 from .utils import get_safe_filename
 from .libmcp import extract_call_tool
 from .blocks import CodeBlocks
+from .interface import Stoppable
 
 CONSOLE_WHITE_HTML = read_text(__respkg__, "console_white.html")
 CONSOLE_CODE_HTML = read_text(__respkg__, "console_code.html")
 
-class Task:
+class Task(Stoppable):
     MAX_ROUNDS = 16
 
     def __init__(self, manager):
+        super().__init__()
         self.manager = manager
         self.task_id = uuid.uuid4().hex
         self.log = logger.bind(src='task', id=self.task_id)
@@ -263,7 +265,6 @@ class Task:
         response = self.chat(instruction, system_prompt=system_prompt)
         while response and rounds <= max_rounds:
             blocks = self.parse_reply(response)
-
             if 'call_tool' not in blocks and 'main' not in blocks:
                 break
 
@@ -273,7 +274,8 @@ class Task:
                 response = self.process_code_reply(blocks)
 
             rounds += 1
-            if event_bus.is_stopped():
+            if self.is_stopped():
+                self.log.info('Task stopped')
                 break
 
         self.print_summary()

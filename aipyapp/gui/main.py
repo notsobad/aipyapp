@@ -60,6 +60,12 @@ class AIPython(threading.Thread):
         sys.modules["matplotlib.pyplot"] = plt
         self.log = logger.bind(src='aipython')
 
+    def stop_task(self):
+        if self._task:
+            self._task.stop()
+        else:
+            self.log.warning("没有正在进行的任务")
+
     def has_task(self):
         return self._task is not None
 
@@ -205,7 +211,6 @@ class CStatusBar(wx.StatusBar):
         else:
             wx.MessageBox(T('Work directory does not exist'), T('Error'), wx.OK | wx.ICON_ERROR)
 
-
 class FileDropTarget(wx.FileDropTarget):
     def __init__(self, text_ctrl):
         super().__init__()
@@ -215,7 +220,6 @@ class FileDropTarget(wx.FileDropTarget):
         s = json.dumps(filenames, ensure_ascii=False)
         self.text_ctrl.AppendText(s)
         return True
-
 
 class ChatFrame(wx.Frame):
     def __init__(self, tm):
@@ -330,8 +334,11 @@ class ChatFrame(wx.Frame):
         # 任务菜单
         task_menu = wx.Menu()
         self.new_task_item = task_menu.Append(wx.ID_NEW, T('Start new task'))
+        self.stop_task_item = task_menu.Append(wx.ID_ANY, T('Stop task'))
+        self.stop_task_item.Enable(False)
+        self.Bind(wx.EVT_MENU, self.on_stop_task, self.stop_task_item)
         menubar.Append(task_menu, T('Task'))
-        
+
         # 帮助菜单
         help_menu = wx.Menu()
         website_item = help_menu.Append(wx.ID_ANY, T('Website'))
@@ -360,6 +367,9 @@ class ChatFrame(wx.Frame):
         self.task_queue.put('exit')
         self.aipython.join()
         self.Close()
+
+    def on_stop_task(self, event):
+        self.aipython.stop_task()
 
     def on_done(self, event):
         self.task_queue.put('/done')
@@ -468,12 +478,14 @@ class ChatFrame(wx.Frame):
             wx.BeginBusyCursor()
             self.SetStatusText(T('Operation in progress, please wait...'), 0)
             self.new_task_item.Enable(False)
+            self.stop_task_item.Enable(True)
         else:
             self.container.Show()
             self.done_button.Show()
             wx.EndBusyCursor()
             self.SetStatusText(T('Operation completed. If you start a new task, please click the "End" button'), 0)
             self.new_task_item.Enable(self.aipython.can_done())
+            self.stop_task_item.Enable(False)
         self.panel.Layout()
         self.panel.Refresh()
 

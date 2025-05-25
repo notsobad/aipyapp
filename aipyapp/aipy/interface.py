@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+import threading
 from abc import ABC, abstractmethod
 
 class Runtime(ABC):
@@ -24,3 +25,23 @@ class ConsoleInterface(ABC):
     @abstractmethod
     def status(self, msg):
         pass
+
+class Stoppable():
+    def __init__(self):
+        self._stop_event = threading.Event()
+
+    def on_stop(self):
+        pass
+
+    def stop(self):
+        self._stop_event.set()
+        self.on_stop()
+        
+    def is_stopped(self):
+        return self._stop_event.is_set()
+    
+    def wait(self, timeout=None):
+        return self._stop_event.wait(timeout)
+    
+    def reset(self):
+        self._stop_event.clear()
