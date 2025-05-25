@@ -23,6 +23,8 @@ from rich.markdown import Markdown
 
 from .i18n import T
 from .. import __respkg__
+from ..exec import Runner
+from .runtime import Runtime
 from .plugin import event_bus
 from .utils import get_safe_filename
 from .libmcp import extract_call_tool
@@ -41,6 +43,7 @@ class Task(Stoppable):
         self.task_id = uuid.uuid4().hex
         self.log = logger.bind(src='task', id=self.task_id)
         self.settings = manager.settings
+        self.envs = manager.envs
         self.console = Console(file=manager.console.file, record=True)
         self.max_rounds = self.settings.get('max_rounds', self.MAX_ROUNDS)
 
@@ -56,6 +59,8 @@ class Task(Stoppable):
             re.DOTALL | re.MULTILINE
         )
         self.code_blocks = CodeBlocks(self.console)
+        self.runtime = Runtime(self)
+        self.runner = Runner(self.runtime)
         
     def use(self, name):
         ret = self.client.use(name)
@@ -83,7 +88,7 @@ class Task(Stoppable):
         instruction = self.instruction
         task = {'instruction': instruction}
         task['llm'] = self.client.history.json()
-        task['envs'] = self.manager.envs
+        task['envs'] = self.runtime.envs
         task['runner'] = self.runner.history
 
         filename = f"{self.task_id}.json"
@@ -116,7 +121,6 @@ class Task(Stoppable):
 
         self.diagnose.report_code_error(self.runner.history)
         self.done_time = time.time()
-        self.runner.clear()
         self.log.info('Task done', jsonname=jsonname, htmlname=htmlname)
         filename = str(Path(htmlname).resolve())
         self.console.print(f"[green]{T('task_saved')}: \"{filename}\"")
@@ -141,7 +145,7 @@ class Task(Stoppable):
         event_bus('exec', blocks)
         code_block = blocks['main']
         self.box(f"\n⚡ {T('start_execute')}:", code_block, lang='python')
-        result = self.runner(code_block, blocks)
+        result = self.runner(code_block)
         event_bus('result', result)
         result = json.dumps(result, ensure_ascii=False, indent=4)
         self.box(f"\n✅ {T('execute_result')}:\n", result, lang="json")

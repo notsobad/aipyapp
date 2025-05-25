@@ -10,7 +10,6 @@ from loguru import logger
 
 from .i18n import T
 from .task import Task
-from .runner import Runner
 from .plugin import PluginManager
 from .prompt import SYSTEM_PROMPT
 from .diagnose import Diagnose
@@ -43,7 +42,6 @@ class TaskManager:
         self._init_api()
         self._init_mcp()
         self.diagnose = Diagnose.create(settings)
-        self.runner = Runner(settings, console, envs=self.envs)
         self.client_manager = ClientManager(settings)
 
     @property
@@ -133,7 +131,6 @@ class TaskManager:
 
         task = Task(self)
         task.client = self.client_manager.Client()
-        task.runner = self.runner
         task.diagnose = self.diagnose
         task.system_prompt = system_prompt
         task.mcp = self.mcp

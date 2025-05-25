@@ -72,8 +72,8 @@ runtime 对象提供一些协助代码完成任务的方法。
 
 ### runtime.install_packages 方法
 - 功能: 申请安装完成任务必需的额外模块
-- 参数：一个或多个 PyPi 包名，如：'httpx', 'requests>=2.25'
-- 返回值：True 表示成功，False 表示失败
+- 参数: 一个或多个 PyPi 包名，如：'httpx', 'requests>=2.25'
+- 返回值:True 表示成功, False 表示失败
 
 示例如下：
 ```python
@@ -81,16 +81,16 @@ if runtime.install_packages('httpx', 'requests>=2.25'):
     import datasets
 ```
 
-### runtime.getenv 方法
+### runtime.get_env 方法
 - 功能: 获取代码运行需要的环境变量，如 API-KEY 等。
-- 定义：getenv(name, default=None, *, desc=None)
-- 参数：第一个参数为需要获取的环境变量名称，第二个参数为不存在时的默认返回值，第三个可选字符串参数简要描述需要的是什么。
-- 返回值：环境变量值，返回 None 或空字符串表示未找到。
+- 定义: get_env(name, default=None, *, desc=None)
+- 参数: 第一个参数为需要获取的环境变量名称，第二个参数为不存在时的默认返回值，第三个可选字符串参数简要描述需要的是什么。
+- 返回值: 环境变量值，返回 None 或空字符串表示未找到。
 
 示例如下：
 ```python
 env_name = '环境变量名称'
-env_value = runtime.getenv(env_name, "No env", desc='访问API服务需要')
+env_value = runtime.get_env(env_name, "No env", desc='访问API服务需要')
 if not env_value:
     print(f"Error: {env_name} is not set", file=sys.stderr)
 else:
@@ -115,27 +115,6 @@ runtime.display(url="https://www.example.com/image.png")
 ```python
 __session__['step1_result'] = calculated_value
 ```
-
-## 全局变量 __history__
-- 类型：字典。
-- 有效期：整个会话过程始终有效
-- 用途：保存代码执行历史。即，每次执行的代码和执行结果
-- 注意: 如果在函数内部使用，必须在函数开头先声明该变量为 global
-- 使用示例：
-```python
-# 获取上一次执行的 Python 代码源码
-last_python_code = __history__[-1]['code']
-```
-
-## 全局变量 __code_blocks__
-- 类型: 字典。
-- 用途: 获取本次回复消息里命名代码块的内容，例如：
-```python
-current_python_code = __code_blocks__['main']
-```
-
-如果需要保存成功执行的代码，可以在判断代码成功执行后，通过 __code_blocks__['main'] 获取自身的内容，无需嵌入代码块。
-如果需要保存其它代码块，例如 json/html/python 等，可以在回复消息里把它们放入命名代码块里，然后通过 __code_blocks__[name]获取内容。
 
 ## 全局变量 __result__
 - 类型: 字典。
