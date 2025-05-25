@@ -89,7 +89,7 @@ def process_mcp_ret(console, arg, ret):
     else:
         #console.print(f"[red]{T('mcp_error')}: {ret.get('message', '')}[/red]")
         console.print("操作失败", ret.get("message", ''))
-        
+
 class InteractiveConsole():
     def __init__(self, tm, console, settings):
         self.tm = tm
@@ -217,6 +217,9 @@ def main(args):
         conf.fetch_config()
         return
 
+    settings.gui = False
+    settings.debug = args.debug
+    
     try:
         tm = TaskManager(settings, console=console)
     except Exception as e:
@@ -232,6 +235,6 @@ def main(args):
         return
     
     if args.cmd:
-        tm.new_task(args.cmd).run()
+        tm.new_task().run(args.cmd)
         return
     InteractiveConsole(tm, console, settings).run()

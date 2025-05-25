@@ -5,8 +5,6 @@ from collections import Counter, defaultdict
 from loguru import logger
 from rich.live import Live
 from rich.text import Text
-from rich.console import Console
-from rich.markdown import Markdown
 
 from .i18n import T
 from .plugin import event_bus
@@ -63,7 +61,7 @@ class LineReceiver(list):
         return new_lines
 
 class LiveManager:
-    def __init__(self, name):
+    def __init__(self, name, quiet=False):
         self.live = None
         self.name = name
         self.lr = LineReceiver()
@@ -72,6 +70,7 @@ class LiveManager:
         self.reason_started = False
         self.display_lines = []
         self.max_lines = 10
+        self.quiet = quiet
 
     @property
     def content(self):
@@ -82,6 +81,7 @@ class LiveManager:
         return self.lr_reason.content
     
     def __enter__(self):
+        if self.quiet: return self
         self.live = Live(auto_refresh=False, vertical_overflow='crop', transient=True)
         self.live.__enter__()
         return self
@@ -93,15 +93,17 @@ class LiveManager:
         lines = lr.feed(content)
         if not lines: return
 
+        content = '\n'.join(lines)
+        event_bus.broadcast('response_stream', {'llm': self.name, 'content': content, 'reason': reason})
+
+        if self.quiet: return
+
         if reason and not self.reason_started:
             self.display_lines.append("<think>")
             self.reason_started = True
         elif not reason and self.reason_started:
             self.display_lines.append("</think>")
             self.reason_started = False
-       
-        content = '\n'.join(lines)
-        event_bus.broadcast('response_stream', {'llm': self.name, 'content': content, 'reason': reason})
 
         self.display_lines.extend(lines)
         while len(self.display_lines) > self.max_lines:
@@ -114,7 +116,8 @@ class LiveManager:
             self.process_chunk('\n', reason=True)
         if self.lr.buffer:
             self.process_chunk('\n')
-        self.live.__exit__(exc_type, exc_val, exc_tb)
+        if self.live:
+            self.live.__exit__(exc_type, exc_val, exc_tb)
 
 class ClientManager(object):
     MAX_TOKENS = 8192
@@ -213,9 +216,9 @@ class Client:
             return True
         return False
     
-    def __call__(self, instruction, *, system_prompt=None):
+    def __call__(self, instruction, *, system_prompt=None, quiet=False):
         client = self.current
-        stream_processor = LiveManager(client.name)
+        stream_processor = LiveManager(client.name, quiet=quiet)
         msg = client(self.history, instruction, system_prompt=system_prompt, stream_processor=stream_processor)
         if msg:
             event_bus.broadcast('response_complete', {'llm': client.name, 'content': msg})

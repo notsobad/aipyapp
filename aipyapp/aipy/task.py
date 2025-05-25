@@ -91,7 +91,8 @@ class Task:
             self.log.exception('Error saving task')
 
         filename = f"{self.task_id}.html"
-        self.save_html(filename, task)
+        #self.save_html(filename, task)
+        self.save(filename)
         self.log.info('Task auto saved')
 
     def done(self):
@@ -230,7 +231,8 @@ class Task:
         return prompt
 
     def chat(self, instruction, *, system_prompt=None):
-        msg = self.client(instruction, system_prompt=system_prompt)
+        quiet = self.settings.gui and not self.settings.debug
+        msg = self.client(instruction, system_prompt=system_prompt, quiet=quiet)
         if msg.role == 'error':
             self.console.print(f"[red]{msg.content}[/red]")
             return None

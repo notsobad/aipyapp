@@ -54,12 +54,17 @@ class AIPython(threading.Thread):
         super().__init__(daemon=True)
         self.gui = gui
         self.tm = gui.tm
+        self._task = None
         self._busy = threading.Event()
         plt.show = self.on_plt_show
         sys.modules["matplotlib.pyplot"] = plt
+        self.log = logger.bind(src='aipython')
+
+    def has_task(self):
+        return self._task is not None
 
     def can_done(self):
-        return not self._busy.is_set() and self.tm.busy
+        return not self._busy.is_set() and self.has_task()
 
     def on_plt_show(self, *args, **kwargs):
         filename = f'{time.strftime("%Y%m%d_%H%M%S")}.png'
@@ -114,15 +119,22 @@ class AIPython(threading.Thread):
         while True:
             instruction = self.gui.get_task()
             if instruction in ('/done', 'done'):
-                self.tm.done()
+                if self._task:
+                    self._task.done()
+                    self._task = None
+                else:
+                    self.log.warning("没有正在进行的任务")
+                wx.CallAfter(self.gui.on_task_done)
             elif instruction in ('/exit', 'exit'):
                 break
             else:
+                self._busy.set()
                 try:
-                    self._busy.set()
-                    self.tm(instruction)
+                    if not self._task:
+                        self._task = self.tm.new_task()
+                    self._task.run(instruction)
                 except Exception as e:
-                    traceback.print_exc()
+                    self.log.exception('Error running task')
                 finally:
                     self._busy.clear()
                 wx.CallAfter(self.gui.toggle_input)
@@ -135,8 +147,8 @@ class CStatusBar(wx.StatusBar):
         self.SetStatusWidths([-1, 30, 80])
 
         self.tm = parent.tm
-        self.current_llm = self.tm.llm.names['default']
-        self.enabled_llm = list(self.tm.llm.names['enabled'])
+        self.current_llm = self.tm.client_manager.names['default']
+        self.enabled_llm = list(self.tm.client_manager.names['enabled'])
         self.menu_items = self.enabled_llm
         self.radio_group = []
 
@@ -350,7 +362,9 @@ class ChatFrame(wx.Frame):
         self.Close()
 
     def on_done(self, event):
-        self.tm.done()
+        self.task_queue.put('/done')
+        
+    def on_task_done(self):
         self.done_button.Hide()
         self.SetStatusText(T('Current task has ended'), 0)
         self.new_task_item.Enable(False)
@@ -405,7 +419,6 @@ class ChatFrame(wx.Frame):
             url = T("https://d.aipy.app/d/13")
         else:
             return
-            
         wx.LaunchDefaultBrowser(url)
 
     def on_about(self, event):
@@ -469,7 +482,7 @@ class ChatFrame(wx.Frame):
         if not text:
             return
         
-        if not self.tm.busy:
+        if not self.aipython.has_task():
             self.SetTitle(f"[{T('Current task')}] {text}")
 
         self.append_message(T('Me'), text)
@@ -594,6 +607,7 @@ def main(args):
         settings["llm"] = llm_config.config
         
     settings.gui = True
+    settings.debug = args.debug
     settings.auto_install = True
     settings.auto_getenv = True
 
