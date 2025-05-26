@@ -40,7 +40,6 @@ class TaskManager:
         self._init_environ()
         self.tt_api_key = get_tt_api_key(settings)
         self._init_api()
-        self._init_mcp()
         self.diagnose = Diagnose.create(settings)
         self.client_manager = ClientManager(settings)
 
@@ -89,22 +88,6 @@ class TaskManager:
 
         self.system_prompt = "\n".join(lines)
 
-    def _init_mcp(self):
-        """初始化 MCP 工具提示信息"""
-        if not self.mcp:
-            return
-        self.console.print(">>", T('mcp_init'))
-        mcp_tools = self.mcp.list_tools()
-        if not mcp_tools:
-            return
-        mcp_servers = self.mcp.get_all_servers()
-        self.console.print(
-            ">>", T('found_mcp').format(len(mcp_servers), len(mcp_tools))
-        )
-        for server_name, info in mcp_servers.items():
-            self.console.print(
-                "*", T('mcp_info').format(server_name, info.get("tools_count"))
-            )
 
     def _update_mcp_prompt(self, prompt):
         """更新 MCP 工具提示信息"""
