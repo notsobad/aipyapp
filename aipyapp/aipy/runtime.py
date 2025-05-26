@@ -25,6 +25,7 @@ def restore_output(func):
 class Runtime(BaseRuntime):
     def __init__(self, task):
         super().__init__(task.envs)
+        self.gui = task.gui
         self.task = task
         self.console = task.console
         self._auto_install = task.settings.get('auto_install')
@@ -59,10 +60,9 @@ class Runtime(BaseRuntime):
     
     @restore_output
     def display(self, path=None, url=None):
-        gui = getattr(self.console, 'gui', False)
         image = {'path': path, 'url': url}
         event_bus.broadcast('display', image)
-        if not gui:
+        if not self.gui:
             image = from_file(path) if path else from_url(url)
             image.draw()
 

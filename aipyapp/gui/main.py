@@ -697,7 +697,7 @@ def main(args):
     console = Console(file=file, record=True)
     console.gui = True
     try:
-        tm = TaskManager(settings, console=console)
+        tm = TaskManager(settings, console=console, gui=True)
     except Exception as e:
         traceback.print_exc()
         return

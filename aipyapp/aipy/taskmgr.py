@@ -19,11 +19,12 @@ from .config import PLUGINS_DIR, get_mcp, get_tt_api_key, get_tt_aio_api
 class TaskManager:
     MAX_TASKS = 16
 
-    def __init__(self, settings, console):
+    def __init__(self, settings, console, gui=False):
         self.settings = settings
         self.console = console
         self.tasks = deque(maxlen=self.MAX_TASKS)
         self.envs = {}
+        self.gui = gui
         self.log = logger.bind(src='taskmgr')
         self.config_files = settings._loaded_files
         self.system_prompt = f"{settings.system_prompt}\n{SYSTEM_PROMPT}"
