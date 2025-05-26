@@ -135,7 +135,7 @@ class Task(Stoppable):
             event_bus('result', errors)
             json_str = json.dumps(errors, ensure_ascii=False)
             self.box(f"✅ {T("Message parse result")}", json_str, lang="json")
-            self.console.print(f"{T("Start sending feedback")}...", style='dim white')
+            self.console.print(f"{T("start_feedback")}...", style='dim white')
             feed_back = f"# 消息解析错误\n{json_str}"
             ret = self.chat(feed_back)
         elif ret['exec_ids']:
@@ -146,12 +146,12 @@ class Task(Stoppable):
             ret = None
         return ret
 
-    def print_code_result(self, code_id, code_content, result):
+    def print_code_result(self, title, block, result):
         line_numbers = True if 'traceback' in result else False
-        syntax_code = Syntax(code_content, 'python', line_numbers=line_numbers, word_wrap=True)
+        syntax_code = Syntax(block['content'], block['language'], line_numbers=line_numbers, word_wrap=True)
         syntax_result = Syntax(result, 'json', line_numbers=False, word_wrap=True)
         group = Group(syntax_code, Rule(), syntax_result)
-        panel = Panel(group, title=code_id)
+        panel = Panel(group, title=title)
         self.console.print(panel)
 
     def process_code_reply(self, code_ids):
@@ -167,7 +167,7 @@ class Task(Stoppable):
             result['id'] = code_id
             results.append(result)
             json_results.append(json_result)
-            self.print_code_result(code_id, code_block, json_result)
+            self.print_code_result(code_id, block, json_result)
             event_bus('result', result)
 
         if len(json_results) == 1:
@@ -184,20 +184,20 @@ class Task(Stoppable):
         block = {'content': json_content, 'language': 'json'}
         event_bus('tool_call', block)
         json_content = block['content']
-        self.box(f"\n⚡ {T('call_tool')}:", json_content, lang='json')
+        self.console.print(f"⚡ {T('call_tool')} ...", style='dim white')
 
         call_tool = json.loads(json_content)
         result = self.mcp.call_tool(call_tool['name'], call_tool['arguments'])
         event_bus('result', result)
-        result = json.dumps(result, ensure_ascii=False, indent=4)
-        self.box(f"\n✅ {T('call_tool_result')}:\n", result, lang="json")
+        result_json = json.dumps(result, ensure_ascii=False, indent=4)
+        self.print_code_result(T('call_tool_result'), block, result_json)
 
         self.console.print(f"{T('start_feedback')}...", style='dim white')
         feed_back = f"""# MCP 调用\n\n{self.instruction}\n
 # 执行结果反馈
 
 ````json
-{result}
+{result_json}
 ````"""
         feedback_response = self.chat(feed_back)
         return feedback_response
@@ -318,7 +318,7 @@ class Task(Stoppable):
                 'apikey': trustoken_apikey,
                 'author': os.getlogin(),
                 'instruction': self.instruction,
-                'llm': self.llm.history.json(),
+                'llm': self.client.history.json(),
                 'runner': self.runner.history,
             }, verify=True, timeout=30)
         except Exception as e:
