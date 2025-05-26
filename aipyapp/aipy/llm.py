@@ -170,7 +170,7 @@ class ClientManager(object):
                 names['default'] = name
 
         if not self.default:
-            name = list(self.llms.keys())[0]
+            name = list(self.clients.keys())[0]
             self.default = self.clients[name]
             names['default'] = name
 
@@ -184,7 +184,7 @@ class ClientManager(object):
         return f"Current: {'default' if self.current == self.default else self.current}, Default: {self.default}"
     
     def __contains__(self, name):
-        return name in self.llms
+        return name in self.clients
     
     def use(self, name):
         client = self.clients.get(name)

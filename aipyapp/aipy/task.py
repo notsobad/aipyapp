@@ -2,7 +2,6 @@
 # -*- coding: utf-8 -*-
 
 import os
-import re
 import json
 import uuid
 import time
@@ -54,10 +53,6 @@ class Task(Stoppable):
         self.diagnose = None
         self.start_time = None
         
-        self.pattern = re.compile(
-            r"^(`{3,4})(\w+)\s+([\w\-\.]+)\n(.*?)^\1\s*$",
-            re.DOTALL | re.MULTILINE
-        )
         self.code_blocks = CodeBlocks(self.console)
         self.runtime = Runtime(self)
         self.runner = Runner(self.runtime)
@@ -129,7 +124,8 @@ class Task(Stoppable):
         
     def process_reply(self, markdown):
         #self.console.print(f"{T('Start parsing message')}...", style='dim white')
-        ret = self.code_blocks.parse(markdown)
+        parse_mcp = self.mcp is not None and self.settings.get('parse_mcp', True)
+        ret = self.code_blocks.parse(markdown, parse_mcp=parse_mcp)
         errors = ret['errors']
         if errors:
             event_bus('result', errors)
