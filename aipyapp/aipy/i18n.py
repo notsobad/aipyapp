@@ -293,7 +293,7 @@ MESSAGES = {
         'Share result': '分享结果',
         'Share failed': '分享失败',
         'Share success': '分享成功',
-        'Click the link below to view the task record': '点击下方链接查看任务记录',
+        'Click the link below to view the task record:': '点击下方链接查看任务记录',
         'View task record': '查看任务记录',
     },
     'en': {
@@ -574,7 +574,7 @@ MESSAGES = {
         'Share result': 'Share result',
         'Share failed': 'Share failed',
         'Share success': 'Share success',
-        'Click the link below to view the task record': 'Click the link below to view the task record',
+        'Click the link below to view the task record:': 'Click the link below to view the task record:',
         'View task record': 'View task record',
     }
 }

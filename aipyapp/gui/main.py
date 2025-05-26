@@ -309,6 +309,7 @@ class ChatFrame(wx.Frame):
         self.input.SetDropTarget(drop_target)
         font = wx.Font(16, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL)
         self.input.SetFont(font)
+        self.input.SetFocus()
     
         vbox.Add(input_panel, proportion=0, flag=wx.EXPAND | wx.LEFT | wx.RIGHT, border=12)
 
@@ -559,6 +560,7 @@ class ChatFrame(wx.Frame):
         try:
             html_content = self.webview.GetPageSource()
             result = self.tm.diagnose.report_data(html_content, 'task_record.html')
+            self.log.info(f"分享任务记录: {result}")
             if result.get('success'):
                 dialog = ShareResultDialog(self, result['url'])
                 dialog.ShowModal()
@@ -632,15 +634,13 @@ class AboutDialog(wx.Dialog):
 class ShareResultDialog(wx.Dialog):
     def __init__(self, parent, url, error=None):
         super().__init__(parent, title=T('Share result'), size=(400, 200))
-        self.SetBackgroundColour(wx.Colour(245, 245, 245))
-        
+        logger.info(f"ShareResultDialog: {url}, {error}")
         vbox = wx.BoxSizer(wx.VERTICAL)
         
         if error:
             # 显示错误信息
             error_text = wx.StaticText(self, label=T('Share failed'))
             error_text.SetForegroundColour(wx.Colour(255, 0, 0))
-            error_text.SetFont(wx.Font(12, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD))
             vbox.Add(error_text, 0, wx.ALL | wx.ALIGN_CENTER, 10)
             
             error_msg = wx.StaticText(self, label=error)
@@ -650,7 +650,6 @@ class ShareResultDialog(wx.Dialog):
             # 显示成功信息
             success_text = wx.StaticText(self, label=T('Share success'))
             success_text.SetForegroundColour(wx.Colour(0, 128, 0))
-            success_text.SetFont(wx.Font(12, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD))
             vbox.Add(success_text, 0, wx.ALL | wx.ALIGN_CENTER, 10)
             
             # 添加提示文本
@@ -659,15 +658,12 @@ class ShareResultDialog(wx.Dialog):
             
             # 添加可点击的链接
             link = HyperLinkCtrl(self, -1, T('View task record'), URL=url)
-            link.SetFont(wx.Font(10, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL))
-            link.SetColours("BLUE", "BLUE", "BLUE")
             link.EnableRollover(True)
             link.SetUnderlines(False, False, True)
             vbox.Add(link, 0, wx.ALL | wx.ALIGN_CENTER, 5)
         
         # 添加确定按钮
         ok_button = wx.Button(self, wx.ID_OK, T('OK'))
-        ok_button.SetBackgroundColour(wx.Colour(255, 255, 255))
         vbox.Add(ok_button, 0, wx.ALL | wx.ALIGN_CENTER, 10)
         
         self.SetSizer(vbox)

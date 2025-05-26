@@ -59,6 +59,16 @@ class LineReceiver(list):
             new_lines.append(line)
 
         return new_lines
+    
+    def empty(self):
+        return not self and not self.buffer
+    
+    def done(self):
+        buffer = self.buffer
+        if buffer:
+            self.append(buffer)
+            self.buffer = ""
+        return buffer
 
 class LiveManager:
     def __init__(self, name, quiet=False):
@@ -89,6 +99,10 @@ class LiveManager:
     def process_chunk(self, content, *, reason=False):
         if not content: return
  
+        if not reason and self.lr.empty() and not self.lr_reason.empty():
+            line = self.lr_reason.done()
+            event_bus.broadcast('response_stream', {'llm': self.name, 'content': f"{line}\n\n----\n\n", 'reason': True})
+
         lr = self.lr_reason if reason else self.lr
         lines = lr.feed(content)
         if not lines: return
@@ -114,8 +128,6 @@ class LiveManager:
         self.live.update(Text(content, style="dim white"), refresh=True)
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        if self.lr_reason.buffer:
-            self.process_chunk('\n', reason=True)
         if self.lr.buffer:
             self.process_chunk('\n')
         if self.live:
