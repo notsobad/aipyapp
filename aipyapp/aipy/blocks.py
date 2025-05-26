@@ -29,10 +29,9 @@ class CodeBlocks:
             try:
                 #TODO: path check
                 path.parent.mkdir(parents=True, exist_ok=True)
-                path.write_text(block['content'])
+                path.write_text(block['content'], encoding='utf-8')
             except Exception as e:
                 self.log.error("Failed to save file", filename=block['filename'], reason=e)
-                self.console.print("❌ Failed to save file", filename=block['filename'], reason=e)
 
     def parse(self, markdown_text, parse_mcp=False):
         blocks = OrderedDict()

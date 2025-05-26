@@ -163,3 +163,6 @@ api_key = "sk-aipy-2ej5NpKz8FrC7wGhV4YtXdQsLx9AMuB6vZRS3bTD"
 type = "trust"
 api_key = ""
 enable = false
+
+[mcp]
+enable = true

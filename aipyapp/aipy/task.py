@@ -124,7 +124,7 @@ class Task(Stoppable):
         
     def process_reply(self, markdown):
         #self.console.print(f"{T('Start parsing message')}...", style='dim white')
-        parse_mcp = self.mcp is not None and self.settings.get('parse_mcp', True)
+        parse_mcp = self.mcp is not None
         ret = self.code_blocks.parse(markdown, parse_mcp=parse_mcp)
         errors = ret['errors']
         if errors:

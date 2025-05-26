@@ -125,15 +125,17 @@ class TaskManager:
         return "\n".join(lines)
 
     def new_task(self, system_prompt=None):
+        with_mcp = self.settings.get('mcp', {}).get('enable', True)
         system_prompt = system_prompt or self.system_prompt
-        if self.mcp:
+        if self.mcp and with_mcp:
+            self.log.info('Update MCP prompt')
             system_prompt = self._update_mcp_prompt(system_prompt)
 
         task = Task(self)
         task.client = self.client_manager.Client()
         task.diagnose = self.diagnose
         task.system_prompt = system_prompt
-        task.mcp = self.mcp
+        task.mcp = self.mcp if with_mcp else None
         self.tasks.append(task)
         self.log.info('New task created', task_id=task.task_id)
         return task
