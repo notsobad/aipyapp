@@ -183,7 +183,7 @@ class Task(Stoppable):
         self.console.print(f"⚡ {T('call_tool')} ...", style='dim white')
 
         call_tool = json.loads(json_content)
-        result = self.mcp.call_tool(call_tool['name'], call_tool['arguments'])
+        result = self.mcp.call_tool(call_tool['name'], call_tool.get('arguments', {}))
         event_bus('result', result)
         result_json = json.dumps(result, ensure_ascii=False, indent=4)
         self.print_code_result(T('call_tool_result'), block, result_json)
