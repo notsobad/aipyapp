@@ -64,10 +64,11 @@ class MCPConfigReader:
         self.config_path = config_path
 
     def get_mcp_servers(self):
-        """读取 mcp.json 文件并返回 MCP 服务器清单"""
+        """读取 mcp.json 文件并返回 MCP 服务器清单，包括禁用的服务器"""
         try:
             with open(self.config_path, "r", encoding="utf-8") as f:
                 config = json.load(f)
+                # 返回所有服务器配置，包括禁用的
                 return config.get("mcpServers", {})
         except FileNotFoundError:
             print(f"Config file not found: {self.config_path}")
@@ -165,14 +166,15 @@ class MCPToolManager:
         self._config_mtime = (
             os.path.getmtime(config_path) if os.path.exists(config_path) else 0
         )
-        # 全局启用/禁用标志
-        self._globally_enabled = True
+        # 全局启用/禁用标志，默认禁用
+        self._globally_enabled = False
         # 服务器状态缓存，记录每个服务器的启用/禁用状态
         self._server_status = {}
         self._init_server_status()
 
     def _init_server_status(self):
-        """初始化服务器状态，从配置文件中读取初始状态"""
+        """初始化服务器状态，从配置文件中读取初始状态，包括禁用的服务器"""
+        
         for server_name, server_config in self.mcp_servers.items():
             # 服务器默认启用，除非配置中明确设置为disabled: true或enabled: false
             is_enabled = not (
@@ -276,13 +278,6 @@ class MCPToolManager:
         # 缓存无效或加载失败，重新获取工具列表
         all_tools = []
         for server_name, server_config in self.mcp_servers.items():
-            # 去掉禁用的server，包括运行时禁用的和配置文件中禁用的
-            if not self._server_status.get(server_name, True) or (
-                server_config.get("disabled", False)
-                or server_config.get("enabled", True) is False
-            ):
-                continue
-            # 如果缓存中没有该服务器的工具，则获取
             if server_name not in self._tools_cache:
                 try:
                     # 创建服务器参数
@@ -345,11 +340,18 @@ class MCPToolManager:
         
         # 返回服务器列表及其启用状态
         servers_info = {}
-        for server_name, tools in self._tools_cache.items():
-            servers_info[server_name] = {
-                "enabled": self._server_status.get(server_name, True),
-                "tools_count": len(tools)
+        for server_name, status in self._server_status.items():
+            ret = {
+                'enabled': status,
+                'tools_count': 0
             }
+            #if server_name not in self._tools_cache:
+            tools = self._tools_cache.get(server_name, [])
+            if tools:
+                # 如果服务器有工具，则更新工具数量
+                ret['tools_count'] = len(tools)
+            servers_info[server_name] = ret
+
         return servers_info
 
     def call_tool(self, tool_name, arguments):
