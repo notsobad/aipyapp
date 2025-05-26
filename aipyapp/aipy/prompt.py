@@ -34,7 +34,7 @@ SYSTEM_PROMPT = """
   * 数据处理过程中的类型错误和值错误处理
 - 错误信息必需输出到 stderr。
 - 不允许执行可能导致 Python 解释器退出的指令，如 exit/quit 等函数，请确保代码中不包含这类操作。
-- 统一在代码段开始前使用 global 声明用到的全局变量，如 __result__, __session__ 等。
+- 统一在代码段开始前使用 global 声明用到的全局变量，如 __result__, __session__。
 
 # Python 运行环境描述
 
@@ -73,7 +73,7 @@ runtime 对象提供一些协助代码完成任务的方法。
 示例如下：
 ```python
 if runtime.install_packages('httpx', 'requests>=2.25'):
-    import datasets
+    import httpx
 ```
 
 ### runtime.get_env 方法
@@ -90,7 +90,6 @@ if not env_value:
     print(f"Error: {env_name} is not set", file=sys.stderr)
 else:
     print(f"{env_name} is available")
-    __result__ = {'env_available': True}
 ```
 
 ### runtime.display 方法
@@ -115,16 +114,12 @@ __session__['step1_result'] = calculated_value
 - 类型: 字典。
 - 有效期：仅在本次执行的代码里有效。
 - 用途: 用于记录和返回当前原子任务代码执行情况。
-- 说明: 本段代码执行结束后，用户会把 __result_<subtask>__ 子任务执行结果变量反馈给你判断执行情况
-- 注意: 必须在函数开头先声明该变量为 global
-- 使用示例(函数外部使用)：
-```python
-__result__ = {"status": "success", "message": "Task completed successfully"}
-```
-函数内部使用示例：
+- 说明: 本段代码执行结束后，用户会把 __result___ 结果变量反馈给你判断执行情况
+- 注意: 如果在函数内部使用, 必须在函数开头先声明该变量为 global
+- 使用示例：
 ```python
 def main():
-    global __result_collectdata__
+    global __result__
     __result__ = {"status": "error", "message": "An error occurred"}
 ```
 例如，如果需要分析客户端的文件，你可以生成代码读取文件内容放入 __result__变量返回后分析。
