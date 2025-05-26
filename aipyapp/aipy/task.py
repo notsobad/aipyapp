@@ -126,17 +126,21 @@ class Task(Stoppable):
         #self.console.print(f"{T('Start parsing message')}...", style='dim white')
         parse_mcp = self.mcp is not None
         ret = self.code_blocks.parse(markdown, parse_mcp=parse_mcp)
-        errors = ret['errors']
+        if not ret:
+            return None
+        
+        json_str = json.dumps(ret, ensure_ascii=False, indent=2)
+        self.box(f"✅ {T("Message parse result")}", json_str, lang="json")
+
+        errors = ret.get('errors')
         if errors:
             event_bus('result', errors)
-            json_str = json.dumps(errors, ensure_ascii=False)
-            self.box(f"✅ {T("Message parse result")}", json_str, lang="json")
             self.console.print(f"{T("start_feedback")}...", style='dim white')
             feed_back = f"# 消息解析错误\n{json_str}"
             ret = self.chat(feed_back)
-        elif ret['exec_ids']:
+        elif 'exec_ids' in ret:
             ret = self.process_code_reply(ret['exec_ids'])
-        elif ret['call_tool']:
+        elif 'call_tool' in ret:
             ret = self.process_mcp_reply(ret['call_tool'])
         else:
             ret = None
@@ -159,7 +163,7 @@ class Task(Stoppable):
             code_block = block['content']
             self.console.print(f"⚡ {T('start_execute')}: {code_id}", style='dim white')
             result = self.runner(code_block)
-            json_result = json.dumps(result, ensure_ascii=False, indent=4)
+            json_result = json.dumps(result, ensure_ascii=False, indent=2)
             result['id'] = code_id
             results.append(result)
             json_results.append(json_result)
@@ -185,7 +189,7 @@ class Task(Stoppable):
         call_tool = json.loads(json_content)
         result = self.mcp.call_tool(call_tool['name'], call_tool.get('arguments', {}))
         event_bus('result', result)
-        result_json = json.dumps(result, ensure_ascii=False, indent=4)
+        result_json = json.dumps(result, ensure_ascii=False, indent=2)
         self.print_code_result(T('call_tool_result'), block, result_json)
 
         self.console.print(f"{T('start_feedback')}...", style='dim white')

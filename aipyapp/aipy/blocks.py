@@ -99,8 +99,11 @@ class CodeBlocks:
             if error:
                 errors.append(error)
 
-        ret = {'errors': errors, 'exec_ids': exec_ids, 'blocks': blocks, 'call_tool': None}
-
+        ret = {}
+        if errors: ret['errors'] = errors
+        if exec_ids: ret['exec_ids'] = exec_ids
+        if blocks: ret['blocks'] = list(blocks.keys())
+        
         if parse_mcp and not blocks:
             json_content = extract_call_tool(markdown_text)
             if json_content:
