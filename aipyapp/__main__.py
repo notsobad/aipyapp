@@ -48,12 +48,12 @@ def mainw():
 def main():
     args = parse_args()
     if args.python:
-        from .cli_python import main as aipy_main
+        from .cli.cli_python import main as aipy_main
     elif args.gui:
         ensure_wxpython()
         from .gui.main import main as aipy_main
     else:
-        from .cli_task import main as aipy_main
+        from .cli.cli_task import main as aipy_main
     aipy_main(args)
 
 if __name__ == '__main__':
