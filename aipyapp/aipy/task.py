@@ -164,7 +164,7 @@ class Task(Stoppable):
             code_block = block['content']
             self.console.print(f"⚡ {T('start_execute')}: {code_id}", style='dim white')
             result = self.runner(code_block)
-            json_result = json.dumps(result, ensure_ascii=False, indent=2)
+            json_result = json.dumps(result, ensure_ascii=False, indent=2, default=str)
             result['id'] = code_id
             results.append(result)
             json_results.append(json_result)
@@ -174,7 +174,7 @@ class Task(Stoppable):
         if len(json_results) == 1:
             json_results = json_results[0]
         else:
-            json_results = json.dumps(results, ensure_ascii=False, indent=4)
+            json_results = json.dumps(results, ensure_ascii=False, indent=4, default=str)
         
         self.console.print(f"{T("start_feedback")}...", style='dim white')
         feed_back = f"# 最初任务\n{self.instruction}\n\n# 代码执行结果反馈\n{json_results}"
@@ -190,7 +190,7 @@ class Task(Stoppable):
         call_tool = json.loads(json_content)
         result = self.mcp.call_tool(call_tool['name'], call_tool.get('arguments', {}))
         event_bus('result', result)
-        result_json = json.dumps(result, ensure_ascii=False, indent=2)
+        result_json = json.dumps(result, ensure_ascii=False, indent=2, default=str)
         self.print_code_result(T('call_tool_result'), block, result_json)
 
         self.console.print(f"{T('start_feedback')}...", style='dim white')
