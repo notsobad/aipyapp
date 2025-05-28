@@ -160,7 +160,7 @@ def main():
 下面是用户提供的一些 API 信息，可能有 API_KEY，URL，用途和使用方法等信息。
 这些可能对特定任务有用途，你可以根据任务选择性使用。
 
-注意：这些 API 信息里描述的环境变量必须用 runtime.getenv 方法获取，绝对不能使用 os.getenv 方法。
+注意：这些 API 信息里描述的环境变量必须用 runtime.get_env 方法获取，绝对不能使用 os.getenv 方法。
 """
 
 def get_system_prompt(settings):
