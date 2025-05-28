@@ -136,7 +136,7 @@ class Task(Stoppable):
         errors = ret.get('errors')
         if errors:
             event_bus('result', errors)
-            self.console.print(f"{T("start_feedback")}...", style='dim white')
+            self.console.print(f"{T('start_feedback')}...", style='dim white')
             feed_back = f"# 消息解析错误\n{json_str}"
             ret = self.chat(feed_back)
         elif 'exec_ids' in ret:
