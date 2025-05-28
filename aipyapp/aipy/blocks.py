@@ -102,7 +102,7 @@ class CodeBlocks:
         ret = {}
         if errors: ret['errors'] = errors
         if exec_ids: ret['exec_ids'] = exec_ids
-        if blocks: ret['blocks'] = list(blocks.keys())
+        if blocks: ret['blocks'] = {k: {'language': v['language'], 'filename': v['filename']} for k, v in blocks.items()}
         
         if parse_mcp and not blocks:
             json_content = extract_call_tool(markdown_text)

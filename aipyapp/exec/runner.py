@@ -41,7 +41,7 @@ class Runner():
     def __init__(self, runtime):
         self.runtime = runtime
         self.history = []
-        self._globals = {'runtime': runtime, '__session__': {}, '__name__': '__main__', 'input': self.runtime.input}
+        self._globals = {'runtime': runtime, '__session__': {}, '__result__': {}, '__name__': '__main__', 'input': self.runtime.input}
         exec(INIT_IMPORTS, self._globals)
 
     def __repr__(self):
@@ -60,7 +60,7 @@ class Runner():
         env = self.runtime.envs.copy()
         session = self._globals['__session__'].copy()
         gs = self._globals.copy()
-        gs['__result__'] = {}
+        #gs['__result__'] = {}
         try:
             exec(code_str, gs)
         except (SystemExit, Exception) as e:
@@ -77,7 +77,8 @@ class Runner():
 
         vars = gs.get('__result__')
         if vars:
-            result['result'] = self.filter_result(vars)
+            self._globals['__result__'] = vars
+            result['__result__'] = self.filter_result(vars)
 
         history = {'code': code_str, 'result': result}
 

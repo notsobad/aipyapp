@@ -131,7 +131,7 @@ class Task(Stoppable):
             return None
         
         json_str = json.dumps(ret, ensure_ascii=False, indent=2)
-        self.box(f"✅ {T("Message parse result")}", json_str, lang="json")
+        self.box(f"✅ {T('Message parse result')}", json_str, lang="json")
 
         errors = ret.get('errors')
         if errors:
@@ -176,7 +176,7 @@ class Task(Stoppable):
         else:
             json_results = json.dumps(results, ensure_ascii=False, indent=4, default=str)
         
-        self.console.print(f"{T("start_feedback")}...", style='dim white')
+        self.console.print(f"{T('start_feedback')}...", style='dim white')
         feed_back = f"# 最初任务\n{self.instruction}\n\n# 代码执行结果反馈\n{json_results}"
         return self.chat(feed_back)
 

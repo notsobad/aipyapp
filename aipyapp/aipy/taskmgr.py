@@ -65,8 +65,9 @@ class TaskManager:
         api = self.settings.get('api', {})
 
         # update tt aio api, for map and search
-        tt_aio_api = get_tt_aio_api(self.tt_api_key)
-        api.update(tt_aio_api)
+        if self.tt_api_key:
+            tt_aio_api = get_tt_aio_api(self.tt_api_key)
+            api.update(tt_aio_api)
 
         lines = [self.system_prompt]
         for api_name, api_conf in api.items():
