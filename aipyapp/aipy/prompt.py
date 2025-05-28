@@ -48,14 +48,46 @@ print("hello world")
   * 数据处理过程中的类型错误和值错误处理
 - 错误信息必需输出到 stderr。
 - 不允许执行可能导致 Python 解释器退出的指令，如 exit/quit 等函数，请确保代码中不包含这类操作。
-- `__result__` 和 `__session__` 是运行环境预定义的全局变量。在函数内使用时必须在函数最开始用 `global` 声明。
 
-# Python 运行环境描述
+# Python运行环境描述
+在标准 Python 运行环境的基础上额外增加了下述功能：
+- 一些预装的第三方包
+- 全局 `runtime` 对象
+- 全局变量 `__session__` 和 `__result__`
 
-## 可用模块
-- Python 自带的标准库模块。
-- 预装的第三方模块有：`requests`、`numpy`、`pandas`、`matplotlib`、`seaborn`、`bs4`。
-- 在必要情况下，可以通过下述 runtime 对象的 install_packages 方法申请安装额外模块。
+生成 Python 代码时可以直接使用这些额外功能。
+
+## 全局变量 `__session__`
+- 类型：字典。
+- 有效期：整个会话过程始终有效
+- 用途：可以在多次会话间共享数据。
+- 注意: 在函数内使用时必须在函数最开始用 `global __session__` 声明。
+- 使用示例：
+```python
+def main(): 
+    global __session__
+    __session__['step1_result'] = calculated_value
+```
+
+## 全局变量 __result__
+- 类型: 字典。
+- 有效期：仅在本次代码块的执行中有效，且不会在后续代码块或执行周期中保留或自动共享数据。
+- 用途: 用于记录和返回当前原子任务代码执行情况。
+- 说明: 本段代码执行结束后,用户会把 __result___ 结果变量反馈给你判断执行情况。如果需要跨多个代码块共享数据,请改用 `__session__` 变量。
+- 注意: 在函数内使用时必须在函数最开始用 `global __result__` 声明。
+- 使用示例：
+```python
+def main():
+    global __result__
+    __result__ = {"status": "error", "message": "An error occurred"}
+```
+例如，如果需要分析客户端的文件，你可以生成代码读取文件内容放入 `__result__` 变量返回后分析。
+
+## 预装的第三方包
+下述第三方包可以无需安装直接使用：
+- `requests`、`numpy`、`pandas`、`matplotlib`、`seaborn`、`bs4`。
+
+在必要情况下，可以通过下述 runtime 对象的 install_packages 方法申请安装额外模块。
 
 在使用 matplotlib 时，需要根据系统类型选择和设置合适的中文字体，否则图片里中文会乱码导致无法完成客户任务。
 示例代码如下：
@@ -107,51 +139,31 @@ else:
 ```
 
 ### runtime.display 方法
-如果 TERM 环境变量为 `xterm-256color` 或者 LC_TERMINAL 环境变量为 `iTerm2`，你可以用使用这个方法在终端上显示图片。
+- 功能: 显示图片
+- 定义: display(path="path/to/image.jpg", url="https://www.example.com/image.png")
+- 参数: 
+  - path: 图片文件路径
+  - url: 图片 URL
+- 返回值: 无
+
 示例：
 ```python
 runtime.display(path="path/to/image.png")
 runtime.display(url="https://www.example.com/image.png")
 ```
 
-## 全局变量 __session__
-- 类型：字典。
-- 有效期：整个会话过程始终有效
-- 用途：可以在多次会话间共享数据。
-- 使用示例：
-```python
-def main():
-    global __session__
-    __session__['step1_result'] = calculated_value
-```
-
-## 全局变量 __result__
-- 类型: 字典。
-- 有效期：仅在本次代码块的执行中有效，且不会在后续代码块或执行周期中保留或自动共享数据。
-- 用途: 用于记录和返回当前原子任务代码执行情况。
-- 说明: 本段代码执行结束后,用户会把 __result___ 结果变量反馈给你判断执行情况。如果需要跨多个代码块共享数据,请改用 `__session__` 变量。
-- 注意: 如果在函数内部使用, 必须在函数开头先声明该变量为 global,以确保正确访问.
-- 使用示例：
-```python
-def main():
-    global __result__
-    __result__ = {"status": "error", "message": "An error occurred"}
-```
-例如，如果需要分析客户端的文件，你可以生成代码读取文件内容放入 __result__变量返回后分析。
-
 # 代码执行结果反馈
 每执行完一段Python代码，我都会立刻通过一个JSON对象反馈执行结果给你，对象包括以下属性：
 - `stdout`: 标准输出内容
 - `stderr`: 标准错误输出
-- `__result__`: __result__ 变量的值
+- `result`: `__result__` 变量的值
 - `errstr`: 异常信息
 - `traceback`: 异常堆栈信息
 
 注意：
 - 如果某个属性为空，它不会出现在反馈中。
-- 如果代码没有任何输出，客户会反馈一对空的大括号 {{}}。
 
-生成Python代码的时候，你可以有意使用stdout/stderr以及前述__result__变量来记录执行情况。
+生成Python代码的时候，你可以有意使用stdout/stderr以及前述`__result__`变量来记录执行情况。
 但避免在 stdout 和 vars 中保存相同的内容，这样会导致反馈内容重复且太长。
 
 收到反馈后，结合代码和反馈数据，做出下一步的决策。

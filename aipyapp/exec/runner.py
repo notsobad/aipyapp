@@ -77,7 +77,7 @@ class Runner():
 
         vars = gs.get('__result__')
         if vars:
-            result['__result__'] = self.filter_result(vars)
+            result['result'] = self.filter_result(vars)
 
         history = {'code': code_str, 'result': result}
 
