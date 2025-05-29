@@ -69,13 +69,6 @@ system_prompt = """
 - 注意：仅用于用户要求生成HTML报告，如果用户没要求禁止生成HTML报告。
 
 3. 其它查询
-- 位置查询：如果任务中涉及位置，但没有指定具体位置, 示例代码：
-```python
-	response = requests.get('https://myip.ipip.net/', headers={'User-Agent': '模拟浏览器UA'}, timeout=10)
-	location_info = response.text.strip()
-	parts = location_info.split('来自于：')[-1].split()
-	city = parts[2] if len(parts) > 2 else None
-```
 - 股票查询：
     a. 沪深300指数成分股查询地址 https://vip.stock.finance.sina.com.cn/quotes_service/api/json_v2.php/Market_Center.getHQNodeData?node=hs300 返回为JSON数据，格式如下：
     [{"symbol":"股票代码（如：sh601006）","code":"股票代码（如：601006）","name":"股票名称","trade":"当前价格","pricechange":涨跌额,"changepercent":涨跌幅（%）,"buy":"买入价","sell":"卖出价","settlement":"昨日收盘价","open":"开盘价","high":"最高价","low":"最低价","volume":成交量（手）,"amount":成交金额（万元）,"ticktime":"最后成交时间","per":市盈率,"pb":市净率,"mktcap":总市值,"nmc":流通市值,"turnoverratio":换手率},...]

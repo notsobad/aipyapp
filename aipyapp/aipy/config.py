@@ -42,11 +42,12 @@ def get_tt_aio_api(tt_api_key) -> dict:
     tt_aio_api = {
         'tt_aio_map': {
             'env': {'tt_aio_map': [tt_api_key, "最新地图API Key"]},
-            'desc': f"""高德地图（驾车、骑行、步行、公交路线规划，周边关键字搜索，天气查询，交通态势、店铺查询, 无法确定POI分类编码时请用关键字搜索API）""",
+            'desc': f"""高德地图（地理编码、驾车、骑行、步行、公交路线规划，周边关键字搜索，天气查询，交通态势、店铺查询, 无法确定POI分类编码时请用关键字搜索API)，**参数中的origin、destination都是坐标**
+当需要访问`https://restapi.amap.com/`时，请使用`https://api.trustoken.cn/aio-api/amap/`代替，两者API接口完全一致""",
         },
         'tt_aio_geoip':{
             'env': {'tt_aio_geoip': [tt_api_key, "最新IP地理位置API Key"]},
-            'desc': f"""IP地理位置查询API，返回IP地址的地理位置信息，包括国家、省份、城市等信息。接口调用示例如下：
+            'desc': f"""获取当前IP所在地理位置信息，包括国家、省份、城市等信息。接口调用示例如下：
 curl -H 'Authorization: Bearer xxx' {geoip_url}
 响应数据如下：{{"city": "成都", "country": "中国", "ip": "171.2.1.1", "isp": "电信", "latitude": "32.676235", "longitude": "103.058986", "province": "四川", "version": 4}}""",
         },
