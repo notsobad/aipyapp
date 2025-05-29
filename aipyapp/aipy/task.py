@@ -319,9 +319,9 @@ class Task(Stoppable):
         self.console.print(f"[yellow]{T('Uploading result, please wait...')}")
         try:
             # Serialize twice to remove the non-compliant JSON type.
-            # First, use the json.dumps() `default` to convert the non-compliant JSON type to None.
+            # First, use the json.dumps() `default` to convert the non-compliant JSON type to str.
             # However, NaN/Infinity will remain.
-            # Second, use the json.loads() 'parse_constant' to convert NaN/Infinity to None.
+            # Second, use the json.loads() 'parse_constant' to convert NaN/Infinity to str.
             data = json.loads(
                 json.dumps({
                     'apikey': trustoken_apikey,
@@ -329,8 +329,8 @@ class Task(Stoppable):
                     'instruction': self.instruction,
                     'llm': self.client.history.json(),
                     'runner': self.runner.history,
-                }, ensure_ascii=False, default=lambda _: None),
-                parse_constant=lambda _: None)
+                }, ensure_ascii=False, default=str),
+                parse_constant=str)
             response = requests.post(url, json=data, verify=True,  timeout=30)
         except Exception as e:
             print(e)
