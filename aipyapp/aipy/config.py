@@ -36,7 +36,8 @@ def get_tt_aio_api(tt_api_key) -> dict:
 
     """
     if not tt_api_key:
-        tt_api_key = "DEMO_KEY"
+        return {}
+
     search_url = f"{T('tt_aio_url')}/search/unified"
     geoip_url = f"{T('tt_aio_url')}/ipgeo"
     tt_aio_api = {
