@@ -72,16 +72,26 @@ class OpenAIBaseClient(BaseClient):
             usage=self._parse_usage(response.usage)
         )
 
-    def get_completion(self, messages):
+    def get_completion(self, messages, tools=None):
         if not self._client:
             self._client = self._get_client()
 
-        response = self._client.chat.completions.create(
-            model = self._model,
-            messages = messages,
-            stream=self._stream,
-            max_tokens = self.max_tokens,
+        # 构建请求参数
+        params = {
+            "model": self._model,
+            "messages": messages,
+            "stream": self._stream,
+            "max_tokens": self.max_tokens,
             **self._params
-        )
+        }
+        
+        # 添加tools参数
+        if tools:
+            params["tools"] = tools
+            # 如果有tools，可以设置tool_choice参数
+            if "tool_choice" not in self._params:
+                params["tool_choice"] = "auto"
+
+        response = self._client.chat.completions.create(**params)
         return response
     
