@@ -5,6 +5,7 @@ import os
 import re
 import sys
 import time
+from typing import Any, Dict, List, Optional
 
 from loguru import logger
 from mcp import ClientSession, StdioServerParameters
@@ -152,6 +153,148 @@ class MCPClientSync:
             raise
 
 
+class MCPToolConverter:
+    """MCP 工具转换器，用于将 MCP 工具转换为 OpenAI function calling 格式。"""
+
+    def __init__(self):
+        self.supported_fields = {
+            "type",
+            "properties",
+            "required",
+            "items",
+            "enum",
+            "description",
+            "anyOf",
+            "oneOf",
+            "allOf",
+        }
+
+    def _fix_schema(self, schema: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        修复 JSON Schema 格式，将 'type': ['string', 'null'] 转换为 anyOf 格式。
+        """
+        if isinstance(schema, dict):
+            # 处理数组形式的 type
+            if "type" in schema and isinstance(schema["type"], list):
+                schema = schema.copy()  # 避免修改原始对象
+                schema["anyOf"] = [{"type": t} for t in schema["type"]]
+                del schema["type"]
+
+            # 递归处理嵌套的 schema
+            for key, value in schema.items():
+                if isinstance(value, dict):
+                    schema[key] = self._fix_schema(value)
+                elif isinstance(value, list):
+                    schema[key] = [
+                        self._fix_schema(item) if isinstance(item, dict) else item
+                        for item in value
+                    ]
+
+        return schema
+
+    def _clean_schema_for_openai(self, schema: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        清理 schema 使其符合 OpenAI 的要求。
+        移除不支持的字段，确保格式正确。
+        """
+        if not isinstance(schema, dict):
+            return schema
+
+        cleaned = {}
+
+        for key, value in schema.items():
+            if key in self.supported_fields:
+                if key == "properties" and isinstance(value, dict):
+                    cleaned[key] = {
+                        k: self._clean_schema_for_openai(v) for k, v in value.items()
+                    }
+                elif key == "items" and isinstance(value, dict):
+                    cleaned[key] = self._clean_schema_for_openai(value)
+                elif key in ["anyOf", "oneOf", "allOf"] and isinstance(value, list):
+                    cleaned[key] = [
+                        self._clean_schema_for_openai(item)
+                        if isinstance(item, dict)
+                        else item
+                        for item in value
+                    ]
+                else:
+                    cleaned[key] = value
+
+        return cleaned
+
+    def _convert_mcp_tool(self, mcp_tool: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        将 MCP 工具转换为 OpenAI function calling 的 tools JSON 格式。
+
+        Args:
+            mcp_tool: MCP 工具对象，包含 name, description, inputSchema 等字段
+
+        Returns:
+            OpenAI tools JSON 格式的字典
+        """
+        # 获取工具基本信息
+        tool_name = mcp_tool.get("name", "unnamed_tool")
+        tool_description = mcp_tool.get("description", "")
+        input_schema = mcp_tool.get("inputSchema", {})
+
+        # 修复和清理 schema
+        fixed_schema = self._fix_schema(input_schema)
+        cleaned_schema = self._clean_schema_for_openai(fixed_schema)
+
+        # 确保 schema 有基本结构
+        if "type" not in cleaned_schema:
+            cleaned_schema["type"] = "object"
+
+        if "properties" not in cleaned_schema:
+            cleaned_schema["properties"] = {}
+
+        # 构建 OpenAI tools 格式
+        openai_tool = {
+            "type": "function",
+            "function": {
+                "name": tool_name,
+                "description": tool_description,
+                "parameters": cleaned_schema,
+            },
+        }
+
+        return openai_tool
+
+    def convert_mcp_tools(
+        self,
+        mcp_tools: List[Dict[str, Any]],
+        disallowed_tools: Optional[List[str]] = None,
+    ) -> List[Dict[str, Any]]:
+        """
+        批量转换多个 MCP 工具为 OpenAI tools 格式。
+
+        Args:
+            mcp_tools: MCP 工具列表
+            disallowed_tools: 不允许的工具名称列表
+
+        Returns:
+            OpenAI tools JSON 格式的列表
+        """
+        disallowed_tools = disallowed_tools or []
+        converted_tools = []
+
+        for mcp_tool in mcp_tools:
+            tool_name = mcp_tool.get("name")
+
+            # 跳过不允许的工具
+            if tool_name in disallowed_tools:
+                continue
+
+            try:
+                converted_tool = self._convert_mcp_tool(mcp_tool)
+                converted_tools.append(converted_tool)
+            except Exception as e:
+                print(f"Error converting tool {tool_name}: {e}")
+                continue
+
+        return converted_tools
+
+
 class MCPToolManager:
     def __init__(self, config_path):
         self.config_path = config_path
@@ -174,7 +317,7 @@ class MCPToolManager:
 
     def _init_server_status(self):
         """初始化服务器状态，从配置文件中读取初始状态，包括禁用的服务器"""
-        
+
         for server_name, server_config in self.mcp_servers.items():
             # 服务器默认启用，除非配置中明确设置为disabled: true或enabled: false
             is_enabled = not (
@@ -264,7 +407,7 @@ class MCPToolManager:
         # 如果全局禁用，直接返回空列表
         if not self._globally_enabled:
             return []
-            
+
         # 尝试从缓存加载
         if self._load_cache():
             # 如果成功加载缓存，直接返回结果
@@ -332,20 +475,17 @@ class MCPToolManager:
         else:
             all_tools = self.list_tools()
         return all_tools
-        
+
     def get_all_servers(self) -> dict:
         """返回所有服务器的列表及其启用状态"""
         if not self._inited:
             self.list_tools()
-        
+
         # 返回服务器列表及其启用状态
         servers_info = {}
         for server_name, status in self._server_status.items():
-            ret = {
-                'enabled': status,
-                'tools_count': 0
-            }
-            #if server_name not in self._tools_cache:
+            ret = {'enabled': status, 'tools_count': 0}
+            # if server_name not in self._tools_cache:
             tools = self._tools_cache.get(server_name, [])
             if tools:
                 # 如果服务器有工具，则更新工具数量
@@ -417,18 +557,18 @@ class MCPToolManager:
 
     def process_command(self, args):
         """处理命令行参数，执行相应操作
-        
+
         Args:
-            args (list): 命令行参数列表，例如 [], ["enable"], ["disable"], 
+            args (list): 命令行参数列表，例如 [], ["enable"], ["disable"],
                          ["enable", "playwright"], ["disable", "playwright"]
-        
+
         Returns:
             dict: 执行结果
         """
         assert len(args) > 0, "No arguments provided"
         # 第一个参数是action
         action = args[0].lower() or "list"
-        
+
         # 处理全局启用/禁用命令
         if action == "enable" or action == "disable":
             # 检查是全局操作还是针对特定服务器
@@ -441,7 +581,7 @@ class MCPToolManager:
                         "action": "global_enable",
                         "globally_enabled": self._globally_enabled,
                         "servers": self.get_all_servers(),
-                        "tools_count": len(self.list_tools())
+                        "tools_count": len(self.list_tools()),
                     }
                 else:  # disable
                     self._globally_enabled = False
@@ -450,7 +590,7 @@ class MCPToolManager:
                         "action": "global_disable",
                         "globally_enabled": self._globally_enabled,
                         "servers": self.get_all_servers(),
-                        "tools_count": 0
+                        "tools_count": 0,
                     }
             elif len(args) == 2:
                 # 针对特定服务器的启用/禁用
@@ -460,7 +600,7 @@ class MCPToolManager:
                 if server_name == "*":
                     # 遍历所有服务器并设置状态（不改变全局启用/禁用状态）
                     for srv_name in self.mcp_servers.keys():
-                        self._server_status[srv_name] = (action == "enable")
+                        self._server_status[srv_name] = action == "enable"
 
                     # 刷新工具列表
                     self.list_tools()
@@ -469,14 +609,14 @@ class MCPToolManager:
                         "action": f"all_servers_{action}",
                         "globally_enabled": self._globally_enabled,
                         "servers": self.get_all_servers(),
-                        "tools_count": len(self.list_tools())
+                        "tools_count": len(self.list_tools()),
                     }
 
                 # 检查服务器是否存在
                 if server_name not in self.mcp_servers:
                     return {
                         "status": "error",
-                        "message": f"Unknown server: {server_name}"
+                        "message": f"Unknown server: {server_name}",
                     }
 
                 if action == "enable":
@@ -489,7 +629,7 @@ class MCPToolManager:
                         "server": server_name,
                         "globally_enabled": self._globally_enabled,
                         "servers": self.get_all_servers(),
-                        "tools_count": len(self.list_tools())
+                        "tools_count": len(self.list_tools()),
                     }
                 else:  # disable
                     self._server_status[server_name] = False
@@ -501,7 +641,7 @@ class MCPToolManager:
                         "server": server_name,
                         "globally_enabled": self._globally_enabled,
                         "servers": self.get_all_servers(),
-                        "tools_count": len(self.list_tools())
+                        "tools_count": len(self.list_tools()),
                     }
         elif action == "list":
             return {
@@ -509,11 +649,8 @@ class MCPToolManager:
                 "action": "list",
                 "globally_enabled": self._globally_enabled,
                 "servers": self.get_all_servers(),
-                "tools_count": len(self.list_tools())
+                "tools_count": len(self.list_tools()),
             }
 
         # 如果没有匹配任何已知命令
-        return {
-            "status": "error",
-            "message": f"Invalid command: {' '.join(args)}"
-        }
+        return {"status": "error", "message": f"Invalid command: {' '.join(args)}"}
