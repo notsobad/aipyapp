@@ -37,22 +37,29 @@ def get_tt_aio_api(tt_api_key) -> dict:
     """
     if not tt_api_key:
         tt_api_key = "DEMO_KEY"
-
+    search_url = f"{T('tt_aio_url')}/search/unified"
+    geoip_url = f"{T('tt_aio_url')}/ipgeo"
     tt_aio_api = {
         'tt_aio_map': {
             'env': {'tt_aio_map': [tt_api_key, "最新地图API Key"]},
-            'desc': "高德地图（驾车、骑行、步行、公交路线规划，周边关键字搜索，天气查询，交通态势、店铺查询, 无法确定POI分类编码时请用关键字搜索API）",
+            'desc': f"""高德地图（驾车、骑行、步行、公交路线规划，周边关键字搜索，天气查询，交通态势、店铺查询, 无法确定POI分类编码时请用关键字搜索API）""",
+        },
+        'tt_aio_geoip':{
+            'env': {'tt_aio_geoip': [tt_api_key, "最新IP地理位置API Key"]},
+            'desc': f"""IP地理位置查询API，返回IP地址的地理位置信息，包括国家、省份、城市等信息。接口调用示例如下：
+curl -H 'Authorization: Bearer xxx' {geoip_url}
+响应数据如下：{{"city": "成都", "country": "中国", "ip": "171.2.1.1", "isp": "电信", "latitude": "32.676235", "longitude": "103.058986", "province": "四川", "version": 4}}""",
         },
         'tt_aio_search': {
             'env': {'tt_aio_search': [tt_api_key, "最新网络搜索API Key"]},
-            'desc': """联网搜索服务，可用于搜索网络信息, *注意：不支持指定网站搜索*。仅在必须联网搜索时调用，接口调用示例如下：
-curl  -X POST https://api.trustoken.cn/aio-api/search/unified \
+            'desc': f"""联网搜索服务，可用于搜索网络信息, *注意：不支持指定网站搜索*。仅在必须联网搜索时调用，接口调用示例如下：
+curl  -X POST {search_url} \
 --header "Authorization: Bearer xxxxx" \
 --header "Content-Type: application/json" \
---data '{"query": "网络搜索内容", "contents":{"markdownText":true}}'
+--data '{{"query": "网络搜索内容", "contents":{{"markdownText":true}}}}'
 接口返回的数据样例：
-{
-"pageItems": [{
+{{
+"pageItems": [{{
     "title": "网页标题",
     "link": "https://...",
     "snippet": "网页摘要",
@@ -62,8 +69,8 @@ curl  -X POST https://api.trustoken.cn/aio-api/search/unified \
         "图片地址"
     ],
     "hostname": "网站名",
-}]
-}""",
+}}]
+}}""",
         },
     }
 
