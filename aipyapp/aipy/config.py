@@ -54,7 +54,7 @@ curl -H 'Authorization: Bearer xxx' {geoip_url}
         },
         'tt_aio_search': {
             'env': {'tt_aio_search': [tt_api_key, "最新网络搜索API Key"]},
-            'desc': f"""联网搜索服务，可用于搜索网络信息, *注意：不支持指定网站搜索*。仅在必须联网搜索时调用，接口调用示例如下：
+            'desc': f"""联网搜索服务，可用于搜索网络信息, *注意：不支持指定时间、网站搜索*。仅在必须联网搜索时调用，接口调用示例如下：
 curl  -X POST {search_url} \
 --header "Authorization: Bearer xxxxx" \
 --header "Content-Type: application/json" \
