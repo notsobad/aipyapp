@@ -33,14 +33,6 @@ MCP (Model Context Protocol) 是一组工具协议，允许 AI 模型与外部�
    ```
    使用 `uvx` 运行 MCP Server 时，通常不需要为 MCP Server 单独安装依赖，`uvx` 会处理。
 
-3. **直接基于 Python 的工具**：
-   
-   您也可以创建自己的 Python MCP 工具，或安装第三方工具：
-   
-   ```bash
-   # 示例：安装天气 MCP 工具
-   pip install mcp-weather-tools
-   ```
 
 ## 2. MCP 配置文件
 
