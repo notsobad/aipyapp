@@ -168,7 +168,9 @@ Python代码块的执行结果会通过JSON对象反馈给你，对象包括以�
 下面是用户提供的一些 API 信息，可能有 API_KEY，URL，用途和使用方法等信息。
 这些可能对特定任务有用途，你可以根据任务选择性使用。
 
-注意：这些 API 信息里描述的环境变量必须用 runtime.get_env 方法获取，绝对不能使用 os.getenv 方法。
+注意：
+1. 这些 API 信息里描述的环境变量必须用 runtime.get_env 方法获取，绝对不能使用 os.getenv 方法。
+2. API获取数据失败时，请输出完整的API响应信息，方便调试和分析问题。
 """
 
 def get_system_prompt(settings):
