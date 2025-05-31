@@ -7,7 +7,7 @@ import httpx
 import openai
 from loguru import logger
 
-from ..aipy.i18n import T
+from .. import T
 from . import BaseClient, ChatMessage
 
 # https://platform.openai.com/docs/api-reference/chat/create

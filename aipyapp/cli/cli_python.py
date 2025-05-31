@@ -13,9 +13,8 @@ from prompt_toolkit.lexers import PygmentsLexer
 from prompt_toolkit.history import FileHistory
 from pygments.lexers.python import PythonLexer
 
-from .. import __version__
 from ..aipy import TaskManager
-from ..aipy.i18n import T, set_lang
+from .. import T, set_lang, __version__
 from ..aipy.config import ConfigManager
 
 class PythonCompleter(WordCompleter):

@@ -9,8 +9,7 @@ from importlib.resources import read_text
 
 from rich.panel import Panel
 
-from .i18n import T
-from .. import __respkg__
+from .. import T, __respkg__
 
 def restore_output(func):
     @wraps(func)

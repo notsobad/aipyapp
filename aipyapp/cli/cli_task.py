@@ -12,9 +12,8 @@ from prompt_toolkit.history import FileHistory
 from prompt_toolkit.styles import Style
 from prompt_toolkit.completion import WordCompleter
 
-from .. import __version__
 from ..aipy import TaskManager
-from ..aipy.i18n import T, set_lang
+from .. import T, set_lang, __version__
 from ..aipy.config import ConfigManager, CONFIG_DIR
 from ..config import LLMConfig
 from ..aipy.wizard import config_llm

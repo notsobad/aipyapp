@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 
-from ..aipy.i18n import T
+from .. import T
 from .base import ChatMessage, BaseClient
 from .base_openai import OpenAIBaseClient
 from .client_claude import ClaudeClient

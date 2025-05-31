@@ -6,7 +6,7 @@ from loguru import logger
 from rich.live import Live
 from rich.text import Text
 
-from .i18n import T
+from .. import T
 from .plugin import event_bus
 from ..llm import CLIENTS, ChatMessage
 

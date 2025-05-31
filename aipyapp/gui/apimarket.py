@@ -5,7 +5,7 @@ import wx
 from loguru import logger
 from wx.lib.scrolledpanel import ScrolledPanel
 
-from ..aipy import T
+from .. import T
 
 class ApiItemPanel(wx.Panel):
     """单个API配置项面板"""
@@ -21,7 +21,7 @@ class ApiItemPanel(wx.Panel):
         
         # API名称
         name_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        name_label = wx.StaticText(self, label=f"{T("API Name")}: {api_name}")
+        name_label = wx.StaticText(self, label=f"{T('API Name')}: {api_name}")
         name_label.SetFont(wx.Font(10, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD))
         name_sizer.Add(name_label, 1, wx.EXPAND | wx.ALL, 5)
         
@@ -53,7 +53,7 @@ class ApiItemPanel(wx.Panel):
         
         # 显示描述
         if 'desc' in api_config:
-            desc_text = wx.StaticText(self, label=f"{T("Description")}: {api_config['desc']}")
+            desc_text = wx.StaticText(self, label=f"{T('Description')}: {api_config['desc']}")
             details_sizer.Add(desc_text, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.TOP, 10)
         
         main_sizer.Add(details_sizer, 0, wx.EXPAND | wx.ALL, 5)
@@ -75,7 +75,7 @@ class ApiItemPanel(wx.Panel):
         if self.on_delete:
             dlg = wx.MessageDialog(
                 self, 
-                f"{T("Are you sure to delete API")} '{self.api_name}'?",
+                f"{T('Are you sure to delete API')} '{self.api_name}'?",
                 T("Confirm Delete"),
                 wx.YES_NO | wx.ICON_QUESTION
             )
@@ -202,18 +202,18 @@ class ApiEditDialog(wx.Dialog):
         item_sizer = wx.BoxSizer(wx.HORIZONTAL)
         
         # 变量名
-        key_name_label = wx.StaticText(env_item, label=f"{T("Variable Name")}:")
+        key_name_label = wx.StaticText(env_item, label=f"{T('Variable Name')}:")
         key_name_input = wx.TextCtrl(env_item, size=(150, -1))
         key_name_input.SetValue(key_name)
         
         # 值
-        key_value_label = wx.StaticText(env_item, label=f"{T("Value")}:")
+        key_value_label = wx.StaticText(env_item, label=f"{T('Value')}:")
         key_value_input = wx.TextCtrl(env_item, size=(150, -1))
         if isinstance(key_value, list) and len(key_value) > 0:
             key_value_input.SetValue(key_value[0])
         
         # 描述
-        key_desc_label = wx.StaticText(env_item, label=f"{T("Description")}:")
+        key_desc_label = wx.StaticText(env_item, label=f"{T('Description')}:")
         key_desc_input = wx.TextCtrl(env_item, size=(150, -1))
         if isinstance(key_value, list) and len(key_value) > 1:
             key_desc_input.SetValue(key_value[1])
@@ -296,7 +296,7 @@ class ApiEditDialog(wx.Dialog):
 class ApiDetailsDialog(wx.Dialog):
     """API详情对话框"""
     def __init__(self, parent, api_name, api_config):
-        super().__init__(parent, title=f"{T("API Details")}: {api_name}", size=(500, 400))
+        super().__init__(parent, title=f"{T('API Details')}: {api_name}", size=(500, 400))
         
         self.api_name = api_name
         self.api_config = api_config
@@ -335,7 +335,7 @@ class ApiDetailsDialog(wx.Dialog):
                 
                 env_box = wx.BoxSizer(wx.VERTICAL)
                 
-                name_text = wx.StaticText(env_panel, label=f"{T("Variable Name")}: {display_key}")
+                name_text = wx.StaticText(env_panel, label=f"{T('Variable Name')}: {display_key}")
                 name_text.SetFont(wx.Font(10, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD))
                 
                 if isinstance(key_value, list):
@@ -344,10 +344,10 @@ class ApiDetailsDialog(wx.Dialog):
                         masked_key = key_value[0]
                         if len(masked_key) > 8:
                             masked_key = masked_key[:3] + "..." + masked_key[-3:]
-                        value_text = wx.StaticText(env_panel, label=f"{T("Value")}: {masked_key}")
+                        value_text = wx.StaticText(env_panel, label=f"{T('Value')}: {masked_key}")
                     
                     if len(key_value) > 1 and key_value[1]:
-                        desc_text = wx.StaticText(env_panel, label=f"{T("Description")}: {key_value[1]}")
+                        desc_text = wx.StaticText(env_panel, label=f"{T('Description')}: {key_value[1]}")
                         desc_text.Wrap(400)
                 
                 env_box.Add(name_text, 0, wx.ALL, 5)
@@ -568,7 +568,7 @@ class ApiMarketDialog(wx.Dialog):
             
         dlg = wx.MessageDialog(
             self, 
-            f"{T("Are you sure to delete API")} '{api_name}'?",
+            f"{T('Are you sure to delete API')} '{api_name}'?",
             T("Confirm Delete"),
             wx.YES_NO | wx.ICON_QUESTION
         )
@@ -610,5 +610,5 @@ class ApiMarketDialog(wx.Dialog):
             self.EndModal(wx.ID_OK)
         except Exception as e:
             traceback.print_exc()
-            wx.MessageBox(f"{T("Failed to save configuration")}: {str(e)}", T("Error"), wx.OK | wx.ICON_ERROR)
+            wx.MessageBox(f"{T('Failed to save configuration')}: {str(e)}", T("Error"), wx.OK | wx.ICON_ERROR)
             traceback.print_exc() 

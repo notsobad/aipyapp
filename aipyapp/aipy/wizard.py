@@ -1,10 +1,12 @@
 from collections import OrderedDict
 import questionary
 import requests
+
 from loguru import logger
+
+from .. import T
 from ..config.llm import LLMConfig, PROVIDERS
 from .trustoken import TrustToken
-from .i18n import T
 
 def get_models(providers, provider, api_key: str) -> list:
     """获取可用的模型列表"""

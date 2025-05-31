@@ -1,4 +1,3 @@
-
 import sys
 import re
 import io
@@ -10,8 +9,7 @@ from dynaconf import Dynaconf
 from rich import print
 import tomli_w
 
-from .. import __respath__
-from .i18n import T, get_system_language
+from .. import __respath__, T
 from .trustoken import TrustToken
 from .libmcp import MCPToolManager
 
@@ -27,8 +25,6 @@ OLD_SETTINGS_FILES = [
 CONFIG_FILE_NAME = f"{__PACKAGE_NAME__}.toml"
 USER_CONFIG_FILE_NAME = "user_config.toml"
 MCP_CONFIG_FILE_NAME = "mcp.json"
-LANG = get_system_language()
-
 
 def get_tt_aio_api(tt_api_key) -> dict:
     """

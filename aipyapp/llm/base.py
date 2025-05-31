@@ -8,7 +8,7 @@ from dataclasses import dataclass, field
 
 from loguru import logger
 
-from ..aipy.i18n import T
+from .. import T
 
 @dataclass
 class ChatMessage:

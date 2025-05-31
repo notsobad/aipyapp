@@ -72,7 +72,6 @@ class Translator:
         self.lang = lang
         self.messages = {}
         self.log = logger.bind(src='i18n')
-        self.set_lang(lang)
 
     def get_lang(self):
         return self.lang
@@ -84,7 +83,8 @@ class Translator:
             self.log.info(f"No language specified, using system language: {lang}")
 
         if lang != self.lang:
-            self.log.info(f"Switching language to: {lang}")
+            if self.lang: self.log.info(f"Switching language from {self.lang} to: {lang}")
+            else: self.log.info(f"Setting language to: {lang}")
             self.lang = lang
             self.load_messages()
 
@@ -98,6 +98,9 @@ class Translator:
             self.log.error(f"Error loading translations: {e}")
 
     def translate(self, key, *args):
+        if not self.lang:
+            self.set_lang()
+
         if self.lang == 'en':
             msg = key
         else:

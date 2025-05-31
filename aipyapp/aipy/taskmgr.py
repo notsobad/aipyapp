@@ -8,7 +8,7 @@ from collections import deque
 
 from loguru import logger
 
-from .i18n import T
+from .. import T
 from .task import Task
 from .plugin import PluginManager
 from .prompt import SYSTEM_PROMPT

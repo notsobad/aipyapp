@@ -2,16 +2,17 @@
 # -*- coding: utf-8 -*-
 
 import requests
-import wx
-import wx.adv
-from loguru import logger
 from typing import List
-from ..aipy.trustoken import TrustTokenAPI
-from ..aipy.i18n import T
-
 import time
 import webbrowser
 import threading
+
+import wx
+import wx.adv
+from loguru import logger
+
+from ..aipy.trustoken import TrustTokenAPI
+from .. import T
 
 class InitialProviderPage(wx.adv.WizardPage):
     def __init__(self, parent, provider_config):

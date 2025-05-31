@@ -7,7 +7,7 @@ from term_image.image import from_file, from_url
 
 from . import utils
 from .plugin import event_bus
-from .i18n import T
+from .. import T
 from ..exec import BaseRuntime
 
 def restore_output(func):

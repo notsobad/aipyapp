@@ -133,7 +133,7 @@ Stop task,停止任务
 Share task,分享任务
 Current task has ended,当前任务已结束
 "Operation in progress, please wait...",操作进行中，请稍候...
-"Operation completed. If you want to start the next task, please click the ""End"" button","操作完成。如果开始下一个任务，请点击""结束""按钮"
+"Operation completed. If you want to start the next task, please click the `End` button","操作完成。如果开始下一个任务，请点击 `结束` 按钮"
 Press Ctrl/Cmd+Enter to send message,按 Ctrl/Cmd+Enter 发送消息
 Save chat history as HTML file,保存聊天记录为 HTML 文件
 Exit program,退出程序

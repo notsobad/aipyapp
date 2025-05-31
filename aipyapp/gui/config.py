@@ -2,11 +2,13 @@
 #coding: utf-8
 
 import os
+
 import wx
 import wx.adv
 from wx import DirDialog, FD_SAVE, FD_OVERWRITE_PROMPT
 from wx.lib.agw.floatspin import FloatSpin, EVT_FLOATSPIN, FS_LEFT, FS_RIGHT, FS_CENTRE, FS_READONLY
-from aipyapp.aipy.i18n import T
+
+from .. import T, set_lang
 
 class ConfigDialog(wx.Dialog):
     def __init__(self, parent, settings):

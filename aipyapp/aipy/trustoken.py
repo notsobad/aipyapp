@@ -1,4 +1,3 @@
-
 import os
 import time
 import webbrowser
@@ -6,7 +5,7 @@ import webbrowser
 import requests
 import qrcode
 
-from aipyapp.aipy.i18n import T
+from .. import T
 
 POLL_INTERVAL = 5 # 轮询间隔（秒）
 

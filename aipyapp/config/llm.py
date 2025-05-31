@@ -3,7 +3,7 @@
 from collections import OrderedDict
 
 from .base import BaseConfig
-from ..aipy.i18n import T, get_lang
+from .. import T, get_lang
 
 PROVIDERS = {
     "Trustoken": {

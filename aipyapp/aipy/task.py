@@ -21,8 +21,7 @@ from rich.syntax import Syntax
 from rich.console import Console, Group
 from rich.markdown import Markdown
 
-from .i18n import T
-from .. import __respkg__
+from .. import T, __respkg__
 from ..exec import Runner
 from .runtime import Runtime
 from .plugin import event_bus

@@ -1,4 +1,5 @@
 import time
+
 import wx
 import wx.adv
 import threading
@@ -6,8 +7,8 @@ import qrcode
 import io
 from PIL import Image
 
-from aipyapp.aipy.i18n import T
-from aipyapp.aipy.trustoken import TrustTokenAPI
+from .. import T
+from ..aipy.trustoken import TrustTokenAPI
 
 class TrustTokenAuthDialog(wx.Dialog):
     """A dialog for TrustToken authentication with QR code display."""
@@ -107,8 +108,7 @@ class TrustTokenAuthDialog(wx.Dialog):
                 wx.CallAfter(self.EndModal, wx.ID_OK)
                 return True
             elif status == 'expired':
-                wx.CallAfter(self._update_status, T("
-Binding request expired."))
+                wx.CallAfter(self._update_status, T("Binding request expired."))
                 wx.CallAfter(self.EndModal, wx.ID_CANCEL)
                 return False
             elif status == 'pending':
@@ -121,8 +121,7 @@ Binding request expired."))
             time.sleep(self.poll_interval)
             
         if not self.stop_polling:
-            wx.CallAfter(self._update_status, T("
-Polling timed out."))
+            wx.CallAfter(self._update_status, T("Polling timed out."))
             wx.CallAfter(self.EndModal, wx.ID_CANCEL)
         return False
         
@@ -161,8 +160,7 @@ Polling timed out."))
             self.qr_bitmap.SetBitmap(wx.Bitmap(wx_img))
             self.Layout()
         except Exception as e:
-            wx.MessageBox(T("(Could not display QR code: {})
-", e), T("Error"), wx.OK | wx.ICON_ERROR)
+            wx.MessageBox(T("(Could not display QR code: {})", e), T("Error"), wx.OK | wx.ICON_ERROR)
             
     def _update_status(self, status):
         """Update the status text."""
@@ -181,8 +179,7 @@ Polling timed out."))
         self._update_status(T('requesting_binding'))
         data = self.api.request_binding()
         if not data:
-            wx.MessageBox(T("
-Failed to initiate binding request.", None), T("Error"), wx.OK | wx.ICON_ERROR)
+            wx.MessageBox(T("Failed to initiate binding request.", None), T("Error"), wx.OK | wx.ICON_ERROR)
             return False
             
         approval_url = data['approval_url']

@@ -23,11 +23,10 @@ from wx.lib.newevent import NewEvent
 from wx.lib.agw.hyperlink import HyperLinkCtrl
 from wx import FileDialog, FD_SAVE, FD_OVERWRITE_PROMPT
 
-from .. import __version__
+from .. import __version__, T, set_lang, get_lang
 from ..aipy.config import ConfigManager, CONFIG_DIR
 from ..aipy import TaskManager, event_bus
-from ..aipy.i18n import T, set_lang, __lang__
-from . import TrustTokenAuthDialog, ConfigDialog, ApiMarketDialog, show_provider_config
+from . import ConfigDialog, ApiMarketDialog, show_provider_config
 from ..config import LLMConfig
 
 __PACKAGE_NAME__ = "aipyapp"
@@ -348,7 +347,7 @@ class ChatFrame(wx.Frame):
         help_menu = wx.Menu()
         website_item = help_menu.Append(wx.ID_ANY, T("Website"))
         #forum_item = help_menu.Append(wx.ID_ANY, T('Forum'))
-        if __lang__ == 'zh':
+        if get_lang() == 'zh':
             wechat_item = help_menu.Append(wx.ID_ANY, T("WeChat Group"))
             self.Bind(wx.EVT_MENU, self.on_open_website, wechat_item)
         help_menu.AppendSeparator()
@@ -459,7 +458,7 @@ class ChatFrame(wx.Frame):
                 with open(path, 'w', encoding='utf-8') as file:
                     file.write(html_content)
             except IOError:
-                wx.LogError(f"{T("Failed to save file")}: {path}")
+                wx.LogError(f"{T('Failed to save file')}: {path}")
 
     def on_key_down(self, event):
         keycode = event.GetKeyCode()
@@ -489,7 +488,7 @@ class ChatFrame(wx.Frame):
             self.container.Show()
             self.done_button.Show()
             wx.EndBusyCursor()
-            self.SetStatusText(T("Operation completed. If you start a new task, please click the "End" button"), 0)
+            self.SetStatusText(T("Operation completed. If you start a new task, please click the `End` button"), 0)
             self.new_task_item.Enable(self.aipython.can_done())
             self.stop_task_item.Enable(False)
             self.share_task_item.Enable(True)
@@ -503,7 +502,7 @@ class ChatFrame(wx.Frame):
             return
         
         if not self.aipython.has_task():
-            self.SetTitle(f"[{T("Current task")}] {text}")
+            self.SetTitle(f"[{T('Current task')}] {text}")
 
         self.append_message(T("Me"), text)
         self.input.Clear()
@@ -542,19 +541,19 @@ class ChatFrame(wx.Frame):
     def on_webview_title_changed(self, event):
         """WebView 标题改变时的处理"""
         if not self.welcomed:
-            wx.CallLater(100, self.append_message, T("AIPy"), T("Hello! I am **AIPy**, your intelligent task assistant!
+            wx.CallLater(100, self.append_message, T("AIPy"), T("""Hello! I am **AIPy**, your intelligent task assistant!
 Please allow me to introduce the other members of the team:
 - Turing: The strongest artificial intelligence, complex task analysis and planning
 - BB-8: The strongest robot, responsible for executing tasks
 
-Note: Click the "**Help**" link in the menu bar to contact the **AIPy** official and join the group chat."))
+Note: Click the "**Help**" link in the menu bar to contact the **AIPy** official and join the group chat."""))
             self.welcomed = True
 
             # 检查更新
             try:
                 update = self.tm.get_update()
                 if update and update.get('has_update'):
-                    wx.CallLater(1000, self.append_message, T("AIPy"), f"\n🔔 **{T("Update available")}❗**: `v{update.get('latest_version')}`")
+                    wx.CallLater(1000, self.append_message, T("AIPy"), f"\n🔔 **{T('Update available')}❗**: `v{update.get('latest_version')}`")
             except Exception as e:
                 self.log.error(f"检查更新时出错: {e}")
             
@@ -610,16 +609,16 @@ class AboutDialog(wx.Dialog):
         vbox.Add(desc, 0, wx.ALL|wx.ALIGN_CENTER, 10)
         
         # 添加版本信息
-        version = wx.StaticText(self, label=f"{T("Version")}: {__version__}")
+        version = wx.StaticText(self, label=f"{T('Version')}: {__version__}")
         vbox.Add(version, 0, wx.ALL|wx.ALIGN_CENTER, 5)
         
         # 添加配置目录信息
-        config_dir = wx.StaticText(self, label=f"{T("Current configuration directory")}: {CONFIG_DIR}")
+        config_dir = wx.StaticText(self, label=f"{T('Current configuration directory')}: {CONFIG_DIR}")
         config_dir.Wrap(350)
         vbox.Add(config_dir, 0, wx.ALL|wx.ALIGN_CENTER, 5)
         
         # 添加工作目录信息
-        work_dir = wx.StaticText(self, label=f"{T("Current working directory")}: {parent.tm.workdir}")
+        work_dir = wx.StaticText(self, label=f"{T('Current working directory')}: {parent.tm.workdir}")
         work_dir.Wrap(350)
         vbox.Add(work_dir, 0, wx.ALL|wx.ALIGN_CENTER, 5)
         
