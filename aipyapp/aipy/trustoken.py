@@ -1,3 +1,4 @@
+
 import os
 import time
 import webbrowser
@@ -19,7 +20,7 @@ class TrustTokenAPI:
         Args:
             coordinator_url (str, optional): The coordinator server URL. Defaults to None.
         """
-        self.coordinator_url = coordinator_url or T('tt_coordinator_url')
+        self.coordinator_url = coordinator_url or T("https://www.trustoken.ai/api")
 
     def request_binding(self):
         """Request binding from the coordinator server.
@@ -34,10 +35,10 @@ class TrustTokenAPI:
             response.raise_for_status()
             return response.json()
         except requests.exceptions.RequestException as e:
-            print(T('coordinator_request_error').format(e))
+            print(T("Error connecting to coordinator or during request: {}").format(e))
             return None
         except Exception as e:
-            print(T('unexpected_request_error').format(e))
+            print(T("An unexpected error occurred during request: {}").format(e))
             return None
 
     def check_status(self, request_id):
@@ -57,10 +58,10 @@ class TrustTokenAPI:
             response.raise_for_status()
             return response.json()
         except requests.exceptions.RequestException as e:
-            print(T('coordinator_polling_error').format(e))
+            print(T("Error connecting to coordinator during polling: {}").format(e))
             return None
         except Exception as e:
-            print(T('unexpected_polling_error').format(e))
+            print(T("An unexpected error occurred during polling: {}").format(e))
             return None
 
 class TrustToken:
@@ -91,9 +92,16 @@ class TrustToken:
         request_id = data['request_id']
         expires_in = data['expires_in']
 
-        print(T('binding_request_sent').format(request_id, approval_url, expires_in))
+        print(T("""Binding request sent successfully.
+Request ID: {}
+
+>>> Please open this URL in your browser on an authenticated device to approve:
+>>> {}
+
+(This link expires in {} seconds)""").format(request_id, approval_url, expires_in))
+        
         if qrcode:
-            print(T('scan_qr_code'))
+            print(T("Or scan the QR code below:"))
             try:
                 qr = qrcode.QRCode(
                     error_correction=qrcode.constants.ERROR_CORRECT_L,
@@ -102,9 +110,9 @@ class TrustToken:
                 qr.add_data(approval_url)
                 qr.make(fit=True)
                 qr.print_ascii(tty=True)
-                print(T('config_help'))
+                print(T("We recommend you scan the QR code to bind the AiPy brain, you can also configure a third-party large model brain, details refer to: https://d.aipy.app/d/77"))
             except Exception as e:
-                print(T('qr_code_display_failed').format(e))
+                print(T("(Could not display QR code: {})").format(e))
         else:
             webbrowser.open(approval_url)
         return request_id
@@ -122,7 +130,7 @@ class TrustToken:
         start_time = time.time()
         polling_timeout = 310
 
-        print(T('waiting_for_approval'), end='', flush=True)
+        print(T("Browser has opened the Trustoken website, please register or login to authorize"), end='', flush=True)
         try:
             while time.time() - start_time < polling_timeout:
                 data = self.api.check_status(request_id)
@@ -137,25 +145,25 @@ class TrustToken:
                     continue
 
                 print()
-                print(T('current_status').format(status))
+                print(T("Current status: {}...").format(status))
 
                 if status == 'approved':
                     if save_func:
                         save_func(data['secret_token'])
                     return True
                 elif status == 'expired':
-                    print(T('binding_expired'))
+                    print(T("Binding request expired."))
                     return False
                 else:
-                    print(T('unknown_status').format(status))
+                    print(T("Received unknown status: {}").format(status))
                     return False
 
                 time.sleep(self.poll_interval)
         except KeyboardInterrupt:
-            print(T('polling_cancelled'))
+            print(T("Polling cancelled by user."))
             return False
 
-        print(T('polling_timeout'))
+        print(T("Polling timed out."))
         return False
 
     def fetch_token(self, save_func):
@@ -167,17 +175,17 @@ class TrustToken:
         Returns:
             bool: True if token was successfully fetched and saved, False otherwise.
         """
-        print(T('start_binding_process'))
+        print(T("The current environment lacks the required configuration file. Starting the configuration initialization process to bind with the Trustoken account..."))
         req_id = self.request_binding()
         if req_id:
             if self.poll_status(req_id, save_func):
-                print(T('binding_success'))
+                print(T("Binding process completed successfully."))
                 return True
             else:
-                print(T('binding_failed'))
+                print(T("Binding process failed or was not completed."))
                 return False
         else:
-            print(T('binding_request_failed'))
+            print(T("Failed to initiate binding request."))
             return False
 
 if __name__ == "__main__":

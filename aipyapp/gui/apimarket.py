@@ -1,3 +1,4 @@
+
 import traceback
 
 import wx
@@ -20,15 +21,15 @@ class ApiItemPanel(wx.Panel):
         
         # API名称
         name_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        name_label = wx.StaticText(self, label=f"{T('API Name')}: {api_name}")
+        name_label = wx.StaticText(self, label=f"{T("API Name")}: {api_name}")
         name_label.SetFont(wx.Font(10, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD))
         name_sizer.Add(name_label, 1, wx.EXPAND | wx.ALL, 5)
         
         # 添加按钮
         button_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        edit_button = wx.Button(self, label=T('Edit'))
+        edit_button = wx.Button(self, label=T("Edit"))
         edit_button.Bind(wx.EVT_BUTTON, self.on_edit_click)
-        delete_button = wx.Button(self, label=T('Delete'))
+        delete_button = wx.Button(self, label=T("Delete"))
         delete_button.Bind(wx.EVT_BUTTON, self.on_delete_click)
         
         button_sizer.Add(edit_button, 0, wx.ALL, 5)
@@ -52,7 +53,7 @@ class ApiItemPanel(wx.Panel):
         
         # 显示描述
         if 'desc' in api_config:
-            desc_text = wx.StaticText(self, label=f"{T('Description')}: {api_config['desc']}")
+            desc_text = wx.StaticText(self, label=f"{T("Description")}: {api_config['desc']}")
             details_sizer.Add(desc_text, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.TOP, 10)
         
         main_sizer.Add(details_sizer, 0, wx.EXPAND | wx.ALL, 5)
@@ -74,8 +75,8 @@ class ApiItemPanel(wx.Panel):
         if self.on_delete:
             dlg = wx.MessageDialog(
                 self, 
-                f"{T('Are you sure to delete API')} '{self.api_name}'?",
-                T('Confirm Delete'),
+                f"{T("Are you sure to delete API")} '{self.api_name}'?",
+                T("Confirm Delete"),
                 wx.YES_NO | wx.ICON_QUESTION
             )
             result = dlg.ShowModal()
@@ -88,7 +89,7 @@ class ApiItemPanel(wx.Panel):
 class ApiEditDialog(wx.Dialog):
     """API编辑对话框"""
     def __init__(self, parent, api_name="", api_config=None, is_new=True):
-        title = T('Add API') if is_new else T('Edit API')
+        title = T("Add API") if is_new else T("Edit API")
         super().__init__(parent, title=title, size=(600, 500))
         
         self.is_new = is_new
@@ -103,7 +104,7 @@ class ApiEditDialog(wx.Dialog):
         
         # API名称
         name_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        name_label = wx.StaticText(self, label=T('API Name'))
+        name_label = wx.StaticText(self, label=T("API Name"))
         self.name_input = wx.TextCtrl(self)
         if not self.is_new:
             self.name_input.SetValue(self.api_name)
@@ -116,8 +117,8 @@ class ApiEditDialog(wx.Dialog):
         
         # API环境变量标题行
         env_header_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        env_label = wx.StaticText(self, label=T('API Key Settings'))
-        add_env_button = wx.Button(self, label=T('Add Environment Variable'))
+        env_label = wx.StaticText(self, label=T("API Key Settings"))
+        add_env_button = wx.Button(self, label=T("Add Environment Variable"))
         add_env_button.Bind(wx.EVT_BUTTON, self.on_add_env)
         
         env_header_sizer.Add(env_label, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 10)
@@ -145,13 +146,13 @@ class ApiEditDialog(wx.Dialog):
             
         # 如果是新建API且没有环境变量，则默认添加一个空的环境变量控件
         if self.is_new and not env_vars:
-            self.add_env_control("api_key", [T('Enter your API key'), T('API key description')])
+            self.add_env_control("api_key", [T("Enter your API key"), T("API key description")])
         
         main_sizer.Add(self.env_panel, 2, wx.EXPAND | wx.ALL, 10)  # 增加比例权重到2
         
         # 描述
         desc_sizer = wx.BoxSizer(wx.VERTICAL)
-        desc_label = wx.StaticText(self, label=T('API Description'))
+        desc_label = wx.StaticText(self, label=T("API Description"))
         
         # 使用更大的多行文本框
         self.desc_input = wx.TextCtrl(self, style=wx.TE_MULTILINE)
@@ -164,7 +165,7 @@ class ApiEditDialog(wx.Dialog):
             self.desc_input.SetValue(self.api_config['desc'])
             
         # 添加提示文本
-        desc_hint = wx.StaticText(self, label=T('API Description Hint'))
+        desc_hint = wx.StaticText(self, label=T("Hint: Description supports multi-line text, will be saved in markdown format"))
         desc_hint.SetFont(wx.Font(9, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL))
         
         desc_sizer.Add(desc_label, 0, wx.ALL, 5)
@@ -175,8 +176,8 @@ class ApiEditDialog(wx.Dialog):
         
         # 按钮
         button_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        save_button = wx.Button(self, wx.ID_OK, T('Save and Apply'))
-        cancel_button = wx.Button(self, wx.ID_CANCEL, T('Cancel'))
+        save_button = wx.Button(self, wx.ID_OK, T("Save and Apply"))
+        cancel_button = wx.Button(self, wx.ID_CANCEL, T("Cancel"))
         
         button_sizer.Add(save_button, 0, wx.ALL, 5)
         button_sizer.Add(cancel_button, 0, wx.ALL, 5)
@@ -195,30 +196,30 @@ class ApiEditDialog(wx.Dialog):
             return
             
         if key_value is None:
-            key_value = ["", T('API key description')]
+            key_value = ["", T("API key description")]
         
         env_item = wx.Panel(self.env_panel)
         item_sizer = wx.BoxSizer(wx.HORIZONTAL)
         
         # 变量名
-        key_name_label = wx.StaticText(env_item, label=f"{T('Variable Name')}:")
+        key_name_label = wx.StaticText(env_item, label=f"{T("Variable Name")}:")
         key_name_input = wx.TextCtrl(env_item, size=(150, -1))
         key_name_input.SetValue(key_name)
         
         # 值
-        key_value_label = wx.StaticText(env_item, label=f"{T('Value')}:")
+        key_value_label = wx.StaticText(env_item, label=f"{T("Value")}:")
         key_value_input = wx.TextCtrl(env_item, size=(150, -1))
         if isinstance(key_value, list) and len(key_value) > 0:
             key_value_input.SetValue(key_value[0])
         
         # 描述
-        key_desc_label = wx.StaticText(env_item, label=f"{T('Description')}:")
+        key_desc_label = wx.StaticText(env_item, label=f"{T("Description")}:")
         key_desc_input = wx.TextCtrl(env_item, size=(150, -1))
         if isinstance(key_value, list) and len(key_value) > 1:
             key_desc_input.SetValue(key_value[1])
         
         # 删除按钮
-        delete_button = wx.Button(env_item, label=T('Remove'))
+        delete_button = wx.Button(env_item, label=T("Remove"))
         delete_button.Bind(wx.EVT_BUTTON, lambda evt, item=env_item: self.remove_env_item(item))
         
         # 添加到布局
@@ -262,7 +263,7 @@ class ApiEditDialog(wx.Dialog):
     def on_add_env(self, event):
         """添加新的环境变量"""
         if len(self.env_controls) >= 2:
-            wx.MessageBox(T('You can only add two environment variables at most'), T('Hint'), wx.OK | wx.ICON_INFORMATION)
+            wx.MessageBox(T("You can only add two environment variables at most"), T("Hint"), wx.OK | wx.ICON_INFORMATION)
             return
         self.add_env_control()
     
@@ -295,7 +296,7 @@ class ApiEditDialog(wx.Dialog):
 class ApiDetailsDialog(wx.Dialog):
     """API详情对话框"""
     def __init__(self, parent, api_name, api_config):
-        super().__init__(parent, title=f"{T('API Details')}: {api_name}", size=(500, 400))
+        super().__init__(parent, title=f"{T("API Details")}: {api_name}", size=(500, 400))
         
         self.api_name = api_name
         self.api_config = api_config
@@ -311,7 +312,7 @@ class ApiDetailsDialog(wx.Dialog):
         
         # 描述
         if 'desc' in self.api_config and self.api_config['desc']:
-            desc_group = wx.StaticBox(scroll_panel, label=T('Description'))
+            desc_group = wx.StaticBox(scroll_panel, label=T("Description"))
             desc_sizer = wx.StaticBoxSizer(desc_group, wx.VERTICAL)
             
             desc_text = wx.StaticText(scroll_panel, label=self.api_config['desc'])
@@ -323,7 +324,7 @@ class ApiDetailsDialog(wx.Dialog):
         # 查找环境变量键
         envs = self.api_config.get('env')
         if envs:
-            env_group = wx.StaticBox(scroll_panel, label=T('Environment Variables'))
+            env_group = wx.StaticBox(scroll_panel, label=T("Environment Variables"))
             env_sizer = wx.StaticBoxSizer(env_group, wx.VERTICAL)
             
             for i, key_name in enumerate(envs.keys()):
@@ -334,7 +335,7 @@ class ApiDetailsDialog(wx.Dialog):
                 
                 env_box = wx.BoxSizer(wx.VERTICAL)
                 
-                name_text = wx.StaticText(env_panel, label=f"{T('Variable Name')}: {display_key}")
+                name_text = wx.StaticText(env_panel, label=f"{T("Variable Name")}: {display_key}")
                 name_text.SetFont(wx.Font(10, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD))
                 
                 if isinstance(key_value, list):
@@ -343,10 +344,10 @@ class ApiDetailsDialog(wx.Dialog):
                         masked_key = key_value[0]
                         if len(masked_key) > 8:
                             masked_key = masked_key[:3] + "..." + masked_key[-3:]
-                        value_text = wx.StaticText(env_panel, label=f"{T('Value')}: {masked_key}")
+                        value_text = wx.StaticText(env_panel, label=f"{T("Value")}: {masked_key}")
                     
                     if len(key_value) > 1 and key_value[1]:
-                        desc_text = wx.StaticText(env_panel, label=f"{T('Description')}: {key_value[1]}")
+                        desc_text = wx.StaticText(env_panel, label=f"{T("Description")}: {key_value[1]}")
                         desc_text.Wrap(400)
                 
                 env_box.Add(name_text, 0, wx.ALL, 5)
@@ -369,7 +370,7 @@ class ApiDetailsDialog(wx.Dialog):
         main_sizer.Add(scroll_panel, 1, wx.EXPAND | wx.ALL, 10)
         
         # 关闭按钮
-        close_button = wx.Button(self, wx.ID_OK, T('Close'))
+        close_button = wx.Button(self, wx.ID_OK, T("Close"))
         main_sizer.Add(close_button, 0, wx.ALIGN_CENTER | wx.ALL, 10)
         
         self.SetSizer(main_sizer)
@@ -379,7 +380,7 @@ class ApiDetailsDialog(wx.Dialog):
 class ApiMarketDialog(wx.Dialog):
     """API市场对话框 - 列表视图"""
     def __init__(self, parent, config_manager):
-        super().__init__(parent, title=T('API Market'), size=(800, 600))
+        super().__init__(parent, title=T("API Market"), size=(800, 600))
         
         self.config_manager = config_manager
         self.log = logger.bind(src="apimarket")
@@ -399,20 +400,20 @@ class ApiMarketDialog(wx.Dialog):
         main_sizer = wx.BoxSizer(wx.VERTICAL)
         
         # 标题
-        title_text = wx.StaticText(self, label=T('API Market - Manage Your API Configurations'))
+        title_text = wx.StaticText(self, label=T("API Market - Manage Your API Configurations"))
         title_text.SetFont(wx.Font(14, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD))
         main_sizer.Add(title_text, 0, wx.ALIGN_CENTER | wx.ALL, 10)
         
         # 介绍说明
-        desc_text = wx.StaticText(self, label=T('Manage your API configurations here, including adding new APIs, viewing and editing existing ones.'))
+        desc_text = wx.StaticText(self, label=T("Manage your API configurations here, including adding new APIs, viewing and editing existing ones."))
         main_sizer.Add(desc_text, 0, wx.ALIGN_CENTER | wx.BOTTOM, 10)
         
         # 工具栏
         toolbar_sizer = wx.BoxSizer(wx.HORIZONTAL)
         
-        add_button = wx.Button(self, label=T('Add New API'))
+        add_button = wx.Button(self, label=T("Add New API"))
         add_button.Bind(wx.EVT_BUTTON, self.on_add_api)
-        refresh_button = wx.Button(self, label=T('Refresh List'))
+        refresh_button = wx.Button(self, label=T("Refresh List"))
         refresh_button.Bind(wx.EVT_BUTTON, self.on_refresh)
         
         toolbar_sizer.Add(add_button, 0, wx.ALL, 5)
@@ -422,12 +423,12 @@ class ApiMarketDialog(wx.Dialog):
         
         # 创建列表控件
         self.api_list = wx.ListCtrl(self, style=wx.LC_REPORT | wx.BORDER_SUNKEN)
-        self.api_list.InsertColumn(0, T('API Name'), width=200)
-        self.api_list.InsertColumn(1, T('Number of Keys'), width=100)
-        self.api_list.InsertColumn(2, T('Description'), width=450)
+        self.api_list.InsertColumn(0, T("API Name"), width=200)
+        self.api_list.InsertColumn(1, T("Number of Keys"), width=100)
+        self.api_list.InsertColumn(2, T("Description"), width=450)
         
         # 添加操作提示
-        help_text = wx.StaticText(self, label=T('Tip: Right-click on API item to view, edit and delete'))
+        help_text = wx.StaticText(self, label=T("Tip: Right-click on API item to view, edit and delete"))
         help_text.SetFont(wx.Font(9, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_ITALIC, wx.FONTWEIGHT_NORMAL))
         
         # 加载API配置到列表
@@ -444,9 +445,9 @@ class ApiMarketDialog(wx.Dialog):
         
         # 底部按钮
         button_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        save_button = wx.Button(self, label=T('Save and Apply'))
+        save_button = wx.Button(self, label=T("Save and Apply"))
         save_button.Bind(wx.EVT_BUTTON, self.on_save)
-        cancel_button = wx.Button(self, wx.ID_CANCEL, T('Cancel'))
+        cancel_button = wx.Button(self, wx.ID_CANCEL, T("Cancel"))
         
         button_sizer.Add(save_button, 0, wx.ALL, 5)
         button_sizer.Add(cancel_button, 0, wx.ALL, 5)
@@ -460,8 +461,8 @@ class ApiMarketDialog(wx.Dialog):
         """加载API配置到列表"""
         self.api_list.DeleteAllItems()
         if not self.api_configs:
-            no_api_item = self.api_list.InsertItem(0, T('No API configured'))
-            self.api_list.SetItem(no_api_item, 2, T('Click "Add New API" button to add API configuration'))
+            no_api_item = self.api_list.InsertItem(0, T("No API configured"))
+            self.api_list.SetItem(no_api_item, 2, T("Click `Add New API` button to add API configuration"))
             return
         
         idx = 0
@@ -507,14 +508,14 @@ class ApiMarketDialog(wx.Dialog):
         api_name = self.api_list.GetItemText(idx)
         
         # 如果是"暂无API配置"提示项，不显示菜单
-        if api_name == T('No API configured'):
+        if api_name == T("No API configured"):
             return
         
         menu = wx.Menu()
         
-        view_item = menu.Append(wx.ID_VIEW_DETAILS, T('View Details'))
-        edit_item = menu.Append(wx.ID_EDIT, T('Edit'))
-        delete_item = menu.Append(wx.ID_DELETE, T('Delete'))
+        view_item = menu.Append(wx.ID_VIEW_DETAILS, T("View Details"))
+        edit_item = menu.Append(wx.ID_EDIT, T("Edit"))
+        delete_item = menu.Append(wx.ID_DELETE, T("Delete"))
         
         self.Bind(wx.EVT_MENU, lambda evt, name=api_name: self.show_api_details(name), view_item)
         self.Bind(wx.EVT_MENU, lambda evt, name=api_name: self.on_edit_api(name), edit_item)
@@ -532,11 +533,11 @@ class ApiMarketDialog(wx.Dialog):
             api_name, api_config = dialog.get_api_config()
             
             if not api_name:
-                wx.MessageBox(T('API name cannot be empty'), T('Error'), wx.OK | wx.ICON_ERROR)
+                wx.MessageBox(T("API name cannot be empty"), T("Error"), wx.OK | wx.ICON_ERROR)
                 return
             
             if api_name in self.api_configs:
-                wx.MessageBox(T('API name already exists'), T('Error'), wx.OK | wx.ICON_ERROR)
+                wx.MessageBox(T("API name already exists"), T("Error"), wx.OK | wx.ICON_ERROR)
                 return
             
             self.api_configs[api_name] = api_config
@@ -567,8 +568,8 @@ class ApiMarketDialog(wx.Dialog):
             
         dlg = wx.MessageDialog(
             self, 
-            f"{T('Are you sure to delete API')} '{api_name}'?",
-            T('Confirm Delete'),
+            f"{T("Are you sure to delete API")} '{api_name}'?",
+            T("Confirm Delete"),
             wx.YES_NO | wx.ICON_QUESTION
         )
         result = dlg.ShowModal()
@@ -605,9 +606,9 @@ class ApiMarketDialog(wx.Dialog):
                     self.Parent.tm.config = self.config_manager.get_config()
             
             # 显示保存成功的消息
-            wx.MessageBox(T('API configuration saved and applied'), T('Success'), wx.OK | wx.ICON_INFORMATION)
+            wx.MessageBox(T("API configuration saved and applied"), T("Success"), wx.OK | wx.ICON_INFORMATION)
             self.EndModal(wx.ID_OK)
         except Exception as e:
             traceback.print_exc()
-            wx.MessageBox(f"{T('Failed to save configuration')}: {str(e)}", T('Error'), wx.OK | wx.ICON_ERROR)
+            wx.MessageBox(f"{T("Failed to save configuration")}: {str(e)}", T("Error"), wx.OK | wx.ICON_ERROR)
             traceback.print_exc() 

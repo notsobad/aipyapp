@@ -74,13 +74,13 @@ class TaskManager:
             lines.append(f"## {api_name} API")
             desc = api_conf.get('desc')
             if desc:
-                lines.append(f"### API {T('description')}\n{desc}")
+                lines.append(f"### API {T('Description')}\n{desc}")
 
             envs = api_conf.get('env')
             if not envs:
                 continue
 
-            lines.append(f"### {T('env_description')}")
+            lines.append(f"### {T('Environment variable name and meaning')}")
             for name, (value, desc) in envs.items():
                 value = value.strip()
                 if not value:

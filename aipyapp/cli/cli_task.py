@@ -62,7 +62,7 @@ def show_info(info):
     info['Python'] = sys.executable
     info['Python version'] = sys.version
     info['Base Prefix'] = sys.base_prefix
-    table = Table(title=T("sys_info"), show_lines=True)
+    table = Table(title=T("System information"), show_lines=True)
 
     table.add_column("参数", justify="center", style="bold cyan", no_wrap=True)
     table.add_column("值", justify="right", style="bold magenta")
@@ -78,7 +78,7 @@ def process_mcp_ret(console, arg, ret):
     if ret.get("status", "success") == "success":
         #console.print(f"[green]{T('mcp_success')}: {ret.get('message', '')}[/green]")
         mcp_status = 'enabled' if ret.get("globally_enabled") else 'disabled'
-        console.print(f"[green]{T('mcp_status').format(T(mcp_status))}[/green]")
+        console.print(f"[green]{T('MCP server status: {}').format(T(mcp_status))}[/green]")
         mcp_servers = ret.get("servers", [])
         if mcp_status == 'enabled':
             for server_name, info in mcp_servers.items():
@@ -128,7 +128,7 @@ class InteractiveConsole():
             self.console.print_exception()
 
     def start_task_mode(self, task, instruction):
-        self.console.print(f"{T('ai_mode_enter')}", style="cyan")
+        self.console.print(f"{T('Enter AI mode, start processing tasks, enter Ctrl+d or /done to end the task')}", style="cyan")
         self.run_task(task, instruction)
         while True:
             try:
@@ -152,7 +152,7 @@ class InteractiveConsole():
             task.done()
         except Exception as e:
             self.console.print_exception()
-        self.console.print(f"{T('ai_mode_exit')}", style="cyan")
+        self.console.print(f"[{T('Exit AI mode')}]", style="cyan")
 
     def info(self):
         info = OrderedDict()
@@ -162,8 +162,8 @@ class InteractiveConsole():
         show_info(info)
 
     def run(self):
-        self.console.print(f"{T('banner1')}", style="green")
-        self.console.print(f"[cyan]{T('default')}: [green]{self.names['default']}，[cyan]{T('enabled')}: [yellow]{' '.join(self.names['enabled'])}")
+        self.console.print(f"{T('Please enter the task to be processed by AI (enter /use <following LLM> to switch, enter /info to view system information)')}", style="green")
+        self.console.print(f"[cyan]{T('Default')}: [green]{self.names['default']}，[cyan]{T('Enabled')}: [yellow]{' '.join(self.names['enabled'])}")
         self.info()
         tm = self.tm
         while True:
@@ -232,7 +232,7 @@ def main(args):
         console.print(f"[bold red]🔔 号外❗ {T('Update available')}: {update.get('latest_version')}")
    
     if not tm.client_manager:
-        console.print(f"[bold red]{T('no_available_llm')}")
+        console.print(f"[bold red]{T('No available LLM, please check the configuration file')}")
         return
     
     if args.cmd:

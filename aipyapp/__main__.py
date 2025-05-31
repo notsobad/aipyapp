@@ -10,9 +10,8 @@ if "pythonw" in sys.executable.lower():
 
 from loguru import logger
 
-from .aipy.config import CONFIG_DIR
-
 logger.remove()
+from .aipy.config import CONFIG_DIR
 logger.add(CONFIG_DIR / "aipyapp.log", format="{time:HH:mm:ss} | {level} | {message} | {extra}", level='INFO')
 
 def parse_args():

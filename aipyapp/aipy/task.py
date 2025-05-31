@@ -119,7 +119,7 @@ class Task(Stoppable):
         self.done_time = time.time()
         self.log.info('Task done', jsonname=jsonname, htmlname=htmlname)
         filename = str(Path(htmlname).resolve())
-        self.console.print(f"[green]{T('task_saved')}: \"{filename}\"")
+        self.console.print(f"[green]{T('Result file saved')}: \"{filename}\"")
         if self.settings.get('share_result'):
             self.sync_to_cloud()
         
@@ -136,7 +136,7 @@ class Task(Stoppable):
         errors = ret.get('errors')
         if errors:
             event_bus('result', errors)
-            self.console.print(f"{T('start_feedback')}...", style='dim white')
+            self.console.print(f"{T('Start sending feedback')}...", style='dim white')
             feed_back = f"# 消息解析错误\n{json_str}"
             ret = self.chat(feed_back)
         elif 'exec_ids' in ret:
@@ -162,7 +162,7 @@ class Task(Stoppable):
             block = self.code_blocks.get_block_by_id(code_id)
             event_bus('exec', block)
             code_block = block['content']
-            self.console.print(f"⚡ {T('start_execute')}: {code_id}", style='dim white')
+            self.console.print(f"⚡ {T('Start executing code block')}: {code_id}", style='dim white')
             result = self.runner(code_block)
             json_result = json.dumps(result, ensure_ascii=False, indent=2, default=str)
             result['id'] = code_id
@@ -176,7 +176,7 @@ class Task(Stoppable):
         else:
             json_results = json.dumps(results, ensure_ascii=False, indent=4, default=str)
         
-        self.console.print(f"{T('start_feedback')}...", style='dim white')
+        self.console.print(f"{T('Start sending feedback')}...", style='dim white')
         feed_back = f"# 最初任务\n{self.instruction}\n\n# 代码执行结果反馈\n{json_results}"
         return self.chat(feed_back)
 
@@ -185,15 +185,15 @@ class Task(Stoppable):
         block = {'content': json_content, 'language': 'json'}
         event_bus('tool_call', block)
         json_content = block['content']
-        self.console.print(f"⚡ {T('call_tool')} ...", style='dim white')
+        self.console.print(f"⚡ {T('Start calling MCP tool')} ...", style='dim white')
 
         call_tool = json.loads(json_content)
         result = self.mcp.call_tool(call_tool['name'], call_tool.get('arguments', {}))
         event_bus('result', result)
         result_json = json.dumps(result, ensure_ascii=False, indent=2, default=str)
-        self.print_code_result(T('call_tool_result'), block, result_json)
+        self.print_code_result(T("MCP tool call result"), block, result_json)
 
-        self.console.print(f"{T('start_feedback')}...", style='dim white')
+        self.console.print(f"{T('Start sending feedback')}...", style='dim white')
         feed_back = f"""# MCP 调用\n\n{self.instruction}\n
 # 执行结果反馈
 
@@ -242,7 +242,7 @@ class Task(Stoppable):
         summary['elapsed_time'] = time.time() - self.start_time
         summarys = "| {rounds} | {time:.3f}s/{elapsed_time:.3f}s | Tokens: {input_tokens}/{output_tokens}/{total_tokens}".format(**summary)
         event_bus.broadcast('summary', summarys)
-        self.console.print(f"\n⏹ [cyan]{T('end_instruction')} {summarys}")
+        self.console.print(f"\n⏹ [cyan]{T('End processing instruction')} {summarys}")
 
     def build_user_prompt(self):
         prompt = {'task': self.instruction}
@@ -270,14 +270,14 @@ class Task(Stoppable):
             content = f"{msg.reason}\n\n-----\n\n{msg.content}"
         else:
             content = msg.content
-        self.box(f"[yellow]{T('llm_response')} ({self.client.name})", content)
+        self.box(f"[yellow]{T('Reply')} ({self.client.name})", content)
         return msg.content
 
     def run(self, instruction):
         """
         执行自动处理循环，直到 LLM 不再返回代码消息
         """
-        self.box(f"[yellow]{T('start_instruction')}", instruction, align="center")
+        self.box(f"[yellow]{T('Start processing instruction')}", instruction, align="center")
         if not self.start_time:
             self.start_time = time.time()
             self.instruction = instruction
@@ -306,14 +306,14 @@ class Task(Stoppable):
     def sync_to_cloud(self, verbose=True):
         """ Sync result
         """
-        url = T('tt_share_url')
+        url = T("https://store.aipy.app/api/work")
 
         trustoken_apikey = self.settings.get('llm', {}).get('Trustoken', {}).get('api_key')
         if not trustoken_apikey:
             trustoken_apikey = self.settings.get('llm', {}).get('trustoken', {}).get('api_key')
         if not trustoken_apikey:
             return False
-        self.console.print(f"[yellow]{T('sync_to_cloud')}")
+        self.console.print(f"[yellow]{T('Uploading result, please wait...')}")
         try:
             response = requests.post(url, json={
                 'apikey': trustoken_apikey,
@@ -332,9 +332,9 @@ class Task(Stoppable):
                 data = response.json()
                 url = data.get('url', '')
                 if url:
-                    self.console.print(f"[green]{T('upload_success', url)}[/green]")
+                    self.console.print(f"[green]{T('Article uploaded successfully, {}', url)}[/green]")
             return True
 
         if verbose:
-            self.console.print(f"[red]{T('upload_failed', status_code)}:", response.text)
+            self.console.print(f"[red]{T('Upload failed (status code: {})', status_code)}:", response.text)
         return False

@@ -1,0 +1,297 @@
+id,zh
+Start processing instruction,开始处理指令
+Start executing code block,开始执行代码块
+Execution result,执行结果
+"Initializing MCP server, this may take a while if it's the first load, please wait patiently...",正在初始化MCP服务器，如果是第一次加载，可能会耗时较长，请耐心等待...
+Start calling MCP tool,开始调用MCP工具
+MCP tool call result,MCP工具调用结果
+Found {1} tools from {0} enabled MCP servers,从{0}个启用的MCP服务器找到{1}个工具
+"MCP Server: {}, tools: {}",MCP服务器：{}，工具：{}
+MCP server status: {},MCP服务器状态: {}
+Start parsing message,开始解析消息
+Message parse result,消息解析结果
+Start sending feedback,开始反馈结果
+End processing instruction,结束处理指令
+No context information found,未找到上下文信息
+"Uploading result, please wait...",正在上传结果，请稍候...
+"Article uploaded successfully, {}",上传成功，私密保存地址：{}
+Upload failed (status code: {}),上传失败 (状态码: {})
+Severe warning: This will reinitialize❗❗❗,严重警告：这将重新初始化❗❗❗
+"If you are sure to continue, enter y",如果你确定要继续，请输入 y
+Reply,响应
+Environment variable name and meaning,环境变量名称和意义
+Description,描述
+Unsupported file format,不支持的文件格式
+Request to install third-party packages,申请安装第三方包
+"If you agree, please enter",如果同意，请输入
+"Request to obtain environment variable {}, purpose",申请获取环境变量 {}，用途
+"Environment variable {} exists, returned for code use",环境变量 {} 存在，返回给代码使用
+"Environment variable {} not found, please enter",未找到环境变量 {}，请输入
+Call failed,调用失败
+Think,思考
+Current environment does not support publishing,当前环境不支持发布
+Auto confirm,自动确认
+Third-party packages have been installed,申请的第三方包已经安装
+"is thinking hard, please wait 6-60 seconds",正在绞尽脑汁思考中，请稍等6-60秒
+"No available LLM, please check the configuration file",没有可用的 LLM，请检查配置文件
+"Please use ai('task') to enter the task to be processed by AI (enter ai.use(llm) to switch to the following LLM:",请用 ai('任务') 输入需要 AI 处理的任务 (输入 ai.use(llm) 切换下述 LLM：
+"Please enter the task to be processed by AI (enter /use <following LLM> to switch, enter /info to view system information)",请输入需要 AI 处理的任务 (输入 /use <下述 LLM> 切换，输入 /info 查看系统信息)
+Default,默认
+Enabled,已启用
+Disabled,未启用
+"Enter AI mode, start processing tasks, enter Ctrl+d or /done to end the task",进入 AI 模式，开始处理任务，输入 Ctrl+d 或 /done 结束任务
+Exit AI mode,退出 AI 模式
+[AI mode] Unknown command,[AI 模式] 未知命令
+Task Summary,任务总结
+Round,轮次
+Time(s),时间(秒)
+In Tokens,输入令牌数
+Out Tokens,输出令牌数
+Total Tokens,总令牌数
+Sending task to {},正在向 {} 下达任务
+Error loading configuration: {},加载配置时出错: {}
+Please check the configuration file path and format.,请检查配置文件路径和格式。
+Configuration not loaded.,配置尚未加载。
+Missing 'llm' configuration.,缺少 'llm' 配置。
+Not usable,不可用
+Permission denied to create directory: {},无权限创建目录: {}
+Error creating configuration directory: {},创建配置目录时出错: {}
+Successfully migrated old version trustoken configuration to {},成功的将旧版本trustoken配置迁移到 {}
+Successfully migrated old version user configuration to {},成功的将旧版本用户配置迁移到 {}
+"Binding request sent successfully.
+Request ID: {}
+
+>>> Please open this URL in your browser on an authenticated device to approve:
+>>> {}
+
+(This link expires in {} seconds)","绑定请求发送成功。
+请求ID: {}
+
+>>> 请在已认证设备的浏览器中打开以下链接以批准:
+>>> {}
+
+(该链接将在{}秒后过期)"
+Or scan the QR code below:,或者扫描下方二维码：
+"We recommend you scan the QR code to bind the AiPy brain, you can also configure a third-party large model brain, details refer to: https://d.aipy.app/d/77",推荐您手机扫码绑定AiPy大脑，您也可以配置第三方大模型大脑，详情参考：https://d.aipy.app/d/77
+"(Could not display QR code: {})
+","(无法显示二维码: {})
+"
+Error connecting to coordinator or during request: {},连接到协调服务器或请求时出错: {}
+An unexpected error occurred during request: {},请求过程中发生意外错误: {}
+"Browser has opened the Trustoken website, please register or login to authorize",浏览器已打开Trustoken网站，请注册或登录授权
+Current status: {}...,当前状态: {}...
+"
+Binding request expired.","
+绑定请求已过期。"
+Received unknown status: {},收到未知状态: {}
+Error connecting to coordinator during polling: {},轮询协调服务器时出错: {}
+An unexpected error occurred during polling: {},轮询过程中发生意外错误: {}
+"
+Polling cancelled by user.","
+用户取消了轮询。"
+"
+Polling timed out.","
+轮询超时。"
+The current environment lacks the required configuration file. Starting the configuration initialization process to bind with the Trustoken account...,当前环境缺少必需的配置文件，开始进行配置初始化流程，与trustoken账号绑定即可自动获取配置...
+"
+Binding process completed successfully.","
+绑定流程已成功完成。"
+"
+Binding process failed or was not completed.","
+绑定流程失败或未完成。"
+"
+Failed to initiate binding request.","
+绑定请求发起失败。"
+Cancel,取消
+TrustToken Authentication,TrustToken 认证
+Error,错误
+Time remaining: {} seconds,剩余时间：{} 秒
+Approved,已批准
+Expired,已过期
+Pending,待处理
+"Found old configuration files: {}
+Attempting to migrate configuration from these files...
+After migration, these files will be backed up to {}, please check them.","发现旧的配置文件: {}
+尝试从这些文件迁移配置...
+迁移之后，这些文件会被备份到 {}，请注意查看。"
+Result file saved,结果文件已保存
+Current configuration file directory: {} Working directory: {},当前配置文件目录：{} 工作目录: {}
+System information,系统信息
+Save chat history as HTML,保存聊天记录为 HTML
+Clear chat,清空聊天
+Exit,退出
+Start new task,开始新任务
+Website,官网
+Forum,论坛
+WeChat Group,微信群
+About,关于
+Help,帮助
+File,文件
+Edit,编辑
+Task,任务
+Stop task,停止任务
+Share task,分享任务
+Current task has ended,当前任务已结束
+"Operation in progress, please wait...",操作进行中，请稍候...
+"Operation completed. If you want to start the next task, please click the ""End"" button","操作完成。如果开始下一个任务，请点击""结束""按钮"
+Press Ctrl/Cmd+Enter to send message,按 Ctrl/Cmd+Enter 发送消息
+Save chat history as HTML file,保存聊天记录为 HTML 文件
+Exit program,退出程序
+Clear all messages,清除所有消息
+Start a new task,开始一个新任务
+Official website,官方网站
+Official forum,官方论坛
+Official WeChat group,官方微信群
+About AIPY,关于爱派
+Configuration,配置
+Configure program parameters,配置程序参数
+Work Directory,工作目录
+Browse...,浏览...
+Select work directory,选择工作目录
+Max Tokens,请输入最大 Token 数（默认：8192）
+Timeout (seconds),超时时间(秒)
+Max Rounds,最大执行轮数
+OK,确定
+Cancel,取消
+AIPY is an intelligent assistant that can help you complete various tasks.,爱派是一个智能助手，可以帮助您完成各种任务。
+Current configuration directory,当前配置目录
+Current working directory,当前工作目录
+Version,版本
+AIPY Team,爱派团队
+You can create a new directory in the file dialog,您可以在文件对话框中选择或创建新目录
+Settings,设置
+https://sapi.trustoken.ai/v1,https://api.trustoken.cn/v1
+https://www.trustoken.ai/api,https://www.trustoken.cn/api
+https://store.aipy.app/api/work,https://store.aipyaipy.com/api/work
+Work directory does not exist,工作目录不存在
+Warning,警告
+LLM {} is not available,LLM {} 不可用
+End,结束
+Send,发送
+🐙 AIPY - Your AI Assistant 🐂 🐎,🐙爱派，您的干活牛🐂马🐎，啥都能干！
+API Market,API 市场
+LLM Configuration,LLM 配置
+Provider Configuration,提供商配置
+Me,我
+Turing,图灵
+AIPy,爱派
+Current task,当前任务
+End processing instruction,结束处理指令
+Run result,运行结果
+Update available,发现新版本
+Failed to save file,无法保存文件
+"Operation completed. If you start a new task, please click the ""End"" button","操作完成。如果开始下一个任务，请点击""结束""按钮"
+"Hello! I am **AIPy**, your intelligent task assistant!
+Please allow me to introduce the other members of the team:
+- Turing: The strongest artificial intelligence, complex task analysis and planning
+- BB-8: The strongest robot, responsible for executing tasks
+
+Note: Click the ""**Help**"" link in the menu bar to contact the **AIPy** official and join the group chat.","哈啰！我是**爱派**，您的智能任务小管家!
+请允许我隆重介绍团队其它成员：
+- 图灵：宇宙最强人工智能，复杂任务分析和规划
+- BB-8: 宇宙最强机器人，负责执行任务
+
+温馨提示：打开菜单栏""**帮助**""链接，可以联系**爱派**官方和加入群聊。"
+Select LLM Provider,选择 LLM 提供商
+Provider,提供商
+Trustoken,Trustoken
+Other,其它
+Trustoken is an intelligent API Key management service,Trustoken 是一个智能的 API Key 管理服务
+Auto get and manage API Key,自动获取和管理 API Key
+Support multiple LLM providers,支持多个 LLM 提供商
+Auto select optimal model,自动选择最优模型
+"Recommended for beginners, easy to configure and feature-rich",建议小白用户选择，配置方便、功能丰富
+Select other providers requires manual configuration,选择其它提供商需要手动配置
+Need to apply for API Key yourself,需要自行申请 API Key
+Manually input API Key,手动输入 API Key
+Manually select model,手动选择模型
+Trustoken Configuration,Trustoken 配置
+API Key,API Key
+Auto open browser to get API Key,自动打开浏览器获取 API Key
+Current status,当前状态
+Binding expired,绑定已过期
+Unknown status,未知状态
+Waiting timeout,等待超时
+API Key obtained successfully!,API Key 获取成功！
+"API Key acquisition failed, please try again",API Key 获取失败，请重试
+Requesting binding,正在申请绑定
+Waiting for user confirmation,等待用户确认
+Remaining time,剩余时间
+seconds,秒
+You can also click this link to open browser to get API Key,你也可以点击此链接打开浏览器获取API Key
+Please get API Key first,请先获取API Key
+Available Models,请选择模型
+Temperature (%),请输入 Temperature（0-1，默认：0.7）
+"Please select provider and input API Key, click Next to verify",请选择提供商并输入API Key，点击下一步验证
+Please select model to use and configure parameters,请选择要使用的模型并配置参数
+Model list acquisition failed,无法获取模型列表，请检查 API Key 是否正确
+Hint,提示
+API Name,API名称
+Delete,删除
+Confirm Delete,确认删除
+Are you sure to delete API,确定要删除API
+Add API,新增API
+Edit API,编辑API
+API Key Settings,API密钥设置
+Add Environment Variable,添加环境变量
+API Description,API描述
+API Description Hint,"提示: 描述支持多行文本，将以""""""...""""""格式保存"
+Save,保存
+Variable Name,变量名
+Value,值
+Remove,移除
+Add,添加
+Refresh,刷新
+No API configured,暂无API配置
+API Details,API详情
+Close,关闭
+API configuration saved,API配置已保存
+Failed to save API configuration,保存API配置失败
+API configuration loaded,API配置已加载
+Failed to load API configuration,加载API配置失败
+API deleted,API已删除
+Failed to delete API,删除API失败
+API added,API已添加
+Failed to add API,添加API失败
+API updated,API已更新
+Failed to update API,更新API失败
+Support multiline text,支持多行文本
+You can only add two environment variables at most,最多只能添加两个环境变量
+API Market - Manage Your API Configurations,API市场 - 管理您的API配置
+"Manage your API configurations here, including adding new APIs, viewing and editing existing ones.",在此处管理您的API配置，包括添加新API、查看和编辑现有API。
+Add New API,添加新API
+Refresh List,刷新列表
+Number of Keys,密钥数量
+Description,描述
+"Tip: Right-click on API item to view, edit and delete",提示: 右键点击API项可进行查看、编辑和删除操作
+"Click ""Add New API"" button to add API configuration","点击""添加新API""按钮添加API配置"
+View Details,查看详情
+API name cannot be empty,API名称不能为空
+API name already exists,API名称已存在
+API configuration saved and applied,API配置已保存并应用
+Failed to save configuration,保存配置失败
+Success,成功
+Environment Variables,环境变量
+Enter your API key,填写您的API密钥
+API key description,API密钥描述
+Save and Apply,保存并应用
+Click here for more information,点击这里获取更多信息
+LLM Provider Configuration Wizard,LLM 提供商配置向导
+Select Model,请选择模型
+Trustoken uses automatic model selection,Trustoken 使用自动模型选择
+Configuration saved,配置已保存
+Configuration loaded,配置已加载
+Failed to load configuration,加载配置失败
+Configuration applied,配置已应用
+Failed to apply configuration,应用配置失败
+Select other providers,请选择其它提供商
+Starting LLM Provider Configuration Wizard,未找到 LLM 配置，开始配置 LLM 提供商
+User cancelled configuration,用户取消配置
+https://aipy.app,https://www.aipyaipy.com
+https://d.aipy.app,https://d.aipyaipy.com
+https://d.aipy.app/d/13,https://d.aipyaipy.com/d/13
+Share result,分享结果
+Share failed,分享失败
+Share success,分享成功
+Click the link below to view the task record,点击下方链接查看任务记录
+View task record,查看任务记录

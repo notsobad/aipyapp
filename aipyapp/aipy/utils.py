@@ -26,7 +26,7 @@ def restore_output(func):
 
 def confirm(console, prompt, default="n", auto=None):
     if auto in (True, False):
-        console.print(f"✅ {T('auto_confirm')}")
+        console.print(f"✅ {T('Auto confirm')}")
         return auto
     while True:
         response = console.input(prompt).strip().lower()

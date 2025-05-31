@@ -7,7 +7,7 @@ from ..aipy.i18n import T, get_lang
 
 PROVIDERS = {
     "Trustoken": {
-        "api_base": T("tt_base_url"),
+        "api_base": T("https://sapi.trustoken.ai/v1"),
         "models_endpoint": "/models",
         "type": "trust",
         "model": "auto"

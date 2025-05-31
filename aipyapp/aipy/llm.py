@@ -76,7 +76,7 @@ class LiveManager:
         self.name = name
         self.lr = LineReceiver()
         self.lr_reason = LineReceiver()
-        self.title = f"{self.name} {T('llm_response')}"
+        self.title = f"{self.name} {T('Reply')}"
         self.reason_started = False
         self.display_lines = []
         self.max_lines = 10

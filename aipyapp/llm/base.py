@@ -83,7 +83,7 @@ class BaseClient(ABC):
         try:
             response = self.get_completion(history.get_messages())
         except Exception as e:
-            self.log.error(f"❌ [bold red]{self.name} API {T('call_failed')}: [yellow]{str(e)}")
+            self.log.error(f"❌ [bold red]{self.name} API {T('Call failed')}: [yellow]{str(e)}")
             return ChatMessage(role='error', content=str(e))
 
         if self._stream:

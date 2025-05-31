@@ -82,7 +82,7 @@ class AIPython(threading.Thread):
         wx.PostEvent(self.gui, evt)
 
     def on_display(self, image):
-        user = T('Turing')
+        user = T("Turing")
         if image['path']:
             base64_data = image_to_base64(image['path'])
             content = base64_data if base64_data else image['path']
@@ -94,13 +94,13 @@ class AIPython(threading.Thread):
         wx.PostEvent(self.gui, evt)
 
     def on_response_complete(self, msg):
-        user = T('Turing') #msg['llm']
+        user = T("Turing") #msg['llm']
         #content = f"```markdown\n{msg['content']}\n```"
         evt = ChatEvent(user=user, msg=msg['content'])
         wx.PostEvent(self.gui, evt)
 
     def on_summary(self, summary):
-        user = T('AIPy')
+        user = T("AIPy")
         evt = ChatEvent(user=user, msg=f'{T("End processing instruction")} {summary}')
         wx.PostEvent(self.gui, evt)
 
@@ -197,7 +197,7 @@ class CStatusBar(wx.StatusBar):
             self.current_llm = label
             self.SetStatusText(f"{label} ▾", 2)
         else:
-            wx.MessageBox(T('LLM {} is not available').format(label), T('Warning'), wx.OK|wx.ICON_WARNING)
+            wx.MessageBox(T("LLM {} is not available").format(label), T("Warning"), wx.OK|wx.ICON_WARNING)
 
     def on_open_work_dir(self, event):
         """打开工作目录"""
@@ -210,7 +210,7 @@ class CStatusBar(wx.StatusBar):
             else:
                 subprocess.call(['xdg-open', work_dir])
         else:
-            wx.MessageBox(T('Work directory does not exist'), T('Error'), wx.OK | wx.ICON_ERROR)
+            wx.MessageBox(T("Work directory does not exist"), T("Error"), wx.OK | wx.ICON_ERROR)
 
 class FileDropTarget(wx.FileDropTarget):
     def __init__(self, text_ctrl):
@@ -224,7 +224,7 @@ class FileDropTarget(wx.FileDropTarget):
 
 class ChatFrame(wx.Frame):
     def __init__(self, tm):
-        title = T('AIPY - Your AI Assistant')
+        title = T("🐙 AIPY - Your AI Assistant 🐂 🐎")
         super().__init__(None, title=title, size=(1024, 768))
         
         self.tm = tm
@@ -235,7 +235,7 @@ class ChatFrame(wx.Frame):
         self.welcomed = False  # 添加初始化标志
         resources_dir = resources.files(f"{__PACKAGE_NAME__}.res")
         self.html_file_path = os.path.abspath(resources_dir / "chatroom.html")
-        self.avatars = {T('Me'): '🧑', 'BB-8': '🤖', T('Turing'): '🧠', T('AIPy'): '🐙'}
+        self.avatars = {T("Me"): '🧑', 'BB-8': '🤖', T("Turing"): '🧠', T("AIPy"): '🐙'}
 
         icon = wx.Icon(str(resources_dir / "aipy.ico"), wx.BITMAP_TYPE_ICO)
         self.SetIcon(icon)
@@ -244,7 +244,7 @@ class ChatFrame(wx.Frame):
         self.make_panel()
         self.statusbar = CStatusBar(self)
         self.SetStatusBar(self.statusbar)
-        self.statusbar.SetStatusText(T('Press Ctrl+Enter to send message'), 0)
+        self.statusbar.SetStatusText(T("Press Ctrl/Cmd+Enter to send message"), 0)
 
         self.Bind(EVT_CHAT, self.on_chat)
         self.webview.Bind(wx.html2.EVT_WEBVIEW_TITLE_CHANGED, self.on_webview_title_changed)
@@ -259,10 +259,10 @@ class ChatFrame(wx.Frame):
         self.input.SetWindowStyleFlag(wx.BORDER_SIMPLE)
         self.input.Bind(wx.EVT_KEY_DOWN, self.on_key_down)
 
-        self.done_button = wx.Button(self.container, label=T('End'), size=(50, -1))
+        self.done_button = wx.Button(self.container, label=T("End"), size=(50, -1))
         self.done_button.Hide()
         self.done_button.Bind(wx.EVT_BUTTON, self.on_done)
-        self.send_button = wx.Button(self.container, label=T('Send'), size=(50, -1))
+        self.send_button = wx.Button(self.container, label=T("Send"), size=(50, -1))
         self.send_button.Bind(wx.EVT_BUTTON, self.on_send)
         self.container.Bind(wx.EVT_SIZE, self.on_container_resize)
         return self.container
@@ -277,11 +277,11 @@ class ChatFrame(wx.Frame):
         hbox.Add(self.input, proportion=1, flag=wx.EXPAND | wx.ALL, border=5)
 
         vbox = wx.BoxSizer(wx.VERTICAL)
-        self.done_button = wx.Button(container, label=T('End'))
+        self.done_button = wx.Button(container, label=T("End"))
         self.done_button.Hide()
         self.done_button.Bind(wx.EVT_BUTTON, self.on_done)
         self.done_button.SetBackgroundColour(wx.Colour(255, 230, 230)) 
-        self.send_button = wx.Button(container, label=T('Send'))
+        self.send_button = wx.Button(container, label=T("Send"))
         self.send_button.Bind(wx.EVT_BUTTON, self.on_send)
         vbox.Add(self.done_button, 0, wx.ALIGN_CENTER | wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
         vbox.AddSpacer(10)
@@ -321,39 +321,39 @@ class ChatFrame(wx.Frame):
         
         # 文件菜单
         file_menu = wx.Menu()
-        save_item = file_menu.Append(wx.ID_SAVE, T('Save chat history as HTML'))
-        clear_item = file_menu.Append(wx.ID_CLEAR, T('Clear chat'))
+        save_item = file_menu.Append(wx.ID_SAVE, T("Save chat history as HTML"))
+        clear_item = file_menu.Append(wx.ID_CLEAR, T("Clear chat"))
         file_menu.AppendSeparator()
-        exit_item = file_menu.Append(wx.ID_EXIT, T('Exit'))
-        menubar.Append(file_menu, T('File'))
+        exit_item = file_menu.Append(wx.ID_EXIT, T("Exit"))
+        menubar.Append(file_menu, T("File"))
         
         # 编辑菜单
         edit_menu = wx.Menu()
-        config_item = edit_menu.Append(wx.ID_ANY, T('Configuration'))
-        api_market_item = edit_menu.Append(wx.ID_ANY, T('API Market'))
-        menubar.Append(edit_menu, T('Edit'))
+        config_item = edit_menu.Append(wx.ID_ANY, T("Configuration"))
+        api_market_item = edit_menu.Append(wx.ID_ANY, T("API Market"))
+        menubar.Append(edit_menu, T("Edit"))
         
         # 任务菜单
         task_menu = wx.Menu()
-        self.new_task_item = task_menu.Append(wx.ID_NEW, T('Start new task'))
-        self.stop_task_item = task_menu.Append(wx.ID_ANY, T('Stop task'))
+        self.new_task_item = task_menu.Append(wx.ID_NEW, T("Start new task"))
+        self.stop_task_item = task_menu.Append(wx.ID_ANY, T("Stop task"))
         self.stop_task_item.Enable(False)
         self.Bind(wx.EVT_MENU, self.on_stop_task, self.stop_task_item)
-        self.share_task_item = task_menu.Append(wx.ID_ANY, T('Share task'))
+        self.share_task_item = task_menu.Append(wx.ID_ANY, T("Share task"))
         self.share_task_item.Enable(False)
         self.Bind(wx.EVT_MENU, self.on_share_task, self.share_task_item)
-        menubar.Append(task_menu, T('Task'))
+        menubar.Append(task_menu, T("Task"))
 
         # 帮助菜单
         help_menu = wx.Menu()
-        website_item = help_menu.Append(wx.ID_ANY, T('Website'))
+        website_item = help_menu.Append(wx.ID_ANY, T("Website"))
         #forum_item = help_menu.Append(wx.ID_ANY, T('Forum'))
         if __lang__ == 'zh':
-            wechat_item = help_menu.Append(wx.ID_ANY, T('WeChat Group'))
+            wechat_item = help_menu.Append(wx.ID_ANY, T("WeChat Group"))
             self.Bind(wx.EVT_MENU, self.on_open_website, wechat_item)
         help_menu.AppendSeparator()
-        about_item = help_menu.Append(wx.ID_ABOUT, T('About'))
-        menubar.Append(help_menu, T('Help'))
+        about_item = help_menu.Append(wx.ID_ABOUT, T("About"))
+        menubar.Append(help_menu, T("Help"))
         
         self.SetMenuBar(menubar)
         
@@ -381,7 +381,7 @@ class ChatFrame(wx.Frame):
         
     def on_task_done(self):
         self.done_button.Hide()
-        self.SetStatusText(T('Current task has ended'), 0)
+        self.SetStatusText(T("Current task has ended"), 0)
         self.new_task_item.Enable(False)
         self.SetTitle(self.title)
         self.clear_chat()
@@ -426,11 +426,11 @@ class ChatFrame(wx.Frame):
             return
             
         label = menu_item.GetItemLabel()
-        if label == T('Website'):
+        if label == T("Website"):
             url = T("https://aipy.app")
-        elif label == T('Forum'):
+        elif label == T("Forum"):
             url = T("https://d.aipy.app")
-        elif label == T('WeChat Group'):
+        elif label == T("WeChat Group"):
             url = T("https://d.aipy.app/d/13")
         else:
             return
@@ -449,7 +449,7 @@ class ChatFrame(wx.Frame):
             wx.MessageBox(f"save html error: {e}", "Error")
 
     def save_html_content(self, html_content):
-        with FileDialog(self, T('Save chat history as HTML file'), wildcard="HTML file (*.html)|*.html",
+        with FileDialog(self, T("Save chat history as HTML file"), wildcard="HTML file (*.html)|*.html",
                         style=FD_SAVE | FD_OVERWRITE_PROMPT) as dialog:
             if dialog.ShowModal() == wx.ID_CANCEL:
                 return
@@ -459,7 +459,7 @@ class ChatFrame(wx.Frame):
                 with open(path, 'w', encoding='utf-8') as file:
                     file.write(html_content)
             except IOError:
-                wx.LogError(f"{T('Failed to save file')}: {path}")
+                wx.LogError(f"{T("Failed to save file")}: {path}")
 
     def on_key_down(self, event):
         keycode = event.GetKeyCode()
@@ -481,7 +481,7 @@ class ChatFrame(wx.Frame):
             self.container.Hide()
             self.done_button.Hide()
             wx.BeginBusyCursor()
-            self.SetStatusText(T('Operation in progress, please wait...'), 0)
+            self.SetStatusText(T("Operation in progress, please wait..."), 0)
             self.new_task_item.Enable(False)
             self.stop_task_item.Enable(True)
             self.share_task_item.Enable(False)
@@ -489,7 +489,7 @@ class ChatFrame(wx.Frame):
             self.container.Show()
             self.done_button.Show()
             wx.EndBusyCursor()
-            self.SetStatusText(T('Operation completed. If you start a new task, please click the "End" button'), 0)
+            self.SetStatusText(T("Operation completed. If you start a new task, please click the "End" button"), 0)
             self.new_task_item.Enable(self.aipython.can_done())
             self.stop_task_item.Enable(False)
             self.share_task_item.Enable(True)
@@ -503,9 +503,9 @@ class ChatFrame(wx.Frame):
             return
         
         if not self.aipython.has_task():
-            self.SetTitle(f"[{T('Current task')}] {text}")
+            self.SetTitle(f"[{T("Current task")}] {text}")
 
-        self.append_message(T('Me'), text)
+        self.append_message(T("Me"), text)
         self.input.Clear()
         self.toggle_input()
         self.task_queue.put(text)
@@ -542,14 +542,19 @@ class ChatFrame(wx.Frame):
     def on_webview_title_changed(self, event):
         """WebView 标题改变时的处理"""
         if not self.welcomed:
-            wx.CallLater(100, self.append_message, T('AIPy'), T('welcome_message'))
+            wx.CallLater(100, self.append_message, T("AIPy"), T("Hello! I am **AIPy**, your intelligent task assistant!
+Please allow me to introduce the other members of the team:
+- Turing: The strongest artificial intelligence, complex task analysis and planning
+- BB-8: The strongest robot, responsible for executing tasks
+
+Note: Click the "**Help**" link in the menu bar to contact the **AIPy** official and join the group chat."))
             self.welcomed = True
 
             # 检查更新
             try:
                 update = self.tm.get_update()
                 if update and update.get('has_update'):
-                    wx.CallLater(1000, self.append_message, T('AIPy'), f"\n🔔 **{T('Update available')}❗**: `v{update.get('latest_version')}`")
+                    wx.CallLater(1000, self.append_message, T("AIPy"), f"\n🔔 **{T("Update available")}❗**: `v{update.get('latest_version')}`")
             except Exception as e:
                 self.log.error(f"检查更新时出错: {e}")
             
@@ -576,7 +581,7 @@ class ChatFrame(wx.Frame):
 
 class AboutDialog(wx.Dialog):
     def __init__(self, parent):
-        super().__init__(parent, title=T('About AIPY'))
+        super().__init__(parent, title=T("About AIPY"))
         
         # 创建垂直布局
         vbox = wx.BoxSizer(wx.VERTICAL)
@@ -593,37 +598,37 @@ class AboutDialog(wx.Dialog):
             logo_sizer.Add(wx.StaticBitmap(logo_panel, -1, scaled_bmp), 0, wx.ALL | wx.ALIGN_CENTER, 5)
 
         # 添加标题
-        title = wx.StaticText(logo_panel, -1, label=T('AIPy'))
+        title = wx.StaticText(logo_panel, -1, label=T("AIPy"))
         title.SetFont(wx.Font(16, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD))
         logo_sizer.Add(title, 0, wx.ALL|wx.ALIGN_CENTER, 10)
         logo_panel.SetSizer(logo_sizer)
         vbox.Add(logo_panel, 0, wx.ALL|wx.ALIGN_CENTER, 10)
         
         # 添加描述
-        desc = wx.StaticText(self, label=T('AIPY is an intelligent assistant that can help you complete various tasks.'))
+        desc = wx.StaticText(self, label=T("AIPY is an intelligent assistant that can help you complete various tasks."))
         desc.Wrap(350)
         vbox.Add(desc, 0, wx.ALL|wx.ALIGN_CENTER, 10)
         
         # 添加版本信息
-        version = wx.StaticText(self, label=f"{T('Version')}: {__version__}")
+        version = wx.StaticText(self, label=f"{T("Version")}: {__version__}")
         vbox.Add(version, 0, wx.ALL|wx.ALIGN_CENTER, 5)
         
         # 添加配置目录信息
-        config_dir = wx.StaticText(self, label=f"{T('Current configuration directory')}: {CONFIG_DIR}")
+        config_dir = wx.StaticText(self, label=f"{T("Current configuration directory")}: {CONFIG_DIR}")
         config_dir.Wrap(350)
         vbox.Add(config_dir, 0, wx.ALL|wx.ALIGN_CENTER, 5)
         
         # 添加工作目录信息
-        work_dir = wx.StaticText(self, label=f"{T('Current working directory')}: {parent.tm.workdir}")
+        work_dir = wx.StaticText(self, label=f"{T("Current working directory")}: {parent.tm.workdir}")
         work_dir.Wrap(350)
         vbox.Add(work_dir, 0, wx.ALL|wx.ALIGN_CENTER, 5)
         
         # 添加团队信息
-        team = wx.StaticText(self, label=T('AIPY Team'))
+        team = wx.StaticText(self, label=T("AIPY Team"))
         vbox.Add(team, 0, wx.ALL|wx.ALIGN_CENTER, 10)
         
         # 添加确定按钮
-        ok_button = wx.Button(self, wx.ID_OK, T('OK'))
+        ok_button = wx.Button(self, wx.ID_OK, T("OK"))
         vbox.Add(ok_button, 0, wx.ALL|wx.ALIGN_CENTER, 10)
         
         self.SetSizer(vbox)
@@ -633,13 +638,13 @@ class AboutDialog(wx.Dialog):
 
 class ShareResultDialog(wx.Dialog):
     def __init__(self, parent, url, error=None):
-        super().__init__(parent, title=T('Share result'), size=(400, 200))
+        super().__init__(parent, title=T("Share result"), size=(400, 200))
         logger.info(f"ShareResultDialog: {url}, {error}")
         vbox = wx.BoxSizer(wx.VERTICAL)
         
         if error:
             # 显示错误信息
-            error_text = wx.StaticText(self, label=T('Share failed'))
+            error_text = wx.StaticText(self, label=T("Share failed"))
             error_text.SetForegroundColour(wx.Colour(255, 0, 0))
             vbox.Add(error_text, 0, wx.ALL | wx.ALIGN_CENTER, 10)
             
@@ -648,22 +653,22 @@ class ShareResultDialog(wx.Dialog):
             vbox.Add(error_msg, 0, wx.ALL | wx.ALIGN_CENTER, 10)
         else:
             # 显示成功信息
-            success_text = wx.StaticText(self, label=T('Share success'))
+            success_text = wx.StaticText(self, label=T("Share success"))
             success_text.SetForegroundColour(wx.Colour(0, 128, 0))
             vbox.Add(success_text, 0, wx.ALL | wx.ALIGN_CENTER, 10)
             
             # 添加提示文本
-            hint_text = wx.StaticText(self, label=T('Click the link below to view the task record:'))
+            hint_text = wx.StaticText(self, label=T("Click the link below to view the task record"))
             vbox.Add(hint_text, 0, wx.ALL | wx.ALIGN_CENTER, 5)
             
             # 添加可点击的链接
-            link = HyperLinkCtrl(self, -1, T('View task record'), URL=url)
+            link = HyperLinkCtrl(self, -1, T("View task record"), URL=url)
             link.EnableRollover(True)
             link.SetUnderlines(False, False, True)
             vbox.Add(link, 0, wx.ALL | wx.ALIGN_CENTER, 5)
         
         # 添加确定按钮
-        ok_button = wx.Button(self, wx.ID_OK, T('OK'))
+        ok_button = wx.Button(self, wx.ID_OK, T("OK"))
         vbox.Add(ok_button, 0, wx.ALL | wx.ALIGN_CENTER, 10)
         
         self.SetSizer(vbox)

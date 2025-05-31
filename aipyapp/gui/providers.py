@@ -213,7 +213,7 @@ class TrustTokenPage(wx.adv.WizardPage):
     def _on_success(self):
         self._toggle_progress(False)
         self.fetch_button.Enable()
-        self.status_text.SetLabel(T('API Key obtained successfully'))
+        self.status_text.SetLabel(T("API Key obtained successfully!"))
         self.Layout()  # 强制重新布局
 
     def _on_failure(self):

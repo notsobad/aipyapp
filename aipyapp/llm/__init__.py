@@ -33,7 +33,7 @@ class TrustClient(OpenAIBaseClient):
     PARAMS = {'stream_options': {'include_usage': True}}
 
     def get_base_url(self):
-        return self.config.get("base_url") or T('tt_base_url')
+        return self.config.get("base_url") or T("https://sapi.trustoken.ai/v1")
     
 class AzureOpenAIClient(OpenAIBaseClient): 
     MODEL = 'gpt-4o'
