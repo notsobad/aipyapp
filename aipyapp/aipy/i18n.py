@@ -93,7 +93,7 @@ class Translator:
             with resources.open_text('aipyapp.res', 'locales.csv') as f:
                 reader = csv.DictReader(f)
                 for row in reader:
-                    self.messages[row['id']] = None if self.lang=='en' else row.get(self.lang)
+                    self.messages[row['en']] = None if self.lang=='en' else row.get(self.lang)
         except Exception as e:
             self.log.error(f"Error loading translations: {e}")
 

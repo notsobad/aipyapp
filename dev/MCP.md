@@ -7,6 +7,7 @@ MCP (Model Context Protocol) 是一组工具协议，允许 AI 模型与外部�
 ### 基础环境要求
 
 - Node.js 环境 (用于大部分 MCP 工具)
+- uvx (可选，用于部分使用python编写的MCP工具)
 
 ### 安装特定 MCP 工具
 
@@ -18,21 +19,20 @@ MCP (Model Context Protocol) 是一组工具协议，允许 AI 模型与外部�
    # 文件系统工具
    npm install -g @modelcontextprotocol/server-filesystem
    
-   # Everything 搜索工具
-   npm install -g @modelcontextprotocol/server-everything
-   
    # Playwright 工具
    npm install -g @playwright/mcp
    ```
 
-2. **基于 Python 的工具**：
-   
-   您可以创建自己的 Python MCP 工具，或安装第三方工具：
-   
+2. **基于 `uvx` 的工具**：
+
+   `uvx` 是`uv`项目的一个工具，可以用来执行 Python 包。 安装参考：https://docs.astral.sh/uv/getting-started/installation/#standalone-installer
+
    ```bash
-   # 示例：安装天气 MCP 工具
-   pip install mcp-weather-tools
+   # 需要安装uv工具
+   pip install uv
    ```
+   使用 `uvx` 运行 MCP Server 时，通常不需要为 MCP Server 单独安装依赖，`uvx` 会处理。
+
 
 ## 2. MCP 配置文件
 
@@ -59,6 +59,12 @@ aipyapp 使用 JSON 格式的配置文件来管理 MCP 工具。默认配置文�
       "args": [
         "-y",
         "@modelcontextprotocol/server-everything"
+      ]
+    },
+    "playwright_uvx": {
+      "command": "uvx",
+      "args": [
+        "@playwright/mcp"
       ]
     },
     "weather": {
@@ -95,48 +101,6 @@ aipyapp 使用 JSON 格式的配置文件来管理 MCP 工具。默认配置文�
 - `disabled`：(可选) 设置为 `true` 时禁用该服务器
 - `enabled`：(可选) 设置为 `false` 时禁用该服务器
 
-### 常见工具配置示例
-
-1. **文件系统工具**：
-
-```json
-"filesystem": {
-  "command": "npx",
-  "args": [
-    "-y",
-    "@modelcontextprotocol/server-filesystem",
-    "/home/user/documents",
-    "/home/user/projects"
-  ]
-}
-```
-
-2. **Everything 搜索工具**：
-
-```json
-"everything": {
-  "command": "npx",
-  "args": [
-    "-y",
-    "@modelcontextprotocol/server-everything"
-  ]
-}
-```
-
-3. **自定义 Python 工具**：
-
-```json
-"custom_tool": {
-  "command": "/path/to/venv/bin/python",
-  "args": [
-    "/path/to/your_script.py"
-  ],
-  "env": {
-    "API_KEY": "your-api-key",
-    "DEBUG": "true"
-  }
-}
-```
 
 ## 4. 禁用 MCP 服务器
 
