@@ -41,7 +41,7 @@ class Runner():
     def __init__(self, runtime):
         self.runtime = runtime
         self.history = []
-        self._globals = {'runtime': runtime, '__session__': {}, '__result__': {}, '__name__': '__main__', 'input': self.runtime.input}
+        self._globals = {'runtime': runtime, '__storage__': {}, '__result__': {}, '__name__': '__main__', 'input': self.runtime.input}
         exec(INIT_IMPORTS, self._globals)
 
     def __repr__(self):
@@ -58,7 +58,7 @@ class Runner():
         sys.stdout, sys.stderr = captured_stdout, captured_stderr
         result = {}
         env = self.runtime.envs.copy()
-        session = self._globals['__session__'].copy()
+        session = self._globals['__storage__'].copy()
         gs = self._globals.copy()
         #gs['__result__'] = {}
         try:
@@ -85,7 +85,7 @@ class Runner():
         diff = diff_dicts(env, self.runtime.envs)
         if diff:
             history['env'] = diff
-        diff = diff_dicts(gs['__session__'], session)
+        diff = diff_dicts(gs['__storage__'], session)
         if diff:
             history['session'] = diff
 
