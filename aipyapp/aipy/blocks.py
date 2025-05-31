@@ -15,7 +15,7 @@ class CodeBlocks:
         self.console = console
         self.blocks = OrderedDict()
         self.code_pattern = re.compile(
-            r'<!--\s*Block-Start:\s*(\{.*?\})\s*-->\s*```(\w+)?\s*\n(.*?)\n```[\r\n]*<!--\s*Block-End:\s*(\{.*?\})\s*-->',
+            r'<!--\s*Block-Start:\s*(\{.*?\})\s*-->\s*```(\w+)?\s*\n(.*?)\n```\s*<!--\s*Block-End:\s*(\{.*?\})\s*-->',
             re.DOTALL
         )
         self.line_pattern = re.compile(
