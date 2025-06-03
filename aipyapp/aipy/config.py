@@ -35,8 +35,8 @@ def get_tt_aio_api(tt_api_key) -> dict:
     if not tt_api_key:
         return {}
 
-    search_url = f"{T('tt_aio_url')}/search/unified"
-    geoip_url = f"{T('tt_aio_url')}/ipgeo"
+    search_url = f"{T('https://sapi.trustoken.ai/aio-api')}/search/unified"
+    geoip_url = f"{T('https://sapi.trustoken.ai/aio-api')}/ipgeo"
     tt_aio_api = {
         'tt_aio_map': {
             'env': {'tt_aio_map': [tt_api_key, "最新地图API Key"]},
@@ -45,7 +45,7 @@ def get_tt_aio_api(tt_api_key) -> dict:
         },
         'tt_aio_geoip':{
             'env': {'tt_aio_geoip': [tt_api_key, "最新IP地理位置API Key"]},
-            'desc': f"""获取当前IP所在地理位置信息，包括国家、省份、城市等信息。接口调用示例如下：
+            'desc': f"""如果任务中涉及到位置，但没有指定具体位置，可以用此接口获取地理位置信息，包括国家、省份、城市等信息。接口调用示例如下：
 curl -H 'Authorization: Bearer xxx' {geoip_url}
 响应数据如下：{{"city": "成都", "country": "中国", "ip": "171.2.1.1", "isp": "电信", "latitude": "32.676235", "longitude": "103.058986", "province": "四川", "version": 4}}""",
         },
