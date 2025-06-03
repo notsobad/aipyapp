@@ -180,7 +180,7 @@ End processing instruction,结束处理指令
 Run result,运行结果
 Update available,发现新版本
 Failed to save file,无法保存文件
-"Operation completed. If you start a new task, please click the ""End"" button","操作完成。如果开始下一个任务，请点击""结束""按钮"
+"Operation completed. If you start a new task, please click the `End` button","操作完成。如果开始下一个任务，请点击 `结束` 按钮"
 "Hello! I am **AIPy**, your intelligent task assistant!
 Please allow me to introduce the other members of the team:
 - Turing: The strongest artificial intelligence, complex task analysis and planning
