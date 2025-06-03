@@ -230,10 +230,10 @@ class Client:
             return True
         return False
     
-    def __call__(self, instruction, *, system_prompt=None, quiet=False):
+    def __call__(self, instruction, *, system_prompt=None, quiet=False, tools=None):
         client = self.current
         stream_processor = LiveManager(client.name, quiet=quiet)
-        msg = client(self.history, instruction, system_prompt=system_prompt, stream_processor=stream_processor)
+        msg = client(self.history, instruction, system_prompt=system_prompt, stream_processor=stream_processor, tools=tools)
         if msg:
             event_bus.broadcast('response_complete', {'llm': client.name, 'content': msg})
         else:

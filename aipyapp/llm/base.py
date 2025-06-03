@@ -55,7 +55,7 @@ class BaseClient(ABC):
         return self._client
     
     @abstractmethod
-    def get_completion(self, messages):
+    def get_completion(self, messages, tools=None):
         pass
         
     def add_system_prompt(self, history, system_prompt):
@@ -73,7 +73,7 @@ class BaseClient(ABC):
     def _parse_response(self, response):
         pass
     
-    def __call__(self, history, prompt, system_prompt=None, stream_processor=None):
+    def __call__(self, history, prompt, system_prompt=None, stream_processor=None, tools=None):
         # We shall only send system prompt once
         if not history and system_prompt:
             self.add_system_prompt(history, system_prompt)
@@ -81,7 +81,7 @@ class BaseClient(ABC):
 
         start = time.time()
         try:
-            response = self.get_completion(history.get_messages())
+            response = self.get_completion(history.get_messages(), tools=tools)
         except Exception as e:
             self.log.error(f"❌ [bold red]{self.name} API {T('Call failed')}: [yellow]{str(e)}")
             return ChatMessage(role='error', content=str(e))
