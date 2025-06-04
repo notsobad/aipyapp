@@ -51,7 +51,7 @@ class Runner():
     def globals(self):
         return self._globals
     
-    def __call__(self, code_str):
+    def __call__(self, block):
         old_stdout, old_stderr = sys.stdout, sys.stderr
         captured_stdout = StringIO()
         captured_stderr = StringIO()
@@ -62,7 +62,7 @@ class Runner():
         gs = self._globals.copy()
         #gs['__result__'] = {}
         try:
-            exec(code_str, gs)
+            exec(block.code, gs)
         except (SystemExit, Exception) as e:
             result['errstr'] = str(e)
             result['traceback'] = traceback.format_exc()
@@ -80,7 +80,7 @@ class Runner():
             self._globals['__result__'] = vars
             result['__result__'] = self.filter_result(vars)
 
-        history = {'code': code_str, 'result': result}
+        history = {'block': block, 'result': result}
 
         diff = diff_dicts(env, self.runtime.envs)
         if diff:

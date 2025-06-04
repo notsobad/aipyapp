@@ -13,8 +13,8 @@ class CStatusBar(wx.StatusBar):
         self.SetStatusWidths([-1, 30, 80])
 
         self.tm = parent.tm
-        self.current_llm = self.tm.clients.names['default']
-        self.enabled_llm = list(self.tm.clients.names['enabled'])
+        self.current_llm = self.tm.client_manager.names['default']
+        self.enabled_llm = list(self.tm.client_manager.names['enabled'])
         self.menu_items = self.enabled_llm
         self.radio_group = []
 
@@ -56,7 +56,7 @@ class CStatusBar(wx.StatusBar):
             self.current_llm = label
             self.SetStatusText(f"{label} ▾", 2)
         else:
-            wx.MessageBox(f"LLM {label} 不可用", "警告", wx.OK|wx.ICON_WARNING)
+            wx.MessageBox(T("LLM {} is not available").format(label), T("Warning"), wx.OK|wx.ICON_WARNING)
 
     def on_open_work_dir(self, event):
         """打开工作目录"""
@@ -69,4 +69,4 @@ class CStatusBar(wx.StatusBar):
             else:
                 subprocess.call(['xdg-open', work_dir])
         else:
-            wx.MessageBox(T('Work directory does not exist'), T("Error"), wx.OK | wx.ICON_ERROR) 
+            wx.MessageBox(T("Work directory does not exist"), T("Error"), wx.OK | wx.ICON_ERROR)
