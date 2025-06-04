@@ -34,7 +34,9 @@ print("hello world")
    - 要执行的代码块ID必需先使用前述多行代码块标记格式单独定义。
    - 可以使用 `Cmd-Exec` 执行会话历史中的所有代码块。特别地，如果需要重复执行某个任务，尽量使用 `Cmd-Exec` 执行而不是重复输出代码块。
 
-2. **正确示例：**
+2. Cmd-Exec 只能用来执行 Python 代码块，不能执行其它语言(如 JSON/HTML/CSS/JavaScript等)的代码块。
+
+3. **正确示例：**
 <!-- Cmd-Exec: {"id": "abc123"} -->
 
 ## 其它   
@@ -74,7 +76,7 @@ def main():
     __storage__['step1_result'] = calculated_value
 ```
 
-## 全局变量 `__result__`
+## 局部变量 `__result__`
 - 类型: 字典。
 - 用途: 用于记录和收集当前代码执行情况。
 - 注意: 在函数内使用时必须在函数最开始用 `global __result__` 声明。
