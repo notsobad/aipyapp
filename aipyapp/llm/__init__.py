@@ -16,7 +16,7 @@ class OpenAIClient(OpenAIBaseClient):
 
 class GeminiClient(OpenAIBaseClient): 
     BASE_URL = 'https://generativelanguage.googleapis.com/v1beta/'
-    MODEL = 'gemini-2.5-pro-exp-03-25'
+    MODEL = 'gemini-2.5-flash-preview-05-20'
     PARAMS = {'stream_options': {'include_usage': True}}
 
 class DeepSeekClient(OpenAIBaseClient): 

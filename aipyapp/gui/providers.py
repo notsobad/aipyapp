@@ -444,8 +444,23 @@ class ProviderConfigWizard(wx.adv.Wizard):
         self.Bind(wx.adv.EVT_WIZARD_PAGE_CHANGED, self.on_page_changed)
         self.Bind(wx.adv.EVT_WIZARD_FINISHED, self.on_finished)
 
+        wx.CallAfter(self._set_button_labels)
+
+    def _set_button_labels(self):
+        btn_next = self.FindWindowById(wx.ID_FORWARD)
+        btn_back = self.FindWindowById(wx.ID_BACKWARD)
+        btn_cancel = self.FindWindowById(wx.ID_CANCEL)
+
+        if btn_next: btn_next.SetLabel(T('Next'))
+        if btn_back: btn_back.SetLabel(T('Back'))
+        if btn_cancel: btn_cancel.SetLabel(T('Cancel'))
+
     def on_page_changed(self, event):
+        btn_next = self.FindWindowById(wx.ID_FORWARD)
+        if btn_next: btn_next.SetLabel(T('Next'))
+
         if event.GetPage() == self.model_page:
+            if btn_next: btn_next.SetLabel(T('Finish'))
             # 从第一步进入第二步时，验证 API Key 并获取模型列表
             provider = self.provider_page.get_provider()
             api_key = self.provider_page.get_api_key()
