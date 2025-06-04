@@ -386,6 +386,17 @@ class MCPToolManager:
             logger.exception(f"加载工具列表缓存失败: {e}")
             return False
 
+    def get_function_calling_tools(self):
+        """获取 OpenAI function calling 格式的工具列表"""
+
+        all_tools = self.list_tools()
+        if not all_tools:
+            return []
+
+        # 转换为 OpenAI function calling 格式
+        converter = MCPToolConverter()
+        return converter.convert_mcp_tools(all_tools)
+
     def list_tools(self):
         """返回所有MCP服务器的工具列表
         [{'description': 'Get weather alerts for a US state.\n'

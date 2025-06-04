@@ -15,6 +15,7 @@ class ChatMessage:
     role: str
     content: str
     reason: str = None
+    tool_calls: list = field(default_factory=list)
     usage: Counter = field(default_factory=Counter)
 
 class BaseClient(ABC):

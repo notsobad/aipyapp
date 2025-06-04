@@ -259,12 +259,15 @@ class Task(Stoppable):
 
     def chat(self, instruction, *, system_prompt=None):
         quiet = self.settings.gui and not self.settings.debug
-        msg = self.client(instruction, system_prompt=system_prompt, quiet=quiet)
+        tools = self.mcp.get_function_calling_tools()
+        msg = self.client(instruction, system_prompt=system_prompt, quiet=quiet, tools=tools)
         if msg.role == 'error':
             self.console.print(f"[red]{msg.content}[/red]")
             return None
         if msg.reason:
             content = f"{msg.reason}\n\n-----\n\n{msg.content}"
+        elif msg.tool_calls:
+            content = f"工具调用: {json.dumps(msg.tool_calls, ensure_ascii=False, indent=2)}\n\n-----\n\n{msg.content}"
         else:
             content = msg.content
         self.box(f"[yellow]{T('Reply')} ({self.client.name})", content)

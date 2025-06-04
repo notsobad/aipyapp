@@ -42,6 +42,7 @@ class OpenAIBaseClient(BaseClient):
     
     def _parse_stream_response(self, response, stream_processor):
         usage = Counter()
+        tool_calls = []
         with stream_processor as lm:
             for chunk in response:
                 #print(chunk)
@@ -51,24 +52,69 @@ class OpenAIBaseClient(BaseClient):
                 if chunk.choices:
                     content = None
                     delta = chunk.choices[0].delta
+
+                    # 处理普通内容和推理内容
                     if delta.content:
                         reason = False
                         content = delta.content
                     elif hasattr(delta, 'reasoning_content') and delta.reasoning_content:
                         reason = True
                         content = delta.reasoning_content
+
+                    # 处理 tool_calls
+                    if hasattr(delta, 'tool_calls') and delta.tool_calls:
+                        for tool_call in delta.tool_calls:
+                            # 确保 tool_calls 列表足够长
+                            while len(tool_calls) <= tool_call.index:
+                                tool_calls.append({
+                                    'id': None,
+                                    'type': None,
+                                    'function': {'name': None, 'arguments': ''}
+                                })
+
+                            # 更新对应索引的 tool_call
+                            if tool_call.id:
+                                tool_calls[tool_call.index]['id'] = tool_call.id
+                            if tool_call.type:
+                                tool_calls[tool_call.index]['type'] = tool_call.type
+                            if tool_call.function:
+                                if tool_call.function.name:
+                                    tool_calls[tool_call.index]['function']['name'] = tool_call.function.name
+                                if tool_call.function.arguments:
+                                    tool_calls[tool_call.index]['function']['arguments'] += tool_call.function.arguments
+                    
                     if content:
                         lm.process_chunk(content, reason=reason)
 
-        return ChatMessage(role="assistant", content=lm.content, reason=lm.reason, usage=usage)
+        return ChatMessage(
+            role="assistant",
+            content=lm.content,
+            reason=lm.reason,
+            tool_calls=tool_calls,
+            usage=usage
+        )
 
     def _parse_response(self, response):
         message = response.choices[0].message
         reason = getattr(message, "reasoning_content", None)
+        # 解析 tool_calls
+        tool_calls = []
+        if hasattr(message, 'tool_calls') and message.tool_calls:
+            tool_calls = []
+            for tool_call in message.tool_calls:
+                tool_calls.append({
+                    'id': tool_call.id,
+                    'type': tool_call.type,
+                    'function': {
+                        'name': tool_call.function.name,
+                        'arguments': tool_call.function.arguments
+                    }
+                })
         return ChatMessage(
             role=message.role,
             content=message.content,
             reason=reason,
+            tool_calls=tool_calls,
             usage=self._parse_usage(response.usage)
         )
 
