@@ -6,6 +6,7 @@ from collections import Counter
 import httpx
 import openai
 from loguru import logger
+import json
 
 from .. import T
 from . import BaseClient, ChatMessage
@@ -107,7 +108,7 @@ class OpenAIBaseClient(BaseClient):
                     'type': tool_call.type,
                     'function': {
                         'name': tool_call.function.name,
-                        'arguments': tool_call.function.arguments
+                        'arguments': json.loads(tool_call.function.arguments) if tool_call.function.arguments else {}
                     }
                 })
         return ChatMessage(

@@ -122,8 +122,14 @@ class Task(Stoppable):
         if self.settings.get('share_result'):
             self.sync_to_cloud()
         
-    def process_reply(self, markdown):
+    def process_reply(self, markdown, tool_calls=[]):
         #self.console.print(f"{T('Start parsing message')}...", style='dim white')
+
+        if tool_calls:
+            print(tool_calls)
+            ret = self.process_mcp_reply(tool_calls)
+            return ret
+
         parse_mcp = self.mcp is not None
         ret = self.code_blocks.parse(markdown, parse_mcp=parse_mcp)
         if not ret:
@@ -142,6 +148,8 @@ class Task(Stoppable):
             ret = self.process_code_reply(ret['exec_blocks'])
         elif 'call_tool' in ret:
             ret = self.process_mcp_reply(ret['call_tool'])
+            msg = self.chat(feed_back)
+            ret = msg.content
         else:
             ret = None
         return ret
@@ -175,30 +183,38 @@ class Task(Stoppable):
         
         self.console.print(f"{T('Start sending feedback')}...", style='dim white')
         feed_back = f"# 最初任务\n{self.instruction}\n\n# 代码执行结果反馈\n{json_results}"
-        return self.chat(feed_back)
+        msg = self.chat(feed_back)
+        return msg.content
 
-    def process_mcp_reply(self, json_content):
+    def process_mcp_reply(self, tool_calls=[]):
         """处理 MCP 工具调用的回复"""
-        block = {'content': json_content, 'language': 'json'}
-        event_bus('tool_call', block)
-        json_content = block['content']
-        self.console.print(f"⚡ {T('Start calling MCP tool')} ...", style='dim white')
+        for tool_call in tool_calls:
+            json_content = json.dumps(tool_call, ensure_ascii=False, indent=2)
+            block = {'content': json_content, 'language': 'json'}
+            event_bus('tool_call', block)
+            self.console.print(f"⚡ {T('Start calling MCP tool')} ...", style='dim white')
 
-        call_tool = json.loads(json_content)
-        result = self.mcp.call_tool(call_tool['name'], call_tool.get('arguments', {}))
-        event_bus('result', result)
-        result_json = json.dumps(result, ensure_ascii=False, indent=2, default=str)
-        self.print_code_result(block, result_json, title=T("MCP tool call result"))
+            func = tool_call.get('function', {})
+            name = func.get('name')
+            arguments = func.get('arguments', {})
+            if not name:
+                self.console.print(f"[red]{T('Invalid MCP tool call, missing function name')}[/red]")
+                continue
+            print(name, arguments)
+            result = self.mcp.call_tool(name, arguments)
+            event_bus('result', result)
+            result_json = json.dumps(result, ensure_ascii=False, indent=2, default=str)
+            self.print_code_result(T("MCP tool call result"), block, result_json)
 
-        self.console.print(f"{T('Start sending feedback')}...", style='dim white')
-        feed_back = f"""# MCP 调用\n\n{self.instruction}\n
-# 执行结果反馈
+            self.console.print(f"{T('Start sending feedback')}...", style='dim white')
+            feed_back = f"""# MCP 调用\n\n{self.instruction}\n
+    # 执行结果反馈
 
-````json
-{result_json}
-````"""
-        feedback_response = self.chat(feed_back)
-        return feedback_response
+    ````json
+    {result_json}
+    ````"""
+            feedback_response = self.chat(feed_back)
+            return feedback_response
 
     def box(self, title, content, align=None, lang=None):
         if lang:
@@ -271,7 +287,7 @@ class Task(Stoppable):
         else:
             content = msg.content
         self.box(f"[yellow]{T('Reply')} ({self.client.name})", content)
-        return msg.content
+        return msg
 
     def run(self, instruction):
         """
@@ -290,9 +306,11 @@ class Task(Stoppable):
 
         rounds = 1
         max_rounds = self.max_rounds
-        response = self.chat(instruction, system_prompt=system_prompt)
-        while response and rounds <= max_rounds:
-            response = self.process_reply(response)
+        msg = self.chat(instruction, system_prompt=system_prompt)
+        response = msg.content
+        tool_calls = msg.tool_calls
+        while (response or tool_calls) and rounds <= max_rounds:
+            response = self.process_reply(response, tool_calls)
             rounds += 1
             if self.is_stopped():
                 self.log.info('Task stopped')
