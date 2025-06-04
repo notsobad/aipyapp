@@ -9,46 +9,6 @@ import ctypes
 import platform
 
 from loguru import logger
-__lang__ = 'en'
-MESSAGES = None
-
-def load_messages(lang):
-    """Load messages from the CSV file."""
-    global MESSAGES
-
-    MESSAGES = {}
-    try:
-        with resources.open_text('aipyapp.res', 'locales.csv') as f:
-            reader = csv.DictReader(f)
-            for row in reader:
-                MESSAGES[row['id']] = None if lang=='en' else row.get(lang)
-    except Exception as e:
-        logger.error(f"Error loading translations: {e}")
-
-def set_lang(lang=None):
-    """Set the current language."""
-    global __lang__
-
-    if not lang:
-        lang = get_system_language()
-
-    __lang__ = lang
-    load_messages(lang)
-
-def T(key, *args):
-    """Get translated message for the given key."""
-    if not MESSAGES:
-        set_lang()
-    
-    if __lang__ == 'en':
-        return key
-    
-    msg = MESSAGES.get(key)
-    if not msg:
-        logger.error(f"Translation not found for key: {key}")
-        msg = key
-    return msg.format(*args) if args else msg
-
 
 def get_system_language() -> str:
     """
@@ -106,3 +66,52 @@ def get_system_language() -> str:
         pass # 使用默认的 'en'
 
     return language_code
+
+class Translator:
+    def __init__(self, lang=None):
+        self.lang = lang
+        self.messages = {}
+        self.log = logger.bind(src='i18n')
+
+    def get_lang(self):
+        return self.lang
+
+    def set_lang(self, lang=None):
+        """Set the current language."""
+        if not lang:
+            lang = get_system_language()
+            self.log.info(f"No language specified, using system language: {lang}")
+
+        if lang != self.lang:
+            if self.lang: self.log.info(f"Switching language from {self.lang} to: {lang}")
+            else: self.log.info(f"Setting language to: {lang}")
+            self.lang = lang
+            self.load_messages()
+
+    def load_messages(self):
+        try:
+            with resources.open_text('aipyapp.res', 'locales.csv') as f:
+                reader = csv.DictReader(f)
+                for row in reader:
+                    self.messages[row['en']] = None if self.lang=='en' else row.get(self.lang)
+        except Exception as e:
+            self.log.error(f"Error loading translations: {e}")
+
+    def translate(self, key, *args):
+        if not self.lang:
+            self.set_lang()
+
+        if self.lang == 'en':
+            msg = key
+        else:
+            msg = self.messages.get(key)
+            if not msg:
+                self.log.error(f"Translation not found for key: {key}")
+                msg = key
+        return msg.format(*args) if args else msg   
+
+translator = Translator()
+T = translator.translate
+get_lang = translator.get_lang
+set_lang = translator.set_lang
+

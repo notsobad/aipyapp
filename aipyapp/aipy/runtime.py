@@ -6,7 +6,8 @@ from functools import wraps
 from term_image.image import from_file, from_url
 
 from . import utils
-from .. import event_bus, T
+from .plugin import event_bus
+from .. import T
 from ..exec import BaseRuntime
 
 def restore_output(func):
@@ -24,6 +25,7 @@ def restore_output(func):
 class Runtime(BaseRuntime):
     def __init__(self, task):
         super().__init__(task.envs)
+        self.gui = task.gui
         self.task = task
         self.console = task.console
         self._auto_install = task.settings.get('auto_install')
@@ -31,8 +33,8 @@ class Runtime(BaseRuntime):
 
     @restore_output
     def install_packages(self, *packages):
-        self.console.print(f"\n⚠️ LLM {T("Request to install third-party packages")}: {packages}")
-        ok = utils.confirm(self.console, f"💬 {T("If you agree, please enter")} 'y'> ", auto=self._auto_install)
+        self.console.print(f"\n⚠️ LLM {T('Request to install third-party packages')}: {packages}")
+        ok = utils.confirm(self.console, f"💬 {T('If you agree, please enter')} 'y'> ", auto=self._auto_install)
         if ok:
             ret = self.ensure_packages(*packages)
             self.console.print("\n✅" if ret else "\n❌")
@@ -41,16 +43,16 @@ class Runtime(BaseRuntime):
     
     @restore_output
     def get_env(self, name, default=None, *, desc=None):
-        self.console.print(f"\n⚠️ LLM {T("Request to obtain environment variable {}, purpose", name)}: {desc}")
+        self.console.print(f"\n⚠️ LLM {T('Request to obtain environment variable {}, purpose', name)}: {desc}")
         try:
             value = self.envs[name][0]
-            self.console.print(f"✅ {T("Environment variable {} exists, returned for code use", name)}")
+            self.console.print(f"✅ {T('Environment variable {} exists, returned for code use', name)}")
         except KeyError:
             if self._auto_getenv:
-                self.console.print(f"✅ {T("Auto confirm")}")
+                self.console.print(f"✅ {T('Auto confirm')}")
                 value = None
             else:
-                value = self.console.input(f"💬 {T("Environment variable {} not found, please enter", name)}: ")
+                value = self.console.input(f"💬 {T('Environment variable {} not found, please enter', name)}: ")
                 value = value.strip()
             if value:
                 self.set_env(name, value, desc)
@@ -58,10 +60,9 @@ class Runtime(BaseRuntime):
     
     @restore_output
     def display(self, path=None, url=None):
-        gui = getattr(self.console, 'gui', False)
         image = {'path': path, 'url': url}
         event_bus.broadcast('display', image)
-        if not gui:
+        if not self.gui:
             image = from_file(path) if path else from_url(url)
             image.draw()
 

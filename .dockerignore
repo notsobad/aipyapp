@@ -5,4 +5,5 @@ aipython.toml
 dist/
 work/
 build/
+client.crt
 

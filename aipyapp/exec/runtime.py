@@ -15,7 +15,7 @@ class BaseRuntime(ABC):
     def set_env(self, name, value, desc):
         self.envs[name] = (value, desc)
 
-    def ensure_packages(self, *packages, upgrade=False, quiet=True):
+    def ensure_packages(self, *packages, upgrade=False, quiet=False):
         if not packages:
             return True
 

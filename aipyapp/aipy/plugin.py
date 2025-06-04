@@ -2,15 +2,59 @@
 # -*- coding: utf-8 -*-
 
 import os
+import threading
+import traceback
 import importlib.util
-from typing import Dict, Any
+from typing import Callable, Any, Dict, List
 
-from loguru import logger
+class EventBus:
+    def __init__(self):
+        self._listeners: Dict[str, List[Callable[..., Any]]] = {}
+        self._stop_event = threading.Event()
 
-from .. import event_bus
+    def stop(self):
+        self._stop_event.set()
+
+    def is_stopped(self):
+        return self._stop_event.is_set()    
+
+    def __repr__(self):
+        return repr(self._listeners)
+    
+    def register(self, event_name: str, handler: Callable[..., Any]):
+        self._listeners.setdefault(event_name, []).append(handler)
+
+    def broadcast(self, event_name: str, *args, **kwargs):
+        for handler in self._listeners.get(event_name, []):
+            try:
+                handler(*args, **kwargs)
+            except Exception as e:
+                traceback.print_exc()
+
+    def pipeline(self, event_name: str, data, **kwargs):
+        for handler in self._listeners.get(event_name, []):
+            try:
+                handler(data, **kwargs)
+            except Exception as e:
+                traceback.print_exc()
+
+    def collect(self, event_name: str, *args, **kwargs):
+        try:
+            ret = [handler(*args, **kwargs) for handler in self._listeners.get(event_name, [])]
+        except Exception as e:
+            ret = []
+            traceback.print_exc()
+        return ret
+
+    def __call__(self, event_name: str, *args, **kwargs):
+        self.pipeline(event_name, *args, **kwargs)
+
+event_bus = EventBus()
 
 class PluginManager:
     def __init__(self, plugin_dir: str):
+        # Get the system plugin directory
+        # This is the directory where the `aio_api.py` file is located
         self.sys_plugin_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'plugins')
         self.plugin_dir = plugin_dir
         self.plugins: Dict[str, Any] = {}

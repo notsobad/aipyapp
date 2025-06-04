@@ -2,15 +2,17 @@
 #coding: utf-8
 
 import os
+
 import wx
+import wx.adv
 from wx import DirDialog, FD_SAVE, FD_OVERWRITE_PROMPT
 from wx.lib.agw.floatspin import FloatSpin, EVT_FLOATSPIN, FS_LEFT, FS_RIGHT, FS_CENTRE, FS_READONLY
 
-from .. import T
+from .. import T, set_lang
 
 class ConfigDialog(wx.Dialog):
     def __init__(self, parent, settings):
-        super().__init__(parent, title=T("Configuration"), size=(500, 450))
+        super().__init__(parent, title=T('Configuration'))
         
         self.settings = settings
         
@@ -21,7 +23,7 @@ class ConfigDialog(wx.Dialog):
         main_vbox = wx.BoxSizer(wx.VERTICAL)
         
         # Work directory group
-        work_dir_box = wx.StaticBox(main_panel, -1, T("Work Directory"))
+        work_dir_box = wx.StaticBox(main_panel, -1, T('Work Directory'))
         work_dir_sizer = wx.StaticBoxSizer(work_dir_box, wx.VERTICAL)
         
         work_dir_panel = wx.Panel(main_panel)
@@ -30,7 +32,7 @@ class ConfigDialog(wx.Dialog):
         self.work_dir_text = wx.TextCtrl(work_dir_panel, -1, settings.workdir, style=wx.TE_READONLY)
         work_dir_inner_sizer.Add(self.work_dir_text, 1, wx.ALL | wx.EXPAND, 5)
         
-        browse_button = wx.Button(work_dir_panel, -1, T("Browse..."))
+        browse_button = wx.Button(work_dir_panel, -1, T('Browse...'))
         browse_button.Bind(wx.EVT_BUTTON, self.on_browse_work_dir)
         work_dir_inner_sizer.Add(browse_button, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
         
@@ -38,20 +40,20 @@ class ConfigDialog(wx.Dialog):
         work_dir_sizer.Add(work_dir_panel, 0, wx.ALL | wx.EXPAND, 5)
         
         # Add hint about creating new directory
-        hint_text = wx.StaticText(main_panel, -1, T("You can create a new directory in the file dialog"))
+        hint_text = wx.StaticText(main_panel, -1, T('You can create a new directory in the file dialog'))
         work_dir_sizer.Add(hint_text, 0, wx.LEFT | wx.BOTTOM, 5)
         
         main_vbox.Add(work_dir_sizer, 0, wx.ALL | wx.EXPAND, 10)
         
         # Settings group
-        settings_box = wx.StaticBox(main_panel, -1, T("Settings"))
+        settings_box = wx.StaticBox(main_panel, -1, T('Settings'))
         settings_sizer = wx.StaticBoxSizer(settings_box, wx.VERTICAL)
         
         # Max tokens slider
         tokens_panel = wx.Panel(main_panel)
         tokens_sizer = wx.BoxSizer(wx.HORIZONTAL)
         
-        tokens_label = wx.StaticText(tokens_panel, -1, T("Max Tokens") + ":")
+        tokens_label = wx.StaticText(tokens_panel, -1, T('Max Tokens') + ":")
         tokens_sizer.Add(tokens_label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
         
         self.tokens_slider = wx.Slider(tokens_panel, -1, 
@@ -59,10 +61,11 @@ class ConfigDialog(wx.Dialog):
                                      minValue=64,
                                      maxValue=128*1024,
                                      style=wx.SL_HORIZONTAL | wx.SL_AUTOTICKS)
-        self.tokens_slider.SetTickFreq(1000)
+        self.tokens_slider.SetTickFreq(100)
         tokens_sizer.Add(self.tokens_slider, 1, wx.ALL | wx.EXPAND, 5)
         
         self.tokens_text = wx.StaticText(tokens_panel, -1, str(self.tokens_slider.GetValue()))
+        self.tokens_text.SetMinSize((50, -1))
         tokens_sizer.Add(self.tokens_text, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
         
         tokens_panel.SetSizer(tokens_sizer)
@@ -72,7 +75,7 @@ class ConfigDialog(wx.Dialog):
         timeout_panel = wx.Panel(main_panel)
         timeout_sizer = wx.BoxSizer(wx.HORIZONTAL)
         
-        timeout_label = wx.StaticText(timeout_panel, -1, T("Timeout (seconds)") + ":")
+        timeout_label = wx.StaticText(timeout_panel, -1, T('Timeout (seconds)') + ":")
         timeout_sizer.Add(timeout_label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
         
         self.timeout_slider = wx.Slider(timeout_panel, -1, 
@@ -84,6 +87,7 @@ class ConfigDialog(wx.Dialog):
         timeout_sizer.Add(self.timeout_slider, 1, wx.ALL | wx.EXPAND, 5)
         
         self.timeout_text = wx.StaticText(timeout_panel, -1, str(self.timeout_slider.GetValue()))
+        self.timeout_text.SetMinSize((50, -1))
         timeout_sizer.Add(self.timeout_text, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
         
         timeout_panel.SetSizer(timeout_sizer)
@@ -93,7 +97,7 @@ class ConfigDialog(wx.Dialog):
         rounds_panel = wx.Panel(main_panel)
         rounds_sizer = wx.BoxSizer(wx.HORIZONTAL)
         
-        rounds_label = wx.StaticText(rounds_panel, -1, T("Max Rounds") + ":")
+        rounds_label = wx.StaticText(rounds_panel, -1, T('Max Rounds') + ":")
         rounds_sizer.Add(rounds_label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
         
         self.rounds_slider = wx.Slider(rounds_panel, -1,
@@ -111,7 +115,10 @@ class ConfigDialog(wx.Dialog):
         settings_sizer.Add(rounds_panel, 0, wx.ALL | wx.EXPAND, 5)
         
         main_vbox.Add(settings_sizer, 0, wx.ALL | wx.EXPAND, 10)
-        
+
+        self.url_ctrl = wx.adv.HyperlinkCtrl(main_panel, label=T('Click here for more information'), url="https://d.aipyaipy.com/d/162", style=wx.adv.HL_ALIGN_LEFT | wx.adv.HL_CONTEXTMENU)
+        main_vbox.Add(self.url_ctrl, 0, wx.ALL, 10)
+
         main_panel.SetSizer(main_vbox)
         vbox.Add(main_panel, 1, wx.EXPAND)
         
@@ -119,7 +126,7 @@ class ConfigDialog(wx.Dialog):
         button_panel = wx.Panel(self)
         button_sizer = wx.BoxSizer(wx.HORIZONTAL)
         
-        ok_button = wx.Button(button_panel, wx.ID_OK, T("OK"))
+        ok_button = wx.Button(button_panel, wx.ID_OK, T('OK'))
         ok_button.SetMinSize((100, 30))
         cancel_button = wx.Button(button_panel, wx.ID_CANCEL, T('Cancel'))
         cancel_button.SetMinSize((100, 30))
@@ -136,10 +143,12 @@ class ConfigDialog(wx.Dialog):
         self.rounds_slider.Bind(wx.EVT_SLIDER, self.on_rounds_slider)
         
         self.SetSizer(vbox)
+        self.SetMinSize((500, 450))
+        self.Fit()
         self.Centre()
         
     def on_browse_work_dir(self, event):
-        with DirDialog(self, T("Select work directory"), 
+        with DirDialog(self, T('Select work directory'), 
                       defaultPath=self.work_dir_text.GetValue(),
                       style=wx.DD_DEFAULT_STYLE) as dlg:
             if dlg.ShowModal() == wx.ID_OK:

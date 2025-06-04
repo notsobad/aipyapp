@@ -1,6 +1,7 @@
 import os
-import sys
 import time
+import webbrowser
+
 import requests
 import qrcode
 
@@ -11,15 +12,14 @@ POLL_INTERVAL = 5 # 轮询间隔（秒）
 class TrustTokenAPI:
     """Handles all HTTP operations for TrustToken binding and authentication."""
     
-    def __init__(self, coordinator_url):
+    def __init__(self, coordinator_url=None):
         """
         Initialize the TrustToken API handler.
         
         Args:
-            coordinator_url (str): The coordinator server URL.
+            coordinator_url (str, optional): The coordinator server URL. Defaults to None.
         """
-        assert(coordinator_url)
-        self.coordinator_url = coordinator_url
+        self.coordinator_url = coordinator_url or T("https://www.trustoken.ai/api")
 
     def request_binding(self):
         """Request binding from the coordinator server.
@@ -77,7 +77,7 @@ class TrustToken:
         self.api = TrustTokenAPI(coordinator_url)
         self.poll_interval = poll_interval or POLL_INTERVAL
 
-    def request_binding(self):
+    def request_binding(self, qrcode=False):
         """Request binding from the coordinator server.
         
         Returns:
@@ -91,22 +91,29 @@ class TrustToken:
         request_id = data['request_id']
         expires_in = data['expires_in']
 
-        print(T("Binding request sent successfully.\nRequest ID: {}\n\n>>> Please open this URL in your browser on an authenticated device to approve:\n>>> {}\n\n(This link expires in {} seconds)").format(request_id, approval_url, expires_in))
-        print(T("Or scan the QR code below:"))
+        print(T("""Binding request sent successfully.
+Request ID: {}
 
-        try:
-            qr = qrcode.QRCode(
-                error_correction=qrcode.constants.ERROR_CORRECT_L,
-                border=1
-            )
-            qr.add_data(approval_url)
-            qr.make(fit=True)
-            is_windows = sys.platform.startswith("win")
-            qr.print_ascii(tty=not is_windows)
-            print(T("We recommend you scan the QR code to bind the AiPy brain, you can also configure a third-party large model brain, details refer to: https://d.aipy.app/d/77"))
-        except Exception as e:
-            print(T("(Could not display QR code: {})\n").format(e))
+>>> Please open this URL in your browser on an authenticated device to approve:
+>>> {}
 
+(This link expires in {} seconds)""").format(request_id, approval_url, expires_in))
+        
+        if qrcode:
+            print(T("Or scan the QR code below:"))
+            try:
+                qr = qrcode.QRCode(
+                    error_correction=qrcode.constants.ERROR_CORRECT_L,
+                    border=1
+                )
+                qr.add_data(approval_url)
+                qr.make(fit=True)
+                qr.print_ascii(tty=True)
+                print(T("We recommend you scan the QR code to bind the AiPy brain, you can also configure a third-party large model brain, details refer to: https://d.aipy.app/d/77"))
+            except Exception as e:
+                print(T("(Could not display QR code: {})").format(e))
+        else:
+            webbrowser.open(approval_url)
         return request_id
 
     def poll_status(self, request_id, save_func=None):
@@ -122,7 +129,7 @@ class TrustToken:
         start_time = time.time()
         polling_timeout = 310
 
-        print(T("Waiting for approval"), end='', flush=True)
+        print(T("Browser has opened the Trustoken website, please register or login to authorize"), end='', flush=True)
         try:
             while time.time() - start_time < polling_timeout:
                 data = self.api.check_status(request_id)
@@ -144,18 +151,18 @@ class TrustToken:
                         save_func(data['secret_token'])
                     return True
                 elif status == 'expired':
-                    print(T("\nBinding request expired."))
+                    print(T("Binding request expired."))
                     return False
                 else:
-                    print(T("\nUnknown status received: {}").format(status))
+                    print(T("Received unknown status: {}").format(status))
                     return False
 
                 time.sleep(self.poll_interval)
         except KeyboardInterrupt:
-            print(T("\nPolling cancelled by user."))
+            print(T("Polling cancelled by user."))
             return False
 
-        print(T("\nPolling timed out."))
+        print(T("Polling timed out."))
         return False
 
     def fetch_token(self, save_func):
@@ -171,16 +178,15 @@ class TrustToken:
         req_id = self.request_binding()
         if req_id:
             if self.poll_status(req_id, save_func):
-                print(T("\nBinding process completed successfully."))
+                print(T("Binding process completed successfully."))
                 return True
             else:
-                print(T("\nBinding process failed or was not completed."))
+                print(T("Binding process failed or was not completed."))
                 return False
         else:
-            print(T("\nFailed to initiate binding request."))
+            print(T("Failed to initiate binding request."))
             return False
 
 if __name__ == "__main__":
-    url = os.getenv('COORDINATOR_URL', 'https://api.trustoken.cn/api')
-    tt = TrustToken(coordinator_url=url)
+    tt = TrustToken()
     tt.fetch_token(lambda token: print(f"Token: {token}"))

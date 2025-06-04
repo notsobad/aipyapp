@@ -191,27 +191,13 @@
             border-radius: 0;
         }
         
-        .copy-button {
-            position: absolute;
-            right: 10px;
-            top: 8px;
-            padding: 4px 8px;
-            background-color: var(--code-header-bg);
-            border: 1px solid var(--code-border);
-            border-radius: 4px;
-            color: var(--text-color);
-            cursor: pointer;
-            font-size: 12px;
-            transition: background-color 0.2s ease;
-        }
-        
         .copy-button:hover {
             background-color: var(--code-header-hover);
         }
     </style>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/4.3.0/marked.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/highlight.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.6/purify.min.js"></script>
+    <script src="js/marked.min.js"></script>
+    <script src="js/highlight.min.js"></script>
+    <script src="js/purify.min.js"></script>
     <!-- 根据系统主题动态加载代码高亮主题 -->
     <script>
         // 检测系统主题并加载对应的代码高亮主题
@@ -220,8 +206,8 @@
             const themeLink = document.createElement('link');
             themeLink.rel = 'stylesheet';
             themeLink.href = isDarkMode 
-                ? 'https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/styles/github-dark.min.css'
-                : 'https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/styles/github.min.css';
+                ? 'css/github-dark.min.css'
+                : 'css/github.min.css';
             document.head.appendChild(themeLink);
         }
         
@@ -413,19 +399,6 @@
                     }
                 }, 3000);
             });
-            
-            // 示例消息
-            // 添加一条示例消息
-            appendMessage('🐙', '爱派', '哈啰！我是**爱派**，您的智能任务小管家!\n请允许我隆重介绍团队其它成员：\n- 图灵：宇宙最强人工智能，复杂任务分析和规划\n- BB-8: 宇宙最强机器人，负责执行任务\n\n温馨提示：打开菜单栏"**帮助**"链接，可以联系**爱派**官方和加入群聊。');
-            
-            // 测试代码块功能
-            //appendMessage('🤖', '图灵', '让我展示一下我的代码能力：\n\n```python\ndef hello_world():\n    print("Hello, World!")\n```\n\n```javascript\nconst greeting = () => {\n    console.log("你好，世界！");\n};\n```\n\n```html\n<div class="container">\n    <h1>Hello World</h1>\n</div>\n```');
-            
-            // 测试连续消息
-            //appendMessage('🤖', '图灵', '这是第二条消息，包含一个代码块：\n\n```python\n# 这是一个注释\nx = 1 + 1\nprint(x)\n```');
-            
-            // 测试复制功能
-            //appendMessage('🤖', '图灵', '你可以点击代码块右上角的复制按钮来复制代码。试试看！');
         });
     </script>
 </head>

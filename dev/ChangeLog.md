@@ -1,9 +1,24 @@
+# 0.1.29
+## b0
+- 修补打卡记录任务的代码错误
+- 所有非代码文件都移到 res/ 目录下，例如 default.toml 和 HTML 模版等
+- 增加 blocks.py
+- 修改 aipy/config.py，__init__  参数里去掉 default.toml，改成内部获取
+- 下任务接口里去掉 max_rounds 参数
+- Merge MCP changes
 
-# 0.1.26
-- 增加日志记录
-- 实现任务终止功能
-- 版本更新检查
-- 任务记录分享
+# 0.1.28
+- 日志记录
+- aipyw.exe
+- 更新检查
+- GUI LLM 配置向导
+
+## b25
+- 删除 google-client 库
+- 修改系统提示词，强调使用相同语言回复
+- 增加任务时间统计
+- 调整任务历史文件路径到 .aipyapp/
+- 默认自动安装 Python 包
 
 # 0.1.27
 - 修补插件执行问题

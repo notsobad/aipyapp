@@ -18,7 +18,7 @@ import traceback
 
 def is_json_serializable(obj):
     try:
-        json.dumps(obj)  # 尝试序列化对象
+        json.dumps(obj, ensure_ascii=False, default=str)
         return True
     except (TypeError, OverflowError):
         return False
@@ -26,15 +26,22 @@ def is_json_serializable(obj):
 def diff_dicts(dict1, dict2):
     diff = {}
     for key, value in dict1.items():
-        if key not in dict2 or dict2[key] != value:
+        if key not in dict2:
             diff[key] = value
+            continue
+
+        try:
+            if value != dict2[key]:
+                diff[key] = value
+        except Exception:
+            pass
     return diff
 
 class Runner():
     def __init__(self, runtime):
         self.runtime = runtime
         self.history = []
-        self._globals = {'runtime': runtime, '__session__': {}, '__name__': '__main__', 'input': self.runtime.input}
+        self._globals = {'runtime': runtime, '__storage__': {}, '__result__': {}, '__name__': '__main__', 'input': self.runtime.input}
         exec(INIT_IMPORTS, self._globals)
 
     def __repr__(self):
@@ -51,9 +58,9 @@ class Runner():
         sys.stdout, sys.stderr = captured_stdout, captured_stderr
         result = {}
         env = self.runtime.envs.copy()
-        session = self._globals['__session__'].copy()
+        session = self._globals['__storage__'].copy()
         gs = self._globals.copy()
-        gs['__result__'] = {}
+        #gs['__result__'] = {}
         try:
             exec(code_str, gs)
         except (SystemExit, Exception) as e:
@@ -70,6 +77,7 @@ class Runner():
 
         vars = gs.get('__result__')
         if vars:
+            self._globals['__result__'] = vars
             result['__result__'] = self.filter_result(vars)
 
         history = {'code': code_str, 'result': result}
@@ -77,7 +85,7 @@ class Runner():
         diff = diff_dicts(env, self.runtime.envs)
         if diff:
             history['env'] = diff
-        diff = diff_dicts(gs['__session__'], session)
+        diff = diff_dicts(gs['__storage__'], session)
         if diff:
             history['session'] = diff
 

@@ -13,4 +13,5 @@ aipy.toml
 aipython.toml
 .DS_Store
 work/
+client.crt
 

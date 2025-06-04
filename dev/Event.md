@@ -17,7 +17,7 @@
 
  `task_start`为任务开始事件，在插件中实现 `on_task_start` 方法即可用插件处理爱派任务开始的相关参数，例如改写用户任务提示词，在用户任务的提示词前后附加提示词等.   
  
-`promot['task']` 为用户输入的任务，`promot` 参数包含其他例如python版本、终端、当前时间等运行环境信息。
+`prompt['task']` 为用户输入的任务，`prompt` 参数包含其他例如python版本、终端、当前时间等运行环境信息。
 
 
 ## exec
@@ -41,3 +41,20 @@
   - content: LLM 返回消息的完整内容
 
 `response_complete` 为大模型 LLM 响应结束事件，在插件中实现`on_response_complete`方法即可用插件处理大模型 LLM 的返回内容。例如保存大模型 LLM 返回内容到本地文件等
+
+## response_stream
+- 调用方式：broadcast
+- 参数：response dict
+  - llm: LLM 名称
+  - content: LLM 返回的一行消息
+  - reazon: True/False，表示是否 Thinking 内容，只在 Thinking 内容时有该字段
+
+`response_stream` 为大模型 LLM 流式响应事件，在插件中实现`on_response_stream`方法即可用插件处理大模型 LLM 的返回内容。例如保存大模型 LLM 返回内容到本地文件等
+
+## summary
+- 调用方式：broadcast
+- 参数：执行统计信息字符串
+
+## display
+- 调用方式：broadcast
+- 参数：要显示的图片 url 或者 path
