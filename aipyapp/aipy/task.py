@@ -67,9 +67,9 @@ class Task(Stoppable):
            self.console.save_html(path, clear=False, code_format=CONSOLE_WHITE_HTML)
 
     def save_html(self, path, task):
-        if 'llm' in task and isinstance(task['llm'], list) and len(task['llm']) > 0:
-            if task['llm'][0]['role'] == 'system':
-                task['llm'].pop(0)
+        if 'chats' in task and isinstance(task['chats'], list) and len(task['chats']) > 0:
+            if task['chats'][0]['role'] == 'system':
+                task['chats'].pop(0)
 
         task_json = json.dumps(task, ensure_ascii=False, default=str)
         html_content = CONSOLE_CODE_HTML.replace('{{code}}', task_json)
@@ -82,9 +82,10 @@ class Task(Stoppable):
     def _auto_save(self):
         instruction = self.instruction
         task = {'instruction': instruction}
-        task['llm'] = self.client.history.json()
-        task['envs'] = self.runtime.envs
+        task['chats'] = self.client.history.json()
+        #task['envs'] = self.runtime.envs
         task['runner'] = self.runner.history
+        task['blocks'] = self.code_blocks.to_list()
 
         filename = f"{self.task_id}.json"
         try:
@@ -162,7 +163,7 @@ class Task(Stoppable):
             self.console.print(f"⚡ {T('Start executing code block')}: {block.id}", style='dim white')
             result = self.runner(block)
             json_result = json.dumps(result, ensure_ascii=False, indent=2, default=str)
-            result['id'] = block.id
+            result['block_id'] = block.id
             results.append(result)
             json_results.append(json_result)
             self.print_code_result(block, json_result)

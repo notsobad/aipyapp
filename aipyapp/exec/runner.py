@@ -5,6 +5,9 @@ import sys
 import json
 import traceback
 from io import StringIO
+import webbrowser
+
+from loguru import logger
 
 INIT_IMPORTS = """
 import os
@@ -41,7 +44,8 @@ class Runner():
     def __init__(self, runtime):
         self.runtime = runtime
         self.history = []
-        self._globals = {'runtime': runtime, '__storage__': {}, '__result__': {}, '__name__': '__main__', 'input': self.runtime.input}
+        self.log = logger.bind(src='runner')
+        self._globals = {'runtime': runtime, '__storage__': {}, '__name__': '__main__', 'input': self.runtime.input}
         exec(INIT_IMPORTS, self._globals)
 
     def __repr__(self):
@@ -51,7 +55,7 @@ class Runner():
     def globals(self):
         return self._globals
     
-    def __call__(self, block):
+    def _exec_python_block(self, block):
         old_stdout, old_stderr = sys.stdout, sys.stderr
         captured_stdout = StringIO()
         captured_stderr = StringIO()
@@ -60,7 +64,7 @@ class Runner():
         env = self.runtime.envs.copy()
         session = self._globals['__storage__'].copy()
         gs = self._globals.copy()
-        #gs['__result__'] = {}
+        gs['__retval__'] = {}
         try:
             exec(block.code, gs)
         except (SystemExit, Exception) as e:
@@ -75,13 +79,12 @@ class Runner():
         s = captured_stderr.getvalue().strip()
         if s: result['stderr'] = s if is_json_serializable(s) else '<filtered: cannot json-serialize>'        
 
-        vars = gs.get('__result__')
+        vars = gs.get('__retval__')
         if vars:
-            self._globals['__result__'] = vars
-            result['__result__'] = self.filter_result(vars)
+            #self._globals['__retval__'] = vars
+            result['__retval__'] = self.filter_result(vars)
 
-        history = {'block': block, 'result': result}
-
+        history = {}
         diff = diff_dicts(env, self.runtime.envs)
         if diff:
             history['env'] = diff
@@ -89,8 +92,30 @@ class Runner():
         if diff:
             history['session'] = diff
 
+        return result, history
+
+    def __call__(self, block):
+        self.log.info(f'Exec: {block}')
+        lang = block.get_lang()
+        if lang == 'python':
+            result, history = self._exec_python_block(block)
+        elif lang == 'html':
+            result, history = self._exec_html_block(block)
+        else:
+            result = {'stderr': f'Exec: Ignore unsupported block type: {lang}'}
+            history = {}
+
+        history['block_id'] = block.id
+        history['result'] = result
         self.history.append(history)
-        return result
+        return result.copy()
+        
+    def _exec_html_block(self, block):
+        abs_path = block.abs_path
+        if abs_path:
+            webbrowser.open(f'file://{abs_path}')
+        result = {'stdout': 'OK'}
+        return result, {}
 
     def filter_result(self, vars):
         if isinstance(vars, dict):

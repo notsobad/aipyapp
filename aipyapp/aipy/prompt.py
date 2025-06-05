@@ -60,7 +60,8 @@ print("hello world")
 在标准 Python 运行环境的基础上额外增加了下述功能：
 - 一些预装的第三方包
 - 全局 `runtime` 对象
-- 全局变量 `__session__` 和 `__result__`
+- 全局变量 `__storage__`
+- 局部变量 `__retval__`
 
 生成 Python 代码时可以直接使用这些额外功能。
 
@@ -76,18 +77,18 @@ def main():
     __storage__['step1_result'] = calculated_value
 ```
 
-## 局部变量 `__result__`
+## 局部变量 `__retval__`
 - 类型: 字典。
 - 用途: 用于记录和收集当前代码执行情况。
-- 注意: 在函数内使用时必须在函数最开始用 `global __result__` 声明。
-- 警告：`__result__` 变量不会传递给下一个执行的代码块！禁止从 `__result__` 中获取之前代码块保存的数据！
+- 注意: 在函数内使用时必须在函数最开始用 `global __retval__` 声明。
+- 警告：`__retval__` 变量不会传递给下一个执行的代码块！禁止从 `__retval__` 中获取之前代码块保存的数据！
 - 使用示例：
 ```python
 def main():
-    global __result__
-    __result__ = {"status": "error", "message": "An error occurred"}
+    global __retval__
+    __retval__ = {"status": "error", "message": "An error occurred"}
 ```
-例如，如果需要分析客户端的文件，你可以生成代码读取文件内容放入 `__result__` 变量即可收到反馈。
+例如，如果需要分析客户端的文件，你可以生成代码读取文件内容放入 `__retval__` 变量即可收到反馈。
 
 ## 预装的第三方包
 下述第三方包可以无需安装直接使用：
@@ -162,14 +163,15 @@ runtime.display(url="https://www.example.com/image.png")
 Python代码块的执行结果会通过JSON对象反馈给你，对象包括以下属性：
 - `stdout`: 标准输出内容
 - `stderr`: 标准错误输出
-- `__result__`: 前述`__result__` 全局变量
+- `__retval__`: 前述`__retval__` 全局变量
 - `errstr`: 异常信息
 - `traceback`: 异常堆栈信息
+- `block_id`: 执行的代码块ID
 
 注意：
 - 如果某个属性为空，它不会出现在反馈中。
-- 避免在 stdout 和 `__result__` 中保存相同的内容
-- 不要在 `__result__` 中保存太多数据，这会导致反馈消息太长
+- 避免在 stdout 和 `__retval__` 中保存相同的内容
+- 不要在 `__retval__` 中保存太多数据，这会导致反馈消息太长
 
 收到反馈后，结合代码和反馈数据，做出下一步的决策。
 

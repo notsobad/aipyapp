@@ -189,7 +189,7 @@
                 */
 				
                 // 过滤掉 role=system 的消息
-                const filteredMessages = taskData.llm.filter(message => message.role !== 'system');
+                const filteredMessages = taskData.chats.filter(message => message.role !== 'system');
                 
                 // 渲染内容
                 contentElement.innerHTML = `

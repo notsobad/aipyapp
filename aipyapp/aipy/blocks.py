@@ -19,16 +19,27 @@ class CodeBlock:
     lang: str
     code: str
     path: Optional[str] = None
-    
+
     def save(self):
         """保存代码块到文件"""
-        if not self.filename:
-            return
+        if not self.path:
+            return False
             
         path = Path(self.path)
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(self.code, encoding='utf-8')
-            
+        return True
+
+    @property
+    def abs_path(self):
+        if self.path:
+            return Path(self.path).absolute()
+        return None
+    
+    def get_lang(self):
+        lang = self.lang.lower()
+        return lang
+    
     def to_dict(self) -> Dict[str, Any]:
         """转换为字典"""
         return {
@@ -155,3 +166,12 @@ class CodeBlocks:
             self.log.error("Code id not found", code_id=code_id)
             self.console.print("❌ Code id not found", code_id=code_id)
             return None
+
+    def to_list(self):
+        """将 CodeBlocks 对象转换为 JSON 字符串
+        
+        Returns:
+            str: JSON 格式的字符串
+        """
+        blocks = [block.to_dict() for block in self.blocks.values()]
+        return blocks
