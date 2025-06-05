@@ -37,11 +37,12 @@ def get_tt_aio_api(tt_api_key) -> dict:
 
     search_url = f"{T('https://sapi.trustoken.ai/aio-api')}/search/unified"
     geoip_url = f"{T('https://sapi.trustoken.ai/aio-api')}/ipgeo"
+    amap_url = f"{T('https://sapi.trustoken.ai/aio-api')}/amap"
     tt_aio_api = {
         'tt_aio_map': {
             'env': {'tt_aio_map': [tt_api_key, "最新地图API Key"]},
             'desc': f"""高德地图（地理编码、驾车、骑行、步行、公交路线规划，周边关键字搜索，天气查询，交通态势、店铺查询, 无法确定POI分类编码时请用关键字搜索API)，**参数中的origin、destination都是坐标**
-当需要访问`https://restapi.amap.com/`时，请使用`https://api.trustoken.cn/aio-api/amap/`代替，两者API接口完全一致""",
+当需要访问`https://restapi.amap.com/`时，请使用`{amap_url}/`代替，两者API接口完全一致""",
         },
         'tt_aio_geoip':{
             'env': {'tt_aio_geoip': [tt_api_key, "最新IP地理位置API Key"]},
