@@ -161,7 +161,7 @@ class ChatFrame(wx.Frame):
         self.task_queue = queue.Queue()
         self.aipython = AIPython(self)
         self.welcomed = False  # 添加初始化标志
-        self.html_file_path = os.path.abspath(__respath__ / "chatroom.html")
+        self.html_file_path = os.path.abspath(__respath__ / f"chatroom_{get_lang()}.html")
         self.avatars = {T("Me"): '🧑', 'BB-8': '🤖', T("Turing"): '🧠', T("AIPy"): '🐙'}
 
         icon = wx.Icon(str(__respath__ / "aipy.ico"), wx.BITMAP_TYPE_ICO)
