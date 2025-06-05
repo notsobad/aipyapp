@@ -58,12 +58,12 @@ def parse_command(input_str, llms=set()):
 
 def show_info(info):
     info['Python'] = sys.executable
-    info['Python version'] = sys.version
-    info['Base Prefix'] = sys.base_prefix
+    info[T('Python version')] = sys.version
+    info[T('Python base prefix')] = sys.base_prefix
     table = Table(title=T("System information"), show_lines=True)
 
-    table.add_column("参数", justify="center", style="bold cyan", no_wrap=True)
-    table.add_column("值", justify="right", style="bold magenta")
+    table.add_column(T("Parameter"), justify="center", style="bold cyan", no_wrap=True)
+    table.add_column(T("Value"), justify="right", style="bold magenta")
 
     for key, value in info.items():
         table.add_row(
@@ -154,9 +154,9 @@ class InteractiveConsole():
 
     def info(self):
         info = OrderedDict()
-        info['Config dir'] = str(CONFIG_DIR)
-        info['Work dir'] = str(self.tm.workdir)
-        info['Current LLM'] = repr(self.tm.client_manager.current)
+        info[T('Current configuration directory')] = str(CONFIG_DIR)
+        info[T('Current working directory')] = str(self.tm.workdir)
+        info[T('Current LLM')] = repr(self.tm.client_manager.current)
         show_info(info)
 
     def run(self):

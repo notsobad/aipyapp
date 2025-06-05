@@ -300,3 +300,8 @@ Next,下一步
 Back,上一步
 Cancel,取消
 Finish,完成
+Parameter,参数
+Value,值
+Current LLM,当前 LLM
+Python version,Python 版本
+Python base prefix,Python 基础前缀
