@@ -108,7 +108,7 @@ class OpenAIBaseClient(BaseClient):
                     'type': tool_call.type,
                     'function': {
                         'name': tool_call.function.name,
-                        'arguments': json.loads(tool_call.function.arguments) if tool_call.function.arguments else {}
+                        'arguments': tool_call.function.arguments
                     }
                 })
         return ChatMessage(

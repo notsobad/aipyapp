@@ -201,7 +201,17 @@ class Task(Stoppable):
                 self.console.print(f"[red]{T('Invalid MCP tool call, missing function name')}[/red]")
                 continue
             print(name, arguments)
-            result = self.mcp.call_tool(name, arguments)
+            if isinstance(arguments, str):
+                try:
+                    arguments = json.loads(arguments)
+                except json.JSONDecodeError as e:
+                    self.console.print(f"[red]{T('Invalid MCP tool call arguments, JSON decode error')}: {e}[/red]")
+                    continue
+            try:
+                result = self.mcp.call_tool(name, arguments)
+            except ValueError as e:
+                self.console.print(f"[red]{T('MCP tool call error')}: {e}[/red]")
+                result = {'error': str(e)}
             event_bus('result', result)
             result_json = json.dumps(result, ensure_ascii=False, indent=2, default=str)
             self.print_code_result(T("MCP tool call result"), block, result_json)
