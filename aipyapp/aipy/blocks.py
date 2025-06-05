@@ -5,10 +5,41 @@ import re
 import json
 from pathlib import Path
 from collections import OrderedDict
+from dataclasses import dataclass
+from typing import Optional, Dict, Any
 
 from loguru import logger
 
 from .libmcp import extract_call_tool
+
+@dataclass
+class CodeBlock:
+    """代码块对象"""
+    id: str
+    lang: str
+    code: str
+    path: Optional[str] = None
+    
+    def save(self):
+        """保存代码块到文件"""
+        if not self.filename:
+            return
+            
+        path = Path(self.path)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(self.code, encoding='utf-8')
+            
+    def to_dict(self) -> Dict[str, Any]:
+        """转换为字典"""
+        return {
+            'id': self.id,
+            'lang': self.lang,
+            'code': self.code,
+            'path': self.path,
+        }
+
+    def __repr__(self):
+        return f"<CodeBlock id={self.id}, lang={self.lang}, path={self.path}>"
 
 class CodeBlocks:
     def __init__(self, console):
@@ -22,16 +53,6 @@ class CodeBlocks:
             r'<!--\s*Cmd-(\w+):\s*(\{.*?\})\s*-->'
         )
         self.log = logger.bind(src='code_blocks')
-
-    def save_block(self, block):
-        if block and block.get('filename'):
-            path = Path(block['filename'])
-            try:
-                #TODO: path check
-                path.parent.mkdir(parents=True, exist_ok=True)
-                path.write_text(block['content'], encoding='utf-8')
-            except Exception as e:
-                self.log.error("Failed to save file", filename=block['filename'], reason=e)
 
     def parse(self, markdown_text, parse_mcp=False):
         blocks = OrderedDict()
@@ -60,19 +81,26 @@ class CodeBlocks:
                 errors.append(error)
                 continue
 
-            block = {
-                'language': lang,
-                'content': content,
-                'base_id': start_meta.get('base_id'),
-                'filename': start_meta.get('filename')
-            }
+            # 创建代码块对象
+            block = CodeBlock(
+                id=code_id,
+                lang=lang,
+                code=content,
+                path=start_meta.get('path')
+            )
+            
             blocks[code_id] = block
-            self.log.info("Parsed code block", code_id=code_id, filename=block['filename'])
-            self.save_block(block)
+            self.log.info("Parsed code block", code_block=block)
+
+            try:
+                block.save()
+                self.log.info("Saved code block", code_block=block)
+            except Exception as e:
+                self.log.error("Failed to save file", code_block=block, reason=e)
 
         self.blocks.update(blocks)
 
-        exec_ids = []
+        exec_blocks = []
         line_matches = self.line_pattern.findall(markdown_text)
         for line_match in line_matches:
             cmd, json_str = line_match
@@ -92,7 +120,7 @@ class CodeBlocks:
                 elif exec_id not in self.blocks:
                     error = {'Cmd-Exec block not found': {'exec_id': exec_id}}
                 else:
-                    exec_ids.append(exec_id)
+                    exec_blocks.append(self.blocks[exec_id])
             else:
                 error = {f'Unknown command in Cmd-{cmd} block': {'cmd': cmd}}
 
@@ -101,8 +129,8 @@ class CodeBlocks:
 
         ret = {}
         if errors: ret['errors'] = errors
-        if exec_ids: ret['exec_ids'] = exec_ids
-        if blocks: ret['blocks'] = {k: {'language': v['language'], 'filename': v['filename']} for k, v in blocks.items()}
+        if exec_blocks: ret['exec_blocks'] = exec_blocks
+        if blocks: ret['blocks'] = [v for v in blocks.values()]
         
         if parse_mcp and not blocks:
             json_content = extract_call_tool(markdown_text)
@@ -114,7 +142,7 @@ class CodeBlocks:
     
     def get_code_by_id(self, code_id):
         try:
-            return self.blocks[code_id]['content']
+            return self.blocks[code_id].code
         except KeyError:
             self.log.error("Code id not found", code_id=code_id)
             self.console.print("❌ Code id not found", code_id=code_id)

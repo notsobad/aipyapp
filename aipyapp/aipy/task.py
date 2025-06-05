@@ -129,7 +129,7 @@ class Task(Stoppable):
         if not ret:
             return None
         
-        json_str = json.dumps(ret, ensure_ascii=False, indent=2)
+        json_str = json.dumps(ret, ensure_ascii=False, indent=2, default=str)
         self.box(f"✅ {T('Message parse result')}", json_str, lang="json")
 
         errors = ret.get('errors')
@@ -138,36 +138,34 @@ class Task(Stoppable):
             self.console.print(f"{T('Start sending feedback')}...", style='dim white')
             feed_back = f"# 消息解析错误\n{json_str}"
             ret = self.chat(feed_back)
-        elif 'exec_ids' in ret:
-            ret = self.process_code_reply(ret['exec_ids'])
+        elif 'exec_blocks' in ret:
+            ret = self.process_code_reply(ret['exec_blocks'])
         elif 'call_tool' in ret:
             ret = self.process_mcp_reply(ret['call_tool'])
         else:
             ret = None
         return ret
 
-    def print_code_result(self, title, block, result):
+    def print_code_result(self, block, result, title=None):
         line_numbers = True if 'traceback' in result else False
-        syntax_code = Syntax(block['content'], block['language'], line_numbers=line_numbers, word_wrap=True)
+        syntax_code = Syntax(block.code, block.lang, line_numbers=line_numbers, word_wrap=True)
         syntax_result = Syntax(result, 'json', line_numbers=False, word_wrap=True)
         group = Group(syntax_code, Rule(), syntax_result)
-        panel = Panel(group, title=title)
+        panel = Panel(group, title=title or block.id)
         self.console.print(panel)
 
-    def process_code_reply(self, code_ids):
+    def process_code_reply(self, exec_blocks):
         results = []
         json_results = []
-        for code_id in code_ids:
-            block = self.code_blocks.get_block_by_id(code_id)
+        for block in exec_blocks:
             event_bus('exec', block)
-            code_block = block['content']
-            self.console.print(f"⚡ {T('Start executing code block')}: {code_id}", style='dim white')
-            result = self.runner(code_block)
+            self.console.print(f"⚡ {T('Start executing code block')}: {block.id}", style='dim white')
+            result = self.runner(block)
             json_result = json.dumps(result, ensure_ascii=False, indent=2, default=str)
-            result['id'] = code_id
+            result['id'] = block.id
             results.append(result)
             json_results.append(json_result)
-            self.print_code_result(code_id, block, json_result)
+            self.print_code_result(block, json_result)
             event_bus('result', result)
 
         if len(json_results) == 1:
@@ -190,7 +188,7 @@ class Task(Stoppable):
         result = self.mcp.call_tool(call_tool['name'], call_tool.get('arguments', {}))
         event_bus('result', result)
         result_json = json.dumps(result, ensure_ascii=False, indent=2, default=str)
-        self.print_code_result(T("MCP tool call result"), block, result_json)
+        self.print_code_result(block, result_json, title=T("MCP tool call result"))
 
         self.console.print(f"{T('Start sending feedback')}...", style='dim white')
         feed_back = f"""# MCP 调用\n\n{self.instruction}\n

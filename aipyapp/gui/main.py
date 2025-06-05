@@ -10,8 +10,6 @@ import base64
 import mimetypes
 import traceback
 import threading
-import importlib.resources as resources
-import subprocess
 
 import wx
 import wx.html2
@@ -23,16 +21,13 @@ from wx.lib.newevent import NewEvent
 from wx.lib.agw.hyperlink import HyperLinkCtrl
 from wx import FileDialog, FD_SAVE, FD_OVERWRITE_PROMPT
 
-from .. import __version__, T, set_lang, get_lang
+from .. import __version__, T, set_lang, get_lang, __respath__
 from ..aipy.config import ConfigManager, CONFIG_DIR
 from ..aipy import TaskManager, event_bus
-from . import ConfigDialog, ApiMarketDialog, show_provider_config
+from . import ConfigDialog, ApiMarketDialog, show_provider_config, AboutDialog, CStatusBar
 from ..config import LLMConfig
 
-__PACKAGE_NAME__ = "aipyapp"
 ChatEvent, EVT_CHAT = NewEvent()
-
-
 matplotlib.use('Agg')
 
 def image_to_base64(file_path):
@@ -105,7 +100,7 @@ class AIPython(threading.Thread):
 
     def on_exec(self, block):
         user = 'BB-8'
-        content = f"```{block['language']}\n{block['content']}\n```"
+        content = f"```{block.lang}\n{block.code}\n```"
         evt = ChatEvent(user=user, msg=content)
         wx.PostEvent(self.gui, evt)
 
@@ -145,72 +140,6 @@ class AIPython(threading.Thread):
                     self._busy.clear()
                 wx.CallAfter(self.gui.toggle_input)
 
-class CStatusBar(wx.StatusBar):
-    def __init__(self, parent):
-        super().__init__(parent, style=wx.STB_DEFAULT_STYLE)
-        self.parent = parent
-        self.SetFieldsCount(3)
-        self.SetStatusWidths([-1, 30, 80])
-
-        self.tm = parent.tm
-        self.current_llm = self.tm.client_manager.names['default']
-        self.enabled_llm = list(self.tm.client_manager.names['enabled'])
-        self.menu_items = self.enabled_llm
-        self.radio_group = []
-
-        self.folder_button = wx.StaticBitmap(self, -1, wx.ArtProvider.GetBitmap(wx.ART_FOLDER_OPEN, wx.ART_MENU))
-        self.folder_button.Bind(wx.EVT_LEFT_DOWN, self.on_open_work_dir)
-        self.Bind(wx.EVT_SIZE, self.on_size)
-
-        self.SetStatusText(f"{self.current_llm} ▾", 2)
-        self.Bind(wx.EVT_LEFT_DOWN, self.on_click)
-
-    def on_size(self, event):
-        rect = self.GetFieldRect(1)
-        self.folder_button.SetPosition((rect.x + 5, rect.y + 2))
-        event.Skip()
-
-    def on_click(self, event):
-        rect = self.GetFieldRect(2)
-        if rect.Contains(event.GetPosition()):
-            self.show_menu()
-
-    def show_menu(self):
-        self.current_menu = wx.Menu()
-        self.radio_group = []
-        for label in self.menu_items:
-            item = wx.MenuItem(self.current_menu, wx.ID_ANY, label, kind=wx.ITEM_RADIO)
-            self.current_menu.Append(item)
-            self.radio_group.append(item)
-            self.Bind(wx.EVT_MENU, self.on_menu_select, item)
-            if label == self.current_llm:
-                item.Check()
-        rect = self.GetFieldRect(2)
-        pos = self.ClientToScreen(rect.GetBottomLeft())
-        self.PopupMenu(self.current_menu, self.ScreenToClient(pos))
-
-    def on_menu_select(self, event):
-        item = self.current_menu.FindItemById(event.GetId())
-        label = item.GetItemLabel()
-        if self.tm.use(label):
-            self.current_llm = label
-            self.SetStatusText(f"{label} ▾", 2)
-        else:
-            wx.MessageBox(T("LLM {} is not available").format(label), T("Warning"), wx.OK|wx.ICON_WARNING)
-
-    def on_open_work_dir(self, event):
-        """打开工作目录"""
-        work_dir = self.tm.workdir
-        if os.path.exists(work_dir):
-            if sys.platform == 'win32':
-                os.startfile(work_dir)
-            elif sys.platform == 'darwin':
-                subprocess.call(['open', work_dir])
-            else:
-                subprocess.call(['xdg-open', work_dir])
-        else:
-            wx.MessageBox(T("Work directory does not exist"), T("Error"), wx.OK | wx.ICON_ERROR)
-
 class FileDropTarget(wx.FileDropTarget):
     def __init__(self, text_ctrl):
         super().__init__()
@@ -232,11 +161,10 @@ class ChatFrame(wx.Frame):
         self.task_queue = queue.Queue()
         self.aipython = AIPython(self)
         self.welcomed = False  # 添加初始化标志
-        resources_dir = resources.files(f"{__PACKAGE_NAME__}.res")
-        self.html_file_path = os.path.abspath(resources_dir / f"chatroom_{get_lang()}.html")
+        self.html_file_path = os.path.abspath(__respath__ / f"chatroom_{get_lang()}.html")
         self.avatars = {T("Me"): '🧑', 'BB-8': '🤖', T("Turing"): '🧠', T("AIPy"): '🐙'}
 
-        icon = wx.Icon(str(resources_dir / "aipy.ico"), wx.BITMAP_TYPE_ICO)
+        icon = wx.Icon(str(__respath__ / "aipy.ico"), wx.BITMAP_TYPE_ICO)
         self.SetIcon(icon)
 
         self.make_menu_bar()
@@ -577,63 +505,6 @@ Note: Click the "**Help**" link in the menu bar to contact the **AIPy** official
             dialog = ShareResultDialog(self, None, str(e))
             dialog.ShowModal()
             dialog.Destroy()
-
-class AboutDialog(wx.Dialog):
-    def __init__(self, parent):
-        super().__init__(parent, title=T("About AIPY"))
-        
-        # 创建垂直布局
-        vbox = wx.BoxSizer(wx.VERTICAL)
-        
-        logo_panel = wx.Panel(self)
-        logo_sizer = wx.BoxSizer(wx.HORIZONTAL)
-
-        with resources.path(f"{__PACKAGE_NAME__}.res", "aipy.ico") as icon_path:
-            icon = wx.Icon(str(icon_path), wx.BITMAP_TYPE_ICO)
-            bmp = wx.Bitmap()
-            bmp.CopyFromIcon(icon)
-            # Scale the bitmap to a more appropriate size
-            scaled_bmp = wx.Bitmap(bmp.ConvertToImage().Scale(48, 48, wx.IMAGE_QUALITY_HIGH))
-            logo_sizer.Add(wx.StaticBitmap(logo_panel, -1, scaled_bmp), 0, wx.ALL | wx.ALIGN_CENTER, 5)
-
-        # 添加标题
-        title = wx.StaticText(logo_panel, -1, label=T("AIPy"))
-        title.SetFont(wx.Font(16, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD))
-        logo_sizer.Add(title, 0, wx.ALL|wx.ALIGN_CENTER, 10)
-        logo_panel.SetSizer(logo_sizer)
-        vbox.Add(logo_panel, 0, wx.ALL|wx.ALIGN_CENTER, 10)
-        
-        # 添加描述
-        desc = wx.StaticText(self, label=T("AIPY is an intelligent assistant that can help you complete various tasks."))
-        desc.Wrap(350)
-        vbox.Add(desc, 0, wx.ALL|wx.ALIGN_CENTER, 10)
-        
-        # 添加版本信息
-        version = wx.StaticText(self, label=f"{T('Version')}: {__version__}")
-        vbox.Add(version, 0, wx.ALL|wx.ALIGN_CENTER, 5)
-        
-        # 添加配置目录信息
-        config_dir = wx.StaticText(self, label=f"{T('Current configuration directory')}: {CONFIG_DIR}")
-        config_dir.Wrap(350)
-        vbox.Add(config_dir, 0, wx.ALL|wx.ALIGN_CENTER, 5)
-        
-        # 添加工作目录信息
-        work_dir = wx.StaticText(self, label=f"{T('Current working directory')}: {parent.tm.workdir}")
-        work_dir.Wrap(350)
-        vbox.Add(work_dir, 0, wx.ALL|wx.ALIGN_CENTER, 5)
-        
-        # 添加团队信息
-        team = wx.StaticText(self, label=T("AIPY Team"))
-        vbox.Add(team, 0, wx.ALL|wx.ALIGN_CENTER, 10)
-        
-        # 添加确定按钮
-        ok_button = wx.Button(self, wx.ID_OK, T("OK"))
-        vbox.Add(ok_button, 0, wx.ALL|wx.ALIGN_CENTER, 10)
-        
-        self.SetSizer(vbox)
-        self.SetMinSize((400, 320))
-        self.Fit()
-        self.Centre()
 
 class ShareResultDialog(wx.Dialog):
     def __init__(self, parent, url, error=None):
