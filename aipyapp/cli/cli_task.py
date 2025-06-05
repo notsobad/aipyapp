@@ -75,15 +75,15 @@ def show_info(info):
 def process_mcp_ret(console, arg, ret):
     if ret.get("status", "success") == "success":
         #console.print(f"[green]{T('mcp_success')}: {ret.get('message', '')}[/green]")
-        mcp_status = 'enabled' if ret.get("globally_enabled") else 'disabled'
-        console.print(f"[green]{T('MCP server status: {}').format(T(mcp_status))}[/green]")
+        mcp_status = T('Enabled') if ret.get("globally_enabled") else T('Disabled')
+        console.print(f"[green]{T('MCP server status: {}').format(mcp_status)}[/green]")
         mcp_servers = ret.get("servers", [])
-        if mcp_status == 'enabled':
+        if ret.get("globally_enabled", False):
             for server_name, info in mcp_servers.items():
-                server_status = 'enabled' if info.get("enabled", False) else 'disabled'
+                server_status = T('Enabled') if info.get("enabled", False) else T('Disabled')
                 console.print(
-                    "[", T(server_status), "]",
-                    server_name, info.get("tools_count"), "tools"
+                    "[", server_status, "]",
+                    server_name, info.get("tools_count"), T("Tools")
                 )
     else:
         #console.print(f"[red]{T('mcp_error')}: {ret.get('message', '')}[/red]")
