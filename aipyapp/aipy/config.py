@@ -51,8 +51,8 @@ curl -H 'Authorization: Bearer xxx' {geoip_url}
 响应数据如下：{{"city": "成都", "country": "中国", "ip": "171.2.1.1", "isp": "电信", "latitude": "32.676235", "longitude": "103.058986", "province": "四川", "version": 4}}""",
         },
         'tt_aio_search': {
-            'env': {'tt_aio_search': [tt_api_key, "最新网络搜索API Key"]},
-            'desc': f"""联网搜索服务，可用于搜索网络信息, *注意：不支持指定时间、网站搜索*。仅在必须联网搜索时调用，接口调用示例如下：
+            'env': {'tt_aio_search': [tt_api_key, "Trustoken网络搜索API Key"]},
+            'desc': f"""联网搜索服务，用于搜索网络信息, **注意：1. 用户指定了搜索引擎时，请勿使用此API；2. 不支持指定时间、网站搜索**。仅在必须联网搜索时调用，接口调用示例如下：
 curl  -X POST {search_url} \
 --header "Authorization: Bearer xxxxx" \
 --header "Content-Type: application/json" \
