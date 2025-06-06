@@ -1,8 +1,14 @@
 # Features
 
+## 0.2.0
+- 支持 tips
+- 支持自定义 LLM API 参数
+- 去掉 __storage__ 和 __retval__ 变量
+- api.py
+- status 消息通知
+
 ## 0.1.32
 - 国际化重构
-- api.py
 
 ## 0.1.29
 - 新代码块标记
