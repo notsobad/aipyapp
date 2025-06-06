@@ -7,6 +7,7 @@ from .base import ChatMessage, BaseClient
 from .base_openai import OpenAIBaseClient
 from .client_claude import ClaudeClient
 from .client_ollama import OllamaClient
+from .client_oauth2 import OAuth2Client
 
 __all__ = ['ChatMessage', 'CLIENTS']
 
@@ -58,6 +59,7 @@ CLIENTS = {
     "deepseek": DeepSeekClient,
     'grok': GrokClient,
     'trust': TrustClient,
-    'azure': AzureOpenAIClient
+    'azure': AzureOpenAIClient,
+    'oauth2': OAuth2Client
 }
 
