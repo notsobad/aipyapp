@@ -41,6 +41,14 @@ max_tokens = 8192
 - max_tokens: LLM 的最大 token 数，默认为 8192。
 - tls_verify: true|false, 是否启用证书校验。这在某些环境中（特别是使用自签名证书或需要绕过SSL验证的场景）会很有用。
 
+模型特有的配置参数，可以 params 配置指定。例如：
+```toml
+params = {thinking = {type = “enabled”, budget_tokens = 1024}}
+```
+注意：params 是 TOML 配置格式，不是 JSON，需要：
+1. 用 = 代替 json 里的 :
+2. 属性名不需要引号
+
 LLM 类型列表
 | 类型 | 描述 |
 | --- | --- |
