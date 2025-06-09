@@ -17,6 +17,20 @@ import json
 import time
 import random
 import traceback
+
+__retval__ = {}
+__storage__ = {}
+
+def set_state(key, value, persistent=False):
+    global __retval__, __storage__
+    if persistent:
+        __storage__[key] = value
+    else:
+        __retval__[key] = value
+
+def get_persistent_state(key):
+    global __storage__
+    return __storage__.get(key)
 """
 
 def is_json_serializable(obj):
@@ -45,7 +59,7 @@ class Runner():
         self.runtime = runtime
         self.history = []
         self.log = logger.bind(src='runner')
-        self._globals = {'runtime': runtime, '__storage__': {}, '__name__': '__main__', 'input': self.runtime.input}
+        self._globals = {'runtime': runtime, '__name__': '__main__', 'input': self.runtime.input}
         exec(INIT_IMPORTS, self._globals)
 
     def __repr__(self):
@@ -64,7 +78,8 @@ class Runner():
         env = self.runtime.envs.copy()
         session = self._globals['__storage__'].copy()
         gs = self._globals.copy()
-        gs['__retval__'] = {}
+
+        #gs['__retval__'] = {}
         try:
             exec(block.code, gs)
         except (SystemExit, Exception) as e:
@@ -82,7 +97,7 @@ class Runner():
         vars = gs.get('__retval__')
         if vars:
             #self._globals['__retval__'] = vars
-            result['__retval__'] = self.filter_result(vars)
+            result['state'] = self.filter_result(vars)
 
         history = {}
         diff = diff_dicts(env, self.runtime.envs)

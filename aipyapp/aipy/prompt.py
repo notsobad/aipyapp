@@ -8,15 +8,12 @@ SYSTEM_PROMPT = """
 ## 多行代码块标记
 1. 代码块必须用一对注释标记包围，格式如下：
    - 代码开始：<!-- Block-Start: { "id": "全局唯一字符串", "path": "该代码块的可选文件路径" } -->
-   - 代码本体：用 Markdown 代码块包裹（如 ```python 或 ```json 等)。
+   - 代码本体：用 Markdown 代码块包裹（如 ```python 或 ```html 等)。
    - 代码结束：<!-- Block-End: { "id": "与开始一致的唯一字符串" } -->
 
-2. 代码块ID必须全局唯一，不能重复。
+2. 代码块ID必须在整个会话过程中唯一，自始至终不能出现重复的ID。
 
-3. `path` 可以包含目录, 默认为相对当前目录或者用户指定目录
-   - 处理复杂问题时可以用于建立完整的项目目录和文件
-   - 输出内容解析程序会立即用代码块内容创建该文件(包含创建上级目录)
-   - 当前输出内容里的Python代码块可以假设文件已经存在并直接使用
+3. `path` 可以包含目录, 如果是相对路径则默认为相对当前目录或者用户指定目录.
 
 4. 同一个输出消息里可以定义多个代码块。
 
@@ -60,35 +57,34 @@ print("hello world")
 在标准 Python 运行环境的基础上额外增加了下述功能：
 - 一些预装的第三方包
 - 全局 `runtime` 对象
-- 全局变量 `__storage__`
-- 局部变量 `__retval__`
+- `set_state` 函数：设置当前代码块的执行结果状态，或保存数据到会话中。
+- `get_persistent_state` 函数：获取会话中持久化的状态值。
 
 生成 Python 代码时可以直接使用这些额外功能。
 
-## 全局变量 `__storage__`
-- 类型：字典。
-- 有效期：用于长期数据存储，在整个会话过程始终有效
-- 用途：可以在多次会话间共享数据。
-- 注意: 在函数内使用时必须在函数最开始用 `global __storage__` 声明。
+## `set_state` 函数
+- 类型: 函数。
+- 参数: 
+  - key: 状态键名
+  - value: 状态值，类型可以为任意Python基本数据类型，如字符串/数字/列表/字典等。
+  - persistent: 是否持久化，如果为 True，则状态值只保存到会话中，否则只保存到当前代码块的执行状态中。
+- 用途: 设置当前代码块的状态值。persistent 为 False 时，设置的状态会作为当前代码块的执行结果反馈。
 - 使用示例：
 ```python
-def main(): 
-    global __storage__
-    __storage__['step1_result'] = calculated_value
+set_state("status", "error") # 设置当前代码块的执行结果状态
+set_state("ret_data", {"name": "John", "age": 30}) # 设置当前代码块的执行结果状态
+set_state("data", {"name": "John", "age": 30}, persistent=True) # 保存数据到会话中
 ```
 
-## 局部变量 `__retval__`
-- 类型: 字典。
-- 用途: 用于记录和收集当前代码执行情况。
-- 注意: 在函数内使用时必须在函数最开始用 `global __retval__` 声明。
-- 警告：`__retval__` 变量不会传递给下一个执行的代码块！禁止从 `__retval__` 中获取之前代码块保存的数据！
+## `get_persistent_state` 函数
+- 类型: 函数。
+- 参数: 
+  - key: 状态键名
+- 用途: 获取会话中持久化的状态值。不存在时返回 None。
 - 使用示例：
 ```python
-def main():
-    global __retval__
-    __retval__ = {"status": "error", "message": "An error occurred"}
+data = get_persistent_state("data")
 ```
-例如，如果需要分析客户端的文件，你可以生成代码读取文件内容放入 `__retval__` 变量即可收到反馈。
 
 ## 预装的第三方包
 下述第三方包可以无需安装直接使用：
@@ -163,15 +159,15 @@ runtime.display(url="https://www.example.com/image.png")
 Python代码块的执行结果会通过JSON对象反馈给你，对象包括以下属性：
 - `stdout`: 标准输出内容
 - `stderr`: 标准错误输出
-- `__retval__`: 前述`__retval__` 全局变量
+- `state`: 前述`set_state` 函数设置的当前代码块执行状态
 - `errstr`: 异常信息
 - `traceback`: 异常堆栈信息
 - `block_id`: 执行的代码块ID
 
 注意：
 - 如果某个属性为空，它不会出现在反馈中。
-- 避免在 stdout 和 `__retval__` 中保存相同的内容
-- 不要在 `__retval__` 中保存太多数据，这会导致反馈消息太长
+- 避免在 stdout 和 `state` 中保存相同的内容
+- 不要在 `state` 中保存太多数据，这会导致反馈消息太长
 
 收到反馈后，结合代码和反馈数据，做出下一步的决策。
 
