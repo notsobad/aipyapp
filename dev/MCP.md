@@ -38,9 +38,14 @@ MCP (Model Context Protocol) 是一组工具协议，允许 AI 模型与外部�
 
 aipyapp 使用 JSON 格式的配置文件来管理 MCP 工具。默认配置文件位置为应用程序配置目录下的 `mcp.json`。
 
-**注意：目前暂时仅支持stdio方式调用的MCP服务**
+**支持的连接方式：**
+- **stdio**：标准输入/输出(stdio)，默认方式
+- **HTTP/SSE**：服务器发送事件（sse）
+- **Streamable HTTP**：可流式传输的 HTTP (streamable http)
 
 ### 配置文件格式
+
+#### 1. stdio 方式（默认）
 
 ```json
 {
@@ -81,6 +86,49 @@ aipyapp 使用 JSON 格式的配置文件来管理 MCP 工具。默认配置文�
   }
 }
 ```
+
+#### 2. HTTP/SSE 方式
+
+```json
+{
+  "mcpServers": {
+    "sse_server": {
+      "url": "http://localhost:3000/sse"
+    },
+    "remote_sse_server": {
+      "url": "https://api.example.com/sse",
+      "headers": {
+        "Authorization": "Bearer your-token"
+      }
+    }
+  }
+}
+```
+
+#### 3. Streamable HTTP 方式
+
+```json
+{
+  "mcpServers": {
+    "streamable_server": {
+      "url": "http://localhost:3000/mcp",
+      "transport": {
+        "type": "streamable_http"
+      }
+    },
+    "remote_streamable_server": {
+      "url": "https://api.example.com/mcp",
+      "transport": {
+        "type": "streamable_http"
+      },
+      "headers": {
+        "Authorization": "Bearer your-token"
+      }
+    }
+  }
+}
+```
+
 
 ### 配置文件位置
 
