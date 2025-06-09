@@ -141,11 +141,20 @@ aipyapp 使用 JSON 格式的配置文件来管理 MCP 工具。默认配置文�
 
 ### 服务器配置字段
 
-每个 MCP 服务器配置可以包含以下字段：
-
+#### stdio 方式配置字段：
 - `command`：(必填) 执行命令，可以是可执行文件路径或命令名称
 - `args`：(可选) 命令行参数数组
 - `env`：(可选) 环境变量对象
+- `disabled`：(可选) 设置为 `true` 时禁用该服务器
+- `enabled`：(可选) 设置为 `false` 时禁用该服务器
+
+#### HTTP/SSE 和 Streamable HTTP 方式配置字段：
+- `url`：(必填) MCP 服务器的 URL 地址
+- `transport`：(可选) 传输配置，用于指定 streamable_http 类型
+  - `type`：传输类型，可选 `"streamable_http"`
+- `headers`：(可选) 自定义 HTTP 请求头，键值对格式
+- `timeout`：(可选) HTTP 请求超时时间，单位秒
+- `sse_read_timeout`：(可选) SSE 读取超时时间，单位秒
 - `disabled`：(可选) 设置为 `true` 时禁用该服务器
 - `enabled`：(可选) 设置为 `false` 时禁用该服务器
 

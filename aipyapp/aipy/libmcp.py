@@ -5,6 +5,7 @@ import os
 import re
 import sys
 import time
+from datetime import timedelta
 
 from loguru import logger
 from mcp import ClientSession, StdioServerParameters
@@ -144,19 +145,33 @@ class MCPClientSync:
             return stdio_client(server_params)
         elif self.connection_type == "sse":
             # SSE 连接
-            url = self.server_config["url"]
-            return sse_client(url)
+            kargs = {'url' : self.server_config["url"]}
+            if "headers" in self.server_config:
+                kargs['headers'] = self.server_config["headers"]
+            if "timeout" in self.server_config:
+                kargs['timeout'] = self.server_config["timeout"]
+            if "sse_read_timeout" in self.server_config:
+                kargs['sse_read_timeout'] = self.server_config["sse_read_timeout"]
+
+            return sse_client(**kargs)
         elif self.connection_type == "streamable_http":
             # Streamable HTTP 连接
-            url = self.server_config["url"]
-            return streamablehttp_client(url)
+            kargs = {'url' : self.server_config["url"]}
+            if "headers" in self.server_config:
+                kargs['headers'] = self.server_config["headers"]
+            if "timeout" in self.server_config:
+                kargs['timeout'] = timedelta(seconds=self.server_config["timeout"])
+            if "sse_read_timeout" in self.server_config:
+                kargs['sse_read_timeout'] = timedelta(seconds=self.server_config["sse_read_timeout"])
+
+            return streamablehttp_client(**kargs)
         else:
             raise ValueError(f"Unsupported connection type: {self.connection_type}")
 
     async def _execute_with_session(self, operation):
         """统一的会话执行方法，处理不同客户端类型的差异"""
         client_session = await self._create_client_session()
-        
+
         if self.connection_type == "streamable_http":
             async with client_session as (read, write, _):
                 async with ClientSession(read, write) as session:
