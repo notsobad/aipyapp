@@ -146,23 +146,23 @@ class MCPClientSync:
         elif self.connection_type == "sse":
             # SSE 连接
             kargs = {'url' : self.server_config["url"]}
-            if "headers" in self.server_config:
+            if "headers" in self.server_config and isinstance(self.server_config["headers"], dict):
                 kargs['headers'] = self.server_config["headers"]
             if "timeout" in self.server_config:
-                kargs['timeout'] = self.server_config["timeout"]
+                kargs['timeout'] = int(self.server_config["timeout"])
             if "sse_read_timeout" in self.server_config:
-                kargs['sse_read_timeout'] = self.server_config["sse_read_timeout"]
+                kargs['sse_read_timeout'] = int(self.server_config["sse_read_timeout"])
 
             return sse_client(**kargs)
         elif self.connection_type == "streamable_http":
             # Streamable HTTP 连接
             kargs = {'url' : self.server_config["url"]}
-            if "headers" in self.server_config:
+            if "headers" in self.server_config and isinstance(self.server_config["headers"], dict):
                 kargs['headers'] = self.server_config["headers"]
             if "timeout" in self.server_config:
-                kargs['timeout'] = timedelta(seconds=self.server_config["timeout"])
+                kargs['timeout'] = timedelta(seconds=int(self.server_config["timeout"]))
             if "sse_read_timeout" in self.server_config:
-                kargs['sse_read_timeout'] = timedelta(seconds=self.server_config["sse_read_timeout"])
+                kargs['sse_read_timeout'] = timedelta(seconds=int(self.server_config["sse_read_timeout"]))
 
             return streamablehttp_client(**kargs)
         else:
@@ -341,10 +341,11 @@ class MCPToolManager:
 
         # 缓存无效或加载失败，重新获取工具列表
         all_tools = []
+        print(T("Initializing MCP server, this may take a while if it's the first load, please wait patiently..."))
         for server_name, server_config in self.mcp_servers.items():
             if server_name not in self._tools_cache:
                 try:
-                    print(">> Loading MCP", server_name)
+                    print("+ Loading MCP", server_name)
                     
                     # 创建 MCPClientSync 实例，传入完整的服务器配置
                     client = MCPClientSync(server_config)
