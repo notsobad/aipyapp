@@ -36,7 +36,7 @@ requires-dist = [
     { name = "beautifulsoup4", specifier = ">=4.13.3" },
     { name = "dynaconf", specifier = ">=3.2.10" },
     { name = "loguru", specifier = ">=0.7.3" },
-    { name = "mcp", extras = ["cli"], specifier = ">=1.8.1" },
+    { name = "mcp", extras = ["cli"], specifier = ">=1.9.2" },
     { name = "openai", specifier = ">=1.68.2" },
     { name = "openpyxl", specifier = ">=3.1.5" },
     { name = "pandas", specifier = ">=2.2.3" },
