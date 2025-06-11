@@ -5,13 +5,14 @@ import os
 import re
 import sys
 import time
+from datetime import timedelta
 
 from loguru import logger
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
-
+from mcp.client.sse import sse_client
+from mcp.client.streamable_http import streamablehttp_client
 from .. import T
-
 # 预编译正则表达式
 CODE_BLOCK_PATTERN = re.compile(r"```(?:json)?\s*([\s\S]*?)\s*```")
 JSON_PATTERN = re.compile(r"(\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\})")
@@ -74,14 +75,27 @@ class MCPConfigReader:
             print(f"Config file not found: {self.config_path}")
             return {}
         except json.JSONDecodeError as e:
-            print(f"Error decoding JSON: {e}")
+            print(T("Error decoding MCP config file {}: {}").format(self.config_path, e))
             return {}
 
 
 class MCPClientSync:
-    def __init__(self, server_params, suppress_output=True):
-        self.server_params = server_params
+    def __init__(self, server_config, suppress_output=True):
+        self.server_config = server_config
         self.suppress_output = suppress_output
+        self.connection_type = self._determine_connection_type()
+
+    def _determine_connection_type(self):
+        """确定连接类型：stdio, sse, 或 streamable_http"""
+        if "url" in self.server_config:
+            # 检查是否明确指定为 streamable_http
+            transport_type = self.server_config.get("transport", {}).get("type")
+            if transport_type == "streamable_http":
+                return "streamable_http"
+            # 默认为 SSE
+            return "sse"
+        else:
+            return "stdio"
 
     @contextlib.contextmanager
     def _suppress_stdout_stderr(self):
@@ -119,14 +133,64 @@ class MCPClientSync:
     def call_tool(self, tool_name, arguments):
         return self._run_async(self._call_tool(tool_name, arguments))
 
-    async def _list_tools(self):
-        try:
-            tools = []
-            async with stdio_client(self.server_params) as (read, write):
+    async def _create_client_session(self):
+        """根据连接类型创建相应的客户端会话"""
+        if self.connection_type == "stdio":
+            # stdio 连接
+            server_params = StdioServerParameters(
+                command=self.server_config.get("command"),
+                args=self.server_config.get("args", []),
+                env=self.server_config.get("env"),
+            )
+            return stdio_client(server_params)
+        elif self.connection_type == "sse":
+            # SSE 连接
+            kargs = {'url' : self.server_config["url"]}
+            if "headers" in self.server_config and isinstance(self.server_config["headers"], dict):
+                kargs['headers'] = self.server_config["headers"]
+            if "timeout" in self.server_config:
+                kargs['timeout'] = int(self.server_config["timeout"])
+            if "sse_read_timeout" in self.server_config:
+                kargs['sse_read_timeout'] = int(self.server_config["sse_read_timeout"])
+
+            return sse_client(**kargs)
+        elif self.connection_type == "streamable_http":
+            # Streamable HTTP 连接
+            kargs = {'url' : self.server_config["url"]}
+            if "headers" in self.server_config and isinstance(self.server_config["headers"], dict):
+                kargs['headers'] = self.server_config["headers"]
+            if "timeout" in self.server_config:
+                kargs['timeout'] = timedelta(seconds=int(self.server_config["timeout"]))
+            if "sse_read_timeout" in self.server_config:
+                kargs['sse_read_timeout'] = timedelta(seconds=int(self.server_config["sse_read_timeout"]))
+
+            return streamablehttp_client(**kargs)
+        else:
+            raise ValueError(f"Unsupported connection type: {self.connection_type}")
+
+    async def _execute_with_session(self, operation):
+        """统一的会话执行方法，处理不同客户端类型的差异"""
+        client_session = await self._create_client_session()
+
+        if self.connection_type == "streamable_http":
+            async with client_session as (read, write, _):
                 async with ClientSession(read, write) as session:
                     await session.initialize()
-                    server_tools = await session.list_tools()
-                    tools = server_tools.model_dump().get("tools", [])
+                    return await operation(session)
+        else:
+            async with client_session as (read, write):
+                async with ClientSession(read, write) as session:
+                    await session.initialize()
+                    return await operation(session)
+
+    async def _list_tools(self):
+        try:
+            async def list_operation(session):
+                server_tools = await session.list_tools()
+                return server_tools.model_dump().get("tools", [])
+            
+            tools = await self._execute_with_session(list_operation)
+            
             if sys.platform == "win32":
                 # FIX windows下抛异常的问题
                 await asyncio.sleep(3)
@@ -137,12 +201,12 @@ class MCPClientSync:
 
     async def _call_tool(self, tool_name, arguments):
         try:
-            ret = {}
-            async with stdio_client(self.server_params) as (read, write):
-                async with ClientSession(read, write) as session:
-                    await session.initialize()
-                    result = await session.call_tool(tool_name, arguments=arguments)
-                    ret = result.model_dump()
+            async def call_operation(session):
+                result = await session.call_tool(tool_name, arguments=arguments)
+                return result.model_dump()
+            
+            ret = await self._execute_with_session(call_operation)
+            
             if sys.platform == "win32":
                 # FIX windows下抛异常的问题
                 await asyncio.sleep(3)
@@ -277,26 +341,16 @@ class MCPToolManager:
 
         # 缓存无效或加载失败，重新获取工具列表
         all_tools = []
+        print(T("Initializing MCP server, this may take a while if it's the first load, please wait patiently..."))
         for server_name, server_config in self.mcp_servers.items():
             if server_name not in self._tools_cache:
                 try:
-                    # 创建服务器参数
-                    if "url" in server_config:
-                        # HTTP/SSE 类型的服务器，暂不支持
-                        # print(f"Skipping HTTP/SSE server {server_name}: {server_config['url']}")
-                        continue
-
-                    print(">> Loading MCP", server_name)
-                    server_params = StdioServerParameters(
-                        command=server_config.get("command"),
-                        args=server_config.get("args", []),
-                        env=server_config.get("env"),
-                    )
-
-                    # 获取工具列表
-                    client = MCPClientSync(server_params)
+                    print("+ Loading MCP", server_name)
+                    
+                    # 创建 MCPClientSync 实例，传入完整的服务器配置
+                    client = MCPClientSync(server_config)
                     tools = client.list_tools()
-                    # print(tools)
+                    
                     # 为每个工具添加服务器标识
                     for tool in tools:
                         tool["server"] = server_name
@@ -404,15 +458,8 @@ class MCPToolManager:
         server_name = best_match["server"]
         server_config = self.mcp_servers[server_name]
 
-        # 创建服务器参数
-        server_params = StdioServerParameters(
-            command=server_config.get("command"),
-            args=server_config.get("args", []),
-            env=server_config.get("env"),
-        )
-
-        # 调用工具
-        client = MCPClientSync(server_params)
+        # 创建客户端并调用工具
+        client = MCPClientSync(server_config)
         return client.call_tool(tool_name, arguments)
 
     def process_command(self, args):
