@@ -11,10 +11,11 @@ from loguru import logger
 from .. import T
 from .task import Task
 from .plugin import PluginManager
-from .prompt import SYSTEM_PROMPT
+from .prompt import get_system_prompt
 from .diagnose import Diagnose
 from .llm import ClientManager
-from .config import PLUGINS_DIR, get_mcp, get_tt_api_key, get_tt_aio_api
+from .config import PLUGINS_DIR, TIPS_DIR, get_mcp, get_tt_api_key, get_tt_aio_api
+from .tips import TipsManager
 
 class TaskManager:
     MAX_TASKS = 16
@@ -26,8 +27,8 @@ class TaskManager:
         self.envs = {}
         self.gui = gui
         self.log = logger.bind(src='taskmgr')
+        self.api_prompt = None
         self.config_files = settings._loaded_files
-        self.system_prompt = f"{settings.system_prompt}\n{SYSTEM_PROMPT}"
         self.plugin_manager = PluginManager(PLUGINS_DIR)
         self.plugin_manager.load_plugins()
         if settings.workdir:
@@ -43,6 +44,8 @@ class TaskManager:
         self._init_api()
         self.diagnose = Diagnose.create(settings)
         self.client_manager = ClientManager(settings)
+        self.tips_manager = TipsManager(TIPS_DIR)
+        self.tips_manager.load_tips()
 
     @property
     def workdir(self):
@@ -51,10 +54,13 @@ class TaskManager:
     def get_update(self, force=False):
         return self.diagnose.check_update(force)
 
-    def use(self, name):
-        ret = self.client_manager.use(name)
-        self.console.print('[green]Ok[/green]' if ret else '[red]Error[/red]')
-        return ret
+    def use(self, llm=None, role=None):
+        if llm:
+            ret = self.client_manager.use(llm)
+            self.console.print(f"LLM: {'[green]Ok[/green]' if ret else '[red]Error[/red]'}")
+        if role:
+            ret = self.tips_manager.use(role)
+            self.console.print(f"Role: {'[green]Ok[/green]' if ret else '[red]Error[/red]'}")
 
     def _init_environ(self):
         envs = self.settings.get('environ', {})
@@ -69,7 +75,7 @@ class TaskManager:
             tt_aio_api = get_tt_aio_api(self.tt_api_key)
             api.update(tt_aio_api)
 
-        lines = [self.system_prompt]
+        lines = []
         for api_name, api_conf in api.items():
             lines.append(f"## {api_name} API")
             desc = api_conf.get('desc')
@@ -88,7 +94,7 @@ class TaskManager:
                 lines.append(f"- {name}: {desc}")
                 self.envs[name] = (value, desc)
 
-        self.system_prompt = "\n".join(lines)
+        self.api_prompt = "\n".join(lines)
 
 
     def _update_mcp_prompt(self, prompt):
@@ -109,9 +115,9 @@ class TaskManager:
         # 更新系统提示
         return "\n".join(lines)
 
-    def new_task(self, system_prompt=None):
+    def new_task(self):
         with_mcp = self.settings.get('mcp', {}).get('enable', True)
-        system_prompt = system_prompt or self.system_prompt
+        system_prompt = get_system_prompt(self.tips_manager.current_tips, self.api_prompt)
         if self.mcp and with_mcp:
             self.log.info('Update MCP prompt')
             system_prompt = self._update_mcp_prompt(system_prompt)

@@ -10,12 +10,13 @@ from rich.table import Table
 from prompt_toolkit import PromptSession
 from prompt_toolkit.history import FileHistory
 from prompt_toolkit.styles import Style
-from prompt_toolkit.completion import WordCompleter
+from prompt_toolkit.completion import WordCompleter, merge_completers
 
 from ..aipy import TaskManager, ConfigManager, CONFIG_DIR
 from .. import T, set_lang, __version__
 from ..config import LLMConfig
 from ..aipy.wizard import config_llm
+from .completer import DotSyntaxCompleter
 
 class CommandType(Enum):
     CMD_DONE = auto()
@@ -25,6 +26,7 @@ class CommandType(Enum):
     CMD_TEXT = auto()
     CMD_INFO = auto()
     CMD_MCP = auto()
+    CMD_ROLE = auto()
 
 def parse_command(input_str, llms=set()):
     lower = input_str.lower()
@@ -40,15 +42,11 @@ def parse_command(input_str, llms=set()):
     
     if lower.startswith("/use "):
         arg = input_str[5:].strip()
-        if arg in llms:
-            return CommandType.CMD_USE, arg
-        else:
-            return CommandType.CMD_INVALID, arg
+        return CommandType.CMD_USE, arg
 
     if lower.startswith("use "):
         arg = input_str[4:].strip()
-        if arg in llms:
-            return CommandType.CMD_USE, arg
+        return CommandType.CMD_USE, arg
     
     if lower.startswith("/mcp"):
         args = input_str[4:].strip().split(" ")
@@ -93,7 +91,9 @@ class InteractiveConsole():
     def __init__(self, tm, console, settings):
         self.tm = tm
         self.names = tm.client_manager.names
-        completer = WordCompleter(['/use', 'use', '/done','done', '/info', 'info', '/mcp'] + list(self.names['enabled']), ignore_case=True)
+        word_completer = WordCompleter(['/use', 'use', '/done','done', '/info', 'info', '/mcp'] + list(self.names['enabled']), ignore_case=True)
+        dot_completer = DotSyntaxCompleter(tm)
+        completer = merge_completers([word_completer, dot_completer])
         self.history = FileHistory(str(CONFIG_DIR / ".history"))
         self.session = PromptSession(history=self.history, completer=completer)
         self.console = console
@@ -159,6 +159,20 @@ class InteractiveConsole():
         info[T('Current LLM')] = repr(self.tm.client_manager.current)
         show_info(info)
 
+    def use(self, args):
+        """ 解析和处理 /use 命令 
+        arg 可能是: @llm.name 或 @role.name 或 @tip.name，可以组合使用
+        """
+        if not args:
+            return
+        params = {}
+        for arg in args.split():
+            if arg.startswith('@'):
+                category, name = arg[1:].split('.', 1)
+                params[category] = name
+        print(params)
+        self.tm.use(**params)
+
     def run(self):
         self.console.print(f"{T('Please enter the task to be processed by AI (enter /use <following LLM> to switch, enter /info to view system information)')}", style="green")
         self.console.print(f"[cyan]{T('Default')}: [green]{self.names['default']}，[cyan]{T('Enabled')}: [yellow]{' '.join(self.names['enabled'])}")
@@ -175,8 +189,7 @@ class InteractiveConsole():
                     task = tm.new_task()
                     self.start_task_mode(task, arg)
                 elif cmd == CommandType.CMD_USE:
-                    ret = tm.client_manager.use(arg)
-                    self.console.print('[green]Ok[/green]' if ret else '[red]Error[/red]')
+                    self.use(arg)
                 elif cmd == CommandType.CMD_INFO:
                     self.info()
                 elif cmd == CommandType.CMD_EXIT:
