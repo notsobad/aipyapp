@@ -306,3 +306,4 @@ Current LLM,当前 LLM
 Python version,Python 版本
 Python base prefix,Python 基础前缀
 Tools,工具
+Error decoding MCP config file {}: {},解析 MCP 配置文件 {} 时出错: {}
