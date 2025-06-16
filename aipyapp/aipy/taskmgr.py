@@ -103,7 +103,7 @@ class TaskManager:
         if not mcp_tools:
             return prompt
         tools_json = json.dumps(mcp_tools, ensure_ascii=False)
-        lines = [self.system_prompt]
+        lines = [prompt]
         lines.append("""\n## MCP工具调用规则：
 1. 如果需要调用MCP工具，请以 JSON 格式输出你的决策和调用参数，并且仅返回json，不输出其他内容。
 2. 返回 JSON 格式如下：
