@@ -138,7 +138,7 @@ class TaskManager:
             return task
 
         with_mcp = self.settings.get('mcp', {}).get('enable', True)
-        system_prompt = get_system_prompt(self.tips_manager.current_tips, self.api_prompt)
+        system_prompt = get_system_prompt(self.tips_manager.current_tips, self.api_prompt, self.settings.get('system_prompt'))
         if self.mcp and with_mcp:
             self.log.info('Update MCP prompt')
             system_prompt = self._update_mcp_prompt(system_prompt)

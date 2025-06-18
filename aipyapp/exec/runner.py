@@ -21,12 +21,13 @@ import traceback
 __retval__ = {}
 __storage__ = {}
 
-def set_state(key, value, persistent=False):
+def set_state(**kwargs):
     global __retval__, __storage__
+    persistent = kwargs.pop('persistent', False)
     if persistent:
-        __storage__[key] = value
+        __storage__.update(kwargs)
     else:
-        __retval__[key] = value
+        __retval__.update(kwargs)
 
 def get_persistent_state(key):
     global __storage__

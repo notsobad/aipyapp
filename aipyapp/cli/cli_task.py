@@ -170,9 +170,13 @@ class InteractiveConsole():
         params = {}
         for arg in args.split():
             if arg.startswith('@'):
-                category, name = arg[1:].split('.', 1)
-                params[category] = name
-        self.tm.use(**params)
+                kv = arg[1:].split('.', 1)
+                if len(kv) == 2:
+                    params[kv[0]] = kv[1]
+            elif arg in self.names['enabled']:
+                params['llm'] = arg
+        if params:
+            self.tm.use(**params)
 
     def run(self):
         self.console.print(f"{T('Please enter the task to be processed by AI (enter /use <following LLM> to switch, enter /info to view system information)')}", style="green")
