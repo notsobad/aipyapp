@@ -157,6 +157,8 @@ class InteractiveConsole():
         info[T('Current configuration directory')] = str(CONFIG_DIR)
         info[T('Current working directory')] = str(self.tm.workdir)
         info[T('Current LLM')] = repr(self.tm.client_manager.current)
+        info[T('Current role')] = self.tm.tips_manager.current_tips.name
+        #info[T('Current task')] = self.tm.task.task_id if self.tm.task else T('None')
         show_info(info)
 
     def use(self, args):
@@ -170,7 +172,6 @@ class InteractiveConsole():
             if arg.startswith('@'):
                 category, name = arg[1:].split('.', 1)
                 params[category] = name
-        print(params)
         self.tm.use(**params)
 
     def run(self):

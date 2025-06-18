@@ -8,7 +8,8 @@ import re
 main_menu = {
     'llm': '模型API',
     'role': '用户角色',
-    'tips': '可用提示'
+    'tips': '可用提示',
+    'task': '任务列表'
 }
 
 class DotSyntaxCompleter(Completer):
@@ -53,6 +54,11 @@ class DotSyntaxCompleter(Completer):
             for item in self.llms:
                 if sub is None or item.startswith(sub):
                     yield Completion(item, start_position=-prefix_len, display_meta=item)
+        elif category == 'task':
+            prefix_len = len(sub) if sub else 0
+            for task in self.tm.get_tasks():
+                if sub is None or task.task_id.startswith(sub):
+                    yield Completion(task.task_id, start_position=-prefix_len, display_meta=task.instruction)
 # 样式
 style = Style.from_dict({
     'completion-menu.completion': 'bg:#333333 #ffffff',
