@@ -97,6 +97,7 @@ class InteractiveConsole():
         self.history = FileHistory(str(CONFIG_DIR / ".history"))
         self.session = PromptSession(history=self.history, completer=completer)
         self.console = console
+        self.settings = settings
         self.style_main = Style.from_dict({"prompt": "green"})
         self.style_ai = Style.from_dict({"prompt": "cyan"})
         
@@ -157,7 +158,7 @@ class InteractiveConsole():
         info[T('Current configuration directory')] = str(CONFIG_DIR)
         info[T('Current working directory')] = str(self.tm.workdir)
         info[T('Current LLM')] = repr(self.tm.client_manager.current)
-        info[T('Current role')] = self.tm.tips_manager.current_tips.name
+        info[T('Current role')] = '-' if self.settings.get('system_prompt') else self.tm.tips_manager.current_tips.name
         #info[T('Current task')] = self.tm.task.task_id if self.tm.task else T('None')
         show_info(info)
 

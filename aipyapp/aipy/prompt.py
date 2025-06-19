@@ -69,17 +69,25 @@ print("hello world")
 
 生成 Python 代码时可以直接使用这些额外功能。
 
-## `set_state` 函数
-- 定义: `set_state(**kwargs)`
+## `set_result` 函数
+- 定义: `set_result(**kwargs)`
 - 参数: 
   - **kwargs: 状态键值对，类型可以为任意Python基本数据类型，如字符串/数字/列表/字典等。
-  - 如果存在 `persistent` 参数，则表示是否持久化，如果为 True，则状态值只保存到会话中，否则只保存到当前代码块的执行状态中。
-- 用途: 设置当前代码块的状态值。persistent 为 False 时，设置的状态会作为当前代码块的执行结果反馈。
+- 用途: 设置当前代码块的运行结果值，作为当前代码块的执行结果反馈。
 - 使用示例：
 ```python
-set_state(status="error", errstr="Error: 发生了错误") # 设置当前代码块的执行结果状态
-set_state(status="success", ret_data={"name": "John", "age": 30}) # 设置当前代码块的执行结果状态
-set_state(data={"name": "John", "age": 30}, persistent=True) # 保存数据到会话中
+set_result(status="error", errstr="Error: 发生了错误") # 设置当前代码块的执行结果状态
+set_result(status="success", ret_data={"name": "John", "age": 30}) # 设置当前代码块的执行结果状态
+```
+
+## `set_persistent_state` 函数
+- 定义: `set_persistent_state(**kwargs)`
+- 参数: 
+  - **kwargs: 状态键值对，类型可以为任意Python基本数据类型，如字符串/数字/列表/字典等。
+- 用途: 设置会话中持久化的状态值。
+- 使用示例：
+```python
+set_persistent_state(data={"name": "John", "age": 30}) # 保存数据到会话中
 ```
 
 ## `get_persistent_state` 函数
@@ -165,15 +173,13 @@ runtime.display(url="https://www.example.com/image.png")
 Python代码块的执行结果会通过JSON对象反馈给你，对象包括以下属性：
 - `stdout`: 标准输出内容
 - `stderr`: 标准错误输出
-- `state`: 前述`set_state` 函数设置的当前代码块执行状态
+- `result`: 前述`set_result` 函数设置的当前代码块执行结果
 - `errstr`: 异常信息
 - `traceback`: 异常堆栈信息
 - `block_id`: 执行的代码块ID
 
 注意：
 - 如果某个属性为空，它不会出现在反馈中。
-- 避免在 stdout 和 `state` 中保存相同的内容
-- 不要在 `state` 中保存太多数据，这会导致反馈消息太长
 
 收到反馈后，结合代码和反馈数据，做出下一步的决策。
 """
