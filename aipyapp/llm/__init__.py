@@ -51,7 +51,8 @@ class AzureOpenAIClient(OpenAIBaseClient):
 
 class DoubaoClient(OpenAIBaseClient): 
     BASE_URL = 'https://ark.cn-beijing.volces.com/api/v3'
-    MODEL = 'doubao-seed-1.6'
+    MODEL = 'doubao-seed-1.6-250615'
+    PARAMS = {'stream_options': {'include_usage': True}}
 
 
 CLIENTS = {
