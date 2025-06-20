@@ -49,6 +49,10 @@ class AzureOpenAIClient(OpenAIBaseClient):
         from openai import AzureOpenAI
         return AzureOpenAI(azure_endpoint=self._end_point, api_key=self._api_key, api_version="2024-02-01")
 
+class DoubaoClient(OpenAIBaseClient): 
+    BASE_URL = 'https://ark.cn-beijing.volces.com/api/v3'
+    MODEL = 'doubao-seed-1.6'
+
 
 CLIENTS = {
     "openai": OpenAIClient,
@@ -58,6 +62,7 @@ CLIENTS = {
     "deepseek": DeepSeekClient,
     'grok': GrokClient,
     'trust': TrustClient,
-    'azure': AzureOpenAIClient
+    'azure': AzureOpenAIClient,
+    'doubao': DoubaoClient
 }
 

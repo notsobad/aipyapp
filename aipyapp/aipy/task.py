@@ -59,7 +59,7 @@ class Task(Stoppable):
         
     def use(self, name):
         ret = self.client.use(name)
-        self.console.print('[green]Ok[/green]' if ret else '[red]Error[/red]')
+        #self.console.print('[green]Ok[/green]' if ret else '[red]Error[/red]')
         return ret
 
     def save(self, path):
