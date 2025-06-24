@@ -17,6 +17,23 @@ from .. import T, set_lang, __version__
 from ..config import LLMConfig
 from ..aipy.wizard import config_llm
 from .completer import DotSyntaxCompleter
+from .command import CommandManager
+
+STYLE_MAIN = {
+    'completion-menu.completion': 'bg:#000000 #ffffff',
+    'completion-menu.completion.current': 'bg:#444444 #ffffff',
+    'completion-menu.meta': 'bg:#000000 #999999',
+    'completion-menu.meta.current': 'bg:#444444 #aaaaaa',
+    'prompt': 'green',
+}
+
+STYLE_AI = {
+    'completion-menu.completion': 'bg:#000000 #ffffff',
+    'completion-menu.completion.current': 'bg:#444444 #ffffff',
+    'completion-menu.meta': 'bg:#000000 #999999',
+    'completion-menu.meta.current': 'bg:#444444 #aaaaaa',
+    'prompt': 'cyan',
+}
 
 class CommandType(Enum):
     CMD_DONE = auto()
@@ -54,22 +71,6 @@ def parse_command(input_str, llms=set()):
                
     return CommandType.CMD_TEXT, input_str
 
-def show_info(info):
-    info['Python'] = sys.executable
-    info[T('Python version')] = sys.version
-    info[T('Python base prefix')] = sys.base_prefix
-    table = Table(title=T("System information"), show_lines=True)
-
-    table.add_column(T("Parameter"), justify="center", style="bold cyan", no_wrap=True)
-    table.add_column(T("Value"), justify="right", style="bold magenta")
-
-    for key, value in info.items():
-        table.add_row(
-            key,
-            value,
-        )
-    print(table)
-
 def process_mcp_ret(console, arg, ret):
     if ret.get("status", "success") == "success":
         #console.print(f"[green]{T('mcp_success')}: {ret.get('message', '')}[/green]")
@@ -95,11 +96,12 @@ class InteractiveConsole():
         dot_completer = DotSyntaxCompleter(tm)
         completer = merge_completers([word_completer, dot_completer])
         self.history = FileHistory(str(CONFIG_DIR / ".history"))
-        self.session = PromptSession(history=self.history, completer=completer)
         self.console = console
         self.settings = settings
-        self.style_main = Style.from_dict({"prompt": "green"})
-        self.style_ai = Style.from_dict({"prompt": "cyan"})
+        self.style_main = Style.from_dict(STYLE_MAIN)
+        self.style_ai = Style.from_dict(STYLE_AI)
+        self.command_manager = CommandManager(tm)
+        self.session = PromptSession(history=self.history, completer=self.command_manager)
         
     def input_with_possible_multiline(self, prompt_text, is_ai=False):
         prompt_style = self.style_ai if is_ai else self.style_main
@@ -153,15 +155,6 @@ class InteractiveConsole():
             self.console.print_exception()
         self.console.print(f"[{T('Exit AI mode')}]", style="cyan")
 
-    def info(self):
-        info = OrderedDict()
-        info[T('Current configuration directory')] = str(CONFIG_DIR)
-        info[T('Current working directory')] = str(self.tm.workdir)
-        info[T('Current LLM')] = repr(self.tm.client_manager.current)
-        info[T('Current role')] = '-' if self.settings.get('system_prompt') else self.tm.tips_manager.current_tips.name
-        #info[T('Current task')] = self.tm.task.task_id if self.tm.task else T('None')
-        show_info(info)
-
     def use(self, args):
         """ 解析和处理 /use 命令 
         arg 可能是: @llm.name 或 @role.name 或 @tip.name，可以组合使用
@@ -182,12 +175,19 @@ class InteractiveConsole():
     def run(self):
         self.console.print(f"{T('Please enter the task to be processed by AI (enter /use <following LLM> to switch, enter /info to view system information)')}", style="green")
         self.console.print(f"[cyan]{T('Default')}: [green]{self.names['default']}，[cyan]{T('Enabled')}: [yellow]{' '.join(self.names['enabled'])}")
-        self.info()
         tm = self.tm
         while True:
             try:
                 user_input = self.input_with_possible_multiline(">> ").strip()
                 if len(user_input) < 2:
+                    continue
+
+                if user_input.startswith('/'):
+                    self.command_manager.execute(user_input)
+                    continue
+                else:
+                    task = tm.new_task()
+                    self.start_task_mode(task, user_input)
                     continue
 
                 cmd, arg = parse_command(user_input, self.names['enabled'])
@@ -237,6 +237,7 @@ def main(args):
 
     settings.gui = False
     settings.debug = args.debug
+    settings.config_dir = CONFIG_DIR
     
     try:
         tm = TaskManager(settings, console=console)
