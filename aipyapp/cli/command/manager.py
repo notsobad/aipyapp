@@ -137,7 +137,8 @@ class CommandManager(Completer):
         try:
             # Parse remaining arguments (excluding the command name)
             parsed_args = parser.parse_args(args[1:])
-            command_instance.execute(parsed_args, raw_args=args[1:])
+            parsed_args.raw_args = args[1:]
+            command_instance.execute(parsed_args)
         except SystemExit:
             pass
         except argparse.ArgumentError as e:

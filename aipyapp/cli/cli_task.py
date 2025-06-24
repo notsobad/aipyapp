@@ -1,12 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-import sys
-from enum import Enum, auto
-from collections import OrderedDict
-
-from rich import print
 from rich.console import Console
-from rich.table import Table
 from prompt_toolkit import PromptSession
 from prompt_toolkit.history import FileHistory
 from prompt_toolkit.styles import Style
@@ -16,7 +10,6 @@ from ..aipy import TaskManager, ConfigManager, CONFIG_DIR
 from .. import T, set_lang, __version__
 from ..config import LLMConfig
 from ..aipy.wizard import config_llm
-from .completer import DotSyntaxCompleter
 from .command import CommandManager
 
 STYLE_MAIN = {
@@ -35,66 +28,11 @@ STYLE_AI = {
     'prompt': 'cyan',
 }
 
-class CommandType(Enum):
-    CMD_DONE = auto()
-    CMD_USE = auto()
-    CMD_EXIT = auto()
-    CMD_INVALID = auto()
-    CMD_TEXT = auto()
-    CMD_INFO = auto()
-    CMD_MCP = auto()
-    CMD_ROLE = auto()
-
-def parse_command(input_str, llms=set()):
-    lower = input_str.lower()
-
-    if lower in ("/done", "done"):
-        return CommandType.CMD_DONE, None
-    if lower in ("/info", "info"):
-        return CommandType.CMD_INFO, None
-    if lower in ("/exit", "exit"):
-        return CommandType.CMD_EXIT, None
-    if lower in llms:
-        return CommandType.CMD_USE, input_str
-    
-    if lower.startswith("/use "):
-        arg = input_str[5:].strip()
-        return CommandType.CMD_USE, arg
-
-    if lower.startswith("use "):
-        arg = input_str[4:].strip()
-        return CommandType.CMD_USE, arg
-    
-    if lower.startswith("/mcp"):
-        args = input_str[4:].strip().split(" ")
-        return CommandType.CMD_MCP, args
-               
-    return CommandType.CMD_TEXT, input_str
-
-def process_mcp_ret(console, arg, ret):
-    if ret.get("status", "success") == "success":
-        #console.print(f"[green]{T('mcp_success')}: {ret.get('message', '')}[/green]")
-        mcp_status = T('Enabled') if ret.get("globally_enabled") else T('Disabled')
-        console.print(f"[green]{T('MCP server status: {}').format(mcp_status)}[/green]")
-        mcp_servers = ret.get("servers", [])
-        if ret.get("globally_enabled", False):
-            for server_name, info in mcp_servers.items():
-                server_status = T('Enabled') if info.get("enabled", False) else T('Disabled')
-                console.print(
-                    "[", server_status, "]",
-                    server_name, info.get("tools_count"), T("Tools")
-                )
-    else:
-        #console.print(f"[red]{T('mcp_error')}: {ret.get('message', '')}[/red]")
-        console.print("操作失败", ret.get("message", ''))
-
 class InteractiveConsole():
     def __init__(self, tm, console, settings):
         self.tm = tm
         self.names = tm.client_manager.names
         word_completer = WordCompleter(['/use', 'use', '/done','done', '/info', 'info', '/mcp'] + list(self.names['enabled']), ignore_case=True)
-        dot_completer = DotSyntaxCompleter(tm)
-        completer = merge_completers([word_completer, dot_completer])
         self.history = FileHistory(str(CONFIG_DIR / ".history"))
         self.console = console
         self.settings = settings
@@ -171,26 +109,6 @@ class InteractiveConsole():
                 else:
                     task = tm.new_task()
                     self.start_task_mode(task, user_input)
-                    continue
-
-                cmd, arg = parse_command(user_input, self.names['enabled'])
-                if cmd == CommandType.CMD_TEXT:
-                    task = tm.new_task()
-                    self.start_task_mode(task, arg)
-                elif cmd == CommandType.CMD_USE:
-                    self.use(arg)
-                elif cmd == CommandType.CMD_INFO:
-                    self.info()
-                elif cmd == CommandType.CMD_EXIT:
-                    break
-                elif cmd == CommandType.CMD_MCP:
-                    if tm.mcp:
-                        ret = tm.mcp.process_command(arg)
-                        process_mcp_ret(self.console, arg, ret)
-                    else:
-                        self.console.print("MCP config not found")
-                elif cmd == CommandType.CMD_INVALID:
-                    self.console.print('[red]Error[/red]')
             except (EOFError, KeyboardInterrupt):
                 break
 

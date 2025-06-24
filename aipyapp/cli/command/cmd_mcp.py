@@ -29,7 +29,8 @@ class MCPCommand(BaseCommand):
         parser = subparsers.add_parser('disable', help='Disable MCP server')
         parser.add_argument('server', default=None, help='MCP server name')
 
-    def execute(self, args, raw_args=None):
+    def execute(self, args):
+        raw_args = args.raw_args
         if not raw_args:
             return
         
@@ -37,7 +38,6 @@ class MCPCommand(BaseCommand):
         if not tm.mcp:
             self.log.error('MCP not found')
             return
-        
+            
         ret = tm.mcp.process_command(raw_args)
-        print(ret)
         self.process_mcp_ret(raw_args, ret)

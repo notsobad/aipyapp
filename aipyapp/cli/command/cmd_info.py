@@ -26,4 +26,15 @@ class InfoCommand(BaseCommand):
             (T('Python base prefix'), sys.base_prefix),
         ]
 
-        print_table(info, title=T("System information"), columns=[T("Parameter"), T("Value")])
+        print_table(info, title=T("System information"), headers=[T("Parameter"), T("Value")])
+
+class MCPCommand(BaseCommand):
+    name = 'mcp'
+    description = 'Display MCP information'
+
+    def add_arguments(self, parser):
+        parser.add_argument('--list', action='store_true', help='List MCPs')
+
+    def execute(self, args):
+        if args.list:
+            self.cmd_list(args)
