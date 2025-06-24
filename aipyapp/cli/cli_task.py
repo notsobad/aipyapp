@@ -155,26 +155,9 @@ class InteractiveConsole():
             self.console.print_exception()
         self.console.print(f"[{T('Exit AI mode')}]", style="cyan")
 
-    def use(self, args):
-        """ 解析和处理 /use 命令 
-        arg 可能是: @llm.name 或 @role.name 或 @tip.name，可以组合使用
-        """
-        if not args:
-            return
-        params = {}
-        for arg in args.split():
-            if arg.startswith('@'):
-                kv = arg[1:].split('.', 1)
-                if len(kv) == 2:
-                    params[kv[0]] = kv[1]
-            elif arg in self.names['enabled']:
-                params['llm'] = arg
-        if params:
-            self.tm.use(**params)
-
     def run(self):
-        self.console.print(f"{T('Please enter the task to be processed by AI (enter /use <following LLM> to switch, enter /info to view system information)')}", style="green")
-        self.console.print(f"[cyan]{T('Default')}: [green]{self.names['default']}，[cyan]{T('Enabled')}: [yellow]{' '.join(self.names['enabled'])}")
+        self.console.print(f"{T('Please enter an instruction or `/help` for more information')}", style="green")
+        #self.console.print(f"[cyan]{T('Default')}: [green]{self.names['default']}，[cyan]{T('Enabled')}: [yellow]{' '.join(self.names['enabled'])}")
         tm = self.tm
         while True:
             try:

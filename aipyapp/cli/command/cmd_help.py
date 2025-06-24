@@ -20,6 +20,7 @@ class HelpCommand(BaseCommand):
             else:
                 print(f"Unknown command: {args.target_command}")
         else:
-            print("Available commands:")
+            rows = []
             for cmd, cmd_instance in sorted(manager.commands.items()):
-                print(f"  {cmd}: {cmd_instance.description}")
+                rows.append([f"/{cmd}", cmd_instance.description])
+            print_table(rows, headers=['Command', 'Description'], title='Available commands')

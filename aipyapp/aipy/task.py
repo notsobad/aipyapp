@@ -8,7 +8,8 @@ import time
 import platform
 import locale
 from pathlib import Path
-from datetime import date
+from datetime import date, datetime
+from collections import namedtuple
 from importlib.resources import read_text
 
 import requests
@@ -57,6 +58,17 @@ class Task(Stoppable):
         self.runtime = Runtime(self)
         self.runner = Runner(self.runtime)
         
+    def to_record(self):
+        TaskRecord = namedtuple('TaskRecord', ['task_id', 'start_time', 'done_time', 'instruction'])
+        start_time = datetime.fromtimestamp(self.start_time).strftime('%H:%M:%S') if self.start_time else '-'
+        done_time = datetime.fromtimestamp(self.done_time).strftime('%H:%M:%S') if self.done_time else '-'
+        return TaskRecord(
+            task_id=self.task_id,
+            start_time=start_time,
+            done_time=done_time,
+            instruction=self.instruction
+        )
+    
     def use(self, name):
         ret = self.client.use(name)
         #self.console.print('[green]Ok[/green]' if ret else '[red]Error[/red]')

@@ -5,14 +5,16 @@ import argparse
 from .base import BaseCommand
 from .cmd_info import InfoCommand
 from .cmd_help import HelpCommand
-from .cmd_git import GitCommand
+from .cmd_llm import LLMCommand
 from .cmd_use import UseCommand
+from .cmd_env import EnvCommand
+from .cmd_task import TaskCommand
 
 from loguru import logger
 from prompt_toolkit.completion import Completer, Completion
 from prompt_toolkit.key_binding import KeyBindings
 
-COMMANDS = [InfoCommand, HelpCommand, GitCommand, UseCommand]
+COMMANDS = [InfoCommand, HelpCommand, LLMCommand, UseCommand, EnvCommand, TaskCommand]
 
 class CommandManager(Completer):
     def __init__(self, tm):
@@ -136,6 +138,8 @@ class CommandManager(Completer):
             parsed_args = parser.parse_args(args[1:])
             command_instance.execute(parsed_args)
         except SystemExit:
-            print(f"Invalid arguments for '{command}'. Use '/{command} --help' for usage.")
+            pass
         except argparse.ArgumentError as e:
             print(f"Argument error: {e}")
+        except Exception as e:
+            print(f"Error: {e}")

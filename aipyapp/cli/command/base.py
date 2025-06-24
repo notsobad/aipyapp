@@ -1,6 +1,8 @@
 import argparse
 from collections import OrderedDict
 
+from loguru import logger
+
 def requires_value(action):
     ret = (
         action.nargs is not None or
@@ -19,10 +21,11 @@ class BaseCommand:
         self.manager = None
         self.arguments = None
         self.subcommands = None
+        self.log = logger.bind(src=f'cmd.{self.name}')
 
     def init(self):
         """Initialize the command, can be overridden by subclasses"""
-        parser = argparse.ArgumentParser(prog=self.name, description=self.description)
+        parser = argparse.ArgumentParser(prog=f'/{self.name}', description=self.description)
         self.add_arguments(parser)
         if hasattr(self, 'add_subcommands'):
             subparsers = parser.add_subparsers(dest='subcommand')
@@ -30,13 +33,12 @@ class BaseCommand:
 
         arguments = OrderedDict()
         for action in parser._actions:
-            if action.dest != 'help':
-                for option in action.option_strings:
-                    arguments[option] = {
-                        'help': action.help or '',
-                        'choices': action.choices or None,
-                        'requires_value': requires_value(action)
-                    }
+            for option in action.option_strings:
+                arguments[option] = {
+                    'help': action.help or '',
+                    'choices': action.choices or None,
+                    'requires_value': requires_value(action)
+                }
 
         subcommands = OrderedDict()
         for action in parser._actions:
@@ -53,13 +55,14 @@ class BaseCommand:
             for subcmd, subparser in action.choices.items():
                 sub_arguments = OrderedDict()
                 for sub_action in subparser._actions:
-                    if sub_action.dest != 'help':
-                        for option in sub_action.option_strings:
-                            sub_arguments[option] = {
-                                'help': sub_action.help or '',
-                                'choices': sub_action.choices or None,
-                                'requires_value': requires_value(sub_action)
-                            }
+                    for option in sub_action.option_strings:
+                        if option == '-h':
+                            continue
+                        sub_arguments[option] = {
+                            'help': sub_action.help or '',
+                            'choices': sub_action.choices or None,
+                            'requires_value': requires_value(sub_action)
+                        }
                 subcommands[subcmd]['arguments'] = sub_arguments
 
         self.parser = parser
@@ -72,5 +75,17 @@ class BaseCommand:
     
     def execute(self, args):
         """Execute the command with parsed arguments"""
-        raise NotImplementedError("execute method must be implemented")
+        subcommand = getattr(args, 'subcommand', None)
+        if subcommand:
+            func = getattr(self, f'cmd_{subcommand}', None)
+            if not func:
+                self.log.error(f"Subcommand {subcommand} not found")
+                return
+        else:
+            func = self.cmd
 
+        return func(args)
+
+    def cmd(self, args):
+        """Execute the main command"""
+        pass

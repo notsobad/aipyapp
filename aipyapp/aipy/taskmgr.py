@@ -4,7 +4,7 @@
 import os
 import json
 from pathlib import Path
-from collections import deque
+from collections import deque, namedtuple
 
 from loguru import logger
 
@@ -56,6 +56,22 @@ class TaskManager:
     def get_tasks(self):
         return list(self.tasks)
 
+    def list_llms(self):
+        return self.client_manager.to_records()
+    
+    def list_envs(self):
+        EnvRecord = namedtuple('EnvRecord', ['Name', 'Description', 'Value'])
+        rows = []
+        for name, (value, desc) in self.envs.items():    
+            rows.append(EnvRecord(name, desc, value[:32]))
+        return rows
+    
+    def list_tasks(self):
+        rows = []
+        for task in self.tasks:
+            rows.append(task.to_record())
+        return rows
+    
     def get_task_by_id(self, task_id):
         for task in self.tasks:
             if task.task_id == task_id:
