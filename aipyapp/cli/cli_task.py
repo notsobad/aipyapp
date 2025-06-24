@@ -76,16 +76,14 @@ class InteractiveConsole():
             except (EOFError, KeyboardInterrupt):
                 break
 
-            cmd, arg = parse_command(user_input, self.names['enabled'])
-            if cmd == CommandType.CMD_TEXT:
-                self.run_task(task, arg)
-            elif cmd == CommandType.CMD_DONE:
+            if user_input in ('/done', 'done'):
                 break
-            elif cmd == CommandType.CMD_USE:
-                ret = task.use(arg)
-                self.console.print('[green]Ok[/green]' if ret else '[red]Error[/red]')
-            elif cmd == CommandType.CMD_INVALID:
-                self.console.print(f'[red]Error: {arg}[/red]')
+
+            if user_input.startswith('/'):
+                self.command_manager.execute(user_input)
+                continue
+            else:
+                self.run_task(task, user_input)
 
         try:
             task.done()

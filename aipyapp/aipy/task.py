@@ -53,7 +53,7 @@ class Task(Stoppable):
         self.system_prompt = None
         self.diagnose = None
         self.start_time = None
-        
+        self.done_time = None
         self.code_blocks = CodeBlocks(self.console)
         self.runtime = Runtime(self)
         self.runner = Runner(self.runtime)
