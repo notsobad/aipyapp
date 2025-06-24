@@ -9,12 +9,13 @@ from .cmd_llm import LLMCommand
 from .cmd_use import UseCommand
 from .cmd_env import EnvCommand
 from .cmd_task import TaskCommand
+from .cmd_mcp import MCPCommand
 
 from loguru import logger
 from prompt_toolkit.completion import Completer, Completion
 from prompt_toolkit.key_binding import KeyBindings
 
-COMMANDS = [InfoCommand, HelpCommand, LLMCommand, UseCommand, EnvCommand, TaskCommand]
+COMMANDS = [InfoCommand, HelpCommand, LLMCommand, UseCommand, EnvCommand, TaskCommand, MCPCommand]
 
 class CommandManager(Completer):
     def __init__(self, tm):
@@ -136,7 +137,7 @@ class CommandManager(Completer):
         try:
             # Parse remaining arguments (excluding the command name)
             parsed_args = parser.parse_args(args[1:])
-            command_instance.execute(parsed_args)
+            command_instance.execute(parsed_args, raw_args=args[1:])
         except SystemExit:
             pass
         except argparse.ArgumentError as e:
