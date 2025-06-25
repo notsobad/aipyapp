@@ -11,12 +11,31 @@ def requires_value(action):
     )
     return ret
 
-class BaseCommand:
+class Completable:
+    def __init__(self, name: str, desc=None, **kwargs):
+        self.name = name
+        self.desc = desc
+        self._options = kwargs
+
+    def __getitem__(self, key):
+        return self._options[key]
+
+    def __setitem__(self, key, value):
+        self._options[key] = value
+
+    def __contains__(self, key):
+        return key in self._options
+
+    def get(self, key, default=None):
+        return self._options.get(key, default)
+
+class BaseCommand(Completable):
     """Base class for all commands"""
     name: str = ''
     description: str = ''
 
     def __init__(self):
+        super().__init__(self.name, self.description)
         self.parser = None
         self.manager = None
         self.arguments = None
@@ -34,11 +53,14 @@ class BaseCommand:
         arguments = OrderedDict()
         for action in parser._actions:
             for option in action.option_strings:
-                arguments[option] = {
-                    'help': action.help or '',
-                    'choices': action.choices or None,
-                    'requires_value': requires_value(action)
-                }
+                if option == '-h':
+                    continue
+
+                choices = OrderedDict()
+                if action.choices:
+                    for choice in action.choices:
+                        choices[choice] = Completable(choice)
+                arguments[option] = Completable(option, action.help, choices=choices, requires_value=requires_value(action))
 
         subcommands = OrderedDict()
         for action in parser._actions:
@@ -47,10 +69,7 @@ class BaseCommand:
 
             for subaction in action._get_subactions():
                 cmd_name = subaction.dest or subaction.name
-                subcommands[cmd_name] = {
-                    'help': subaction.help or '',
-                    'arguments': {}
-                }
+                subcommands[cmd_name] = Completable(cmd_name, subaction.help)
             
             for subcmd, subparser in action.choices.items():
                 sub_arguments = OrderedDict()
@@ -58,11 +77,13 @@ class BaseCommand:
                     for option in sub_action.option_strings:
                         if option == '-h':
                             continue
-                        sub_arguments[option] = {
-                            'help': sub_action.help or '',
-                            'choices': sub_action.choices or None,
-                            'requires_value': requires_value(sub_action)
-                        }
+
+                        choices = OrderedDict()
+                        if sub_action.choices:
+                            for choice in sub_action.choices:
+                                choices[choice] = Completable(choice)
+
+                        sub_arguments[option] = Completable(option, sub_action.help, choices=choices, requires_value=requires_value(sub_action))
                 subcommands[subcmd]['arguments'] = sub_arguments
 
         self.parser = parser
