@@ -1,17 +1,18 @@
+from ... import T
 from .base import BaseCommand
 from .utils import print_records
 
 class LLMCommand(BaseCommand):
     name = 'llm'
-    description = 'LLM operations'
+    description = T('LLM operations')
 
     def add_subcommands(self, subparsers):
         # Commit subcommand
-        subparsers.add_parser('list', help='List LLM providers')
+        subparsers.add_parser('list', help=T('List LLM providers'))
         
         tm = self.manager.tm
         names = tm.client_manager.names       
-        use_parser = subparsers.add_parser('use', help='Use a LLM provider')
+        use_parser = subparsers.add_parser('use', help=T('Use a LLM provider'))
         use_parser.add_argument('--name', choices=names['enabled'], help='Provider name')
         
     def cmd_list(self, args):

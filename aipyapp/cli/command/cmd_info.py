@@ -6,11 +6,7 @@ from .utils import print_table
 
 class InfoCommand(BaseCommand):
     name = 'info'
-    description = 'Display system information'
-
-    def add_arguments(self, parser):
-        parser.add_argument('--verbose', action='store_true', help='Show detailed info')
-        parser.add_argument('--format', choices=['json', 'text'], default='text', help='Output format')
+    description = T('System information')
 
     def execute(self, args):
         tm = self.manager.tm
@@ -27,14 +23,3 @@ class InfoCommand(BaseCommand):
         ]
 
         print_table(info, title=T("System information"), headers=[T("Parameter"), T("Value")])
-
-class MCPCommand(BaseCommand):
-    name = 'mcp'
-    description = 'Display MCP information'
-
-    def add_arguments(self, parser):
-        parser.add_argument('--list', action='store_true', help='List MCPs')
-
-    def execute(self, args):
-        if args.list:
-            self.cmd_list(args)

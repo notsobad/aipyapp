@@ -25,11 +25,12 @@ class MCPCommand(BaseCommand):
     def add_subcommands(self, subparsers):
         subparsers.add_parser('list', help='List MCP servers')
         parser = subparsers.add_parser('enable', help='Enable MCP server')
-        parser.add_argument('server', default=None, help='MCP server name')
+        parser.add_argument('server', nargs='?', default=None, help='MCP server name')
         parser = subparsers.add_parser('disable', help='Disable MCP server')
-        parser.add_argument('server', default=None, help='MCP server name')
+        parser.add_argument('server', nargs='?', default=None, help='MCP server name')
 
     def execute(self, args):
+        print(args.raw_args)
         raw_args = args.raw_args
         if not raw_args:
             return

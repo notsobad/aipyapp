@@ -10,7 +10,7 @@ from ..aipy import TaskManager, ConfigManager, CONFIG_DIR
 from .. import T, set_lang, __version__
 from ..config import LLMConfig
 from ..aipy.wizard import config_llm
-from .command import CommandManager
+from .command import CommandManager, TaskCommandManager
 
 STYLE_MAIN = {
     'completion-menu.completion': 'bg:#000000 #ffffff',
@@ -21,10 +21,10 @@ STYLE_MAIN = {
 }
 
 STYLE_AI = {
-    'completion-menu.completion': 'bg:#000000 #ffffff',
-    'completion-menu.completion.current': 'bg:#444444 #ffffff',
-    'completion-menu.meta': 'bg:#000000 #999999',
-    'completion-menu.meta.current': 'bg:#444444 #aaaaaa',
+    'completion-menu.completion': 'bg:#002244 #ffffff',         # 深蓝背景，白色文本
+    'completion-menu.completion.current': 'bg:#005577 #ffffff', # 当前选中，亮蓝
+    'completion-menu.meta': 'bg:#002244 #cccccc',               # 补全项的 meta 信息
+    'completion-menu.meta.current': 'bg:#005577 #eeeeee',       # 当前选中的 meta
     'prompt': 'cyan',
 }
 
@@ -32,25 +32,27 @@ class InteractiveConsole():
     def __init__(self, tm, console, settings):
         self.tm = tm
         self.names = tm.client_manager.names
-        word_completer = WordCompleter(['/use', 'use', '/done','done', '/info', 'info', '/mcp'] + list(self.names['enabled']), ignore_case=True)
         self.history = FileHistory(str(CONFIG_DIR / ".history"))
         self.console = console
         self.settings = settings
         self.style_main = Style.from_dict(STYLE_MAIN)
-        self.style_ai = Style.from_dict(STYLE_AI)
-        self.command_manager = CommandManager(tm)
-        self.session = PromptSession(history=self.history, completer=self.command_manager)
-        
-    def input_with_possible_multiline(self, prompt_text, is_ai=False):
-        prompt_style = self.style_ai if is_ai else self.style_main
-
-        first_line = self.session.prompt([("class:prompt", prompt_text)], style=prompt_style)
+        self.style_task = Style.from_dict(STYLE_AI)
+        self.command_manager_main = CommandManager(tm)
+        self.command_manager_task = TaskCommandManager(tm)
+        self.completer_main = self.command_manager_main
+        self.completer_task = self.command_manager_task
+        self.session = PromptSession(history=self.history, completer=self.completer_main, style=self.style_main)
+        self.session_task = PromptSession(history=self.history, completer=self.completer_task, style=self.style_task)
+    
+    def input_with_possible_multiline(self, prompt_text, task_mode=False):
+        session = self.session_task if task_mode else self.session
+        first_line = session.prompt([("class:prompt", prompt_text)])
         if not first_line.endswith("\\"):
             return first_line
         # Multi-line input
         lines = [first_line.rstrip("\\")]
         while True:
-            next_line = self.session.prompt([("class:prompt", "... ")], style=prompt_style)
+            next_line = session.prompt([("class:prompt", "... ")])
             if next_line.endswith("\\"):
                 lines.append(next_line.rstrip("\\"))
             else:
@@ -71,7 +73,7 @@ class InteractiveConsole():
         self.run_task(task, instruction)
         while True:
             try:
-                user_input = self.input_with_possible_multiline(">>> ", is_ai=True).strip()
+                user_input = self.input_with_possible_multiline(">>> ", task_mode=True).strip()
                 if len(user_input) < 2: continue
             except (EOFError, KeyboardInterrupt):
                 break
@@ -79,11 +81,10 @@ class InteractiveConsole():
             if user_input in ('/done', 'done'):
                 break
 
-            if user_input.startswith('/'):
-                self.command_manager.execute(user_input)
+            if self.command_manager_task.execute(task, user_input):
                 continue
-            else:
-                self.run_task(task, user_input)
+
+            self.run_task(task, user_input)
 
         try:
             task.done()
@@ -102,7 +103,7 @@ class InteractiveConsole():
                     continue
 
                 if user_input.startswith('/'):
-                    self.command_manager.execute(user_input)
+                    self.command_manager_main.execute(user_input)
                     continue
                 else:
                     task = tm.new_task()

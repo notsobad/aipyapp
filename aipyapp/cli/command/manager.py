@@ -1,7 +1,8 @@
-import code
 import shlex
 import argparse
+from collections import OrderedDict
 
+from ... import T
 from .base import BaseCommand
 from .cmd_info import InfoCommand
 from .cmd_help import HelpCommand
@@ -13,15 +14,15 @@ from .cmd_mcp import MCPCommand
 
 from loguru import logger
 from rich import print
-from prompt_toolkit.completion import Completer, Completion
+from prompt_toolkit.completion import Completer, Completion, NestedCompleter
 from prompt_toolkit.key_binding import KeyBindings
 
-COMMANDS = [InfoCommand, HelpCommand, LLMCommand, UseCommand, EnvCommand, TaskCommand, MCPCommand]
+COMMANDS = [InfoCommand, UseCommand, EnvCommand, LLMCommand, TaskCommand, MCPCommand, HelpCommand]
 
 class CommandManager(Completer):
     def __init__(self, tm):
         self.tm = tm
-        self.commands = {}
+        self.commands = OrderedDict()
         self.log = logger.bind(src="CommandManager")
         self.init()
 
@@ -136,3 +137,47 @@ class CommandManager(Completer):
             print(f"Argument error: {e}")
         except Exception as e:
             print(f"Error: {e}")
+
+class TaskCommandManager(NestedCompleter):
+    def __init__(self, tm):
+        names = tm.client_manager.names['enabled']
+        commands = {
+            '/use': NestedCompleter.from_nested_dict(dict.fromkeys(names)),
+            '/done': None,
+        }
+        commands['use'] = commands['/use']
+        commands['done'] = commands['/done']
+        for name in names:
+            commands[name] = None
+        super().__init__(commands)
+        self.meta_dict = {
+            'use': T('Switch LLM'),
+            'done': T('End'),
+        }
+        self.names = names
+        self.log = logger.bind(src="TaskCommandManager")
+
+    def get_completions(self, document, complete_event):
+        completions = super().get_completions(document, complete_event)
+        for completion in completions:
+            text = completion.text
+            if text.startswith('/'):
+                text = text[1:]
+            completion._display_meta = self.meta_dict.get(text, '')
+            yield completion
+            
+    def execute(self, task, user_input):
+        """Execute a command
+        return True if the command is processed, otherwise False
+        """
+        words = user_input.split()
+        if len(words) == 1 and words[0] in self.names:
+            task.use(words[0])
+            return True
+        elif words[0] in ('use', '/use'):
+            if len(words) == 2 and words[1] in self.names:
+                task.use(words[1])
+            else:
+                print(f"Unknown client: {words[1]}")
+            return True
+        return False

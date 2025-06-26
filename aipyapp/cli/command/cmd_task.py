@@ -1,9 +1,10 @@
+from ... import T
 from .base import BaseCommand
 from .utils import print_records
 
 class TaskCommand(BaseCommand):
     name = 'task'
-    description = 'Task operations'
+    description = T('Task operations')
 
     def add_subcommands(self, subparsers):
         subparsers.add_parser('list', help='List tasks')

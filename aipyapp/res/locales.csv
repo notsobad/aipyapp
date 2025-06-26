@@ -308,3 +308,17 @@ Python base prefix,Python 基础前缀
 Tools,工具
 Error decoding MCP config file {}: {},解析 MCP 配置文件 {} 时出错: {}
 Current role,当前角色
+Environment operations,环境变量操作
+List environment variables,列出环境变量
+Show available commands or detailed help for a specific command,显示可用命令或详细帮助
+Command,命令
+Available commands,可用命令
+LLM operations,LLM 操作
+List LLM providers,列出 LLM 提供商
+Use a LLM provider,使用 LLM 提供商
+Task operations,任务操作
+List tasks,列出任务
+Use a LLM or a role,使用 LLM 或角色
+LLM name,LLM 名称
+Role name,角色名称
+Switch LLM,切换 LLM

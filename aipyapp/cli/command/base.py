@@ -53,7 +53,7 @@ class BaseCommand(Completable):
         arguments = OrderedDict()
         for action in parser._actions:
             for option in action.option_strings:
-                if option == '-h':
+                if option in ('-h', '--help'):
                     continue
 
                 choices = OrderedDict()
@@ -75,7 +75,7 @@ class BaseCommand(Completable):
                 sub_arguments = OrderedDict()
                 for sub_action in subparser._actions:
                     for option in sub_action.option_strings:
-                        if option == '-h':
+                        if option in ('-h', '--help'):
                             continue
 
                         choices = OrderedDict()
