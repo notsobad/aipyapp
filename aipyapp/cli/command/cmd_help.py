@@ -5,7 +5,7 @@ from .utils import print_table
 
 class HelpCommand(BaseCommand):
     name = 'help'
-    description = 'Show available commands or detailed help for a specific command'
+    description = T('Show available commands or detailed help for a specific command')
 
     def add_arguments(self, parser):
         parser.add_argument('target_command', nargs='?', default=None, help='Command to show detailed help for')
@@ -23,4 +23,4 @@ class HelpCommand(BaseCommand):
             rows = []
             for cmd, cmd_instance in sorted(manager.commands.items()):
                 rows.append([f"/{cmd}", cmd_instance.description])
-            print_table(rows, headers=['Command', 'Description'], title='Available commands')
+            print_table(rows, headers=[T('Command'), T('Description')], title=T('Available commands'))

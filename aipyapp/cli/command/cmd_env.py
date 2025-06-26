@@ -1,12 +1,13 @@
+from ... import T
 from .base import BaseCommand
 from .utils import print_records
 
 class EnvCommand(BaseCommand):
     name = 'env'
-    description = 'Environment operations'
+    description = T('Environment operations')
 
     def add_subcommands(self, subparsers):
-        subparsers.add_parser('list', help='List environment variables')
+        subparsers.add_parser('list', help=T('List environment variables'))
 
     def cmd_list(self, args):
         rows = self.manager.tm.list_envs()
