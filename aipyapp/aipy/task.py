@@ -66,7 +66,7 @@ class Task(Stoppable):
             task_id=self.task_id,
             start_time=start_time,
             done_time=done_time,
-            instruction=self.instruction
+            instruction=self.instruction[:32] if self.instruction else '-'
         )
     
     def use(self, name):
