@@ -1,5 +1,6 @@
 from rich import print
 
+from  ... import T
 from .base import BaseCommand
 from .utils import print_table
 

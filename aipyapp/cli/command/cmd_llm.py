@@ -20,7 +20,7 @@ class LLMCommand(BaseCommand):
         print_records(rows)
         
     def cmd_use(self, args):
-        self.manager.tm.client_manager.use(args.name)
+        self.manager.tm.use(llm=args.name)
         self.log.info(f'Use {args.name} LLM provider')
 
     def cmd(self, args):

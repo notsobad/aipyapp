@@ -94,6 +94,13 @@ class BaseCommand(Completable):
         """Add command-specific arguments to the parser"""
         pass
     
+    def get_arg_values(self, arg, subcommand=None):
+        """Get argument values for argument `arg`"""
+        choices = arg.get('choices')
+        if choices:
+            return choices.values()
+        return None
+    
     def execute(self, args):
         """Execute the command with parsed arguments"""
         subcommand = getattr(args, 'subcommand', None)

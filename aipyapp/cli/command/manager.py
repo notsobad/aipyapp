@@ -91,6 +91,7 @@ class CommandManager(Completer):
                 return
             arguments = subcommands[subcmd]['arguments']
         else:
+            subcmd = None
             arguments = command_instance.arguments
 
         if text.endswith(' '):
@@ -102,8 +103,9 @@ class CommandManager(Completer):
 
         arg = arguments.get(last_word, None)
         if arg and arg['requires_value']:
-            if arg['choices']:
-                yield from complete_items(arg['choices'].values(), partial_arg)
+            choices = command_instance.get_arg_values(arg, subcmd)
+            if choices:
+                yield from complete_items(choices, partial_arg)
             return
 
         yield from complete_items(arguments.values(), partial_arg)
