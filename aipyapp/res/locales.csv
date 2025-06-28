@@ -152,7 +152,6 @@ Max Tokens,请输入最大 Token 数（默认：8192）
 Timeout (seconds),超时时间(秒)
 Max Rounds,最大执行轮数
 OK,确定
-Cancel,取消
 AIPY is an intelligent assistant that can help you complete various tasks.,爱派是一个智能助手，可以帮助您完成各种任务。
 Current configuration directory,当前配置目录
 Current working directory,当前工作目录
@@ -298,7 +297,6 @@ View task record,查看任务记录
 https://sapi.trustoken.ai/aio-api,https://api.trustoken.cn/aio-api
 Next,下一步
 Back,上一步
-Cancel,取消
 Finish,完成
 Parameter,参数
 Value,值
@@ -322,3 +320,13 @@ Use a LLM or a role,使用 LLM 或角色
 LLM name,LLM 名称
 Role name,角色名称
 Switch LLM,切换 LLM
+MCP operations,MCP 操作
+List MCP servers,列出 MCP 服务器
+Enable MCP server,启用 MCP 服务器
+Disable MCP server,禁用 MCP 服务器
+MCP server name,MCP 服务器名称
+MCP server status,MCP 服务器状态
+MCP server tools,MCP 服务器工具
+MCP server tools count,MCP 服务器工具数量
+MCP server tools list,MCP 服务器工具列表
+"Or directly enter the question to be processed by AI, for example:\n>> Who are you?",或者直接输入需要 AI 处理的问题，例如：\n>> 你是谁？
