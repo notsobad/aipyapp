@@ -5,10 +5,8 @@ import os
 import json
 import uuid
 import time
-import platform
-import locale
 from pathlib import Path
-from datetime import date, datetime
+from datetime import datetime
 from collections import namedtuple
 from importlib.resources import read_text
 
@@ -29,6 +27,7 @@ from .plugin import event_bus
 from .utils import get_safe_filename
 from .blocks import CodeBlocks, CodeBlock
 from .interface import Stoppable
+from . import prompt
 
 CONSOLE_WHITE_HTML = read_text(__respkg__, "console_white.html")
 CONSOLE_CODE_HTML = read_text(__respkg__, "console_code.html")
@@ -169,7 +168,6 @@ class Task(Stoppable):
 
     def process_code_reply(self, exec_blocks):
         results = []
-        json_results = []
         for block in exec_blocks:
             event_bus('exec', block)
             self.console.print(f"⚡ {T('Start executing code block')}: {block.name}", style='dim white')
@@ -177,17 +175,12 @@ class Task(Stoppable):
             json_result = json.dumps(result, ensure_ascii=False, indent=2, default=str)
             result['block_name'] = block.name
             results.append(result)
-            json_results.append(json_result)
             self.print_code_result(block, json_result)
             event_bus('result', result)
 
-        if len(json_results) == 1:
-            json_results = json_results[0]
-        else:
-            json_results = json.dumps(results, ensure_ascii=False, indent=4, default=str)
-        
+        msg = prompt.get_results_prompt(results)
         self.console.print(f"{T('Start sending feedback')}...", style='dim white')
-        feed_back = f"# 最初任务\n{self.instruction}\n\n# 代码执行结果反馈\n{json_results}"
+        feed_back = json.dumps(msg, ensure_ascii=False, default=str)
         return self.chat(feed_back)
 
     def process_mcp_reply(self, json_content):
@@ -259,21 +252,6 @@ class Task(Stoppable):
         event_bus.broadcast('summary', summarys)
         self.console.print(f"\n⏹ [cyan]{T('End processing instruction')} {summarys}")
 
-    def build_user_prompt(self):
-        prompt = {'task': self.instruction}
-        prompt['python_version'] = platform.python_version()
-        prompt['platform'] = platform.platform()
-        prompt['today'] = date.today().isoformat()
-        prompt['locale'] = locale.getlocale()
-        prompt['think_and_reply_language'] = '始终根据用户查询的语言来进行所有内部思考和回复，即用户使用什么语言，你就要用什么语言思考和回复。'
-        prompt['work_dir'] = '工作目录为当前目录，默认在当前目录下创建文件'
-        if self.gui:
-            prompt['matplotlib'] = "我现在用的是 matplotlib 的 Agg 后端，请默认用 plt.savefig() 保存图片后用 runtime.display() 显示，禁止使用 plt.show()"
-            #prompt['wxPython'] = "你回复的Markdown 消息中，可以用 ![图片](图片路径) 的格式引用之前创建的图片，会显示在 wx.html2 的 WebView 中"
-        else:
-            prompt['TERM'] = os.environ.get('TERM')
-            prompt['LC_TERMINAL'] = os.environ.get('LC_TERMINAL')
-        return prompt
 
     def chat(self, instruction, *, system_prompt=None):
         quiet = self.settings.gui and not self.settings.debug
@@ -296,16 +274,17 @@ class Task(Stoppable):
         if not self.start_time:
             self.start_time = time.time()
             self.instruction = instruction
-            prompt = self.build_user_prompt()
+            msg = prompt.get_task_prompt(instruction, gui=self.gui)
             event_bus('task_start', prompt)
-            instruction = json.dumps(prompt, ensure_ascii=False)
             system_prompt = self.system_prompt
         else:
             system_prompt = None
+            msg = prompt.get_chat_prompt(instruction, self.instruction)
 
         rounds = 1
         max_rounds = self.max_rounds
-        response = self.chat(instruction, system_prompt=system_prompt)
+        json_prompt = json.dumps(msg, ensure_ascii=False, default=str)
+        response = self.chat(json_prompt, system_prompt=system_prompt)
         while response and rounds <= max_rounds:
             response = self.process_reply(response)
             rounds += 1

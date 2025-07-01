@@ -1,6 +1,12 @@
 #!/usr/bin/env python
 # coding: utf-8
 
+from collections import OrderedDict
+import platform
+import locale
+import os
+from datetime import date
+
 SYSTEM_PROMPT_TEMPLATE = """
 {role_prompt}
 {aipy_prompt}
@@ -224,4 +230,46 @@ def get_system_prompt(tips, api_prompt, user_prompt=None):
         prompts['tips_prompt'] = TIPS_PROMPT.format(tips=str(tips))
     return SYSTEM_PROMPT_TEMPLATE.format(**prompts)
 
+def get_task_prompt(instruction, gui=False):
+    prompt = OrderedDict()
+    prompt['task'] = instruction
+    context = OrderedDict()
+    context['os_type'] = platform.system()
+    context['os_locale'] = locale.getlocale()
+    context['os_platform'] = platform.platform()
+    context['python_version'] = platform.python_version()
+    context['today'] = date.today().isoformat()
+    
+    if not gui:
+        context['TERM'] = os.environ.get('TERM', 'unknown')
+        context['LC_TERMINAL'] = os.environ.get('LC_TERMINAL', 'unknown')
 
+    prompt['context'] = context
+
+    constraints = OrderedDict()
+    constraints['reply_language'] = "Now, use the exact language of the `task` field for subsequent responses"
+    constraints['file_creation_path'] = 'current_directory'
+    if gui:
+        constraints['matplotlib'] = "DO NOT use plt.show to display picture because I'm using the Agg backend. Save pictures with plt.savefig() and display them with runtime.display()."
+
+    prompt['constraints'] = constraints
+    return prompt
+
+def get_results_prompt(results):
+    prompt = OrderedDict()
+    prompt['description'] = "These are the execution results of the code block/s automatically returned in the order of execution by the runtime environment."
+    prompt['results'] = results
+    return prompt
+
+def get_chat_prompt(msg, task):
+    prompt = OrderedDict()
+    prompt['user_msg'] = msg
+
+    context = OrderedDict()
+    context['initial_task'] = task
+    prompt['context'] = context
+
+    constraints = OrderedDict()
+    constraints['reply_language'] = "Now, use the exact language of the `user_msg` field for subsequent responses"
+    prompt['constraints'] = constraints
+    return prompt
