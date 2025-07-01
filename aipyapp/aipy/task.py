@@ -164,7 +164,7 @@ class Task(Stoppable):
         syntax_code = Syntax(block.code, block.lang, line_numbers=line_numbers, word_wrap=True)
         syntax_result = Syntax(result, 'json', line_numbers=False, word_wrap=True)
         group = Group(syntax_code, Rule(), syntax_result)
-        panel = Panel(group, title=title or block.id)
+        panel = Panel(group, title=title or block.name)
         self.console.print(panel)
 
     def process_code_reply(self, exec_blocks):
@@ -172,10 +172,10 @@ class Task(Stoppable):
         json_results = []
         for block in exec_blocks:
             event_bus('exec', block)
-            self.console.print(f"⚡ {T('Start executing code block')}: {block.id}", style='dim white')
+            self.console.print(f"⚡ {T('Start executing code block')}: {block.name}", style='dim white')
             result = self.runner(block)
             json_result = json.dumps(result, ensure_ascii=False, indent=2, default=str)
-            result['block_id'] = block.id
+            result['block_name'] = block.name
             results.append(result)
             json_results.append(json_result)
             self.print_code_result(block, json_result)
