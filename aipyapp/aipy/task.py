@@ -144,6 +144,11 @@ class Task(Stoppable):
         json_str = json.dumps(ret, ensure_ascii=False, indent=2, default=str)
         self.box(f"✅ {T('Message parse result')}", json_str, lang="json")
 
+        if 'call_tool' in ret:
+            # 有可能MCP调用会按照代码格式返回，这种情况下存在exec_blocks和call_tool两个键,也可能会有erros字段
+            # 优先处理call_tool
+            return self.process_mcp_reply(ret['call_tool'])
+
         errors = ret.get('errors')
         if errors:
             event_bus('result', errors)
@@ -152,8 +157,6 @@ class Task(Stoppable):
             ret = self.chat(feed_back)
         elif 'exec_blocks' in ret:
             ret = self.process_code_reply(ret['exec_blocks'])
-        elif 'call_tool' in ret:
-            ret = self.process_mcp_reply(ret['call_tool'])
         else:
             ret = None
         return ret

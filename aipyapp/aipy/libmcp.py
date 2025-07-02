@@ -17,8 +17,45 @@ from .. import T
 CODE_BLOCK_PATTERN = re.compile(r"```(?:json)?\s*([\s\S]*?)\s*```")
 JSON_PATTERN = re.compile(r"(\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\})")
 
+def extra_call_tool_blocks(blocks) -> str:
+    """
+    从代码块列表中提取 MCP call_tool JSON。
 
-def extract_call_tool(text) -> str:
+    Args:
+        blocks (list): CodeBlock 对象列表
+
+    Returns:
+        str: 找到的 JSON 字符串，如果没找到则返回空字符串
+    """
+    if not blocks:
+        return ""
+
+    for block in blocks:
+        # 检查代码块是否是 JSON 格式
+        if hasattr(block, 'lang') and block.lang and block.lang.lower() in ['json', '']:
+            # 尝试解析代码块内容
+            content = getattr(block, 'code', '') if hasattr(block, 'code') else str(block)
+            if content:
+                content = content.strip()
+                try:
+                    data = json.loads(content)
+                    # 验证是否是 call_tool 动作
+                    if not isinstance(data, dict):
+                        continue
+                    if "action" not in data or "name" not in data:
+                        continue
+                    if "arguments" in data and not isinstance(data["arguments"], dict):
+                        continue
+
+                    # 返回 JSON 字符串
+                    return json.dumps(data, ensure_ascii=False)
+                except json.JSONDecodeError:
+                    continue
+
+    return ""
+
+
+def extract_call_tool_str(text) -> str:
     """
     Extract MCP call_tool JSON from text.
 
