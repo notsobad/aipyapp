@@ -161,7 +161,8 @@ class Task(Stoppable):
     def print_code_result(self, block, result, title=None):
         line_numbers = True if 'traceback' in result else False
         syntax_code = Syntax(block.code, block.lang, line_numbers=line_numbers, word_wrap=True)
-        syntax_result = Syntax(result, 'json', line_numbers=False, word_wrap=True)
+        json_result = json.dumps(result, ensure_ascii=False, indent=2, default=str)
+        syntax_result = Syntax(json_result, 'json', line_numbers=False, word_wrap=True)
         group = Group(syntax_code, Rule(), syntax_result)
         panel = Panel(group, title=title or block.name)
         self.console.print(panel)
@@ -172,10 +173,9 @@ class Task(Stoppable):
             event_bus('exec', block)
             self.console.print(f"⚡ {T('Start executing code block')}: {block.name}", style='dim white')
             result = self.runner(block)
-            json_result = json.dumps(result, ensure_ascii=False, indent=2, default=str)
+            self.print_code_result(block, result)
             result['block_name'] = block.name
             results.append(result)
-            self.print_code_result(block, json_result)
             event_bus('result', result)
 
         msg = prompt.get_results_prompt(results)
@@ -193,21 +193,16 @@ class Task(Stoppable):
         call_tool = json.loads(json_content)
         result = self.mcp.call_tool(call_tool['name'], call_tool.get('arguments', {}))
         event_bus('result', result)
-        result_json = json.dumps(result, ensure_ascii=False, indent=2, default=str)
         code_block = CodeBlock(
             id=call_tool.get('id', 'mcp_tool'),
             code=json_content,
             lang='json',
         )
-        self.print_code_result(code_block, result_json, title=T("MCP tool call result"))
+        self.print_code_result(code_block, result, title=T("MCP tool call result"))
 
         self.console.print(f"{T('Start sending feedback')}...", style='dim white')
-        feed_back = f"""# MCP 调用\n\n{self.instruction}\n
-# 执行结果反馈
-
-````json
-{result_json}
-````"""
+        msg = prompt.get_mcp_result_prompt(result)
+        feed_back = json.dumps(msg, ensure_ascii=False, default=str)
         feedback_response = self.chat(feed_back)
         return feedback_response
 

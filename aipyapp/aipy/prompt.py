@@ -233,6 +233,7 @@ def get_system_prompt(tips, api_prompt, user_prompt=None):
 def get_task_prompt(instruction, gui=False):
     prompt = OrderedDict()
     prompt['task'] = instruction
+    prompt['source'] = "User"
     context = OrderedDict()
     context['os_type'] = platform.system()
     context['os_locale'] = locale.getlocale()
@@ -257,19 +258,28 @@ def get_task_prompt(instruction, gui=False):
 
 def get_results_prompt(results):
     prompt = OrderedDict()
-    prompt['description'] = "These are the execution results of the code block/s automatically returned in the order of execution by the runtime environment."
+    prompt['message'] = "These are the execution results of the code block/s automatically returned in the order of execution by the runtime environment."
+    prompt['source'] = "Runtime Environment"
     prompt['results'] = results
     return prompt
 
 def get_chat_prompt(msg, task):
     prompt = OrderedDict()
-    prompt['user_msg'] = msg
+    prompt['message'] = msg
+    prompt['source'] = "User"
 
     context = OrderedDict()
     context['initial_task'] = task
     prompt['context'] = context
 
     constraints = OrderedDict()
-    constraints['reply_language'] = "Now, use the exact language of the `user_msg` field for subsequent responses"
+    constraints['reply_language'] = "Now, use the exact language of the `message` field for subsequent responses"
     prompt['constraints'] = constraints
+    return prompt
+
+def get_mcp_result_prompt(result):
+    prompt = OrderedDict()
+    prompt['message'] = "The following is the result of the MCP tool call"
+    prompt['source'] = "MCP Tool"
+    prompt['result'] = result
     return prompt
