@@ -10,7 +10,7 @@ from typing import Optional, Dict, Any
 
 from loguru import logger
 
-from .libmcp import extract_call_tool
+from .libmcp import extract_call_tool_str, extra_call_tool_blocks
 
 @dataclass
 class CodeBlock:
@@ -148,9 +148,11 @@ class CodeBlocks:
         if errors: ret['errors'] = errors
         if exec_blocks: ret['exec_blocks'] = exec_blocks
         if blocks: ret['blocks'] = [v for v in blocks.values()]
-        
-        if parse_mcp and not blocks:
-            json_content = extract_call_tool(markdown_text)
+
+        if parse_mcp:
+            # 首先尝试从代码块中提取 MCP 调用, 然后尝试从markdown文本中提取
+            json_content = extra_call_tool_blocks(list(blocks.values())) or extract_call_tool_str(markdown_text)
+
             if json_content:
                 ret['call_tool'] = json_content
                 self.log.info("Parsed MCP call_tool", json_content=json_content)
