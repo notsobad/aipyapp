@@ -190,7 +190,6 @@ class Task(Stoppable):
         """处理 MCP 工具调用的回复"""
         block = {'content': json_content, 'language': 'json'}
         event_bus('tool_call', block)
-        json_content = block['content']
         self.console.print(f"⚡ {T('Start calling MCP tool')} ...", style='dim white')
 
         call_tool = json.loads(json_content)
@@ -198,9 +197,10 @@ class Task(Stoppable):
         event_bus('result', result)
         result_json = json.dumps(result, ensure_ascii=False, indent=2, default=str)
         code_block = CodeBlock(
-            id=call_tool.get('id', 'mcp_tool'),
             code=json_content,
             lang='json',
+            name=call_tool.get('name', 'MCP Tool Call'),
+            version=1,
         )
         self.print_code_result(code_block, result_json, title=T("MCP tool call result"))
 

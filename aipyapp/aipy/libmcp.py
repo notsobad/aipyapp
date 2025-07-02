@@ -12,7 +12,56 @@ from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 from mcp.client.sse import sse_client
 from mcp.client.streamable_http import streamablehttp_client
+from mcp.shared.message import SessionMessage
+from mcp.types import JSONRPCMessage
 from .. import T
+
+# 猴子补丁：修复第三方库中的 _handle_json_response 方法
+# MR如果合并后，可以去掉这段代码 https://github.com/modelcontextprotocol/python-sdk/pull/1057
+async def _patched_handle_json_response(
+    self,
+    response,
+    read_stream_writer,
+    is_initialization: bool = False,
+) -> None:
+    """修复后的 JSON 响应处理方法"""
+    try:
+        content = await response.aread()
+
+        # Parse JSON first to determine structure
+        data = json.loads(content)
+
+        if isinstance(data, list):
+            messages = [JSONRPCMessage.model_validate(item) for item in data]  # type: ignore
+        else:
+            message = JSONRPCMessage.model_validate(data)
+            messages = [message]
+
+        for message in messages:
+            if is_initialization:
+                self._maybe_extract_protocol_version_from_message(message)
+
+            session_message = SessionMessage(message)
+            await read_stream_writer.send(session_message)
+    except Exception as exc:
+        logger.error(f"Error parsing JSON response: {exc}")
+        await read_stream_writer.send(exc)
+
+# 应用猴子补丁
+def _apply_streamable_http_patch():
+    """应用 StreamableHTTP 客户端的补丁"""
+    try:
+        from mcp.client.streamable_http import StreamableHTTPTransport
+        # 替换原有方法
+        StreamableHTTPTransport._handle_json_response = _patched_handle_json_response
+        logger.debug("Applied StreamableHTTP patch for _handle_json_response")
+    except ImportError as e:
+        logger.warning(f"Failed to apply StreamableHTTP patch: {e}")
+
+# 在模块加载时应用补丁
+_apply_streamable_http_patch()
+
+
 # 预编译正则表达式
 CODE_BLOCK_PATTERN = re.compile(r"```(?:json)?\s*([\s\S]*?)\s*```")
 JSON_PATTERN = re.compile(r"(\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\})")
