@@ -455,6 +455,39 @@ class MCPToolManager:
 
         return all_tools
 
+    def get_tools_prompt(self):
+        """
+        获取工具列表并转换为 Markdown 格式
+        返回格式示例：
+        ```markdown
+        ## 工具列表
+        {"name": "xxxx", "description": "xxxx", "arguments": {"key": "val"}}
+        ```
+        """
+        tools = self.list_tools()
+        if not tools:
+            return ""
+
+        ret = []
+        for tool in tools:
+            # 构建工具信息的 JSON 对象
+            # 去掉 inputSchema里的additionalProperties、$schema
+            input_schema = tool.get("inputSchema", {}).copy()
+            if "additionalProperties" in input_schema:
+                del input_schema["additionalProperties"]
+            if "$schema" in input_schema:
+                del input_schema["$schema"]
+
+            ret.append({
+                "name": tool.get("name", ""),
+                "description": tool.get("description", ""),
+                "arguments": input_schema
+            })
+
+        # 转换为 JSON 字符串并添加到 Markdown 中
+        json_str = json.dumps(ret, ensure_ascii=False)
+        return f"```json\n{json_str}\n```\n"
+
     def _get_all_tools(self):
         """返回所有工具的列表"""
         # 如果全局禁用，直接返回空列表
