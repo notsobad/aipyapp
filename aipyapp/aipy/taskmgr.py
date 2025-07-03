@@ -138,8 +138,7 @@ class TaskManager:
 
         mcp_tools = ""
         if self.mcp and with_mcp:
-            tools = self.mcp.list_tools()
-            mcp_tools = json.dumps(tools, ensure_ascii=False)
+            mcp_tools = self.mcp.get_tools_prompt()
         system_prompt = get_system_prompt(self.tips_manager.current_tips, self.api_prompt, self.settings.get('system_prompt'), mcp_tools=mcp_tools)
 
         task = Task(self)
