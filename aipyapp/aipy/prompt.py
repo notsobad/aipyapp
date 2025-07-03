@@ -12,6 +12,7 @@ SYSTEM_PROMPT_TEMPLATE = """
 {aipy_prompt}
 {tips_prompt}
 {api_prompt}
+{mcp_prompt}
 """
 
 AIPY_PROMPT = """
@@ -217,17 +218,65 @@ API_PROMPT = """
 {apis}
 """
 
-def get_system_prompt(tips, api_prompt, user_prompt=None):
+MCP_PROMPT = """# MCP工具调用规则：
+
+在此环境中，您可以访问一组工具，用于回答用户的问题。您每条消息只能使用一个工具，并将在用户的回复中收到该工具的使用结果。您可以通过循序渐进地使用工具来完成给定任务，每次工具的使用都以前一次工具使用的结果为依据。
+
+## 工具使用格式
+需要调用工具时，请返回以下JSON代码，包含调用的工具名称和参数。
+{"action": "call_tool", "name": "tool_name", "arguments": {"arg_name": "arg_value", ...}}
+
+请始终遵守此工具使用格式，以确保正确的解析和执行。
+
+## 工具使用示例
+
+以下是一些使用概念工具的示例：
+---
+User：查询成都本周的天气
+Assistant: 我可以使用 maps_weather 工具来计算操作结果。
+```json
+{"action": "call_tool", "name": "maps_weather", "arguments": {"city": "成都"}}
+```
+---
+User: “以下操作的结果是什么：5 + 3 + 1294.678？”
+Assistant: 我可以使用 python_interpreter 工具来计算操作结果。
+```json
+{"action": "call_tool", "name": "python_interpreter", "arguments": {"code": "5 + 3 + 1294.678"}}
+```
+
+## 可用工具
+
+上述示例使用了可能不存在的概念工具。您只能访问以下工具， 以JSON数组形式提供：
+{mcp_tools}
+
+## 工具使用规则
+
+以下是您在解决任务时应始终遵循的规则：
+
+1.  始终为工具使用正确的参数。切勿使用变量名作为操作参数，请使用值。
+2.  仅在需要时调用工具：如果您不需要信息，请勿调用搜索代理，尝试自行解决任务。
+3.  如果不需要调用工具，直接回答问题即可。
+4.  切勿重复之前使用完全相同参数的工具调用。
+5.  对于工具使用，请务必使用上述示例中所示的 JSON 格式。请勿使用任何其他格式。
+
+"""
+
+def get_system_prompt(tips, api_prompt, user_prompt=None, mcp_tools=""):
     if user_prompt:
         user_prompt = user_prompt.strip()
     prompts = {
         'role_prompt': user_prompt or tips.role.detail,
         'aipy_prompt': AIPY_PROMPT,
         'tips_prompt': '',
+        'mcp_prompt': '',
         'api_prompt': API_PROMPT.format(apis=api_prompt)
     }
     if not user_prompt and len(tips) > 0:
         prompts['tips_prompt'] = TIPS_PROMPT.format(tips=str(tips))
+
+    if mcp_tools:
+        prompts['mcp_prompt'] = MCP_PROMPT.replace('{mcp_tools}', mcp_tools)
+
     return SYSTEM_PROMPT_TEMPLATE.format(**prompts)
 
 def get_task_prompt(instruction, gui=False):
