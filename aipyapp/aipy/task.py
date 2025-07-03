@@ -5,7 +5,6 @@ import os
 import json
 import uuid
 import time
-from pathlib import Path
 from datetime import datetime
 from collections import namedtuple
 from importlib.resources import read_text
@@ -45,7 +44,7 @@ class Task(Stoppable):
         self.gui = manager.gui
         self.console = Console(file=manager.console.file, record=True)
         self.max_rounds = self.settings.get('max_rounds', self.MAX_ROUNDS)
-
+        self.cwd = manager.cwd / self.task_id
         self.client = None
         self.runner = None
         self.instruction = None
@@ -98,39 +97,31 @@ class Task(Stoppable):
         task['runner'] = self.runner.history
         task['blocks'] = self.code_blocks.to_list()
 
-        filename = f"{self.task_id}.json"
+        filename = "task.json"
         try:
             json.dump(task, open(filename, 'w', encoding='utf-8'), ensure_ascii=False, indent=4, default=str)
         except Exception as e:
             self.log.exception('Error saving task')
 
-        filename = f"{self.task_id}.html"
+        filename = "console.html"
         #self.save_html(filename, task)
         self.save(filename)
         self.log.info('Task auto saved')
 
     def done(self):
-        curname = f"{self.task_id}.json"
-        jsonname = get_safe_filename(self.instruction, extension='.json')
-        if jsonname and os.path.exists(curname):
+        os.chdir(self.manager.cwd)  # Change back to the original working directory
+        curname = self.task_id
+        newname = get_safe_filename(self.instruction, extension=None)
+        if newname and os.path.exists(curname):
             try:
-                os.rename(curname, jsonname)
+                os.rename(curname, newname)
             except Exception as e:
-                self.log.exception('Error renaming task json file')
-
-        curname = f"{self.task_id}.html"
-        htmlname = get_safe_filename(self.instruction, extension='.html')
-        if htmlname and os.path.exists(curname):
-            try:
-                os.rename(curname, htmlname)
-            except Exception as e:
-                self.log.exception('Error renaming task html file')
+                self.log.exception('Error renaming task directory', curname=curname, newname=newname)
 
         self.diagnose.report_code_error(self.runner.history)
         self.done_time = time.time()
-        self.log.info('Task done', jsonname=jsonname, htmlname=htmlname)
-        filename = str(Path(htmlname).resolve())
-        self.console.print(f"[green]{T('Result file saved')}: \"{filename}\"")
+        self.log.info('Task done', parh=newname)
+        self.console.print(f"[green]{T('Result file saved')}: \"{newname}\"")
         if self.settings.get('share_result'):
             self.sync_to_cloud()
         
@@ -278,6 +269,9 @@ class Task(Stoppable):
         else:
             system_prompt = None
             msg = prompt.get_chat_prompt(instruction, self.instruction)
+
+        self.cwd.mkdir(exist_ok=True)
+        os.chdir(self.cwd)
 
         rounds = 1
         max_rounds = self.max_rounds

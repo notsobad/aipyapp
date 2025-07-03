@@ -35,9 +35,9 @@ class TaskManager:
             workdir = Path.cwd() / settings.workdir
             workdir.mkdir(parents=True, exist_ok=True)
             os.chdir(workdir)
-            self._cwd = workdir
+            self.cwd = workdir
         else:
-            self._cwd = Path.cwd()
+            self.cwd = Path.cwd()
         self.mcp = get_mcp(settings.get('_config_dir'))
         self._init_environ()
         self.tt_api_key = get_tt_api_key(settings)
@@ -51,7 +51,7 @@ class TaskManager:
 
     @property
     def workdir(self):
-        return str(self._cwd)
+        return str(self.cwd)
 
     def get_tasks(self):
         return list(self.tasks)
