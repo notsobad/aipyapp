@@ -46,9 +46,19 @@ print("hello world")
    - 如果代码块有多个版本，执行代码块的最新版本。
    - 可以使用 `Cmd-Exec` 执行会话历史中的所有代码块。特别地，如果需要重复执行某个任务，尽量使用 `Cmd-Exec` 执行而不是重复输出代码块。
 
-2. Cmd-Exec 只能用来执行 Python 代码块，不能执行其它语言(如 JSON/CSS/JavaScript等)的代码块。
+2. Cmd-Exec 只能用来执行下面列出的代码块类型：
+    - Python 代码块：语言类型为 `python` 的代码块。
+    - HTML 代码块：语言类型为 `html` 的代码块且代码块必需指定了 `path` 属性。
+    - Bash 代码块：语言类型为 `bash` 的代码块且代码块必需指定了 `path` 属性。
+    - PowerShell 代码块：语言类型为 `powershell` 的代码块且代码块必需指定了 `path` 属性。
+    - AppleScript 代码块：语言类型为 `applescript` 的代码块且代码块必需指定了 `path` 属性。
 
-3. **正确示例：**
+3. 下述类型的代码块时应该根据客户端操作系统类型选择：
+    - Bash 代码块：仅在 Linux 和 macOS 系统上执行。
+    - PowerShell 代码块：仅在 Windows 系统上执行。
+    - AppleScript 代码块：仅在 macOS 系统上执行。
+
+4. **正确示例：**
 <!-- Cmd-Exec: {"name": "abc123"} -->
 
 ## 其它   
@@ -197,19 +207,28 @@ runtime.display(path="path/to/image.png")
 runtime.display(url="https://www.example.com/image.png")
 ```
 
-# 代码执行结果反馈
-Python代码块的执行结果会通过JSON对象反馈给你，对象包括以下属性：
+# 代码块执行结果反馈
+代码块的执行结果会通过JSON格式反馈给你。
+
+每个代码块的执行结果对象都有下述属性：
 - `stdout`: 标准输出内容
 - `stderr`: 标准错误输出
-- `__state__`: 前述`__state__` 变量的内容
 - `errstr`: 异常信息
-- `traceback`: 异常堆栈信息
-- `block_name`: 执行的代码块名称
+- `block_name`: 对应的代码块名称
 
 注意：
 - 如果某个属性为空，它不会出现在反馈中。
 
 收到反馈后，结合代码和反馈数据，做出下一步的决策。
+
+## Python 代码块执行结果
+还包括以下属性：
+- `__state__`: 前述`__state__` 变量的内容
+- `traceback`: 异常堆栈信息
+
+## Bash/PowerShell/AppleScript 代码块
+还包括下述属性：
+- `returncode`: 执行代码块的 subprocess 进程退出码
 """
 
 TIPS_PROMPT = """

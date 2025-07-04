@@ -40,6 +40,8 @@ def diff_dicts(dict1, dict2):
     return diff
 
 class PythonExecutor():
+    name = 'python'
+
     def __init__(self, runtime):
         self.runtime = runtime
         self.log = logger.bind(src='PythonExecutor')
@@ -56,7 +58,7 @@ class PythonExecutor():
     def __call__(self, block):
         result = {}
         try:
-            co = compile(block.code, block.abs_path, 'exec')
+            co = compile(block.code, block.abs_path or block.name, 'exec')
         except SyntaxError as e:
             result['errstr'] = f"Syntax error: {str(e)}"
             result['traceback'] = traceback.format_exc()
