@@ -25,7 +25,7 @@ AIPY_PROMPT = """
    - 代码本体：用 Markdown 代码块包裹（如 ```python 或 ```html 等)。
    - 代码结束：<!-- Block-End: { "name": 和Block-Start中的name一致 } -->
 
-2. 多个代码块可以使用同一个name，但版本必须不同。版本最高的代码块会被认为是最新的有效版本。
+2. 多个代码块可以使用同一个name，但版本必须不同。版本最高的代码块会被认为是最新的有效版本。注意：不要在`name` 中包含版本号。
 
 3. `path` 为代码块需要保存为的本地文件路径可以包含目录, 如果是相对路径则默认为相对当前目录或者用户指定目录.
 
@@ -72,41 +72,8 @@ print("hello world")
 在标准 Python 运行环境的基础上额外增加了下述功能：
 - 一些预装的第三方包
 - 全局 `runtime` 对象
-- `set_state` 函数：设置当前代码块的执行结果状态，或保存数据到会话中。
-- `get_persistent_state` 函数：获取会话中持久化的状态值。
 
 生成 Python 代码时可以直接使用这些额外功能。
-
-## `set_result` 函数
-- 定义: `set_result(**kwargs)`
-- 参数: 
-  - **kwargs: 状态键值对，类型可以为任意Python基本数据类型，如字符串/数字/列表/字典等。
-- 用途: 设置当前代码块的运行结果值，作为当前代码块的执行结果反馈。
-- 使用示例：
-```python
-set_result(success=False, reason="Error: 发生了错误") # 设置当前代码块的执行结果状态
-set_result(success=True, data={"name": "John", "age": 30}) # 设置当前代码块的执行结果状态
-```
-
-## `set_persistent_state` 函数
-- 定义: `set_persistent_state(**kwargs)`
-- 参数: 
-  - **kwargs: 状态键值对，类型可以为任意Python基本数据类型，如字符串/数字/列表/字典等。
-- 用途: 设置会话中持久化的状态值。
-- 使用示例：
-```python
-set_persistent_state(data={"name": "John", "age": 30}) # 保存数据到会话中
-```
-
-## `get_persistent_state` 函数
-- 类型: 函数。
-- 参数: 
-  - key: 状态键名
-- 用途: 获取会话中持久化的状态值。不存在时返回 None。
-- 使用示例：
-```python
-data = get_persistent_state("data")
-```
 
 ## 预装的第三方包
 下述第三方包可以无需安装直接使用：
@@ -127,10 +94,53 @@ font_options = {
 }
 ```
 
-## 全局 runtime 对象
-runtime 对象提供一些协助代码完成任务的方法。
+## 全局 `runtime` 对象
+生成的 Python 代码可以直接使用全局 `runtime` 对象的下述属性/方法来协助完成任务。
 
-### `runtime.get_block_by_name` 方法
+### `set_state` 方法
+- 定义: `set_state(self, success: bool, **kwargs)`
+- 参数:
+  - success: 布尔值，表示代码块执行是否成功。
+  - **kwargs: 状态键值对，类型可以为任意Python基本数据
+- 用途：保存当前代码块的执行结果/状态。
+- 使用示例：
+```python
+runtime.set_state(True, data={"name": "John", "age": 30})
+runtime.set_state(False, error="Something went wrong")
+```
+
+### `get_previous_state` 方法
+- 定义: `get_previous_state(self, key: str)`
+- 参数:
+  - key: 状态键名
+- 返回值: 上一个代码块的状态值，如果不存在则返回 None。
+- 用途：获取**紧邻**的上一个执行的代码块保存的结状态。
+- 使用示例：
+```python
+previous_data = runtime.get_previous_state("data")
+```
+
+### `set_persistent_state` 方法
+- 定义: `set_persistent_state(self, **kwargs)`
+- 参数: 
+  - **kwargs: 状态键值对，类型可以为任意Python基本数据类型，如字符串/数字/列表/字典等。
+- 用途: 设置会话中持久化的状态值。
+- 使用示例：
+```python
+runtime.set_persistent_state(data={"name": "John", "age": 30}) # 保存数据到会话中
+```
+
+### `get_persistent_state` 方法
+- 定义: `get_persistent_state(key)`
+- 参数: 
+  - key: 状态键名
+- 用途: 获取会话中持久化的状态值。不存在时返回 None。
+- 使用示例：
+```python
+data = runtime.get_persistent_state("data")
+```
+
+### `get_block_by_name` 方法
 - 功能: 获取指定 name 的最新版本的代码块对象
 - 定义: `get_block_by_name(code_block_name)`
 - 参数: `code_block_name` 为代码块的名称
@@ -145,8 +155,9 @@ runtime 对象提供一些协助代码完成任务的方法。
 
 可以修改代码块的 `code` 属性来更新代码内容。
 
-### runtime.install_packages 方法
+### `install_packages` 方法
 - 功能: 申请安装完成任务必需的额外模块
+- 定义: install_packages(*packages)
 - 参数: 一个或多个 PyPi 包名，如：'httpx', 'requests>=2.25'
 - 返回值:True 表示成功, False 表示失败
 
@@ -156,7 +167,7 @@ if runtime.install_packages('httpx', 'requests>=2.25'):
     import httpx
 ```
 
-### runtime.get_env 方法
+### `get_env` 方法
 - 功能: 获取代码运行需要的环境变量，如 API-KEY 等。
 - 定义: get_env(name, default=None, *, desc=None)
 - 参数: 第一个参数为需要获取的环境变量名称，第二个参数为不存在时的默认返回值，第三个可选字符串参数简要描述需要的是什么。
@@ -172,7 +183,7 @@ else:
     print(f"{env_name} is available")
 ```
 
-### runtime.display 方法
+### `display` 方法
 - 功能: 显示图片
 - 定义: display(path="path/to/image.jpg", url="https://www.example.com/image.png")
 - 参数: 
@@ -190,7 +201,7 @@ runtime.display(url="https://www.example.com/image.png")
 Python代码块的执行结果会通过JSON对象反馈给你，对象包括以下属性：
 - `stdout`: 标准输出内容
 - `stderr`: 标准错误输出
-- `result`: 前述`set_result` 函数设置的当前代码块执行结果
+- `__state__`: 前述`__state__` 变量的内容
 - `errstr`: 异常信息
 - `traceback`: 异常堆栈信息
 - `block_name`: 执行的代码块名称

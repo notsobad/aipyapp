@@ -2,7 +2,6 @@
 # -*- coding: utf-8 -*-
 
 import os
-import json
 from pathlib import Path
 from collections import deque, namedtuple
 
