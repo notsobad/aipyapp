@@ -72,3 +72,6 @@ class AppleScriptExecutor(SubprocessExecutor):
     name = 'applescript'
     command = ['osascript']
     
+class NodeExecutor(SubprocessExecutor):
+    name = 'javascript'
+    command = ['node']

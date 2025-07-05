@@ -1,11 +1,11 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-from collections import OrderedDict
-import platform
-import locale
 import os
 from datetime import date
+from collections import OrderedDict
+
+from .utils import get_system_context
 
 SYSTEM_PROMPT_TEMPLATE = """
 {role_prompt}
@@ -52,6 +52,7 @@ print("hello world")
     - Bash 代码块：语言类型为 `bash` 的代码块且代码块必需指定了 `path` 属性。
     - PowerShell 代码块：语言类型为 `powershell` 的代码块且代码块必需指定了 `path` 属性。
     - AppleScript 代码块：语言类型为 `applescript` 的代码块且代码块必需指定了 `path` 属性。
+    - NodeJS 代码块：语言类型为 `javascript` 的代码块且代码块必需指定了 `path` 属性。
 
 3. 下述类型的代码块时应该根据客户端操作系统类型选择：
     - Bash 代码块：仅在 Linux 和 macOS 系统上执行。
@@ -315,10 +316,7 @@ def get_task_prompt(instruction, gui=False):
     prompt['task'] = instruction
     prompt['source'] = "User"
     context = OrderedDict()
-    context['os_type'] = platform.system()
-    context['os_locale'] = locale.getlocale()
-    context['os_platform'] = platform.platform()
-    context['python_version'] = platform.python_version()
+    get_system_context(context)
     context['today'] = date.today().isoformat()
     
     if not gui:

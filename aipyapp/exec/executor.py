@@ -5,14 +5,15 @@ from loguru import logger
 
 from .python import PythonRuntime, PythonExecutor
 from .html import HtmlExecutor
-from .prun import BashExecutor, PowerShellExecutor, AppleScriptExecutor
+from .prun import BashExecutor, PowerShellExecutor, AppleScriptExecutor, NodeExecutor
 
 EXECUTORS = {executor.name: executor for executor in [
     PythonExecutor,
     HtmlExecutor,
     BashExecutor,
     PowerShellExecutor,
-    AppleScriptExecutor
+    AppleScriptExecutor,
+    NodeExecutor
 ]}
 
 class BlockExecutor():
