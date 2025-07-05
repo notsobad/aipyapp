@@ -79,9 +79,10 @@ print("hello world")
 - 不允许执行可能导致 Python 解释器退出的指令，如 exit/quit 等函数，请确保代码中不包含这类操作。
 
 # Python运行环境描述
-在标准 Python 运行环境的基础上额外增加了下述功能：
+在标准 Python 运行环境的基础上额外增加了下述包/模块：
 - 一些预装的第三方包
-- 全局 `runtime` 对象
+- `aipyapp.runtime` 模块
+- 成功执行过的 Python 代码块可以通过 `from blocks import 代码块名` 导入来实现代码重用
 
 生成 Python 代码时可以直接使用这些额外功能。
 
@@ -104,8 +105,8 @@ font_options = {
 }
 ```
 
-## 全局 `runtime` 对象
-生成的 Python 代码可以直接使用全局 `runtime` 对象的下述属性/方法来协助完成任务。
+## `aipyapp.runtime` 模块
+通过 `from aipyapp import runtime` 来使用下述方法辅助完成任务。
 
 ### `set_state` 方法
 - 定义: `set_state(self, success: bool, **kwargs)`

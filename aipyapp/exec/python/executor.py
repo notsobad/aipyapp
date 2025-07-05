@@ -8,6 +8,9 @@ from io import StringIO
 
 from loguru import logger
 
+from .mod_obj import ObjectImporter
+from .mod_dict import DictModuleImporter
+
 INIT_IMPORTS = """
 import os
 import re
@@ -45,7 +48,9 @@ class PythonExecutor():
     def __init__(self, runtime):
         self.runtime = runtime
         self.log = logger.bind(src='PythonExecutor')
-        self._globals = {'runtime': runtime, '__name__': '__main__', 'input': self.runtime.input}
+        self._globals = {'__name__': '__main__', 'input': self.runtime.input}
+        self.block_importer = DictModuleImporter()
+        self.runtime_importer = ObjectImporter({'runtime': runtime})
         exec(INIT_IMPORTS, self._globals)
 
     def __repr__(self):
@@ -72,7 +77,8 @@ class PythonExecutor():
         gs = self._globals.copy()
         runtime.start_block(block)
         try:
-            exec(co, gs)
+            with self.block_importer, self.runtime_importer:
+                exec(co, gs)
         except (SystemExit, Exception) as e:
             result['errstr'] = str(e)
             result['traceback'] = traceback.format_exc()
@@ -87,6 +93,8 @@ class PythonExecutor():
 
         vars = runtime.state
         if vars:
+            if vars.get('success'):
+                self.block_importer.add_module(block.name, co)
             result['__state__'] = self.filter_result(vars)
 
         return result

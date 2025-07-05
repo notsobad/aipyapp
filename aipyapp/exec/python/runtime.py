@@ -30,7 +30,7 @@ class PythonRuntime(ABC):
 
     def get_previous_state(self, key: str) -> Any:
         """获取上一个代码块的状态值"""
-        return self.previous_state.get(key)
+        return self.previous_state.get(key) if self.previous_state else None
     
     def set_persistent_state(self, **kwargs) -> None:
         """设置在整个会话中持久化的状态值"""
