@@ -91,7 +91,7 @@ class PythonExecutor():
         s = captured_stderr.getvalue().strip()
         if s: result['stderr'] = s if is_json_serializable(s) else '<filtered: cannot json-serialize>'        
 
-        vars = runtime.state
+        vars = runtime.current_state
         if vars:
             if vars.get('success'):
                 self.block_importer.add_module(block.name, co)

@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+import traceback
+
 from loguru import logger
 
 from .python import PythonRuntime, PythonExecutor
@@ -56,7 +58,10 @@ class BlockExecutor():
         history = {}
         executor = self.get_executor(block)
         if executor:
-            result = executor(block)
+            try:
+                result = executor(block)
+            except Exception as e:
+                result = {'errstr': str(e), 'traceback': traceback.format_exc()}
         else:
             result = {'stderr': f'Exec: Ignore unsupported block: {block}'}
 

@@ -121,15 +121,15 @@ runtime.set_state(True, data={"name": "John", "age": 30})
 runtime.set_state(False, error="Something went wrong")
 ```
 
-### `get_previous_state` 方法
-- 定义: `get_previous_state(self, key: str)`
+### `get_block_state` 方法
+- 用途：获取指定代码块的最新状态值。
+- 定义: `get_block_state(self, block_name: str)`
 - 参数:
-  - key: 状态键名
-- 返回值: 上一个代码块的状态值，如果不存在则返回 None。
-- 用途：获取**紧邻**的上一个执行的代码块保存的结状态。
+  - block_name: 代码块名称
+- 返回值: 状态值，如果未设置则返回空字典，如果代码块未执行或不存在则返回 None。
 - 使用示例：
 ```python
-previous_data = runtime.get_previous_state("data")
+state = runtime.get_block_state("abc123")
 ```
 
 ### `set_persistent_state` 方法

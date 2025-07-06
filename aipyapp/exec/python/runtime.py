@@ -12,25 +12,25 @@ class PythonRuntime(ABC):
         self.envs = envs or {}
         self.packages = set()
         self.session = {}
-        self.state = None
-        self.previous_state = None
+        self.block_states = {}
+        self.current_state = {}
         self.block = None
         self.log = logger.bind(src='runtime')
 
     def start_block(self, block):
         """开始一个新的代码块执行"""
+        self.current_state = {}
+        self.block_states[block.name] = self.current_state
         self.block = block
-        self.previous_state = self.state
-        self.state = {}
 
     def set_state(self, success: bool, **kwargs) -> None:
         """设置当前代码块的执行状态"""
-        self.state['success'] = success
-        self.state.update(kwargs)
+        self.current_state['success'] = success
+        self.current_state.update(kwargs)
 
-    def get_previous_state(self, key: str) -> Any:
+    def get_block_state(self, block_name: str) -> Any:
         """获取上一个代码块的状态值"""
-        return self.previous_state.get(key) if self.previous_state else None
+        return self.block_states.get(block_name)
     
     def set_persistent_state(self, **kwargs) -> None:
         """设置在整个会话中持久化的状态值"""
