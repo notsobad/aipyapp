@@ -15,7 +15,7 @@ from .diagnose import Diagnose
 from .llm import ClientManager
 from .config import PLUGINS_DIR, TIPS_DIR, get_mcp_config_file, get_tt_api_key, get_tt_aio_api
 from .tips import TipsManager
-from .libmcp import MCPToolManager
+from .mcp_tool import MCPToolManager
 
 class TaskManager:
     MAX_TASKS = 16
