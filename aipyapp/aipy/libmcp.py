@@ -14,6 +14,7 @@ from mcp.client.sse import sse_client
 from mcp.client.streamable_http import streamablehttp_client
 from mcp.shared.message import SessionMessage
 from mcp.types import JSONRPCMessage
+from . import cache
 from .. import T
 
 # 猴子补丁：修复第三方库中的 _handle_json_response 方法
@@ -309,13 +310,7 @@ class MCPToolManager:
         self.mcp_servers = self.config_reader.get_mcp_servers()
         self._tools_cache = {}  # 缓存已获取的工具列表
         self._inited = False
-        # 设置缓存文件路径，与配置文件同目录
-        self._cache_file = os.path.join(
-            os.path.dirname(config_path), "mcp_tools_cache.json"
-        )
-        self._config_mtime = (
-            os.path.getmtime(config_path) if os.path.exists(config_path) else 0
-        )
+
         # 全局启用/禁用标志，默认禁用
         self._globally_enabled = False
         # 服务器状态缓存，记录每个服务器的启用/禁用状态
@@ -333,65 +328,6 @@ class MCPToolManager:
             )
             self._server_status[server_name] = is_enabled
 
-    def _is_cache_valid(self):
-        """检查缓存文件是否有效"""
-        # 如果缓存文件不存在，缓存无效
-        if not os.path.exists(self._cache_file):
-            return False
-
-        # 检查缓存文件的创建时间是否超过48小时
-        current_time = time.time()
-        cache_mtime = os.path.getmtime(self._cache_file)
-        if current_time - cache_mtime > 172800:  # 48小时 = 48 * 60 * 60 = 172800秒
-            logger.debug("缓存已超过48小时，需要重新获取工具列表")
-            return False
-
-        # 如果配置文件修改时间晚于缓存创建时间，缓存无效
-        if os.path.exists(self.config_path):
-            if self._config_mtime > cache_mtime:
-                return False
-
-        return True
-
-    def _save_cache(self):
-        """保存工具列表到缓存文件"""
-        try:
-            cache_data = {
-                "config_mtime": self._config_mtime,
-                "tools_cache": self._tools_cache,
-            }
-            with open(self._cache_file, "w", encoding="utf-8") as f:
-                json.dump(cache_data, f, ensure_ascii=False, indent=2)
-            logger.debug(f"工具列表缓存已保存到 {self._cache_file}")
-            return True
-        except Exception as e:
-            logger.exception(f"保存工具列表缓存失败: {e}")
-            return False
-
-    def _load_cache(self):
-        """从缓存文件加载工具列表"""
-        if not self._is_cache_valid():
-            return False
-
-        try:
-            with open(self._cache_file, "r", encoding="utf-8") as f:
-                cache_data = json.load(f)
-
-            config_mtime = cache_data.get("config_mtime", 0)
-
-            # 检查配置文件修改时间是否与缓存中的一致, mcp.json可能从别的地方复制过来，修改时间异常
-            if self._config_mtime != config_mtime:
-                logger.debug("配置文件已被修改，需要重新获取工具列表")
-                return False
-
-            self._tools_cache = cache_data.get("tools_cache", {})
-            self._config_mtime = config_mtime
-            self._inited = True
-            logger.debug(f"已从缓存加载工具列表: {self._cache_file}")
-            return True
-        except Exception as e:
-            logger.exception(f"加载工具列表缓存失败: {e}")
-            return False
 
     def list_tools(self):
         """返回所有MCP服务器的工具列表
@@ -414,32 +350,29 @@ class MCPToolManager:
         # 如果全局禁用，直接返回空列表
         if not self._globally_enabled:
             return []
-            
-        # 尝试从缓存加载
-        if self._load_cache():
-            # 如果成功加载缓存，直接返回结果
-            all_tools = []
-            for server_name, tools in self._tools_cache.items():
-                # 只返回启用的服务器的工具
-                if self._server_status.get(server_name, True):
-                    all_tools.extend(tools)
-            return all_tools
 
-        # 缓存无效或加载失败，重新获取工具列表
         all_tools = []
         print(T("Initializing MCP server, this may take a while if it's the first load, please wait patiently..."))
         for server_name, server_config in self.mcp_servers.items():
             if server_name not in self._tools_cache:
                 try:
                     print("+ Loading MCP", server_name)
+                    key = f"mcp_tool:{server_name}:{cache.cache_key(server_config)}"
+                    tools = cache.get_cache(key)
+                    if tools is not None:
+                        # 如果缓存中有工具列表，直接使用
+                        self._tools_cache[server_name] = tools
+                        continue
                     
-                    # 创建 MCPClientSync 实例，传入完整的服务器配置
                     client = MCPClientSync(server_config)
                     tools = client.list_tools()
                     
                     # 为每个工具添加服务器标识
                     for tool in tools:
                         tool["server"] = server_name
+
+                    if tools:
+                        cache.set_cache(key, tools, ttl=60*60*24*2)
 
                     self._tools_cache[server_name] = tools
                 except Exception as e:
@@ -450,19 +383,10 @@ class MCPToolManager:
             all_tools.extend(self._tools_cache[server_name])
             self._inited = True
 
-        # 保存到缓存
-        self._save_cache()
-
         return all_tools
 
     def get_tools_prompt(self):
-        """
-        获取工具列表并转换为 Markdown 格式
-        返回格式示例：
-        ```markdown
-        ## 工具列表
-        {"name": "xxxx", "description": "xxxx", "arguments": {"key": "val"}}
-        ```
+        """ 获取工具列表并转换为 Markdown 格式
         """
         tools = self.list_tools()
         if not tools:
@@ -607,7 +531,6 @@ class MCPToolManager:
                         "action": "global_enable",
                         "globally_enabled": self._globally_enabled,
                         "servers": self.get_all_servers(),
-                        "tools_count": len(self.list_tools())
                     }
                 else:  # disable
                     self._globally_enabled = False
@@ -616,7 +539,6 @@ class MCPToolManager:
                         "action": "global_disable",
                         "globally_enabled": self._globally_enabled,
                         "servers": self.get_all_servers(),
-                        "tools_count": 0
                     }
             elif len(args) == 2:
                 # 针对特定服务器的启用/禁用
@@ -635,7 +557,6 @@ class MCPToolManager:
                         "action": f"all_servers_{action}",
                         "globally_enabled": self._globally_enabled,
                         "servers": self.get_all_servers(),
-                        "tools_count": len(self.list_tools())
                     }
 
                 # 检查服务器是否存在
@@ -655,7 +576,6 @@ class MCPToolManager:
                         "server": server_name,
                         "globally_enabled": self._globally_enabled,
                         "servers": self.get_all_servers(),
-                        "tools_count": len(self.list_tools())
                     }
                 else:  # disable
                     self._server_status[server_name] = False
@@ -667,7 +587,6 @@ class MCPToolManager:
                         "server": server_name,
                         "globally_enabled": self._globally_enabled,
                         "servers": self.get_all_servers(),
-                        "tools_count": len(self.list_tools())
                     }
         elif action == "list":
             return {
@@ -675,7 +594,6 @@ class MCPToolManager:
                 "action": "list",
                 "globally_enabled": self._globally_enabled,
                 "servers": self.get_all_servers(),
-                "tools_count": len(self.list_tools())
             }
 
         # 如果没有匹配任何已知命令
