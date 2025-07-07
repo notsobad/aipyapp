@@ -9,25 +9,26 @@ class MCPToolManager:
         self.config_path = config_path
         self.config_reader = MCPConfigReader(config_path)
         self.mcp_servers = self.config_reader.get_mcp_servers()
-        self._tools_cache = {}  # 缓存已获取的工具列表
+        self._tools_dict = {}  # 缓存已获取的工具列表
         self._inited = False
 
         # 全局启用/禁用标志，默认禁用
         self._globally_enabled = False
         # 服务器状态缓存，记录每个服务器的启用/禁用状态
-        self._server_status = {}
-        self._init_server_status()
+        self._server_status = self._init_server_status()
 
     def _init_server_status(self):
         """初始化服务器状态，从配置文件中读取初始状态，包括禁用的服务器"""
 
+        server_status = {}
         for server_name, server_config in self.mcp_servers.items():
             # 服务器默认启用，除非配置中明确设置为disabled: true或enabled: false
             is_enabled = not (
                 server_config.get("disabled", False)
                 or server_config.get("enabled", True) is False
             )
-            self._server_status[server_name] = is_enabled
+            server_status[server_name] = is_enabled
+        return server_status
 
     def list_tools(self):
         """返回所有MCP服务器的工具列表
@@ -58,14 +59,14 @@ class MCPToolManager:
             )
         )
         for server_name, server_config in self.mcp_servers.items():
-            if server_name not in self._tools_cache:
+            if server_name not in self._tools_dict:
                 try:
                     print("+ Loading MCP", server_name)
                     key = f"mcp_tool:{server_name}:{cache.cache_key(server_config)}"
                     tools = cache.get_cache(key)
                     if tools is not None:
                         # 如果缓存中有工具列表，直接使用
-                        self._tools_cache[server_name] = tools
+                        self._tools_dict[server_name] = tools
                         continue
 
                     client = MCPClientSync(server_config)
@@ -78,20 +79,20 @@ class MCPToolManager:
                     if tools:
                         cache.set_cache(key, tools, ttl=60 * 60 * 24 * 2)
 
-                    self._tools_cache[server_name] = tools
+                    self._tools_dict[server_name] = tools
                 except Exception as e:
                     print(f"Error listing tools for server {server_name}: {e}")
-                    self._tools_cache[server_name] = []
+                    self._tools_dict[server_name] = []
 
             # 添加到总工具列表
-            all_tools.extend(self._tools_cache[server_name])
+            all_tools.extend(self._tools_dict[server_name])
             self._inited = True
 
         return all_tools
 
     def get_tools_prompt(self):
         """获取工具列表并转换为 Markdown 格式"""
-        tools = self.list_tools()
+        tools = self.get_available_tools()  # 获取启用的工具
         if not tools:
             return ""
 
@@ -117,22 +118,22 @@ class MCPToolManager:
         json_str = json.dumps(ret, ensure_ascii=False)
         return f"```json\n{json_str}\n```\n"
 
-    def _get_all_tools(self):
-        """返回所有工具的列表"""
+    def get_available_tools(self):
+        """返回已经启用的工具列表"""
         # 如果全局禁用，直接返回空列表
         if not self._globally_enabled:
             return []
 
-        if self._inited:
-            all_tools = []
-            for server_name, tools in self._tools_cache.items():
-                # 只包含启用的服务器
-                if self._server_status.get(server_name, True):
-                    for tool in tools:
-                        tool["server"] = server_name
-                        all_tools.append(tool)
-        else:
-            all_tools = self.list_tools()
+        if not self._inited:
+            self.list_tools()
+        
+        all_tools = []
+        for server_name, tools in self._tools_dict.items():
+            # 只包含启用的服务器
+            if self._server_status.get(server_name, True):
+                for tool in tools:
+                    tool["server"] = server_name
+                    all_tools.append(tool)
         return all_tools
 
     def get_all_servers(self) -> dict:
@@ -144,8 +145,8 @@ class MCPToolManager:
         servers_info = {}
         for server_name, status in self._server_status.items():
             ret = {'enabled': status, 'tools_count': 0}
-            # if server_name not in self._tools_cache:
-            tools = self._tools_cache.get(server_name, [])
+            # if server_name not in self._tools_dict:
+            tools = self._tools_dict.get(server_name, [])
             if tools:
                 # 如果服务器有工具，则更新工具数量
                 ret['tools_count'] = len(tools)
@@ -156,7 +157,7 @@ class MCPToolManager:
     def call_tool(self, tool_name, arguments):
         """调用指定名称的工具，自动选择最匹配的服务器"""
         # 获取所有工具
-        all_tools = self._get_all_tools()
+        all_tools = self.get_available_tools()
         if not all_tools:
             raise ValueError("No tools available to call.")
 
