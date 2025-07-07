@@ -1,7 +1,54 @@
 import json
+import re
+import hashlib
 from . import cache
 from .libmcp import MCPClientSync, MCPConfigReader
 from .. import T
+
+
+def build_function_call_tool_name(server_name: str, tool_name: str) -> str:
+    """
+    构建函数调用工具名称
+
+    Args:
+        server_name: 服务器名称
+        tool_name: 工具名称
+
+    Returns:
+        处理后的工具名称
+    """
+
+    sanitized_server = server_name.strip()
+    if not sanitized_server.isascii():
+        # 生成MD5并取前4位
+        sanitized_server = hashlib.md5(sanitized_server.encode('utf-8')).hexdigest()[:4]
+    else:
+        # 用下划线替换无效字符，保留 a-z, A-Z, 0-9, 下划线和短横线
+        sanitized_server = re.sub(r'[^a-zA-Z0-9_-]', '_', sanitized_server)
+
+    sanitized_tool = tool_name.strip().replace('-', '_')
+
+    # 合并服务器名称和工具名称
+    name = sanitized_tool
+    if sanitized_server[:16] not in sanitized_tool:
+        name = f"{sanitized_server[:16] or ''}.{sanitized_tool or ''}"
+
+    # 确保名称以字母或下划线开头
+    if not re.match(r'^[a-zA-Z]', name):
+        name = f"tool-{name}"
+
+    # 移除连续的下划线/短横线
+    name = re.sub(r'[_-]{2,}', '_', name)
+
+    # 最大截断为 63 个字符
+    if len(name) > 63:
+        name = name[:63]
+
+    # 处理边缘情况：确保截断后仍有有效名称
+    if name.endswith('_') or name.endswith('-'):
+        name = name[:-1]
+
+    return name
 
 
 class MCPToolManager:
@@ -75,6 +122,9 @@ class MCPToolManager:
                     # 为每个工具添加服务器标识
                     for tool in tools:
                         tool["server"] = server_name
+                        tool["id"] = build_function_call_tool_name(
+                            server_name, tool.get("name", "")
+                        )
 
                     if tools:
                         cache.set_cache(key, tools, ttl=60 * 60 * 24 * 2)
@@ -108,7 +158,7 @@ class MCPToolManager:
 
             ret.append(
                 {
-                    "name": tool.get("name", ""),
+                    "name": tool.get("id", ""),
                     "description": tool.get("description", ""),
                     "arguments": input_schema,
                 }
@@ -126,7 +176,7 @@ class MCPToolManager:
 
         if not self._inited:
             self.list_tools()
-        
+
         all_tools = []
         for server_name, tools in self._tools_dict.items():
             # 只包含启用的服务器
@@ -161,8 +211,8 @@ class MCPToolManager:
         if not all_tools:
             raise ValueError("No tools available to call.")
 
-        # 查找匹配的工具
-        matching_tools = [t for t in all_tools if t["name"] == tool_name]
+        # 查找匹配的工具，根据id查找
+        matching_tools = [t for t in all_tools if t["id"] == tool_name]
         if not matching_tools:
             raise ValueError(f"No tool found with name: {tool_name}")
 
@@ -202,11 +252,12 @@ class MCPToolManager:
 
         # 获取服务器配置
         server_name = best_match["server"]
+        real_tool_name = best_match["name"]
         server_config = self.mcp_servers[server_name]
 
         # 创建客户端并调用工具
         client = MCPClientSync(server_config)
-        return client.call_tool(tool_name, arguments)
+        return client.call_tool(real_tool_name, arguments)
 
     def process_command(self, args):
         """处理命令行参数，执行相应操作
