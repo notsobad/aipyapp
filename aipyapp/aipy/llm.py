@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 from collections import Counter, defaultdict, namedtuple
+from typing import Union, List, Dict, Any
 
 from loguru import logger
 from rich.live import Live
@@ -9,6 +10,7 @@ from rich.text import Text
 from .. import T
 from .plugin import event_bus
 from ..llm import CLIENTS, ChatMessage
+from .multimodal import MMContent
 
 class ChatHistory:
     def __init__(self):
@@ -237,10 +239,14 @@ class Client:
             return True
         return False
     
-    def __call__(self, instruction, *, system_prompt=None, quiet=False):
+    def __call__(self, instruction: Union[str, MMContent], *, system_prompt=None, quiet=False):
         client = self.current
         stream_processor = LiveManager(client.name, quiet=quiet)
-        msg = client(self.history, instruction, system_prompt=system_prompt, stream_processor=stream_processor)
+        if isinstance(instruction, MMContent):
+            content = instruction.to_llm_context()
+        else:
+            content = instruction
+        msg = client(self.history, content, system_prompt=system_prompt, stream_processor=stream_processor)
         if msg:
             event_bus.broadcast('response_complete', {'llm': client.name, 'content': msg})
         else:

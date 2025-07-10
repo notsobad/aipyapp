@@ -8,6 +8,7 @@ import time
 from datetime import datetime
 from collections import namedtuple
 from importlib.resources import read_text
+from typing import Union, List, Dict, Any
 
 import requests
 from loguru import logger
@@ -27,6 +28,7 @@ from .utils import get_safe_filename
 from .blocks import CodeBlocks, CodeBlock
 from .interface import Stoppable
 from . import prompt
+from .multimodal import MMContent
 
 CONSOLE_WHITE_HTML = read_text(__respkg__, "console_white.html")
 CONSOLE_CODE_HTML = read_text(__respkg__, "console_code.html")
@@ -243,9 +245,9 @@ class Task(Stoppable):
         self.console.print(f"\n⏹ [cyan]{T('End processing instruction')} {summarys}")
 
 
-    def chat(self, instruction, *, system_prompt=None):
+    def chat(self, context: MMContent, *, system_prompt=None):
         quiet = self.settings.gui and not self.settings.debug
-        msg = self.client(instruction, system_prompt=system_prompt, quiet=quiet)
+        msg = self.client(context, system_prompt=system_prompt, quiet=quiet)
         if msg.role == 'error':
             self.console.print(f"[red]{msg.content}[/red]")
             return None
@@ -256,28 +258,28 @@ class Task(Stoppable):
         self.box(f"[yellow]{T('Reply')} ({self.client.name})", content)
         return msg.content
 
-    def run(self, instruction):
+    def run(self, instruction: str):
         """
         执行自动处理循环，直到 LLM 不再返回代码消息
+        instruction: 用户输入的字符串（可包含@file等多模态标记）
         """
+        message = MMContent.from_string(instruction)
         self.box(f"[yellow]{T('Start processing instruction')}", instruction, align="center")
+        
         if not self.start_time:
             self.start_time = time.time()
             self.instruction = instruction
-            msg = prompt.get_task_prompt(instruction, gui=self.gui)
             event_bus('task_start', prompt)
             system_prompt = self.system_prompt
         else:
             system_prompt = None
-            msg = prompt.get_chat_prompt(instruction, self.instruction)
 
         self.cwd.mkdir(exist_ok=True)
         os.chdir(self.cwd)
 
         rounds = 1
         max_rounds = self.max_rounds
-        json_prompt = json.dumps(msg, ensure_ascii=False, default=str)
-        response = self.chat(json_prompt, system_prompt=system_prompt)
+        response = self.chat(message, system_prompt=system_prompt)
         while response and rounds <= max_rounds:
             response = self.process_reply(response)
             rounds += 1

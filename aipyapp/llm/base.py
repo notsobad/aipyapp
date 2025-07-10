@@ -5,6 +5,7 @@ import time
 from collections import Counter
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
+from typing import Union, List, Dict, Any
 
 from loguru import logger
 
@@ -13,7 +14,7 @@ from .. import T
 @dataclass
 class ChatMessage:
     role: str
-    content: str
+    content: Union[str, List[Dict[str, Any]]]
     reason: str = None
     usage: Counter = field(default_factory=Counter)
 
@@ -54,7 +55,7 @@ class BaseClient(ABC):
         return self._base_url
     
     def __repr__(self):
-        return f"{self.__class__.__name__}<{self.name}>: ({self._model}, {self.max_tokens}, {self._base_url})"
+        return f"{self.__class__.__name__}<{self.name}>: ({self._model}, {self.max_tokens}, {self.base_url})"
     
     def get_base_url(self):
         return self.config.get("base_url") or self.BASE_URL

@@ -4,6 +4,7 @@
 import os
 from datetime import date
 from collections import OrderedDict
+from typing import Union, List, Dict, Any
 
 from .utils import get_system_context
 
@@ -311,7 +312,7 @@ def get_system_prompt(tips, api_prompt, user_prompt=None, mcp_tools=""):
 
     return SYSTEM_PROMPT_TEMPLATE.format(**prompts)
 
-def get_task_prompt(instruction, gui=False):
+def get_task_prompt(instruction: Union[str, List[Dict[str, Any]]], gui=False):
     prompt = OrderedDict()
     prompt['task'] = instruction
     prompt['source'] = "User"
@@ -341,7 +342,7 @@ def get_results_prompt(results):
     prompt['results'] = results
     return prompt
 
-def get_chat_prompt(msg, task):
+def get_chat_prompt(msg: Union[str, List[Dict[str, Any]]], task):
     prompt = OrderedDict()
     prompt['message'] = msg
     prompt['source'] = "User"
