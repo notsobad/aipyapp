@@ -257,7 +257,12 @@ class MCPToolManager:
 
         # 创建客户端并调用工具
         client = MCPClientSync(server_config)
-        return client.call_tool(real_tool_name, arguments)
+        ret = client.call_tool(real_tool_name, arguments)
+        # ret需要是json，并且如果同时包含content和structuredContent字段，则丢弃content
+        if isinstance(ret, dict) and ret.get("content") and ret.get("structuredContent"):
+            del ret["content"]
+
+        return ret
 
     def process_command(self, args):
         """处理命令行参数，执行相应操作

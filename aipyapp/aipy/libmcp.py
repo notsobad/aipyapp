@@ -210,10 +210,9 @@ class MCPClientSync:
                 return asyncio.run(coro)
             except Exception as e:
                 print(f"Error running async function: {e}")
-                raise
 
-    def list_tools(self):
-        return self._run_async(self._list_tools())
+    def list_tools(self) -> list:
+        return self._run_async(self._list_tools()) or []
 
     def call_tool(self, tool_name, arguments):
         return self._run_async(self._call_tool(tool_name, arguments))
@@ -298,5 +297,6 @@ class MCPClientSync:
             return ret
         except Exception as e:
             logger.exception(f"Failed to call tool {tool_name}: {e}")
-            raise
+            print(f"Failed to call tool {tool_name}: {e}")
+            return {"error": str(e), "tool_name": tool_name, "arguments": arguments}
 
