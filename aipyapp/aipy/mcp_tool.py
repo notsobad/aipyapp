@@ -52,9 +52,9 @@ def build_function_call_tool_name(server_name: str, tool_name: str) -> str:
 
 
 class MCPToolManager:
-    def __init__(self, config_path):
+    def __init__(self, config_path, tt_api_key=None):
         self.config_path = config_path
-        self.config_reader = MCPConfigReader(config_path)
+        self.config_reader = MCPConfigReader(config_path, tt_api_key=tt_api_key)
         self.mcp_servers = self.config_reader.get_mcp_servers()
         self._tools_dict = {}  # 缓存已获取的工具列表
         self._inited = False
