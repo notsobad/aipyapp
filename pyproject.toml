@@ -31,11 +31,13 @@ aipy = "aipyapp.__main__:main"
 aipyw = "aipyapp.__main__:mainw"
 
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling", "hatch-vcs"]
 build-backend = "hatchling.build"
 
 [tool.hatch.version]
 path = "aipyapp/__init__.py"
+scheme = "guess-next-dev"  # 或者 "post-release" 等
+local_scheme = "no-local-version"
 
 [[tool.uv.index]]
 url = "https://mirrors.aliyun.com/pypi/simple/"
