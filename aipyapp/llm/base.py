@@ -41,7 +41,6 @@ class BaseClient(ABC):
             self._params.update(self.PARAMS)
         if config.get("params"):
             self._params.update(config.get("params"))
-        self.log.info(f"Params: {self._params}")
         temperature = config.get("temperature")
         if temperature != None and temperature >= 0 and temperature <= 1:
             self._params['temperature'] = temperature

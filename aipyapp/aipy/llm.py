@@ -7,10 +7,10 @@ from loguru import logger
 from rich.live import Live
 from rich.text import Text
 
-from .. import T
+from .. import T, __respath__
 from .plugin import event_bus
-from ..llm import CLIENTS, ChatMessage
-from .multimodal import MMContent
+from ..llm import CLIENTS, ChatMessage, ModelRegistry, ModelCapability
+from .multimodal import LLMContext
 
 class ChatHistory:
     def __init__(self):
@@ -144,6 +144,7 @@ class ClientManager(object):
         self.current = None
         self.log = logger.bind(src='client_manager')
         self.names = self._init_clients(settings)
+        self.model_registry = ModelRegistry(__respath__ / "models.yaml")
 
     def _create_client(self, config):
         proto = config.get("type", "openai")
@@ -220,6 +221,9 @@ class ClientManager(object):
             rows.append(LLMRecord(name, client.model, client.max_tokens, client.base_url))
         return rows
     
+    def get_model_info(self, model: str):
+        return self.model_registry.get_model_info(model)
+    
 class Client:
     def __init__(self, manager: ClientManager):
         self.manager = manager
@@ -239,13 +243,30 @@ class Client:
             return True
         return False
     
-    def __call__(self, instruction: Union[str, MMContent], *, system_prompt=None, quiet=False):
+    def has_capability(self, content: LLMContext) -> bool:
+        # 判断 content 需要什么能力
+        if isinstance(content, str):
+            return True
+        
+        model_info = self.manager.get_model_info(self.current.model)
+        if not model_info:
+            self.log.error(f"Model info not found for {self.current.model}")
+            return False
+                
+        capabilities = set()
+        for item in content:
+            if item['type'] == 'image_url':
+                capabilities.add(ModelCapability.IMAGE_INPUT)
+            if item['type'] == 'file':
+                capabilities.add(ModelCapability.FILE_INPUT)
+            if item['type'] == 'text':
+                capabilities.add(ModelCapability.TEXT)
+        
+        return any(capability in model_info.capabilities for capability in capabilities)
+    
+    def __call__(self, content: LLMContext, *, system_prompt=None, quiet=False):
         client = self.current
         stream_processor = LiveManager(client.name, quiet=quiet)
-        if isinstance(instruction, MMContent):
-            content = instruction.to_llm_context()
-        else:
-            content = instruction
         msg = client(self.history, content, system_prompt=system_prompt, stream_processor=stream_processor)
         if msg:
             event_bus.broadcast('response_complete', {'llm': client.name, 'content': msg})

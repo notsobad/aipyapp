@@ -312,7 +312,7 @@ def get_system_prompt(tips, api_prompt, user_prompt=None, mcp_tools=""):
 
     return SYSTEM_PROMPT_TEMPLATE.format(**prompts)
 
-def get_task_prompt(instruction: Union[str, List[Dict[str, Any]]], gui=False):
+def get_task_prompt(instruction: str, gui=False):
     prompt = OrderedDict()
     prompt['task'] = instruction
     prompt['source'] = "User"
