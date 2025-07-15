@@ -51,7 +51,7 @@ class DoubaoClient(OpenAIBaseClient):
     MODEL = 'doubao-seed-1.6-250615'
 
 class MoonShotClient(OpenAIBaseClient): 
-    BASE_URL = 'https://api.moonshot.cn/v1'
+    BASE_URL = T('https://api.moonshot.ai/v1')
     MODEL = 'kimi-latest'
 
 CLIENTS = {
