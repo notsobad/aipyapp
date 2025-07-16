@@ -14,7 +14,19 @@ class ToolsCommand(BaseCommand):
 
     def execute(self, args):
         raw_args = args.raw_args
+        if not raw_args:
+            return
         
+        tm = self.manager.tm
+        if not tm.mcp:
+            self.log.error('MCP not found')
+            return
+            
+        ret = tm.mcp.process_tool_cmd(raw_args)
+        print(ret)
+        """
+        self.process_mcp_ret(raw_args, ret)
+
         if not raw_args:
             # 默认列出内部工具
             print(f"[green]{T('Listing internal tools...')}[/green]")
@@ -35,3 +47,5 @@ class ToolsCommand(BaseCommand):
         else:
             print(f"[red]{T('Unknown subcommand: {}').format(subcommand)}[/red]")
             print(f"{T('Available subcommands: enable, disable, list')}")
+
+        """
