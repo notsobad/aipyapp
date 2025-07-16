@@ -289,6 +289,7 @@ class Task(Stoppable):
             system_prompt = None
             if isinstance(content, str):
                 content = prompt.get_chat_prompt(content, self.instruction)
+                content = json.dumps(content, ensure_ascii=False, default=str)
 
         self.cwd.mkdir(exist_ok=True)
         os.chdir(self.cwd)
