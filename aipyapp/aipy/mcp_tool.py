@@ -52,10 +52,10 @@ def build_function_call_tool_name(server_name: str, tool_name: str) -> str:
 
 
 class MCPToolManager:
-    def __init__(self, config_path, tt_api_key=None):
+    def __init__(self, config_path, tt_api_key):
         self.config_path = config_path
         self.config_reader = MCPConfigReader(config_path, tt_api_key=tt_api_key)
-        self.mcp_servers = self.config_reader.get_mcp_servers()
+        self.mcp_servers = self.config_reader.get_user_mcp()
         self._tools_dict = {}  # 缓存已获取的工具列表
         self._inited = False
 
@@ -63,6 +63,8 @@ class MCPToolManager:
         self._globally_enabled = False
         # 服务器状态缓存，记录每个服务器的启用/禁用状态
         self._server_status = self._init_server_status()
+
+        #self.sys_mcp = self.config_reader.get_sys_mcp()
 
     def _init_server_status(self):
         """初始化服务器状态，从配置文件中读取初始状态，包括禁用的服务器"""
@@ -357,3 +359,15 @@ class MCPToolManager:
 
         # 如果没有匹配任何已知命令
         return {"status": "error", "message": f"Invalid command: {' '.join(args)}"}
+
+    def process_tool_cmd(self, args):
+        """处理工具命令，执行相应操作
+
+        Args:
+            args (list): 命令行参数列表，例如 [], ["enable"], ["disable"],
+                         ["enable", "playwright"], ["disable", "playwright"]
+
+        Returns:
+            dict: 执行结果
+        """
+        print(args)
