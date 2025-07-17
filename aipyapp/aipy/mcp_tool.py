@@ -212,15 +212,6 @@ class MCPToolManager:
                 "enabled": is_enabled,
                 "tools_count": len(tools),
             }
-        
-        #for server_name, status in self._server_status.items():
-        #    ret = {'enabled': status, 'tools_count': 0}
-        #    # if server_name not in self._tools_dict:
-        #    tools = self._tools_dict.get(server_name, [])
-        #    if tools:
-        #        # 如果服务器有工具，则更新工具数量
-        #        ret['tools_count'] = len(tools)
-        #    servers_info[server_name] = ret
 
         return servers_info
 
