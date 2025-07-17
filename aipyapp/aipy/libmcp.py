@@ -194,7 +194,7 @@ class MCPConfigReader:
             dict: 内部 MCP 服务器配置字典。
         """
         return {
-            "Trustoken-map-MCP": {
+            "Trustoken-map-tool": {
                 "url": f"{T('https://sapi.trustoken.ai')}/aio-api/mcp/amap/",
                 "transport": {
                     "type": "streamable_http"
@@ -203,7 +203,7 @@ class MCPConfigReader:
                     "Authorization": f"Bearer {self.tt_api_key}"
                 }
             },
-            "Trustoken-search-MCP": {
+            "Trustoken-search-tool": {
                 "url": f"{T('https://sapi.trustoken.ai')}/mcp/",
                 "transport": {
                     "type": "streamable_http"
