@@ -171,7 +171,7 @@ class MCPConfigReader:
 
         return servers
 
-    def get_user_mcp(self):
+    def get_user_mcp(self) -> dict:
         """读取 mcp.json 文件并返回 MCP 服务器清单，包括禁用的服务器"""
         try:
             with open(self.config_path, "r", encoding="utf-8") as f:
@@ -186,7 +186,7 @@ class MCPConfigReader:
             return {}
 
 
-    def get_sys_mcp(self):
+    def get_sys_mcp(self) -> dict:
         """
         获取内部 MCP 服务器配置。
 
@@ -194,7 +194,7 @@ class MCPConfigReader:
             dict: 内部 MCP 服务器配置字典。
         """
         return {
-            "Trustoken map MCP": {
+            "Trustoken-map-MCP": {
                 "url": f"{T('https://sapi.trustoken.ai')}/aio-api/mcp/amap/",
                 "transport": {
                     "type": "streamable_http"
@@ -203,8 +203,8 @@ class MCPConfigReader:
                     "Authorization": f"Bearer {self.tt_api_key}"
                 }
             },
-            "Trustoken search MCP": {
-                "url": f"{T('https://api.trustoken.cn')}/mcp/",
+            "Trustoken-search-MCP": {
+                "url": f"{T('https://sapi.trustoken.ai')}/mcp/",
                 "transport": {
                     "type": "streamable_http"
                 },
