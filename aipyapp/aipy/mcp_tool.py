@@ -72,11 +72,16 @@ class MCPToolManager:
 
         server_status = {}
         for server_name, server_config in self.mcp_servers.items():
-            # 服务器默认启用，除非配置中明确设置为disabled: true或enabled: false
-            is_enabled = not (
-                server_config.get("disabled", False)
-                or server_config.get("enabled", True) is False
-            )
+            # sys_mcp 服务器默认禁用，user_mcp 服务器默认启用
+            if server_name in self.sys_mcp:
+                # sys_mcp 服务器默认禁用
+                is_enabled = False
+            else:
+                # user_mcp 服务器默认启用，除非配置中明确设置为禁用
+                is_enabled = not (
+                    server_config.get("disabled", False)
+                    or server_config.get("enabled", True) is False
+                )
             server_status[server_name] = is_enabled
         return server_status
 
@@ -102,18 +107,15 @@ class MCPToolManager:
             if not self._globally_enabled:
                 return []
             mcp_servers = self.user_mcp
-        else:
-            #if not self._globally_tools_enabled:
-            #    return []
-            mcp_servers = self.sys_mcp
-
-        all_tools = []
-        if not self._inited:
             print(
                 T(
                     "Initializing MCP server, this may take a while if it's the first load, please wait patiently..."
                 )
             )
+        else:
+            mcp_servers = self.sys_mcp
+
+        all_tools = []
         for server_name, server_config in mcp_servers.items():
             if server_name not in self._tools_dict:
                 try:
@@ -386,7 +388,7 @@ class MCPToolManager:
             dict: 执行结果
         """
         if not args:
-            args = ["list"]
+            args = ["enable"]
             
         action = args[0].lower()
 

@@ -20,11 +20,11 @@ class ToolsCommand(BaseCommand):
         # 显示操作结果
         if action == "enable":
             print(
-                f"[green]{T('Internal tools have been enabled successfully')}[/green]"
+                f"[green]{T('Internal tools have been enabled')}[/green]"
             )
-        elif action == "disable":
+        elif action == "disable" or not ret:
             print(
-                f"[yellow]{T('Internal tools have been disabled successfully')}[/yellow]"
+                f"[yellow]{T('Internal tools was disabled, use "/tools enable" to enable tools')}[/yellow]"
             )
         
         # 如果返回的是错误信息
@@ -33,26 +33,21 @@ class ToolsCommand(BaseCommand):
             return
         
         # 显示服务器状态表格
-        servers = ret
-        if servers:
-            table_data = []
+        table_data = []
 
-            for server_name, info in servers.items():
-                status = T('Enabled') if info.get("enabled", False) else T('Disabled')
-                tools_count = info.get("tools_count", 0)
-                if info.get("enabled", False):
-                    table_data.append([server_name, status, tools_count])
+        for server_name, info in ret.items():
+            status = T('Enabled') if info.get("enabled", False) else T('Disabled')
+            tools_count = info.get("tools_count", 0)
+            table_data.append([server_name, status, tools_count])
 
-            if table_data:
-                headers = [T('Server Name'), T('Status'), T('Tools Count')]
-                print_table(
-                    table_data,
-                    title=T("Internal Tools Servers"),
-                    headers=headers
-                )
+        if table_data:
+            headers = [T('Server Name'), T('Status'), T('Tools Count')]
+            print_table(
+                table_data,
+                title=T("Internal Tools"),
+                headers=headers
+            )
 
-        else:
-            print(f"[dim]{T('No internal tools servers found')}[/dim]")
 
     def add_subcommands(self, subparsers):
         subparsers.add_parser('list', help=T('List available tools'))
@@ -62,8 +57,8 @@ class ToolsCommand(BaseCommand):
     def execute(self, args):
         raw_args = args.raw_args
         if not raw_args:
-            # 默认执行 list 操作
-            raw_args = ['list']
+            # 默认执行 enable 操作
+            raw_args = ['enable']
         
         tm = self.manager.tm
         if not tm.mcp:
