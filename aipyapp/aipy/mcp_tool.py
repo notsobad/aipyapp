@@ -108,11 +108,12 @@ class MCPToolManager:
             mcp_servers = self.sys_mcp
 
         all_tools = []
-        print(
-            T(
-                "Initializing MCP server, this may take a while if it's the first load, please wait patiently..."
+        if not self._inited:
+            print(
+                T(
+                    "Initializing MCP server, this may take a while if it's the first load, please wait patiently..."
+                )
             )
-        )
         for server_name, server_config in mcp_servers.items():
             if server_name not in self._tools_dict:
                 try:
@@ -384,8 +385,10 @@ class MCPToolManager:
         Returns:
             dict: 执行结果
         """
-        print(args)
-        action = args[0].lower() or "list"
+        if not args:
+            args = ["list"]
+            
+        action = args[0].lower()
 
         # 处理全局启用/禁用命令
         if action == "enable":
@@ -399,7 +402,11 @@ class MCPToolManager:
         elif action == "list":
             # 列出所有工具
             pass
+        else:
+            return {"status": "error", "message": f"Invalid command: {action}"}
+            
+        # 刷新工具列表
         self.list_tools(mcp_type="sys")
-        server_info = self.get_server_info(mcp_type="sys")
-        print(server_info)
-        return server_info
+        
+        # 返回服务器信息
+        return self.get_server_info(mcp_type="sys")
