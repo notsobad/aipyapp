@@ -390,23 +390,15 @@ class MCPToolManager:
             
         action = args[0].lower()
 
-        # 处理全局启用/禁用命令
         if action == "enable":
-            # 遍历sys_mcp,  给_server_status设置为 True
             for server_name in self.sys_mcp:
                 self._server_status[server_name] = True
         elif action == "disable":
-            # 遍历sys_mcp,  给_server_status设置为 False
             for server_name in self.sys_mcp:
                 self._server_status[server_name] = False
-        elif action == "list":
-            # 列出所有工具
-            pass
         else:
             return {"status": "error", "message": f"Invalid command: {action}"}
             
-        # 刷新工具列表
         self.list_tools(mcp_type="sys")
         
-        # 返回服务器信息
         return self.get_server_info(mcp_type="sys")
