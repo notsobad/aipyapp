@@ -62,8 +62,7 @@ class MCPToolManager:
         self._inited = False
 
         # 全局启用/禁用标志，默认禁用
-        self._globally_enabled = False
-        self._globally_tools_enabled = False
+        self._mcp_globally_enabled = False
         # 服务器状态缓存，记录每个服务器的启用/禁用状态
         self._server_status = self._init_server_status()
 
@@ -104,7 +103,7 @@ class MCPToolManager:
         ]
         """
         if mcp_type == "user":
-            if not self._globally_enabled:
+            if not self._mcp_globally_enabled:
                 return []
             mcp_servers = self.user_mcp
             print(
@@ -187,8 +186,16 @@ class MCPToolManager:
 
         all_tools = []
         for server_name, tools in self._tools_dict.items():
-            # 只包含启用的服务器
-            if self._server_status.get(server_name, True):
+            # 检查全局启用状态和单个服务器状态
+            is_user_server = server_name in self.user_mcp
+
+            # user_mcp服务器需要同时满足全局启用和服务器启用
+            # sys_mcp服务器只需要服务器启用
+            server_enabled = self._server_status.get(server_name, True)
+            if is_user_server:
+                server_enabled = server_enabled and self._mcp_globally_enabled
+
+            if server_enabled:
                 for tool in tools:
                     tool["server"] = server_name
                     all_tools.append(tool)
@@ -270,7 +277,7 @@ class MCPToolManager:
         client = MCPClientSync(server_config)
         ret = client.call_tool(real_tool_name, arguments)
         # ret需要是json，并且如果同时包含content和structuredContent字段，则丢弃content
-        if isinstance(ret, dict) and ret.get("content") and ret.get("structuredContent"):
+        if (isinstance(ret, dict) and ret.get("content") and ret.get("structuredContent")):
             del ret["content"]
 
         return ret
@@ -295,19 +302,19 @@ class MCPToolManager:
             if len(args) == 1:
                 # 全局启用/禁用
                 if action == "enable":
-                    self._globally_enabled = True
+                    self._mcp_globally_enabled = True
                     return {
                         "status": "success",
                         "action": "global_enable",
-                        "globally_enabled": self._globally_enabled,
+                        "globally_enabled": self._mcp_globally_enabled,
                         "servers": self.get_server_info(),
                     }
                 else:  # disable
-                    self._globally_enabled = False
+                    self._mcp_globally_enabled = False
                     return {
                         "status": "success",
                         "action": "global_disable",
-                        "globally_enabled": self._globally_enabled,
+                        "globally_enabled": self._mcp_globally_enabled,
                         "servers": self.get_server_info(),
                     }
             elif len(args) == 2:
@@ -325,7 +332,7 @@ class MCPToolManager:
                     return {
                         "status": "success",
                         "action": f"all_servers_{action}",
-                        "globally_enabled": self._globally_enabled,
+                        "globally_enabled": self._mcp_globally_enabled,
                         "servers": self.get_server_info(),
                     }
 
@@ -344,7 +351,7 @@ class MCPToolManager:
                         "status": "success",
                         "action": "server_enable",
                         "server": server_name,
-                        "globally_enabled": self._globally_enabled,
+                        "globally_enabled": self._mcp_globally_enabled,
                         "servers": self.get_server_info(),
                     }
                 else:  # disable
@@ -355,14 +362,14 @@ class MCPToolManager:
                         "status": "success",
                         "action": "server_disable",
                         "server": server_name,
-                        "globally_enabled": self._globally_enabled,
+                        "globally_enabled": self._mcp_globally_enabled,
                         "servers": self.get_server_info(),
                     }
         elif action == "list":
             return {
                 "status": "success",
                 "action": "list",
-                "globally_enabled": self._globally_enabled,
+                "globally_enabled": self._mcp_globally_enabled,
                 "servers": self.get_server_info(),
             }
 
