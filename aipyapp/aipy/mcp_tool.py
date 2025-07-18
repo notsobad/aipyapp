@@ -396,6 +396,8 @@ class MCPToolManager:
         elif action == "disable":
             for server_name in self.sys_mcp:
                 self._server_status[server_name] = False
+        elif action == "list":
+            pass
         else:
             return {"status": "error", "message": f"Invalid command: {action}"}
             
