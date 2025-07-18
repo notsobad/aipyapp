@@ -24,7 +24,7 @@ class ToolsCommand(BaseCommand):
             )
         elif action == "disable" or not ret:
             print(
-                f"[yellow]{T('Internal tools was disabled, use "/tools enable" to enable tools')}[/yellow]"
+                f"[yellow]{T('Internal tools have been disabled, use "/tools" to enable')}[/yellow]"
             )
         
         # 如果返回的是错误信息
@@ -41,7 +41,7 @@ class ToolsCommand(BaseCommand):
             table_data.append([server_name, status, tools_count])
 
         if table_data:
-            headers = [T('Server Name'), T('Status'), T('Tools Count')]
+            headers = [T('Tool Group Name'), T('Status'), T('Tools Count')]
             print_table(
                 table_data,
                 title=T("Internal Tools"),
