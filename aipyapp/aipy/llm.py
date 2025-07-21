@@ -248,9 +248,13 @@ class Client:
         if isinstance(content, str):
             return True
         
-        model_info = self.manager.get_model_info(self.current.model)
+        model = self.current.model
+        if model == 'auto':
+            return True
+        
+        model_info = self.manager.get_model_info(model)
         if not model_info:
-            self.log.error(f"Model info not found for {self.current.model}")
+            self.log.error(f"Model info not found for {model}")
             return False
                 
         capabilities = set()
