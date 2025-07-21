@@ -5,23 +5,24 @@ description = "AIPyApp: AI-Powered Python & Python-Powered AI"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
-    "anthropic>=0.49.0",
-    "beautifulsoup4>=4.13.3",
-    "dynaconf>=3.2.10",
-    "openai>=1.68.2",
-    "pandas>=2.2.3",
-    "prompt-toolkit>=3.0.50",
-    "pygments>=2.19.1",
-    "requests>=2.32.3",
-    "rich>=13.9.4",
-    "seaborn>=0.13.2",
-    "term-image>=0.7.2",
-    "tomli-w>=1.2.0",
-    "qrcode>=8.1",
-    "loguru>=0.7.3",
-    "questionary>=2.1.0",
-    "mcp[cli]>=1.8.1",
-    "openpyxl>=3.1.5",
+  "anthropic>=0.49.0",
+  "beautifulsoup4>=4.13.3",
+  "dynaconf>=3.2.10",
+  "openai>=1.68.2",
+  "pandas>=2.2.3",
+  "prompt-toolkit>=3.0.50",
+  "pygments>=2.19.1",
+  "requests>=2.32.3",
+  "rich>=13.9.4",
+  "seaborn>=0.13.2",
+  "term-image>=0.7.2",
+  "tomli-w>=1.2.0",
+  "qrcode>=8.1",
+  "loguru>=0.7.3",
+  "questionary>=2.1.0",
+  "mcp[cli]>=1.10.0",
+  "openpyxl>=3.1.5",
+  "pyyaml>=6.0.2",
 ]
 
 [project.scripts]
@@ -31,11 +32,15 @@ aipy = "aipyapp.__main__:main"
 aipyw = "aipyapp.__main__:mainw"
 
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling", "hatch-vcs>=0.5.0"]
 build-backend = "hatchling.build"
 
 [tool.hatch.version]
-path = "aipyapp/__init__.py"
+source = "vcs"
+raw-options = { local_scheme = "no-local-version", version_scheme = "only-version" }
+
+[tool.hatch.build.hooks.vcs]
+version-file = "aipyapp/__version__.py"
 
 [[tool.uv.index]]
 url = "https://mirrors.aliyun.com/pypi/simple/"

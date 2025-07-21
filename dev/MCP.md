@@ -38,9 +38,14 @@ MCP (Model Context Protocol) 是一组工具协议，允许 AI 模型与外部�
 
 aipyapp 使用 JSON 格式的配置文件来管理 MCP 工具。默认配置文件位置为应用程序配置目录下的 `mcp.json`。
 
-**注意：目前暂时仅支持stdio方式调用的MCP服务**
+**支持的连接方式：**
+- **stdio**：标准输入/输出(stdio)，默认方式
+- **HTTP/SSE**：服务器发送事件（sse）
+- **Streamable HTTP**：可流式传输的 HTTP (streamable http)
 
 ### 配置文件格式
+
+#### 1. stdio 方式（默认）
 
 ```json
 {
@@ -82,6 +87,49 @@ aipyapp 使用 JSON 格式的配置文件来管理 MCP 工具。默认配置文�
 }
 ```
 
+#### 2. HTTP/SSE 方式
+
+```json
+{
+  "mcpServers": {
+    "sse_server": {
+      "url": "http://localhost:3000/sse"
+    },
+    "remote_sse_server": {
+      "url": "https://api.example.com/sse",
+      "headers": {
+        "Authorization": "Bearer your-token"
+      }
+    }
+  }
+}
+```
+
+#### 3. Streamable HTTP 方式
+
+```json
+{
+  "mcpServers": {
+    "streamable_server": {
+      "url": "http://localhost:3000/mcp",
+      "transport": {
+        "type": "streamable_http"
+      }
+    },
+    "remote_streamable_server": {
+      "url": "https://api.example.com/mcp",
+      "transport": {
+        "type": "streamable_http"
+      },
+      "headers": {
+        "Authorization": "Bearer your-token"
+      }
+    }
+  }
+}
+```
+
+
 ### 配置文件位置
 
 配置文件位置默认为应用程序配置目录下的 `mcp.json`。您可以通过以下方式查找和创建配置：
@@ -93,11 +141,20 @@ aipyapp 使用 JSON 格式的配置文件来管理 MCP 工具。默认配置文�
 
 ### 服务器配置字段
 
-每个 MCP 服务器配置可以包含以下字段：
-
+#### stdio 方式配置字段：
 - `command`：(必填) 执行命令，可以是可执行文件路径或命令名称
 - `args`：(可选) 命令行参数数组
 - `env`：(可选) 环境变量对象
+- `disabled`：(可选) 设置为 `true` 时禁用该服务器
+- `enabled`：(可选) 设置为 `false` 时禁用该服务器
+
+#### HTTP/SSE 和 Streamable HTTP 方式配置字段：
+- `url`：(必填) MCP 服务器的 URL 地址
+- `transport`：(可选) 传输配置，用于指定 streamable_http 类型
+  - `type`：传输类型，可选 `"streamable_http"`
+- `headers`：(可选) 自定义 HTTP 请求头，键值对格式
+- `timeout`：(可选) HTTP 请求超时时间，单位秒
+- `sse_read_timeout`：(可选) SSE 读取超时时间，单位秒
 - `disabled`：(可选) 设置为 `true` 时禁用该服务器
 - `enabled`：(可选) 设置为 `false` 时禁用该服务器
 
@@ -132,14 +189,13 @@ aipyapp 使用 JSON 格式的配置文件来管理 MCP 工具。默认配置文�
 
 ## 5. 缓存机制
 
-为提高性能，aipyapp 会将 MCP 工具列表缓存到文件中，避免每次启动都重新加载所有工具。缓存文件位于与 `mcp.json` 同一目录下，名称为 `mcp_tools_cache.json`。
+为提高性能，aipyapp 会将 MCP 工具列表缓存，避免每次启动都重新加载所有工具。缓存文件位于与 `mcp.json` 同一目录下，名称为 `cache.db`。
 
 缓存在以下情况会被自动更新：
-- `mcp.json` 文件被修改
-- 缓存文件不存在或无效
+- MCP配置变更
 - 缓存时间超过 48 小时
 
-如果您添加或修改了工具但缓存未更新，可以删除 `mcp_tools_cache.json` 文件，aipyapp 将在下次启动时重新加载所有工具。
+如果您添加或修改了工具但缓存未更新，可以删除 `cache.db` 文件，aipyapp 将在下次启动时重新加载所有工具。
 
 ## 6. MCP 命令行管理
 
@@ -228,6 +284,5 @@ aipyapp 使用 JSON 格式的配置文件来管理 MCP 工具。默认配置文�
 1. **工具未显示**：检查 `mcp.json` 配置，确保 `command` 路径正确
 2. **工具调用失败**：检查工具依赖是否已安装，命令是否可执行
 3. **权限问题**：确保命令有足够的权限执行
-4. **性能问题**：如果工具加载缓慢，请检查缓存文件是否正确
 
-如果仍然有问题，可以删除缓存文件 `mcp_tools_cache.json` 并重启 aipyapp。
+如果仍然有问题，可以删除缓存文件 `cache.db` 并重启 aipyapp。

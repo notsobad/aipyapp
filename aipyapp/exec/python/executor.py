@@ -5,9 +5,11 @@ import sys
 import json
 import traceback
 from io import StringIO
-import webbrowser
 
 from loguru import logger
+
+from .mod_obj import ObjectImporter
+from .mod_dict import DictModuleImporter
 
 INIT_IMPORTS = """
 import os
@@ -40,33 +42,44 @@ def diff_dicts(dict1, dict2):
             pass
     return diff
 
-class Runner():
+class PythonExecutor():
+    name = 'python'
+
     def __init__(self, runtime):
         self.runtime = runtime
-        self.history = []
-        self.log = logger.bind(src='runner')
-        self._globals = {'runtime': runtime, '__storage__': {}, '__name__': '__main__', 'input': self.runtime.input}
+        self.log = logger.bind(src='PythonExecutor')
+        self._globals = {'__name__': '__main__', 'input': self.runtime.input}
+        self.block_importer = DictModuleImporter()
+        self.runtime_importer = ObjectImporter({'runtime': runtime})
         exec(INIT_IMPORTS, self._globals)
 
     def __repr__(self):
-        return f"<Runner history={len(self.history)}, env={len(self.env)}>"
+        return "<PythonExecutor>"
     
     @property
     def globals(self):
         return self._globals
     
-    def _exec_python_block(self, block):
+    def __call__(self, block):
+        result = {}
+        try:
+            co = compile(block.code, block.abs_path or block.name, 'exec')
+        except SyntaxError as e:
+            result['errstr'] = f"Syntax error: {str(e)}"
+            result['traceback'] = traceback.format_exc()
+            return result
+
+        runtime = self.runtime
         old_stdout, old_stderr = sys.stdout, sys.stderr
         captured_stdout = StringIO()
         captured_stderr = StringIO()
         sys.stdout, sys.stderr = captured_stdout, captured_stderr
-        result = {}
-        env = self.runtime.envs.copy()
-        session = self._globals['__storage__'].copy()
         gs = self._globals.copy()
-        gs['__retval__'] = {}
+        runtime.start_block(block)
         try:
-            exec(block.code, gs)
+            with self.block_importer, self.runtime_importer:
+                exec(co, gs)
+            self.block_importer.add_module(block.name, co)
         except (SystemExit, Exception) as e:
             result['errstr'] = str(e)
             result['traceback'] = traceback.format_exc()
@@ -79,54 +92,22 @@ class Runner():
         s = captured_stderr.getvalue().strip()
         if s: result['stderr'] = s if is_json_serializable(s) else '<filtered: cannot json-serialize>'        
 
-        vars = gs.get('__retval__')
+        vars = runtime.current_state
         if vars:
-            #self._globals['__retval__'] = vars
-            result['__retval__'] = self.filter_result(vars)
+            result['__state__'] = self.filter_result(vars)
 
-        history = {}
-        diff = diff_dicts(env, self.runtime.envs)
-        if diff:
-            history['env'] = diff
-        diff = diff_dicts(gs['__storage__'], session)
-        if diff:
-            history['session'] = diff
-
-        return result, history
-
-    def __call__(self, block):
-        self.log.info(f'Exec: {block}')
-        lang = block.get_lang()
-        if lang == 'python':
-            result, history = self._exec_python_block(block)
-        elif lang == 'html':
-            result, history = self._exec_html_block(block)
-        else:
-            result = {'stderr': f'Exec: Ignore unsupported block type: {lang}'}
-            history = {}
-
-        history['block_id'] = block.id
-        history['result'] = result
-        self.history.append(history)
-        return result.copy()
-        
-    def _exec_html_block(self, block):
-        abs_path = block.abs_path
-        if abs_path:
-            webbrowser.open(f'file://{abs_path}')
-        result = {'stdout': 'OK'}
-        return result, {}
+        return result
 
     def filter_result(self, vars):
         if isinstance(vars, dict):
+            ret = {}
             for key in vars.keys():
                 if key in self.runtime.envs:
-                    vars[key] = '<masked>'
+                    ret[key] = '<masked>'
                 else:
-                    vars[key] = self.filter_result(vars[key])
+                    ret[key] = self.filter_result(vars[key])
         elif isinstance(vars, list):
-            vars = [self.filter_result(v) for v in vars]
+            ret = [self.filter_result(v) for v in vars]
         else:
-            vars = vars if is_json_serializable(vars) else '<filtered>'
-        return vars
-    
+            ret = vars if is_json_serializable(vars) else '<filtered>'
+        return ret
