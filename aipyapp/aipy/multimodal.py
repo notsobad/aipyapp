@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import base64
+from base64 import b64encode
 import re
 from pathlib import Path
 from typing import Union, List, Dict, Any
@@ -93,7 +93,7 @@ class MMContent:
             with open(file_path, 'rb') as f:
                 data = f.read()
             if base64:
-                data = base64.b64encode(data)
+                data = b64encode(data)
             return data.decode('utf-8')
         except Exception as e:
             raise FileReadError(file_path, e)
