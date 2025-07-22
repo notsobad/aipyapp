@@ -23,9 +23,8 @@ class ToolsCommand(BaseCommand):
                 f"[green]{T('Internal tools have been enabled')}[/green]"
             )
         elif action == "disable" or not ret:
-            print(
-                f"[yellow]{T('Internal tools have been disabled, use "/tools" to enable')}[/yellow]"
-            )
+            msg = T('Internal tools have been disabled, use "/tools" to enable')
+            print(f"[yellow]{msg}[/yellow]")
         
         # 如果返回的是错误信息
         if ret.get("status") == "error":
