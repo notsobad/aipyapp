@@ -28,6 +28,7 @@ class BaseClient(ABC):
         self.log = logger.bind(src='llm', name=self.name)
         self.console = None
         self.config = config
+        self.kind = config.get("type", "openai")
         self.max_tokens = config.get("max_tokens")
         self._model = config.get("model") or self.MODEL
         self._timeout = config.get("timeout")

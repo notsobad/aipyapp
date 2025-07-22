@@ -147,12 +147,12 @@ class ClientManager(object):
         self.model_registry = ModelRegistry(__respath__ / "models.yaml")
 
     def _create_client(self, config):
-        proto = config.get("type", "openai")
-        client = CLIENTS.get(proto.lower())
-        if not client:
-            self.log.error('Unsupported LLM provider', proto=proto)
+        kind = config.get("type", "openai")
+        client_class = CLIENTS.get(kind.lower())
+        if not client_class:
+            self.log.error('Unsupported LLM provider', kind=kind)
             return None
-        return client(config)
+        return client_class(config)
     
     def _init_clients(self, settings):
         names = defaultdict(set)
@@ -248,10 +248,11 @@ class Client:
         if isinstance(content, str):
             return True
         
-        model = self.current.model
-        if model == 'auto':
+        #TODO: 不应该硬编码字符串
+        if self.current.kind == 'trust':
             return True
         
+        model = self.current.model
         model_info = self.manager.get_model_info(model)
         if not model_info:
             self.log.error(f"Model info not found for {model}")
