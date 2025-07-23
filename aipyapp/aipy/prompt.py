@@ -91,7 +91,7 @@ print("hello world")
 
 ## 预装的第三方包
 下述第三方包可以无需安装直接使用：
-- `requests`、`numpy`、`pandas`、`matplotlib`、`seaborn`、`bs4`。
+- `requests`、`numpy`、`pandas`、`matplotlib`、`seaborn`、`beautifulsoup4`、`charset-normalizer`。
 
 其它第三方包，都必需通过下述 runtime 对象的 install_packages 方法申请安装才能使用。
 
