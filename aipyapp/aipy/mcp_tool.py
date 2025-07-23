@@ -61,7 +61,7 @@ class MCPToolManager:
         self._tools_dict = {}  # 缓存已获取的工具列表
         self._inited = False
 
-        # 全局启用/禁用标志，默认禁用
+        # 全局启用/禁用用户MCP标志，默认禁用
         self._mcp_globally_enabled = False
         # 服务器状态缓存，记录每个服务器的启用/禁用状态
         self._server_status = self._init_server_status()
