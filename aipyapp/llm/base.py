@@ -55,7 +55,7 @@ class BaseClient(ABC):
         return self._base_url
     
     def __repr__(self):
-        return f"{self.__class__.__name__}<{self.name}>: ({self._model}, {self.max_tokens}, {self.base_url})"
+        return f"{self.__class__.__name__}<{self.name}/{self.kind}>: ({self._model}, {self.max_tokens}, {self.base_url})"
     
     def get_base_url(self):
         return self.config.get("base_url") or self.BASE_URL

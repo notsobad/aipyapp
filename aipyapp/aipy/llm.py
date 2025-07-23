@@ -253,6 +253,7 @@ class Client:
             return True
         
         model = self.current.model
+        model = model.rsplit('/', 1)[-1]
         model_info = self.manager.get_model_info(model)
         if not model_info:
             self.log.error(f"Model info not found for {model}")
