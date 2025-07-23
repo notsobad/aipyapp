@@ -8,6 +8,7 @@ from typing import Union, List, Dict, Any
 import mimetypes
 
 from loguru import logger
+from charset_normalizer import from_bytes
 
 MessageList = List[Dict[str, Any]]
 LLMContext = Union[str, MessageList]
@@ -23,17 +24,22 @@ class FileReadError(MMContentError):
         self.original_error = original_error
         super().__init__(f"无法读取文件 {file_path}: {original_error}")
 
-def is_text_file(path, blocksize=512):
+def is_text_file(path, blocksize=4096):
     try:
         with open(path, 'rb') as f:
             chunk = f.read(blocksize)
-        try:
-            text = chunk.decode('utf-8')
-        except UnicodeDecodeError:
+        result = from_bytes(chunk)
+        if not result:
             return False
-        printable = sum(32 <= ord(c) <= 126 or c in '\r\n\t' for c in text)
-        return printable / max(1, len(text)) > 0.95
+        best = result.best()
+        if best is None:
+            return False
+        # encoding 存在且 chaos 很低，认为是文本
+        if best.encoding and best.chaos < 0.1:
+            return True
+        return False
     except Exception:
+        logger.exception('Failed to check if file is text')
         return False
 
 class MMContent:
