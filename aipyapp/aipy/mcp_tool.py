@@ -61,7 +61,7 @@ class MCPToolManager:
         self._tools_dict = {}  # 缓存已获取的工具列表
         self._inited = False
 
-        # 全局启用/禁用标志，默认禁用
+        # 全局启用/禁用用户MCP标志，默认禁用
         self._mcp_globally_enabled = False
         # 服务器状态缓存，记录每个服务器的启用/禁用状态
         self._server_status = self._init_server_status()
@@ -84,7 +84,7 @@ class MCPToolManager:
             server_status[server_name] = is_enabled
         return server_status
 
-    def list_tools(self, mcp_type="user"):
+    def list_tools(self, mcp_type="user", force_load=False):
         """返回所有MCP服务器的工具列表
         [{'description': 'Get weather alerts for a US state.\n'
                            '\n'
@@ -103,14 +103,16 @@ class MCPToolManager:
         ]
         """
         if mcp_type == "user":
-            if not self._mcp_globally_enabled:
+            if not self._mcp_globally_enabled and not force_load:
                 return []
             mcp_servers = self.user_mcp
-            print(
-                T(
-                    "Initializing MCP server, this may take a while if it's the first load, please wait patiently..."
+            if self._mcp_globally_enabled:
+                print(
+                    T(
+                        "Initializing MCP server, this may take a while if it's "
+                        "the first load, please wait patiently..."
+                    )
                 )
-            )
         else:
             mcp_servers = self.sys_mcp
 
@@ -204,7 +206,8 @@ class MCPToolManager:
     def get_server_info(self, mcp_type="user") -> dict:
         """返回所有服务器的列表及其启用状态"""
         if not self._inited:
-            self.list_tools()
+            # 强制加载工具信息，即使全局禁用也要获取服务器和工具数量信息
+            self.list_tools(mcp_type=mcp_type, force_load=True)
 
         if mcp_type == "user":
             mcp_servers = self.user_mcp
@@ -303,6 +306,8 @@ class MCPToolManager:
                 # 全局启用/禁用
                 if action == "enable":
                     self._mcp_globally_enabled = True
+                    # 重新加载用户MCP工具，因为之前可能因为全局禁用而没有加载
+                    self.list_tools(mcp_type="user")
                     return {
                         "status": "success",
                         "action": "global_enable",

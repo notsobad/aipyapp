@@ -173,6 +173,8 @@ class MCPConfigReader:
 
     def get_user_mcp(self) -> dict:
         """读取 mcp.json 文件并返回 MCP 服务器清单，包括禁用的服务器"""
+        if not self.config_path:
+            return {}
         try:
             with open(self.config_path, "r", encoding="utf-8") as f:
                 config = json.load(f)
@@ -193,6 +195,10 @@ class MCPConfigReader:
         Returns:
             dict: 内部 MCP 服务器配置字典。
         """
+        if not self.tt_api_key:
+            logger.warning("No Trustoken API key provided, sys_mcp will not be available.")
+            return {}
+
         return {
             "Trustoken-map": {
                 "url": f"{T('https://sapi.trustoken.ai')}/aio-api/mcp/amap/",
