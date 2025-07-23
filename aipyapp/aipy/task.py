@@ -6,7 +6,7 @@ import json
 import uuid
 import time
 from datetime import datetime
-from collections import namedtuple
+from collections import namedtuple, OrderedDict
 from importlib.resources import read_text
 from typing import Union, List, Dict, Any
 
@@ -54,6 +54,7 @@ class Task(Stoppable):
         self.diagnose = None
         self.start_time = None
         self.done_time = None
+        self.saved = None
         self.code_blocks = CodeBlocks(self.console)
         self.runtime = CliPythonRuntime(self)
         self.runner = BlockExecutor()
@@ -94,26 +95,37 @@ class Task(Stoppable):
         
     def _auto_save(self):
         instruction = self.instruction
-        task = {'instruction': instruction}
+        task = OrderedDict()
+        task['instruction'] = instruction
+        task['start_time'] = self.start_time
+        task['done_time'] = self.done_time
         task['chats'] = self.client.history.json()
         #task['envs'] = self.runtime.envs
         task['runner'] = self.runner.history
         task['blocks'] = self.code_blocks.to_list()
 
-        filename = "task.json"
+        filename = self.cwd / "task.json"
         try:
             json.dump(task, open(filename, 'w', encoding='utf-8'), ensure_ascii=False, indent=4, default=str)
         except Exception as e:
             self.log.exception('Error saving task')
 
-        filename = "console.html"
+        filename = self.cwd / "console.html"
         #self.save_html(filename, task)
         self.save(filename)
+        self.saved = True
         self.log.info('Task auto saved')
 
     def done(self):
-        if not self.instruction:
+        if not self.instruction or not self.start_time:
+            self.log.warning('Task not started, skipping save')
             return
+        
+        self.done_time = time.time()
+        if not self.saved:
+            self.log.warning('Task not saved, trying to save')
+            self._auto_save()
+
         os.chdir(self.manager.cwd)  # Change back to the original working directory
         curname = self.task_id
         newname = get_safe_filename(self.instruction, extension=None)
@@ -123,10 +135,9 @@ class Task(Stoppable):
             except Exception as e:
                 self.log.exception('Error renaming task directory', curname=curname, newname=newname)
 
-        self.diagnose.report_code_error(self.runner.history)
-        self.done_time = time.time()
-        self.log.info('Task done', parh=newname)
+        self.log.info('Task done', path=newname)
         self.console.print(f"[green]{T('Result file saved')}: \"{newname}\"")
+        self.diagnose.report_code_error(self.runner.history)
         if self.settings.get('share_result'):
             self.sync_to_cloud()
         
@@ -296,6 +307,7 @@ class Task(Stoppable):
 
         rounds = 1
         max_rounds = self.max_rounds
+        self.saved = False
         response = self.chat(content, system_prompt=system_prompt)
         while response and rounds <= max_rounds:
             response = self.process_reply(response)
@@ -303,7 +315,7 @@ class Task(Stoppable):
             if self.is_stopped():
                 self.log.info('Task stopped')
                 break
-
+        
         self.print_summary()
         self._auto_save()
         self.console.bell()
