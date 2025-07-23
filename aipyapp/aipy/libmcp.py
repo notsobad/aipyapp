@@ -195,6 +195,10 @@ class MCPConfigReader:
         Returns:
             dict: 内部 MCP 服务器配置字典。
         """
+        if not self.tt_api_key:
+            logger.warning("No Trustoken API key provided, sys_mcp will not be available.")
+            return {}
+
         return {
             "Trustoken-map": {
                 "url": f"{T('https://sapi.trustoken.ai')}/aio-api/mcp/amap/",
