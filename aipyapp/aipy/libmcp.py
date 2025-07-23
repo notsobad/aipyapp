@@ -173,6 +173,8 @@ class MCPConfigReader:
 
     def get_user_mcp(self) -> dict:
         """读取 mcp.json 文件并返回 MCP 服务器清单，包括禁用的服务器"""
+        if not self.config_path:
+            return {}
         try:
             with open(self.config_path, "r", encoding="utf-8") as f:
                 config = json.load(f)

@@ -60,9 +60,5 @@ class ToolsCommand(BaseCommand):
             raw_args = ['enable']
         
         tm = self.manager.tm
-        if not tm.mcp:
-            self.log.error('MCP not found')
-            return
-            
         ret = tm.mcp.process_tool_cmd(raw_args)
         self.process_tools_ret(raw_args, ret)
