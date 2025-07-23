@@ -13,6 +13,7 @@ source = { editable = "." }
 dependencies = [
     { name = "anthropic" },
     { name = "beautifulsoup4" },
+    { name = "charset-normalizer" },
     { name = "dynaconf" },
     { name = "loguru" },
     { name = "mcp", extra = ["cli"] },
@@ -35,6 +36,7 @@ dependencies = [
 requires-dist = [
     { name = "anthropic", specifier = ">=0.49.0" },
     { name = "beautifulsoup4", specifier = ">=4.13.3" },
+    { name = "charset-normalizer", specifier = ">=3.4.2" },
     { name = "dynaconf", specifier = ">=3.2.10" },
     { name = "loguru", specifier = ">=0.7.3" },
     { name = "mcp", extras = ["cli"], specifier = ">=1.10.0" },
