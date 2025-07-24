@@ -8,7 +8,9 @@ import time
 from datetime import datetime
 from collections import namedtuple, OrderedDict
 from importlib.resources import read_text
-from typing import Union, List, Dict, Any
+from typing import Union, List, Dict, Any, Optional
+from dataclasses import dataclass
+from pathlib import Path
 
 import requests
 from loguru import logger
@@ -33,32 +35,61 @@ from .multimodal import MMContent, LLMContext
 CONSOLE_WHITE_HTML = read_text(__respkg__, "console_white.html")
 CONSOLE_CODE_HTML = read_text(__respkg__, "console_code.html")
 
+@dataclass
+class TaskState:
+    """任务状态，包含任务执行过程中的状态信息"""
+    task_id: str
+    instruction: Optional[str] = None
+    start_time: Optional[float] = None
+    done_time: Optional[float] = None
+    rounds: int = 0
+
 class Task(Stoppable):
     MAX_ROUNDS = 16
 
-    def __init__(self, manager):
+    def __init__(self, context):
         super().__init__()
-        self.manager = manager
-        self.task_id = uuid.uuid4().hex
-        self.log = logger.bind(src='task', id=self.task_id)
-        self.settings = manager.settings
-        self.envs = manager.envs
-        self.gui = manager.gui
-        self.console = Console(file=manager.console.file, record=True)
-        self.max_rounds = self.settings.get('max_rounds', self.MAX_ROUNDS)
-        self.cwd = manager.cwd / self.task_id
-        self.client = None
-        self.runner = None
-        self.instruction = None
-        self.system_prompt = None
-        self.diagnose = None
-        self.start_time = None
-        self.done_time = None
-        self.saved = None
+        # 任务上下文
+        self.context = context
+        
+        # 任务状态
+        self.state = TaskState(task_id=uuid.uuid4().hex)
+        self.log = logger.bind(src='task', id=self.state.task_id)
+        
+        # 任务特定的运行时环境
+        self.gui = context.gui
+        self.settings = context.settings
+        self.cwd = context.cwd / self.state.task_id
+        self.console = Console(file=context.console.file, record=True)
+        self.max_rounds = context.settings.get('max_rounds', self.MAX_ROUNDS)
+        
+        # 执行组件
+        self.client = context.client_manager.Client()
+        self.role = context.role_manager.current_role
+        self.mcp = context.mcp
+        self.prompts = context.prompts
+        
+        # 代码执行组件
         self.code_blocks = CodeBlocks(self.console)
         self.runtime = CliPythonRuntime(self)
         self.runner = BlockExecutor()
         self.runner.set_python_runtime(self.runtime)
+
+    @property
+    def task_id(self):
+        return self.state.task_id
+
+    @property
+    def instruction(self):
+        return self.state.instruction
+
+    @property
+    def start_time(self):
+        return self.state.start_time
+
+    @property
+    def done_time(self):
+        return self.state.done_time
 
     def to_record(self):
         TaskRecord = namedtuple('TaskRecord', ['task_id', 'start_time', 'done_time', 'instruction'])
@@ -73,7 +104,6 @@ class Task(Stoppable):
     
     def use(self, name):
         ret = self.client.use(name)
-        #self.console.print('[green]Ok[/green]' if ret else '[red]Error[/red]')
         return ret
 
     def save(self, path):
@@ -100,7 +130,6 @@ class Task(Stoppable):
         task['start_time'] = self.start_time
         task['done_time'] = self.done_time
         task['chats'] = self.client.history.json()
-        #task['envs'] = self.runtime.envs
         task['runner'] = self.runner.history
         task['blocks'] = self.code_blocks.to_list()
 
@@ -110,8 +139,7 @@ class Task(Stoppable):
         except Exception as e:
             self.log.exception('Error saving task')
 
-        filename = self.cwd / "console.html"
-        #self.save_html(filename, task)
+        filename = "console.html"
         self.save(filename)
         self.saved = True
         self.log.info('Task auto saved')
@@ -120,13 +148,7 @@ class Task(Stoppable):
         if not self.instruction or not self.start_time:
             self.log.warning('Task not started, skipping save')
             return
-        
-        self.done_time = time.time()
-        if not self.saved:
-            self.log.warning('Task not saved, trying to save')
-            self._auto_save()
-
-        os.chdir(self.manager.cwd)  # Change back to the original working directory
+        os.chdir(self.context.cwd)  # Change back to the original working directory
         curname = self.task_id
         newname = get_safe_filename(self.instruction, extension=None)
         if newname and os.path.exists(curname):
@@ -135,14 +157,14 @@ class Task(Stoppable):
             except Exception as e:
                 self.log.exception('Error renaming task directory', curname=curname, newname=newname)
 
+        self.context.diagnose.report_code_error(self.runner.history)
+        self.state.done_time = time.time()
         self.log.info('Task done', path=newname)
         self.console.print(f"[green]{T('Result file saved')}: \"{newname}\"")
-        self.diagnose.report_code_error(self.runner.history)
-        if self.settings.get('share_result'):
+        if self.context.settings.get('share_result'):
             self.sync_to_cloud()
         
     def process_reply(self, markdown):
-        #self.console.print(f"{T('Start parsing message')}...", style='dim white')
         parse_mcp = self.mcp is not None
         ret = self.code_blocks.parse(markdown, parse_mcp=parse_mcp)
         if not ret:
@@ -152,8 +174,6 @@ class Task(Stoppable):
         self.box(f"✅ {T('Message parse result')}", json_str, lang="json")
 
         if 'call_tool' in ret:
-            # 有可能MCP调用会按照代码格式返回，这种情况下存在exec_blocks和call_tool两个键,也可能会有erros字段
-            # 优先处理call_tool
             return self.process_mcp_reply(ret['call_tool'])
 
         errors = ret.get('errors')
@@ -248,8 +268,8 @@ class Task(Stoppable):
                     str(row["total_tokens"]),
                 )
                 round += 1
-            self._console.print("\n")
-            self._console.print(table)
+            self.console.print("\n")
+            self.console.print(table)
 
         summary = history.get_summary()
         summary['elapsed_time'] = time.time() - self.start_time
@@ -257,9 +277,8 @@ class Task(Stoppable):
         event_bus.broadcast('summary', summarys)
         self.console.print(f"\n⏹ [cyan]{T('End processing instruction')} {summarys}")
 
-
     def chat(self, context: LLMContext, *, system_prompt=None):
-        quiet = self.settings.gui and not self.settings.debug
+        quiet = self.context.settings.gui and not self.context.settings.debug
         msg = self.client(context, system_prompt=system_prompt, quiet=quiet)
         if msg.role == 'error':
             self.console.print(f"[red]{msg.content}[/red]")
@@ -271,13 +290,22 @@ class Task(Stoppable):
         self.box(f"[yellow]{T('Reply')} ({self.client.name})", content)
         return msg.content
 
+    def _get_system_prompt(self):
+        params = {}
+        if self.mcp:
+            params['mcp_tools'] = self.mcp.get_tools_prompt()
+        params['util_functions'] = self.runtime.get_function_list()
+        params['tool_functions'] = {}
+        params['role'] = self.role
+        return self.prompts.get_default_prompt(**params)
+    
     def run(self, instruction: str):
         """
         执行自动处理循环，直到 LLM 不再返回代码消息
         instruction: 用户输入的字符串（可包含@file等多模态标记）
         """
         self.box(f"[yellow]{T('Start processing instruction')}", instruction, align="center")
-        mmc = MMContent(instruction, base_path=self.manager.cwd)
+        mmc = MMContent(instruction, base_path=self.context.cwd)
         try:
             content = mmc.content
         except Exception as e:
@@ -289,13 +317,13 @@ class Task(Stoppable):
             return
 
         if not self.start_time:
-            self.start_time = time.time()
-            self.instruction = instruction
+            self.state.start_time = time.time()
+            self.state.instruction = instruction
             if isinstance(content, str):
-                content = prompt.get_task_prompt(content, gui=self.gui)
+                content = prompt.get_task_prompt(content, gui=self.context.gui)
                 event_bus('task_start', content)
                 content = json.dumps(content, ensure_ascii=False, default=str)
-            system_prompt = self.system_prompt
+            system_prompt = self._get_system_prompt()
         else:
             system_prompt = None
             if isinstance(content, str):
@@ -326,9 +354,9 @@ class Task(Stoppable):
         """
         url = T("https://store.aipy.app/api/work")
 
-        trustoken_apikey = self.settings.get('llm', {}).get('Trustoken', {}).get('api_key')
+        trustoken_apikey = self.context.settings.get('llm', {}).get('Trustoken', {}).get('api_key')
         if not trustoken_apikey:
-            trustoken_apikey = self.settings.get('llm', {}).get('trustoken', {}).get('api_key')
+            trustoken_apikey = self.context.settings.get('llm', {}).get('trustoken', {}).get('api_key')
         if not trustoken_apikey:
             return False
         self.console.print(f"[yellow]{T('Uploading result, please wait...')}")

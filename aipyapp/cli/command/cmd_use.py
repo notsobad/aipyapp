@@ -8,7 +8,7 @@ class UseCommand(BaseCommand):
     def add_arguments(self, parser):
         tm = self.manager.tm
         names = tm.client_manager.names
-        roles = {tips.name: tips.role.short for tips in tm.tips_manager.tips.values()}
+        roles = {role.name: role.short for role in tm.role_manager.roles.values()}
         parser.add_argument('--llm', choices=names['enabled'], help=T('LLM name'))
         parser.add_argument('--role', choices=roles.keys(), help=T('Role name'))
         parser.add_argument('name', choices=names['enabled'], nargs='?', help=T('LLM name'))

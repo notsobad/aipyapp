@@ -8,6 +8,7 @@ from . import BaseClient, ChatMessage
 # https://docs.anthropic.com/en/api/messages
 class ClaudeClient(BaseClient):
     MODEL = "claude-sonnet-4-20250514"
+    ENV_API_KEY = "ANTHROPIC_API_KEY"
     #PARAMS = {'thinking': {'type': 'enabled', 'budget_tokens': 1024}}
 
     def __init__(self, config):
