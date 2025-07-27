@@ -33,61 +33,35 @@ from .multimodal import MMContent, LLMContext
 CONSOLE_WHITE_HTML = read_text(__respkg__, "console_white.html")
 CONSOLE_CODE_HTML = read_text(__respkg__, "console_code.html")
 
-@dataclass
-class TaskState:
-    """任务状态，包含任务执行过程中的状态信息"""
-    task_id: str
-    instruction: Optional[str] = None
-    start_time: Optional[float] = None
-    done_time: Optional[float] = None
-    rounds: int = 0
-
 class Task(Stoppable):
     MAX_ROUNDS = 16
 
     def __init__(self, context):
         super().__init__()
-        # 任务上下文
+        self.task_id = uuid.uuid4().hex
+        self.log = logger.bind(src='task', id=self.task_id)
+        
         self.context = context
-        
-        # 任务状态
-        self.state = TaskState(task_id=uuid.uuid4().hex)
-        self.log = logger.bind(src='task', id=self.state.task_id)
-        
-        # 任务特定的运行时环境
-        self.gui = context.gui
         self.settings = context.settings
-        self.cwd = context.cwd / self.state.task_id
+        self.prompts = context.prompts
+
+        self.start_time = None
+        self.done_time = None
+        self.instruction = None
+        self.saved = None
+        self.gui = context.gui
+        self.max_rounds = self.settings.get('max_rounds', self.MAX_ROUNDS)
+
+        self.cwd = context.cwd / self.task_id
         self.console = Console(file=context.console.file, record=True)
-        self.max_rounds = context.settings.get('max_rounds', self.MAX_ROUNDS)
         
-        # 执行组件
+        self.mcp = context.mcp
         self.client = context.client_manager.Client()
         self.role = context.role_manager.current_role
-        self.mcp = context.mcp
-        self.prompts = context.prompts
-        
-        # 代码执行组件
         self.code_blocks = CodeBlocks(self.console)
         self.runtime = CliPythonRuntime(self)
         self.runner = BlockExecutor()
         self.runner.set_python_runtime(self.runtime)
-
-    @property
-    def task_id(self):
-        return self.state.task_id
-
-    @property
-    def instruction(self):
-        return self.state.instruction
-
-    @property
-    def start_time(self):
-        return self.state.start_time
-
-    @property
-    def done_time(self):
-        return self.state.done_time
 
     def to_record(self):
         TaskRecord = namedtuple('TaskRecord', ['task_id', 'start_time', 'done_time', 'instruction'])
@@ -137,7 +111,8 @@ class Task(Stoppable):
         except Exception as e:
             self.log.exception('Error saving task')
 
-        filename = "console.html"
+        filename = self.cwd / "console.html"
+        #self.save_html(filename, task)
         self.save(filename)
         self.saved = True
         self.log.info('Task auto saved')
@@ -146,7 +121,13 @@ class Task(Stoppable):
         if not self.instruction or not self.start_time:
             self.log.warning('Task not started, skipping save')
             return
-        os.chdir(self.context.cwd)  # Change back to the original working directory
+        
+        self.done_time = time.time()
+        if not self.saved:
+            self.log.warning('Task not saved, trying to save')
+            self._auto_save()
+
+        os.chdir(self.manager.cwd)  # Change back to the original working directory
         curname = self.task_id
         newname = get_safe_filename(self.instruction, extension=None)
         if newname and os.path.exists(curname):
@@ -155,11 +136,10 @@ class Task(Stoppable):
             except Exception as e:
                 self.log.exception('Error renaming task directory', curname=curname, newname=newname)
 
-        self.context.diagnose.report_code_error(self.runner.history)
-        self.state.done_time = time.time()
         self.log.info('Task done', path=newname)
         self.console.print(f"[green]{T('Result file saved')}: \"{newname}\"")
-        if self.context.settings.get('share_result'):
+        self.context.diagnose.report_code_error(self.runner.history)
+        if self.settings.get('share_result'):
             self.sync_to_cloud()
         
     def process_reply(self, markdown):
@@ -225,7 +205,6 @@ class Task(Stoppable):
             version=1,
         )
         self.print_code_result(code_block, result, title=T("MCP tool call result"))
-
         self.console.print(f"{T('Start sending feedback')}...", style='dim white')
         msg = self.prompts.get_mcp_result_prompt(result)
         return self.chat(msg)
@@ -311,8 +290,8 @@ class Task(Stoppable):
             return
 
         if not self.start_time:
-            self.state.start_time = time.time()
-            self.state.instruction = instruction
+            self.start_time = time.time()
+            self.instruction = instruction
             event_bus('task_start', content)
             if isinstance(content, str):
                 user_prompt = self.prompts.get_task_prompt(content, gui=self.gui)
