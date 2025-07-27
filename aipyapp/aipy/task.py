@@ -319,16 +319,14 @@ class Task(Stoppable):
         if not self.start_time:
             self.state.start_time = time.time()
             self.state.instruction = instruction
+            event_bus('task_start', content)
             if isinstance(content, str):
-                content = prompt.get_task_prompt(content, gui=self.context.gui)
-                event_bus('task_start', content)
-                content = json.dumps(content, ensure_ascii=False, default=str)
+                user_prompt = self.prompts.get_task_prompt(content, gui=self.gui)
             system_prompt = self._get_system_prompt()
         else:
             system_prompt = None
             if isinstance(content, str):
-                content = prompt.get_chat_prompt(content, self.instruction)
-                content = json.dumps(content, ensure_ascii=False, default=str)
+                user_prompt = self.prompts.get_chat_prompt(content, self.instruction)
 
         self.cwd.mkdir(exist_ok=True)
         os.chdir(self.cwd)
@@ -336,7 +334,7 @@ class Task(Stoppable):
         rounds = 1
         max_rounds = self.max_rounds
         self.saved = False
-        response = self.chat(content, system_prompt=system_prompt)
+        response = self.chat(user_prompt, system_prompt=system_prompt)
         while response and rounds <= max_rounds:
             response = self.process_reply(response)
             rounds += 1

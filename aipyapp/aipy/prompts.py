@@ -9,6 +9,7 @@ import json
 import shutil
 import subprocess
 import re
+from datetime import datetime
 
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
@@ -93,6 +94,20 @@ class Prompts:
         all_vars = {**extra_vars, **kwargs}
         return self.get_prompt('default', **all_vars)
 
+    def get_task_prompt(self, content: str, gui: bool = False) -> str:
+        """
+        获取任务提示
+        :param content: 用户输入的字符串
+        :param gui: 是否使用 GUI 模式
+        :return: 渲染后的字符串
+        """
+        contexts = {}
+        contexts['Today'] = datetime.now().strftime('%Y-%m-%d')
+        if not gui:
+            contexts['TERM'] = os.environ.get('TERM', 'unknown')
+        constraints = {}
+        return self.get_prompt('task', instruction=content, contexts=contexts, constraints=constraints, gui=gui)
+    
 if __name__ == '__main__':
     prompts = Prompts()
     print(prompts.get_default_prompt())
