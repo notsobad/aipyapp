@@ -8,9 +8,8 @@ import time
 from datetime import datetime
 from collections import namedtuple, OrderedDict
 from importlib.resources import read_text
-from typing import Union, List, Dict, Any, Optional
+from typing import Optional
 from dataclasses import dataclass
-from pathlib import Path
 
 import requests
 from loguru import logger
@@ -29,7 +28,6 @@ from .plugin import event_bus
 from .utils import get_safe_filename
 from .blocks import CodeBlocks, CodeBlock
 from .interface import Stoppable
-from . import prompt
 from .multimodal import MMContent, LLMContext
 
 CONSOLE_WHITE_HTML = read_text(__respkg__, "console_white.html")
@@ -198,20 +196,18 @@ class Task(Stoppable):
         self.console.print(panel)
 
     def process_code_reply(self, exec_blocks):
-        results = []
+        results = OrderedDict()
         for block in exec_blocks:
             event_bus('exec', block)
             self.console.print(f"⚡ {T('Start executing code block')}: {block.name}", style='dim white')
             result = self.runner(block)
             self.print_code_result(block, result)
-            result['block_name'] = block.name
-            results.append(result)
+            results[block.name] = result
             event_bus('result', result)
 
-        msg = prompt.get_results_prompt(results)
+        msg = self.prompts.get_results_prompt(results)
         self.console.print(f"{T('Start sending feedback')}...", style='dim white')
-        feed_back = json.dumps(msg, ensure_ascii=False, default=str)
-        return self.chat(feed_back)
+        return self.chat(msg)
 
     def process_mcp_reply(self, json_content):
         """处理 MCP 工具调用的回复"""
@@ -231,10 +227,8 @@ class Task(Stoppable):
         self.print_code_result(code_block, result, title=T("MCP tool call result"))
 
         self.console.print(f"{T('Start sending feedback')}...", style='dim white')
-        msg = prompt.get_mcp_result_prompt(result)
-        feed_back = json.dumps(msg, ensure_ascii=False, default=str)
-        feedback_response = self.chat(feed_back)
-        return feedback_response
+        msg = self.prompts.get_mcp_result_prompt(result)
+        return self.chat(msg)
 
     def box(self, title, content, align=None, lang=None):
         if lang:

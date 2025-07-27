@@ -5,7 +5,7 @@ import os
 from pathlib import Path
 from collections import deque, namedtuple
 from dataclasses import dataclass
-from typing import Optional, Dict, Any
+from typing import Optional, Any
 
 from loguru import logger
 
@@ -14,7 +14,7 @@ from .plugin import PluginManager
 from .prompts import Prompts
 from .diagnose import Diagnose
 from .llm import ClientManager
-from .config import PLUGINS_DIR, ROLES_DIR, get_mcp_config_file, get_tt_api_key, get_tt_aio_api
+from .config import PLUGINS_DIR, ROLES_DIR, get_mcp_config_file, get_tt_api_key
 from .role import RoleManager
 from .mcp_tool import MCPToolManager
 
@@ -81,14 +81,8 @@ class TaskManager:
         # 客户端管理器
         self.client_manager = ClientManager(self.settings)
         
-        # 更新 tt aio api
-        api_conf = self.settings.get('api', {})
-        tt_api_key = get_tt_api_key(self.settings)
-        if tt_api_key:
-            tt_aio_api = get_tt_aio_api(tt_api_key)
-            api_conf.update(tt_aio_api)
-
         # 角色管理器
+        api_conf = self.settings.get('api', {})
         self.role_manager = RoleManager(ROLES_DIR, api_conf)
         self.role_manager.load_roles()
         self.role_manager.use(self.settings.get('role', 'aipy'))

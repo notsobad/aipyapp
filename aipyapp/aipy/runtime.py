@@ -79,6 +79,13 @@ class CliPythonRuntime(PythonRuntime):
     
     @restore_output
     def display(self, path: str = None, url: str = None) -> None:
+        """
+        Display an image
+
+        Args:
+            path: The path of the image
+            url: The URL of the image
+        """
         image = {'path': path, 'url': url}
         event_bus.broadcast('display', image)
         if not self.gui:
@@ -90,6 +97,15 @@ class CliPythonRuntime(PythonRuntime):
         return self.console.input(prompt)    
     
     def get_block_by_name(self, block_name: str) -> Union[CodeBlock, None]:
+        """
+        Get a code block by name
+
+        Args:
+            block_name: The name of the code block
+
+        Returns:
+            CodeBlock: The code block objector None if not found
+        """
         return self.task.code_blocks.get_block_by_name(block_name)
     
     def call_tool(self, name: str, **kwargs) -> Any:
@@ -111,7 +127,7 @@ class CliPythonRuntime(PythonRuntime):
         根据函数签名和docstring，生成函数调用提示
         """
         functions = {}
-        names = ['install_packages', 'get_env', 'display', 'input', 'get_block_by_name', 'call_tool']
+        names = ['set_state', 'get_block_state', 'set_persistent_state', 'get_persistent_state', 'install_packages', 'get_env', 'display', 'get_block_by_name', 'call_tool']
         for name in names:
             func_obj = getattr(self, name)
             docstring = func_obj.__doc__
