@@ -8,8 +8,6 @@ import time
 from datetime import datetime
 from collections import namedtuple, OrderedDict
 from importlib.resources import read_text
-from typing import Optional
-from dataclasses import dataclass
 
 import requests
 from loguru import logger
