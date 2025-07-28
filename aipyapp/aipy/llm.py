@@ -8,7 +8,6 @@ from rich.live import Live
 from rich.text import Text
 
 from .. import T, __respath__
-from .plugin import event_bus
 from ..llm import CLIENTS, ChatMessage, ModelRegistry, ModelCapability
 from .multimodal import LLMContext
 
@@ -73,7 +72,8 @@ class LineReceiver(list):
         return buffer
 
 class LiveManager:
-    def __init__(self, name, quiet=False):
+    def __init__(self, task, name, quiet=False):
+        self.task = task
         self.live = None
         self.name = name
         self.lr = LineReceiver()
@@ -103,7 +103,7 @@ class LiveManager:
  
         if not reason and self.lr.empty() and not self.lr_reason.empty():
             line = self.lr_reason.done()
-            event_bus.broadcast('response_stream', {'llm': self.name, 'content': f"{line}\n\n----\n\n", 'reason': True})
+            self.task.broadcast('response_stream', {'llm': self.name, 'content': f"{line}\n\n----\n\n", 'reason': True})
 
         lr = self.lr_reason if reason else self.lr
         lines = lr.feed(content)
@@ -112,7 +112,7 @@ class LiveManager:
         lines2 = [line for line in lines if not line.startswith('<!-- Block-') and not line.startswith('<!-- Cmd-')]
         if lines2:
             content = '\n'.join(lines2)
-            event_bus.broadcast('response_stream', {'llm': self.name, 'content': content, 'reason': reason})
+            self.task.broadcast('response_stream', {'llm': self.name, 'content': content, 'reason': reason})
 
         if self.quiet: return
 
@@ -211,8 +211,8 @@ class ClientManager(object):
     def get_client(self, name):
         return self.clients.get(name)
     
-    def Client(self):
-        return Client(self)
+    def Client(self, task):
+        return Client(self, task)
     
     def to_records(self):
         LLMRecord = namedtuple('LLMRecord', ['Name', 'Model', 'Max_Tokens', 'Base_URL'])
@@ -225,9 +225,10 @@ class ClientManager(object):
         return self.model_registry.get_model_info(model)
     
 class Client:
-    def __init__(self, manager: ClientManager):
+    def __init__(self, manager: ClientManager, task):
         self.manager = manager
         self.current = manager.current
+        self.task = task
         self.history = ChatHistory()
         self.log = logger.bind(src='client', name=self.current.name)
 
@@ -272,10 +273,10 @@ class Client:
     
     def __call__(self, content: LLMContext, *, system_prompt=None, quiet=False):
         client = self.current
-        stream_processor = LiveManager(client.name, quiet=quiet)
+        stream_processor = LiveManager(self.task, client.name, quiet=quiet)
         msg = client(self.history, content, system_prompt=system_prompt, stream_processor=stream_processor)
         if msg:
-            event_bus.broadcast('response_complete', {'llm': client.name, 'content': msg})
+            self.task.broadcast('response_complete', {'llm': client.name, 'content': msg})
         else:
             self.log.error(f"LLM: {client.name} response is None")
         return msg

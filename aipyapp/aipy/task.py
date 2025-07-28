@@ -22,16 +22,15 @@ from rich.markdown import Markdown
 from .. import T, __respkg__
 from ..exec import BlockExecutor
 from .runtime import CliPythonRuntime
-from .plugin import event_bus
 from .utils import get_safe_filename
 from .blocks import CodeBlocks, CodeBlock
-from .interface import Stoppable
+from .interface import Stoppable, EventBus
 from .multimodal import MMContent, LLMContext
 
 CONSOLE_WHITE_HTML = read_text(__respkg__, "console_white.html")
 CONSOLE_CODE_HTML = read_text(__respkg__, "console_code.html")
 
-class Task(Stoppable):
+class Task(Stoppable, EventBus):
     MAX_ROUNDS = 16
 
     def __init__(self, context):
@@ -54,12 +53,22 @@ class Task(Stoppable):
         self.max_rounds = self.settings.get('max_rounds', self.MAX_ROUNDS)
         
         self.mcp = context.mcp
-        self.client = context.client_manager.Client()
+        self.client = context.client_manager.Client(self)
         self.role = context.role_manager.current_role
         self.code_blocks = CodeBlocks(self.console)
         self.runtime = CliPythonRuntime(self)
         self.runner = BlockExecutor()
         self.runner.set_python_runtime(self.runtime)
+
+    def init_plugins(self):
+        """初始化插件"""
+        plugin_manager = self.context.plugin_manager
+        for plugin_name, plugin_data in self.role.plugins.items():
+            plugin = plugin_manager.get_plugin(plugin_name, plugin_data)
+            if not plugin:
+                self.log.warning(f"Plugin {plugin_name} not found")
+                continue
+            self.register_listener(plugin)
 
     def to_record(self):
         TaskRecord = namedtuple('TaskRecord', ['task_id', 'start_time', 'done_time', 'instruction'])
@@ -154,7 +163,7 @@ class Task(Stoppable):
 
         errors = ret.get('errors')
         if errors:
-            event_bus('result', errors)
+            self.broadcast('result', errors)
             self.console.print(f"{T('Start sending feedback')}...", style='dim white')
             feed_back = f"# 消息解析错误\n{json_str}"
             ret = self.chat(feed_back)
@@ -176,12 +185,12 @@ class Task(Stoppable):
     def process_code_reply(self, exec_blocks):
         results = OrderedDict()
         for block in exec_blocks:
-            event_bus('exec', block)
+            self.pipeline('exec', block)
             self.console.print(f"⚡ {T('Start executing code block')}: {block.name}", style='dim white')
             result = self.runner(block)
             self.print_code_result(block, result)
             results[block.name] = result
-            event_bus('result', result)
+            self.broadcast('result', result)
 
         msg = self.prompts.get_results_prompt(results)
         self.console.print(f"{T('Start sending feedback')}...", style='dim white')
@@ -190,12 +199,12 @@ class Task(Stoppable):
     def process_mcp_reply(self, json_content):
         """处理 MCP 工具调用的回复"""
         block = {'content': json_content, 'language': 'json'}
-        event_bus('tool_call', block)
+        self.pipeline('tool_call', block)
         self.console.print(f"⚡ {T('Start calling MCP tool')} ...", style='dim white')
 
         call_tool = json.loads(json_content)
         result = self.mcp.call_tool(call_tool['name'], call_tool.get('arguments', {}))
-        event_bus('result', result)
+        self.broadcast('result', result)
         code_block = CodeBlock(
             code=json_content,
             lang='json',
@@ -245,7 +254,7 @@ class Task(Stoppable):
         summary = history.get_summary()
         summary['elapsed_time'] = time.time() - self.start_time
         summarys = "| {rounds} | {time:.3f}s/{elapsed_time:.3f}s | Tokens: {input_tokens}/{output_tokens}/{total_tokens}".format(**summary)
-        event_bus.broadcast('summary', summarys)
+        self.broadcast('summary', summarys)
         self.console.print(f"\n⏹ [cyan]{T('End processing instruction')} {summarys}")
 
     def chat(self, context: LLMContext, *, system_prompt=None):
@@ -290,7 +299,7 @@ class Task(Stoppable):
         if not self.start_time:
             self.start_time = time.time()
             self.instruction = instruction
-            event_bus('task_start', content)
+            self.pipeline('task_start', content)
             if isinstance(content, str):
                 user_prompt = self.prompts.get_task_prompt(content, gui=self.gui)
             system_prompt = self._get_system_prompt()
@@ -323,9 +332,9 @@ class Task(Stoppable):
         """
         url = T("https://store.aipy.app/api/work")
 
-        trustoken_apikey = self.context.settings.get('llm', {}).get('Trustoken', {}).get('api_key')
+        trustoken_apikey = self.settings.get('llm', {}).get('Trustoken', {}).get('api_key')
         if not trustoken_apikey:
-            trustoken_apikey = self.context.settings.get('llm', {}).get('trustoken', {}).get('api_key')
+            trustoken_apikey = self.settings.get('llm', {}).get('trustoken', {}).get('api_key')
         if not trustoken_apikey:
             return False
         self.console.print(f"[yellow]{T('Uploading result, please wait...')}")

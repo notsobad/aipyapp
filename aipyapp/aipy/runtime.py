@@ -9,7 +9,6 @@ from term_image.image import from_file, from_url
 
 from . import utils
 from .tool import llm_call
-from .plugin import event_bus
 from .. import T
 from ..exec import PythonRuntime
 from .blocks import CodeBlock
@@ -28,7 +27,7 @@ def restore_output(func):
 
 class CliPythonRuntime(PythonRuntime):
     def __init__(self, task):
-        super().__init__(task.role.env)
+        super().__init__(task.role.envs)
         self.gui = task.gui
         self.task = task
         self.console = task.console
@@ -87,7 +86,7 @@ class CliPythonRuntime(PythonRuntime):
             url: The URL of the image
         """
         image = {'path': path, 'url': url}
-        event_bus.broadcast('display', image)
+        self.task.broadcast('display', image)
         if not self.gui:
             image = from_file(path) if path else from_url(url)
             image.draw()

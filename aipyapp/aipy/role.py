@@ -40,22 +40,26 @@ class Role:
         self.name: str = ''
         self.short: str = ''
         self.detail: str = ''
-        self.env: Dict[str, Env] = {}
+        self.envs: Dict[str, Env] = {}
         self.packages: Dict[str, set[str]] = {}
         self.tips: Dict[str, Tip] = {}
+        self.plugins: Dict[str, Dict[str, Any]] = {}
 
     def get_tip(self, name: str) -> Optional[Tip]:
         """获取指定名称的提示信息"""
         return self.tips.get(name, None)
 
     def add_env(self, name: str, value: str, desc: str):
-        self.env[name] = Env(name, value, desc)
+        self.envs[name] = Env(name, value, desc)
 
     def add_package(self, name: str, packages: List[str]):
         self.packages[name] = set(packages)
 
     def add_tip(self, name: str, short: str, detail: str):
         self.tips[name] = Tip(name, short, detail)
+
+    def add_plugin(self, name: str, data: Dict[str, Any]):
+        self.plugins[name] = data
 
     def __iter__(self):
         return iter(self.tips.items())
@@ -66,18 +70,6 @@ class Role:
     def __getitem__(self, name: str) -> Tip:
         return self.tips[name]
     
-    def __str__(self):
-        lines = ['<role>']
-        lines.append(f"<name>{self.name}</name>")
-        lines.append(f"<short>{self.short}</short>")
-        lines.append(f"<detail>{self.detail}</detail>")
-        lines.append('<tips>')
-        for name, tip in self.tips.items():
-            lines.append(str(tip))
-        lines.append('</tips>')
-        lines.append('</role>')
-        return '\n'.join(lines)
-
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> 'Role':
         """从字典创建角色对象"""
@@ -89,7 +81,7 @@ class Role:
         role.detail = data.get('detail', '')
         
         # 加载环境变量
-        env_data = data.get('env', {})
+        env_data = data.get('envs', {})
         for env_name, env_info in env_data.items():
             if isinstance(env_info, list):
                 value = env_info[0]
@@ -110,6 +102,11 @@ class Role:
             short = tip_data.get('short', '')
             detail = tip_data.get('detail', '')
             role.add_tip(tip_name, short, detail)
+        
+        # 加载插件信息
+        plugins_data = data.get('plugins', {})
+        for plugin_name, plugin_data in plugins_data.items():
+            role.add_plugin(plugin_name, plugin_data)
         
         return role
 
@@ -186,7 +183,7 @@ if __name__ == '__main__':
         print(f"详细描述: {role.detail}")
         print("-" * 100)
 
-        print(role.env)
+        print(role.envs)
         print(role.packages)
         
         # 打印所有提示信息

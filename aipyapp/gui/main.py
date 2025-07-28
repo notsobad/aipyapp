@@ -24,7 +24,7 @@ from wx import FileDialog, FD_SAVE, FD_OVERWRITE_PROMPT
 
 from .. import __version__, T, set_lang, get_lang, __respath__
 from ..aipy.config import ConfigManager, CONFIG_DIR
-from ..aipy import TaskManager, event_bus
+from ..aipy import TaskManager
 from . import ConfigDialog, ApiMarketDialog, show_provider_config, AboutDialog, CStatusBar
 from ..config import LLMConfig
 
@@ -52,7 +52,7 @@ class AIPython(threading.Thread):
         self.tm = gui.tm
         self._task = None
         self._busy = threading.Event()
-        plt.show = self.on_plt_show
+        plt.show = self.plt_show
         sys.modules["matplotlib.pyplot"] = plt
         self.log = logger.bind(src='aipython')
 
@@ -68,7 +68,7 @@ class AIPython(threading.Thread):
     def can_done(self):
         return not self._busy.is_set() and self.has_task()
 
-    def on_plt_show(self, *args, **kwargs):
+    def plt_show(self, *args, **kwargs):
         filename = f'{time.strftime("%Y%m%d_%H%M%S")}.png'
         plt.savefig(filename)
         user = 'BB-8'
@@ -88,7 +88,7 @@ class AIPython(threading.Thread):
         evt = ChatEvent(user=user, msg=msg)
         wx.PostEvent(self.gui, evt)
 
-    def on_response_complete(self, msg):
+    def on_response_stream(self, msg):
         user = T("Turing") #msg['llm']
         #content = f"```markdown\n{msg['content']}\n```"
         evt = ChatEvent(user=user, msg=msg['content'])
@@ -113,11 +113,6 @@ class AIPython(threading.Thread):
         wx.PostEvent(self.gui, evt)
 
     def run(self):
-        event_bus.register("response_stream", self.on_response_complete)
-        event_bus.register("exec", self.on_exec)
-        event_bus.register("result", self.on_result)
-        event_bus.register("summary", self.on_summary)
-        event_bus.register("display", self.on_display)
         while True:
             instruction = self.gui.get_task()
             if instruction in ('/done', 'done'):
@@ -134,6 +129,7 @@ class AIPython(threading.Thread):
                 try:
                     if not self._task:
                         self._task = self.tm.new_task()
+                        self._task.register_listener(self)
                     self._task.run(instruction)
                 except Exception as e:
                     self.log.exception('Error running task')
