@@ -4,10 +4,6 @@
 import os
 import re
 import sys
-import shutil
-import locale
-import platform
-import subprocess
 from functools import wraps
 from importlib.resources import read_text
 
@@ -59,7 +55,7 @@ def confirm_disclaimer(console):
 
 def get_safe_filename(input_str, extension=".html", max_length=16):
     input_str = input_str.strip()
-    safe_str = re.sub(r'[\\/:*?"<>|]', '', input_str).strip()
+    safe_str = re.sub(r'[\\/:*?"<>|\s]', '', input_str).strip()
     if not safe_str:
         return None
 
@@ -73,24 +69,3 @@ def get_safe_filename(input_str, extension=".html", max_length=16):
         counter += 1
 
     return filename
-
-
-
-COMMANDS = {}
-
-def get_system_context(context):
-    """ 获取操作系统和脚本语言执行程序信息 """
-    global COMMANDS
-
-    context['operating_system'] = {'type': platform.system(), 'platform': platform.platform(), 'locale': locale.getlocale()}
-
-    if not COMMANDS:
-        commands_to_check = {
-            "node": ["--version"],
-            "bash": ["--version"],
-            "powershell": ["-Command", "$PSVersionTable.PSVersion.ToString()"],
-            "osascript": ["-e", 'return "AppleScript OK"']
-        }
-        COMMANDS = check_commands(commands_to_check)
-        COMMANDS['python'] = platform.python_version()
-    context['command_versions'] = COMMANDS
