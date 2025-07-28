@@ -48,10 +48,10 @@ class Task(Stoppable):
         self.instruction = None
         self.saved = None
         self.gui = context.gui
-        self.max_rounds = self.settings.get('max_rounds', self.MAX_ROUNDS)
-
+        
         self.cwd = context.cwd / self.task_id
         self.console = Console(file=context.console.file, record=True)
+        self.max_rounds = self.settings.get('max_rounds', self.MAX_ROUNDS)
         
         self.mcp = context.mcp
         self.client = context.client_manager.Client()
@@ -125,7 +125,7 @@ class Task(Stoppable):
             self.log.warning('Task not saved, trying to save')
             self._auto_save()
 
-        os.chdir(self.manager.cwd)  # Change back to the original working directory
+        os.chdir(self.context.cwd)  # Change back to the original working directory
         curname = self.task_id
         newname = get_safe_filename(self.instruction, extension=None)
         if newname and os.path.exists(curname):
