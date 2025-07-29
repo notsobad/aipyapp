@@ -1,46 +1,46 @@
-{# 外部服务模版 
-参数:
-- mcp_tools: 字符串，MCP工具列表
+{# External Services Template
+Parameters:
+- mcp_tools: string, list of MCP tools
 #}
 {% if mcp_tools %}
 <mcp_services>
 You can use external MCP services to complete tasks.
 
-# MCP工具调用规则：
-在此环境中，您可以访问一组工具，用于回答用户的问题。您每条消息只能使用一个工具，并将在用户的回复中收到该工具的使用结果。您可以通过循序渐进地使用工具来完成给定任务，每次工具的使用都以前一次工具使用的结果为依据。
+# MCP Tool Invocation Guidelines:
+In this environment, you have access to a set of tools to answer user questions. You may use only one tool per message and will receive the result of that tool usage in the user's next message. You can complete the given task by using tools step by step, with each tool invocation based on the result of the previous one.
 
-## 工具使用格式
-需要调用工具时，请返回以下JSON代码，包含调用的工具名称和参数。
+## Tool Invocation Format
+When calling a tool, respond with the following JSON code, including the tool name and arguments.
 {"action": "call_tool", "name": "tool_name", "arguments": {"arg_name": "arg_value", ...}}
 
-请始终遵守此工具使用格式，以确保正确的解析和执行。
+Always follow this format to ensure correct parsing and execution.
 
-## 工具使用示例
-以下是一些使用概念工具的示例：
+## Tool Usage Examples
+Here are some examples of using conceptual tools:
 ---
-User：查询成都本周的天气
-Assistant: 我可以使用 maps_weather 工具来计算操作结果。
+User: What's the weather in Chengdu this week?
+Assistant: I can use the maps_weather tool to get the result.
 ```json
-{"action": "call_tool", "name": "maps_weather", "arguments": {"city": "成都"}}
-```
+{"action": "call_tool", "name": "maps_weather", "arguments": {"city": "Chengdu"}}
 ---
-User: “以下操作的结果是什么：5 + 3 + 1294.678？”
-Assistant: 我可以使用 python_interpreter 工具来计算操作结果。
+User: “What is the result of the following operation: 5 + 3 + 1294.678?”
+Assistant: I can use the python_interpreter tool to compute the result.
 ```json
 {"action": "call_tool", "name": "python_interpreter", "arguments": {"code": "5 + 3 + 1294.678"}}
 ```
+## Available Tools
+The tools used in the examples above may not actually exist. You only have access to the following tools, provided as a JSON array:
 
-## 可用工具
-上述示例使用了可能不存在的概念工具。您只能访问以下工具， 以JSON数组形式提供：
 {{ mcp_tools }}
 
-## 工具使用规则
-以下是您在解决任务时应始终遵循的规则：
-1.  始终为工具使用正确的参数。切勿使用变量名作为操作参数，请使用值。
-2.  仅在需要时调用工具：如果您不需要信息，请勿调用搜索代理，尝试自行解决任务。
-3.  如果不需要调用工具，直接回答问题即可。
-4.  切勿重复之前使用完全相同参数的工具调用。
-5.  对于工具使用，请务必使用上述示例中所示的 JSON 格式。请勿使用任何其他格式。
-6.  如果有工具可以使用，优先使用工具而不是编写代码。
+## Tool Usage Rules
+Here are the rules you should always follow when using tools to solve tasks:
+- Always use correct parameter values for tools. Do not use variable names as parameter values—use actual values.
+- Only call a tool when necessary: if you do not need information, do not call a search agent; try to solve the task on your own.
+- If a tool is not needed, answer the question directly.
+- Do not repeat tool calls with exactly the same parameters.
+- When using tools, always use the JSON format shown in the examples above. Do not use any other format.
+-If a tool is available, prefer using the tool over writing code.
+
 </mcp_services>
 {% endif %}

@@ -30,6 +30,10 @@ class PythonRuntime(ABC):
         Args:
             success: Whether the code block is successful
             **kwargs: Other state values
+
+        Example:
+            set_state(success=True, result="Hello, world!")
+            set_state(success=False, error="Error message")
         """
         self.current_state['success'] = success
         self.current_state.update(kwargs)
@@ -43,6 +47,13 @@ class PythonRuntime(ABC):
 
         Returns:
             Any: The state of the code block
+
+        Example:
+            state = get_block_state("code_block_name")
+            if state.get("success"):
+                print(state.get("result"))
+            else:
+                print(state.get("error"))
         """
         return self.block_states.get(block_name)
     
