@@ -108,11 +108,14 @@ class CodeBlocks:
                 continue
 
             version = start_meta.get("version", 1)
-            if (code_name in blocks or code_name in self.blocks) and version == self.blocks.get(code_name).version:
-                self.log.error("Duplicate code name with same version", code_name=code_name, version=version)
-                error = {'Duplicate code name with same version': {'code_name': code_name, 'version': version}}
-                errors.append(error)
-                continue
+            if code_name in blocks or code_name in self.blocks:
+                old_block = blocks.get(code_name) or self.blocks.get(code_name)
+                old_version = old_block.version
+                if old_version >= version:
+                    self.log.error("Duplicate code name with same or newer version", code_name=code_name, old_version=old_version, version=version)
+                    error = {'Duplicate code name with same or newer version': {'code_name': code_name, 'old_version': old_version, 'version': version}}
+                    errors.append(error)
+                    continue
 
             # 创建代码块对象
             block = CodeBlock(
