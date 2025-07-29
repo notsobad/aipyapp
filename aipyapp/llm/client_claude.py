@@ -63,6 +63,7 @@ class ClaudeClient(BaseClient):
             stream=self._stream,
             system=self._system_prompt,
             max_tokens = self.max_tokens,
+            temperature = self._temperature,
             **self._params
         )
         return message
