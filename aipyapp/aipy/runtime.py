@@ -126,7 +126,7 @@ class CliPythonRuntime(PythonRuntime):
         根据函数签名和docstring，生成函数调用提示
         """
         functions = {}
-        names = ['set_state', 'get_block_state', 'set_persistent_state', 'get_persistent_state', 'install_packages', 'get_env', 'display', 'get_block_by_name', 'call_tool']
+        names = ['set_state', 'get_block_state', 'set_persistent_state', 'get_persistent_state', 'install_packages', 'get_env', 'display', 'get_block_by_name']
         for name in names:
             func_obj = getattr(self, name)
             docstring = func_obj.__doc__
