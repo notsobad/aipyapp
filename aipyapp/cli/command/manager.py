@@ -12,6 +12,7 @@ from .cmd_env import EnvCommand
 from .cmd_task import TaskCommand
 from .cmd_mcp import MCPCommand
 from .cmd_tools import ToolsCommand
+from .cmd_display import DisplayCommand
 
 from loguru import logger
 from rich import print
@@ -20,7 +21,7 @@ from prompt_toolkit.key_binding import KeyBindings
 
 COMMANDS = [
     InfoCommand, UseCommand, EnvCommand, LLMCommand, 
-    TaskCommand, MCPCommand, ToolsCommand, HelpCommand
+    TaskCommand, MCPCommand, ToolsCommand, HelpCommand, DisplayCommand
 ]
 
 class CommandManager(Completer):

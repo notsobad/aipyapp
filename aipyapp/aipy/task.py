@@ -11,13 +11,7 @@ from importlib.resources import read_text
 
 import requests
 from loguru import logger
-from rich.rule import Rule
-from rich.panel import Panel
-from rich.align import Align
-from rich.table import Table
-from rich.syntax import Syntax
-from rich.console import Console, Group
-from rich.markdown import Markdown
+from rich.console import Console
 
 from .. import T, __respkg__
 from ..exec import BlockExecutor
@@ -59,6 +53,7 @@ class Task(Stoppable, EventBus):
         self.runtime = CliPythonRuntime(self)
         self.runner = BlockExecutor()
         self.runner.set_python_runtime(self.runtime)
+        self.init_plugins()
 
     def init_plugins(self):
         """初始化插件"""
@@ -69,6 +64,10 @@ class Task(Stoppable, EventBus):
                 self.log.warning(f"Plugin {plugin_name} not found")
                 continue
             self.register_listener(plugin)
+            
+        # 注册显示效果插件
+        self.display_plugin = self.context.display_manager.get_current_plugin()
+        self.register_listener(self.display_plugin)
 
     def to_record(self):
         TaskRecord = namedtuple('TaskRecord', ['task_id', 'start_time', 'done_time', 'instruction'])
@@ -84,7 +83,7 @@ class Task(Stoppable, EventBus):
     def use(self, name):
         ret = self.client.use(name)
         return ret
-
+        
     def save(self, path):
        if self.console.record:
            self.console.save_html(path, clear=False, code_format=CONSOLE_WHITE_HTML)
@@ -152,19 +151,16 @@ class Task(Stoppable, EventBus):
     def process_reply(self, markdown):
         parse_mcp = self.mcp is not None
         ret = self.code_blocks.parse(markdown, parse_mcp=parse_mcp)
+        self.broadcast('parse_reply', ret)
         if not ret:
             return None
-        
-        json_str = json.dumps(ret, ensure_ascii=False, indent=2, default=str)
-        self.box(f"✅ {T('Message parse result')}", json_str, lang="json")
 
         if 'call_tool' in ret:
             return self.process_mcp_reply(ret['call_tool'])
 
         errors = ret.get('errors')
         if errors:
-            self.broadcast('result', errors)
-            self.console.print(f"{T('Start sending feedback')}...", style='dim white')
+            json_str = json.dumps(errors, ensure_ascii=False, default=str)
             feed_back = f"# 消息解析错误\n{json_str}"
             ret = self.chat(feed_back)
         elif 'exec_blocks' in ret:
@@ -173,102 +169,52 @@ class Task(Stoppable, EventBus):
             ret = None
         return ret
 
-    def print_code_result(self, block, result, title=None):
-        line_numbers = True if 'traceback' in result else False
-        syntax_code = Syntax(block.code, block.lang, line_numbers=line_numbers, word_wrap=True)
-        json_result = json.dumps(result, ensure_ascii=False, indent=2, default=str)
-        syntax_result = Syntax(json_result, 'json', line_numbers=False, word_wrap=True)
-        group = Group(syntax_code, Rule(), syntax_result)
-        panel = Panel(group, title=title or block.name)
-        self.console.print(panel)
-
     def process_code_reply(self, exec_blocks):
         results = OrderedDict()
         for block in exec_blocks:
             self.pipeline('exec', block)
-            self.console.print(f"⚡ {T('Start executing code block')}: {block.name}", style='dim white')
             result = self.runner(block)
-            self.print_code_result(block, result)
             results[block.name] = result
-            self.broadcast('result', result)
+            self.broadcast('exec_result', {'result': result, 'block': block})
 
         msg = self.prompts.get_results_prompt(results)
-        self.console.print(f"{T('Start sending feedback')}...", style='dim white')
         return self.chat(msg)
 
     def process_mcp_reply(self, json_content):
         """处理 MCP 工具调用的回复"""
         block = {'content': json_content, 'language': 'json'}
-        self.pipeline('tool_call', block)
-        self.console.print(f"⚡ {T('Start calling MCP tool')} ...", style='dim white')
+        self.pipeline('mcp_call', block)
 
         call_tool = json.loads(json_content)
         result = self.mcp.call_tool(call_tool['name'], call_tool.get('arguments', {}))
-        self.broadcast('result', result)
         code_block = CodeBlock(
             code=json_content,
             lang='json',
             name=call_tool.get('name', 'MCP Tool Call'),
             version=1,
         )
-        self.print_code_result(code_block, result, title=T("MCP tool call result"))
-        self.console.print(f"{T('Start sending feedback')}...", style='dim white')
+        self.broadcast('mcp_result', {'block': code_block, 'result': result})
         msg = self.prompts.get_mcp_result_prompt(result)
         return self.chat(msg)
 
-    def box(self, title, content, align=None, lang=None):
-        if lang:
-            content = Syntax(content, lang, line_numbers=True, word_wrap=True)
-        else:
-            content = Markdown(content)
-
-        if align:
-            content = Align(content, align=align)
-        
-        self.console.print(Panel(content, title=title))
-
-    def print_summary(self, detail=False):
+    def _get_summary(self, detail=False):
+        data = {}
         history = self.client.history
         if detail:
-            table = Table(title=T("Task Summary"), show_lines=True)
-
-            table.add_column(T("Round"), justify="center", style="bold cyan", no_wrap=True)
-            table.add_column(T("Time(s)"), justify="right")
-            table.add_column(T("In Tokens"), justify="right")
-            table.add_column(T("Out Tokens"), justify="right")
-            table.add_column(T("Total Tokens"), justify="right", style="bold magenta")
-
-            round = 1
-            for row in history.get_usage():
-                table.add_row(
-                    str(round),
-                    str(row["time"]),
-                    str(row["input_tokens"]),
-                    str(row["output_tokens"]),
-                    str(row["total_tokens"]),
-                )
-                round += 1
-            self.console.print("\n")
-            self.console.print(table)
+            data['usages'] = history.get_usage()
 
         summary = history.get_summary()
         summary['elapsed_time'] = time.time() - self.start_time
         summarys = "| {rounds} | {time:.3f}s/{elapsed_time:.3f}s | Tokens: {input_tokens}/{output_tokens}/{total_tokens}".format(**summary)
-        self.broadcast('summary', summarys)
-        self.console.print(f"\n⏹ [cyan]{T('End processing instruction')} {summarys}")
+        data['summary'] = summarys
+        return data
 
     def chat(self, context: LLMContext, *, system_prompt=None):
-        quiet = self.context.settings.gui and not self.context.settings.debug
-        msg = self.client(context, system_prompt=system_prompt, quiet=quiet)
-        if msg.role == 'error':
-            self.console.print(f"[red]{msg.content}[/red]")
-            return None
-        if msg.reason:
-            content = f"{msg.reason}\n\n-----\n\n{msg.content}"
-        else:
-            content = msg.content
-        self.box(f"[yellow]{T('Reply')} ({self.client.name})", content)
-        return msg.content
+        self.broadcast('query_start')
+        quiet = self.gui and not self.settings.debug
+        msg = self.client(context, system_prompt=system_prompt)
+        self.broadcast('response_complete', {'llm': self.client.name, 'content': msg})
+        return msg.content if msg else None
 
     def _get_system_prompt(self):
         params = {}
@@ -284,7 +230,6 @@ class Task(Stoppable, EventBus):
         执行自动处理循环，直到 LLM 不再返回代码消息
         instruction: 用户输入的字符串（可包含@file等多模态标记）
         """
-        self.box(f"[yellow]{T('Start processing instruction')}", instruction, align="center")
         mmc = MMContent(instruction, base_path=self.context.cwd)
         try:
             content = mmc.content
@@ -296,17 +241,19 @@ class Task(Stoppable, EventBus):
             self.console.print(f"[red]{T('Current model does not support this content')}[/red]")
             return
 
+        user_prompt = content
         if not self.start_time:
             self.start_time = time.time()
             self.instruction = instruction
-            self.pipeline('task_start', content)
             if isinstance(content, str):
                 user_prompt = self.prompts.get_task_prompt(content, gui=self.gui)
             system_prompt = self._get_system_prompt()
+            self.pipeline('task_start', {'instruction': instruction, 'user_prompt': user_prompt})
         else:
             system_prompt = None
             if isinstance(content, str):
                 user_prompt = self.prompts.get_chat_prompt(content, self.instruction)
+            self.pipeline('round_start', {'instruction': instruction, 'user_prompt': user_prompt})
 
         self.cwd.mkdir(exist_ok=True)
         os.chdir(self.cwd)
@@ -321,11 +268,12 @@ class Task(Stoppable, EventBus):
             if self.is_stopped():
                 self.log.info('Task stopped')
                 break
-        
-        self.print_summary()
+
+        summary = self._get_summary()
+        self.broadcast('round_end', summary)
         self._auto_save()
         self.console.bell()
-        self.log.info('Loop done', rounds=rounds)
+        self.log.info('Round done', rounds=rounds)
 
     def sync_to_cloud(self, verbose=True):
         """ Sync result

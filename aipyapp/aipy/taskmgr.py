@@ -25,6 +25,8 @@ class TaskContext:
     console: Any
     gui: bool
     cwd: Path
+    plugin_manager: PluginManager
+    display_manager: Any
     client_manager: ClientManager
     role_manager: RoleManager
     diagnose: Diagnose
@@ -69,12 +71,18 @@ class TaskManager:
         else:
             self.cwd = Path.cwd()
 
+    def set_display_manager(self, display_manager):
+        self.display_manager = display_manager
+        self.task_context.display_manager = display_manager
+
     def _init_managers(self):
         """初始化各种管理器"""
         # 插件管理器
         self.plugin_manager = PluginManager(PLUGINS_DIR)
         self.plugin_manager.load_plugins()
-        
+
+        self.display_manager = None
+
         # 诊断器
         self.diagnose = Diagnose.create(self.settings)
         
@@ -100,15 +108,14 @@ class TaskManager:
         """创建任务上下文"""
         # 构建系统提示
         with_mcp = self.settings.get('mcp', {}).get('enable', True)
-        mcp_tools = ""
-        if self.mcp and with_mcp:
-            mcp_tools = self.mcp.get_tools_prompt()
         
         return TaskContext(
             settings=self.settings,
             console=self.console,
             gui=self.gui,
             cwd=self.cwd,
+            plugin_manager=self.plugin_manager,
+            display_manager=self.display_manager,
             client_manager=self.client_manager,
             role_manager=self.role_manager,
             diagnose=self.diagnose,

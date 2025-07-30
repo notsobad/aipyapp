@@ -4,42 +4,10 @@ from collections import Counter, defaultdict, namedtuple
 from typing import Union, List, Dict, Any
 
 from loguru import logger
-from rich.live import Live
-from rich.text import Text
 
 from .. import T, __respath__
 from ..llm import CLIENTS, ChatMessage, ModelRegistry, ModelCapability
 from .multimodal import LLMContext
-
-class ChatHistory:
-    def __init__(self):
-        self.messages = []
-        self._total_tokens = Counter()
-
-    def __len__(self):
-        return len(self.messages)
-    
-    def json(self):
-        return [msg.__dict__ for msg in self.messages]
-    
-    def add(self, role, content):
-        self.add_message(ChatMessage(role=role, content=content))
-
-    def add_message(self, message: ChatMessage):
-        self.messages.append(message)
-        self._total_tokens += message.usage
-
-    def get_usage(self):
-        return iter(row.usage for row in self.messages if row.role == "assistant")
-    
-    def get_summary(self):
-        summary = {'time': 0, 'input_tokens': 0, 'output_tokens': 0, 'total_tokens': 0}
-        summary.update(dict(self._total_tokens))
-        summary['rounds'] = sum(1 for row in self.messages if row.role == "assistant")
-        return summary
-
-    def get_messages(self):
-        return [{"role": msg.role, "content": msg.content} for msg in self.messages]
 
 class LineReceiver(list):
     def __init__(self):
@@ -71,18 +39,14 @@ class LineReceiver(list):
             self.buffer = ""
         return buffer
 
-class LiveManager:
-    def __init__(self, task, name, quiet=False):
+class StreamProcessor:
+    """流式数据处理器，负责处理 LLM 流式响应并发送事件"""
+    
+    def __init__(self, task, name):
         self.task = task
-        self.live = None
         self.name = name
         self.lr = LineReceiver()
         self.lr_reason = LineReceiver()
-        self.title = f"{self.name} {T('Reply')}"
-        self.reason_started = False
-        self.display_lines = []
-        self.max_lines = 10
-        self.quiet = quiet
 
     @property
     def content(self):
@@ -93,47 +57,81 @@ class LiveManager:
         return self.lr_reason.content
     
     def __enter__(self):
-        if self.quiet: return self
-        self.live = Live(auto_refresh=False, vertical_overflow='crop', transient=True)
-        self.live.__enter__()
+        """支持上下文管理器协议"""
+        self.task.broadcast('stream_start', {'llm': self.name})
         return self
-
+    
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """支持上下文管理器协议"""
+        self.task.broadcast('stream_end', {'llm': self.name})
+        self.finish()
+    
     def process_chunk(self, content, *, reason=False):
-        if not content: return
- 
+        """处理流式数据块并发送事件"""
+        if not content: 
+            return
+
+        # 处理思考内容的结束
         if not reason and self.lr.empty() and not self.lr_reason.empty():
             line = self.lr_reason.done()
-            self.task.broadcast('response_stream', {'llm': self.name, 'content': f"{line}\n\n----\n\n", 'reason': True})
+            self.task.broadcast('stream', {
+                'llm': self.name, 
+                'lines': [line], 
+                'reason': True
+            })
 
+        # 处理当前数据块
         lr = self.lr_reason if reason else self.lr
         lines = lr.feed(content)
-        if not lines: return
-
+        if not lines:
+            return
+        
+        # 过滤掉特殊注释行
         lines2 = [line for line in lines if not line.startswith('<!-- Block-') and not line.startswith('<!-- Cmd-')]
         if lines2:
-            content = '\n'.join(lines2)
-            self.task.broadcast('response_stream', {'llm': self.name, 'content': content, 'reason': reason})
+            self.task.broadcast('stream', {
+                'llm': self.name, 
+                'lines': lines2, 
+                'reason': reason
+            })
 
-        if self.quiet: return
-
-        if reason and not self.reason_started:
-            self.display_lines.append("<think>")
-            self.reason_started = True
-        elif not reason and self.reason_started:
-            self.display_lines.append("</think>")
-            self.reason_started = False
-
-        self.display_lines.extend(lines)
-        while len(self.display_lines) > self.max_lines:
-            self.display_lines.pop(0)
-        content = '\n'.join(self.display_lines)
-        self.live.update(Text(content, style="dim white"), refresh=True)
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def finish(self):
+        """完成流式处理"""
         if self.lr.buffer:
             self.process_chunk('\n')
-        if self.live:
-            self.live.__exit__(exc_type, exc_val, exc_tb)
+
+
+class ChatHistory:
+    def __init__(self):
+        self.messages = []
+        self._total_tokens = Counter()
+
+    def __len__(self):
+        return len(self.messages)
+    
+    def json(self):
+        return [msg.__dict__ for msg in self.messages]
+    
+    def add(self, role, content):
+        self.add_message(ChatMessage(role=role, content=content))
+
+    def add_message(self, message: ChatMessage):
+        self.messages.append(message)
+        self._total_tokens += message.usage
+
+    def get_usage(self):
+        return iter(row.usage for row in self.messages if row.role == "assistant")
+    
+    def get_summary(self):
+        summary = {'time': 0, 'input_tokens': 0, 'output_tokens': 0, 'total_tokens': 0}
+        summary.update(dict(self._total_tokens))
+        summary['rounds'] = sum(1 for row in self.messages if row.role == "assistant")
+        return summary
+
+    def get_messages(self):
+        return [{"role": msg.role, "content": msg.content} for msg in self.messages]
+
+
 
 class ClientManager(object):
     MAX_TOKENS = 8192
@@ -271,12 +269,8 @@ class Client:
         
         return any(capability in model_info.capabilities for capability in capabilities)
     
-    def __call__(self, content: LLMContext, *, system_prompt=None, quiet=False):
+    def __call__(self, content: LLMContext, *, system_prompt=None):
         client = self.current
-        stream_processor = LiveManager(self.task, client.name, quiet=quiet)
+        stream_processor = StreamProcessor(self.task, client.name)
         msg = client(self.history, content, system_prompt=system_prompt, stream_processor=stream_processor)
-        if msg:
-            self.task.broadcast('response_complete', {'llm': client.name, 'content': msg})
-        else:
-            self.log.error(f"LLM: {client.name} response is None")
         return msg

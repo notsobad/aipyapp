@@ -11,6 +11,7 @@ from .. import T, set_lang, __version__
 from ..config import LLMConfig
 from ..aipy.wizard import config_llm
 from .command import CommandManager, TaskCommandManager
+from .display import DisplayManager
 
 STYLE_MAIN = {
     'completion-menu.completion': 'bg:#000000 #ffffff',
@@ -144,6 +145,11 @@ def main(args):
     except Exception as e:
         console.print_exception()
         return
+
+    # 初始化显示效果管理器
+    display_style = settings.get('display_style', 'classic')
+    display_manager = DisplayManager(console, display_style)
+    tm.set_display_manager(display_manager)
 
     update = tm.get_update()
     if update and update.get('has_update'):
