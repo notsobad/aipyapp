@@ -262,15 +262,23 @@ class Task(Stoppable, EventBus):
         max_rounds = self.max_rounds
         self.saved = False
         response = self.chat(user_prompt, system_prompt=system_prompt)
-        while response and rounds <= max_rounds:
+        if not response:
+            self.log.error('No response from LLM')
+            return
+        
+        while rounds <= max_rounds:
+            prev_response = response
             response = self.process_reply(response)
             rounds += 1
             if self.is_stopped():
                 self.log.info('Task stopped')
                 break
+            if not response:
+                response = prev_response
+                break
 
         summary = self._get_summary()
-        self.broadcast('round_end', summary)
+        self.broadcast('round_end', summary, response=response)
         self._auto_save()
         self.console.bell()
         self.log.info('Round done', rounds=rounds)

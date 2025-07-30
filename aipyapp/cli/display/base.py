@@ -29,7 +29,7 @@ class BaseDisplayPlugin(ABC):
         pass
         
     @abstractmethod
-    def on_round_end(self, content: Any):
+    def on_round_end(self, summary: Dict[str, Any], response: str):
         """回合结束事件处理"""
         pass
         
