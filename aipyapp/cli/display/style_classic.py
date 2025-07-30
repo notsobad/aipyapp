@@ -119,7 +119,7 @@ class DisplayClassic(BaseDisplayPlugin):
         block = data.get('block')
         self.print_code_result(block, result, title=T("MCP tool call result"))
             
-    def on_round_end(self, data: Dict[str, Any]):
+    def on_round_end(self, data: Dict[str, Any], response: str):
         """任务总结事件处理"""
         usages = data.get('usages', [])
         if usages:

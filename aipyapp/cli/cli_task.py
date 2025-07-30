@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+from importlib.resources import read_text
+
 from rich.console import Console
 from prompt_toolkit import PromptSession
 from prompt_toolkit.history import FileHistory
@@ -7,7 +9,7 @@ from prompt_toolkit.styles import Style
 from prompt_toolkit.completion import WordCompleter, merge_completers
 
 from ..aipy import TaskManager, ConfigManager, CONFIG_DIR
-from .. import T, set_lang, __version__
+from .. import T, set_lang, __version__, __respkg__
 from ..config import LLMConfig
 from ..aipy.wizard import config_llm
 from .command import CommandManager, TaskCommandManager
@@ -115,6 +117,7 @@ class InteractiveConsole():
 def main(args):
     console = Console(record=True)
     console.print(f"[bold cyan]🚀 Python use - AIPython ({__version__}) [[green]https://aipy.app[/green]]")
+    console.print(read_text(__respkg__, "logo.txt"))
     conf = ConfigManager(args.config_dir)
     settings = conf.get_config()
     lang = settings.get('lang')
