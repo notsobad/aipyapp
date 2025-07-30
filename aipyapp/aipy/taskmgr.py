@@ -96,10 +96,8 @@ class TaskManager:
         self.role_manager.use(self.settings.get('role', 'aipy'))
         
         # MCP 工具管理器
-        self.mcp = None
         mcp_config_file = get_mcp_config_file(self.settings.get('_config_dir'))
-        if mcp_config_file:
-            self.mcp = MCPToolManager(mcp_config_file, get_tt_api_key(self.settings))
+        self.mcp = MCPToolManager(mcp_config_file, get_tt_api_key(self.settings))
         
         # 提示管理器
         self.prompts = Prompts()
