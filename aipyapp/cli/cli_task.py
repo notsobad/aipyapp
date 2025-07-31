@@ -40,8 +40,8 @@ class InteractiveConsole():
         self.settings = settings
         self.style_main = Style.from_dict(STYLE_MAIN)
         self.style_task = Style.from_dict(STYLE_AI)
-        self.command_manager_main = CommandManager(tm)
-        self.command_manager_task = TaskCommandManager(tm)
+        self.command_manager_main = CommandManager(tm, console)
+        self.command_manager_task = TaskCommandManager(tm, console)
         self.completer_main = self.command_manager_main
         self.completer_task = self.command_manager_task
         self.session = PromptSession(history=self.history, completer=self.completer_main, style=self.style_main)
@@ -142,18 +142,18 @@ def main(args):
     settings.gui = False
     settings.debug = args.debug
     settings.config_dir = CONFIG_DIR
-    
-    try:
-        tm = TaskManager(settings, console=console)
-    except Exception as e:
-        console.print_exception()
-        return
 
     # 初始化显示效果管理器
     display_style = settings.get('display_style', 'classic')
     display_manager = DisplayManager(console, display_style)
+   
+    try:
+        tm = TaskManager(settings)
+    except Exception as e:
+        console.print_exception()
+        return
+    
     tm.set_display_manager(display_manager)
-
     update = tm.get_update()
     if update and update.get('has_update'):
         console.print(f"[bold red]🔔 号外❗ {T('Update available')}: {update.get('latest_version')}")

@@ -33,6 +33,11 @@ class DisplayModern(BaseDisplayPlugin):
             self.console.print(f"📝 {T('Task started')}")
         self.console.print()
         
+    def on_exception(self, msg: str, exception: Exception):
+        """异常事件处理"""
+        self.console.print(f"❌ {msg}")
+        self.console.print_exception(exception)
+        
     def on_response_stream(self, response: Dict[str, Any]):
         """LLM 流式响应事件处理"""
         content = response.get('content', '')
@@ -73,6 +78,18 @@ class DisplayModern(BaseDisplayPlugin):
         """代码执行结果事件处理"""
         if self.current_block:
             self.execution_status[self.current_block] = 'success'
+            
+        # 显示执行结果
+        self._show_execution_result(result)
+        
+    def on_exec_result(self, data: Dict[str, Any]):
+        """代码执行结果事件处理"""
+        result = data.get('result')
+        block = data.get('block')
+        
+        if block and hasattr(block, 'name'):
+            self.current_block = block.name
+            self.execution_status[block.name] = 'success'
             
         # 显示执行结果
         self._show_execution_result(result)
@@ -185,4 +202,14 @@ class DisplayModern(BaseDisplayPlugin):
         """显示简单结果"""
         self.console.print("✅ {T('Execution completed')}")
         if result:
-            self.console.print(f"📤 {T('Result')}: {result}") 
+            self.console.print(f"📤 {T('Result')}: {result}")
+
+    def on_runtime_message(self, data: Dict[str, Any]):
+        """Runtime消息事件处理"""
+        message = data.get('message', '')
+        self.console.print(message)
+
+    def on_runtime_input(self, data: Dict[str, Any]):
+        """Runtime输入事件处理"""
+        # 输入事件通常不需要特殊处理，因为input_prompt已经处理了
+        pass 

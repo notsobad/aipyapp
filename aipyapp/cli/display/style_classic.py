@@ -44,6 +44,10 @@ class DisplayClassic(BaseDisplayPlugin):
         panel = Panel(group, title=title or block.name)
         self.console.print(panel)
 
+    def on_exception(self, msg: str, exception: Exception):
+        """异常事件处理"""
+        self.console.print_exception(msg)
+
     def on_task_start(self, data: Dict[str, Any]):
         """任务开始事件处理"""
         instruction = data.get('instruction')
@@ -62,6 +66,7 @@ class DisplayClassic(BaseDisplayPlugin):
         """流式开始事件处理"""
         self.live_display = LiveDisplay()
         self.live_display.__enter__()
+        self.console.print(f"{T('Streaming started')}...", style='dim white')
     
     def on_stream_end(self, response: Dict[str, Any]):
         """流式结束事件处理"""
@@ -146,3 +151,24 @@ class DisplayClassic(BaseDisplayPlugin):
 
         summary = data.get('summary')
         self.console.print(f"\n⏹ [cyan]{T('End processing instruction')} {summary}")
+
+    def on_upload_result(self, status_code: int, url: str):
+        """云端上传结果事件处理"""
+        if url:
+            self.console.print(f"[green]{T('Article uploaded successfully, {}', url)}[/green]")
+        else:
+            self.console.print(f"[red]{T('Upload failed (status code: {})', status_code)}")
+
+    def on_task_end(self, path: str):
+        """任务结束事件处理"""
+        self.console.print(f"[green]{T('Task completed')}: {path}")
+
+    def on_runtime_message(self, data: Dict[str, Any]):
+        """Runtime消息事件处理"""
+        message = data.get('message', '')
+        self.console.print(message)
+
+    def on_runtime_input(self, data: Dict[str, Any]):
+        """Runtime输入事件处理"""
+        # 输入事件通常不需要特殊处理，因为input_prompt已经处理了
+        pass

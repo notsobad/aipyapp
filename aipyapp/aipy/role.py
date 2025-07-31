@@ -27,20 +27,13 @@ class Tip:
     def __str__(self):
         return f"<tip name=\"{self.name}\">\n{self.detail.strip()}\n</tip>"
 
-class Env:
-    """环境变量对象"""
-    def __init__(self, name: str, value: str, desc: str):
-        self.name = name
-        self.value = value
-        self.desc = desc.strip()
-
 class Role:
     """提示信息管理器"""
     def __init__(self):
         self.name: str = ''
         self.short: str = ''
         self.detail: str = ''
-        self.envs: Dict[str, Env] = {}
+        self.envs: Dict[str, tuple[str, str]] = {}
         self.packages: Dict[str, set[str]] = {}
         self.tips: Dict[str, Tip] = {}
         self.plugins: Dict[str, Dict[str, Any]] = {}
@@ -50,7 +43,7 @@ class Role:
         return self.tips.get(name, None)
 
     def add_env(self, name: str, value: str, desc: str):
-        self.envs[name] = Env(name, value, desc)
+        self.envs[name] = (value, desc)
 
     def add_package(self, name: str, packages: List[str]):
         self.packages[name] = set(packages)

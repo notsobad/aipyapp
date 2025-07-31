@@ -17,6 +17,7 @@ class InfoCommand(BaseCommand):
             (T('Current working directory'), str(tm.workdir)),
             (T('Current LLM'), repr(tm.client_manager.current)),
             (T('Current role'), '-' if settings.get('system_prompt') else tm.role_manager.current_role.name),
+            (T('Current display style'), T(tm.display_manager.current_style)),
             ('Python', sys.executable),
             (T('Python version'), sys.version),
             (T('Python base prefix'), sys.base_prefix),

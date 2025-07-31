@@ -73,8 +73,7 @@ class CodeBlock:
         return f"<CodeBlock name={self.name}, version={self.version}, lang={self.lang}, path={self.path}>"
 
 class CodeBlocks:
-    def __init__(self, console):
-        self.console = console
+    def __init__(self):
         self.history = []
         self.blocks = OrderedDict()
         self.code_pattern = re.compile(
@@ -95,7 +94,7 @@ class CodeBlocks:
                 start_meta = json.loads(start_json)
                 end_meta = json.loads(end_json)
             except json.JSONDecodeError as e:
-                self.console.print_exception(show_locals=True)
+                self.log.exception('Error parsing code block', start_json=start_json, end_json=end_json)
                 error = {'JSONDecodeError': {'Block-Start': start_json, 'Block-End': end_json, 'reason': str(e)}}
                 errors.append(error)
                 continue
@@ -185,7 +184,6 @@ class CodeBlocks:
             return self.blocks[code_name].code
         except KeyError:
             self.log.error("Code name not found", code_name=code_name)
-            self.console.print("❌ Code name not found", code_name=code_name)
             return None
 
     def get_block_by_name(self, code_name):
@@ -193,7 +191,6 @@ class CodeBlocks:
             return self.blocks[code_name]
         except KeyError:
             self.log.error("Code name not found", code_name=code_name)
-            self.console.print("❌ Code name not found", code_name=code_name)
             return None
 
     def to_list(self):

@@ -12,17 +12,6 @@ System: {{ os.system }}
 Platform: {{ os.platform }}
 </os>
 
-{% set envs = role.env %}
-{% if envs %}
-<env>
-You can ONLY use these environment variables:
-
-{% for name, env in envs.items() %}
-- {{ name }}: {{ env.desc }}
-{% endfor %}
-</env>
-{% endif %}
-
 <execution_environments>
 Code blocks (Specified in the Cmd-Exec command) will be executed in the following execution environments:
 

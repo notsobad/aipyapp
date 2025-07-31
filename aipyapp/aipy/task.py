@@ -11,7 +11,6 @@ from importlib.resources import read_text
 
 import requests
 from loguru import logger
-from rich.console import Console
 
 from .. import T, __respkg__
 from ..exec import BlockExecutor
@@ -23,6 +22,17 @@ from .multimodal import MMContent, LLMContext
 
 CONSOLE_WHITE_HTML = read_text(__respkg__, "console_white.html")
 CONSOLE_CODE_HTML = read_text(__respkg__, "console_code.html")
+
+class TaskError(Exception):
+    """Task 异常"""
+    pass
+
+class TaskInputError(TaskError):
+    """Task 输入异常"""
+    def __init__(self, message: str, original_error: Exception = None):
+        self.message = message
+        self.original_error = original_error
+        super().__init__(self.message)
 
 class Task(Stoppable, EventBus):
     MAX_ROUNDS = 16
@@ -40,16 +50,15 @@ class Task(Stoppable, EventBus):
         self.done_time = None
         self.instruction = None
         self.saved = None
-        self.gui = context.gui
-        
+        self.gui = self.settings.gui
+
         self.cwd = context.cwd / self.task_id
-        self.console = Console(file=context.console.file, record=True)
         self.max_rounds = self.settings.get('max_rounds', self.MAX_ROUNDS)
         
         self.mcp = context.mcp
         self.client = context.client_manager.Client(self)
         self.role = context.role_manager.current_role
-        self.code_blocks = CodeBlocks(self.console)
+        self.code_blocks = CodeBlocks()
         self.runtime = CliPythonRuntime(self)
         self.runner = BlockExecutor()
         self.runner.set_python_runtime(self.runtime)
@@ -66,8 +75,8 @@ class Task(Stoppable, EventBus):
             self.register_listener(plugin)
             
         # 注册显示效果插件
-        self.display_plugin = self.context.display_manager.get_current_plugin()
-        self.register_listener(self.display_plugin)
+        self.display = self.context.display_manager.get_current_plugin()
+        self.register_listener(self.display)
 
     def to_record(self):
         TaskRecord = namedtuple('TaskRecord', ['task_id', 'start_time', 'done_time', 'instruction'])
@@ -85,8 +94,7 @@ class Task(Stoppable, EventBus):
         return ret
         
     def save(self, path):
-       if self.console.record:
-           self.console.save_html(path, clear=False, code_format=CONSOLE_WHITE_HTML)
+        self.display.save(path, clear=False, code_format=CONSOLE_WHITE_HTML)
 
     def save_html(self, path, task):
         if 'chats' in task and isinstance(task['chats'], list) and len(task['chats']) > 0:
@@ -99,7 +107,8 @@ class Task(Stoppable, EventBus):
             with open(path, 'w', encoding='utf-8') as f:
                 f.write(html_content)
         except Exception as e:
-            self.console.print_exception()
+            self.log.exception('Error saving html')
+            self.broadcast('exception', 'save_html', e)
         
     def _auto_save(self):
         instruction = self.instruction
@@ -116,6 +125,7 @@ class Task(Stoppable, EventBus):
             json.dump(task, open(filename, 'w', encoding='utf-8'), ensure_ascii=False, indent=4, default=str)
         except Exception as e:
             self.log.exception('Error saving task')
+            self.broadcast('exception', 'save_task', e)
 
         filename = self.cwd / "console.html"
         #self.save_html(filename, task)
@@ -143,7 +153,7 @@ class Task(Stoppable, EventBus):
                 self.log.exception('Error renaming task directory', curname=curname, newname=newname)
 
         self.log.info('Task done', path=newname)
-        self.console.print(f"[green]{T('Result file saved')}: \"{newname}\"")
+        self.broadcast('task_end', path=newname)
         self.context.diagnose.report_code_error(self.runner.history)
         if self.settings.get('share_result'):
             self.sync_to_cloud()
@@ -234,12 +244,10 @@ class Task(Stoppable, EventBus):
         try:
             content = mmc.content
         except Exception as e:
-            self.console.print(f"[red]{e}[/red]")
-            return
+            raise TaskInputError(T("Invalid input"), e) from e
 
         if not self.client.has_capability(content):
-            self.console.print(f"[red]{T('Current model does not support this content')}[/red]")
-            return
+            raise TaskInputError(T("Current model does not support this content"))
 
         user_prompt = content
         if not self.start_time:
@@ -280,10 +288,9 @@ class Task(Stoppable, EventBus):
         summary = self._get_summary()
         self.broadcast('round_end', summary, response=response)
         self._auto_save()
-        self.console.bell()
         self.log.info('Round done', rounds=rounds)
 
-    def sync_to_cloud(self, verbose=True):
+    def sync_to_cloud(self):
         """ Sync result
         """
         url = T("https://store.aipy.app/api/work")
@@ -293,7 +300,7 @@ class Task(Stoppable, EventBus):
             trustoken_apikey = self.settings.get('llm', {}).get('trustoken', {}).get('api_key')
         if not trustoken_apikey:
             return False
-        self.console.print(f"[yellow]{T('Uploading result, please wait...')}")
+        self.log.info('Uploading result to cloud')
         try:
             # Serialize twice to remove the non-compliant JSON type.
             # First, use the json.dumps() `default` to convert the non-compliant JSON type to str.
@@ -310,18 +317,14 @@ class Task(Stoppable, EventBus):
                 parse_constant=str)
             response = requests.post(url, json=data, verify=True,  timeout=30)
         except Exception as e:
-            print(e)
+            self.broadcast('exception', 'sync_to_cloud', e)
             return False
 
+        url = None
         status_code = response.status_code
         if status_code in (200, 201):
-            if verbose:
-                data = response.json()
-                url = data.get('url', '')
-                if url:
-                    self.console.print(f"[green]{T('Article uploaded successfully, {}', url)}[/green]")
-            return True
+            data = response.json()
+            url = data.get('url', '')
 
-        if verbose:
-            self.console.print(f"[red]{T('Upload failed (status code: {})', status_code)}:", response.text)
-        return False
+        self.broadcast('upload_result', status_code, url)
+        return True

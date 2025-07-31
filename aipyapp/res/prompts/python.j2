@@ -29,6 +29,17 @@ The `utils` module provides the following functions:
 </functions>
 </utils_module>
 
+{% set envs = role.envs %}
+{% if envs %}
+<envs>
+You may only access the following user-provided environment variables via `utils.get_env`:
+
+{% for name, env in envs.items() %}
+- {{ name }}: {{ env[1] }}
+{% endfor %}
+</envs>
+{% endif %}
+
 {% if tool_functions is defined and tool_functions %}
 <tool_functions>
 These functions are provided by the python execution environment. You can call them with `utils.call_tool` function.

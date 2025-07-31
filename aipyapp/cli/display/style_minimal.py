@@ -11,7 +11,7 @@ from .base import BaseDisplayPlugin
 from ... import T
 
 class DisplayMinimal(BaseDisplayPlugin):
-    """Minimal display style - 简约风格，最少的装饰，突出内容"""
+    """Minimal display style"""
     
     def __init__(self, console: Console):
         super().__init__(console)
@@ -23,6 +23,10 @@ class DisplayMinimal(BaseDisplayPlugin):
         """任务开始事件处理"""
         instruction = data.get('instruction')
         self.console.print(f"→ {instruction}")
+
+    def on_exception(self, msg: str, exception: Exception):
+        """异常事件处理"""
+        self.console.print(f"✗ {msg}", style='red')
 
     def on_query_start(self):
         """查询开始事件处理"""
@@ -135,5 +139,15 @@ class DisplayMinimal(BaseDisplayPlugin):
         """任务总结事件处理"""
         # 简约显示：只显示总结信息
         self.console.print(Markdown(response)) 
-        self.console.print(f"• {summary}") 
+        self.console.print(f"• {summary}")
+
+    def on_runtime_message(self, data: Dict[str, Any]):
+        """Runtime消息事件处理"""
+        message = data.get('message', '')
+        self.console.print(message)
+
+    def on_runtime_input(self, data: Dict[str, Any]):
+        """Runtime输入事件处理"""
+        # 输入事件通常不需要特殊处理，因为input_prompt已经处理了
+        pass 
         

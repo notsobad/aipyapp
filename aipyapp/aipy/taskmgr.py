@@ -22,8 +22,6 @@ from .mcp_tool import MCPToolManager
 class TaskContext:
     """任务上下文，包含创建任务所需的所有信息"""
     settings: Any
-    console: Any
-    gui: bool
     cwd: Path
     plugin_manager: PluginManager
     display_manager: Any
@@ -36,11 +34,9 @@ class TaskContext:
 class TaskManager:
     MAX_TASKS = 16
 
-    def __init__(self, settings, console, gui=False):
+    def __init__(self, settings):
         # 核心配置
         self.settings = settings
-        self.console = console
-        self.gui = gui
         self.log = logger.bind(src='taskmgr')
         
         # 任务管理
@@ -109,8 +105,6 @@ class TaskManager:
         
         return TaskContext(
             settings=self.settings,
-            console=self.console,
-            gui=self.gui,
             cwd=self.cwd,
             plugin_manager=self.plugin_manager,
             display_manager=self.display_manager,
@@ -154,16 +148,18 @@ class TaskManager:
         return self.diagnose.check_update(force)
 
     def use(self, llm=None, role=None, task=None):
+        rets = {}
         if llm:
             ret = self.client_manager.use(llm)
-            self.console.print(f"LLM: {'[green]Ok[/green]' if ret else '[red]Error[/red]'}")
+            rets['llm'] = ret
         if role:
             ret = self.role_manager.use(role)
-            self.console.print(f"Role: {'[green]Ok[/green]' if ret else '[red]Error[/red]'}")
+            rets['role'] = ret
         if task:
             task = self.get_task_by_id(task)
-            self.console.print(f"Task: {'[green]Ok[/green]' if task else '[red]Error[/red]'}")
+            rets['task'] = task
             self.current_task = task
+        return rets
 
     def new_task(self):
         """创建新任务"""

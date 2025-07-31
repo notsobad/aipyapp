@@ -25,8 +25,9 @@ COMMANDS = [
 ]
 
 class CommandManager(Completer):
-    def __init__(self, tm):
+    def __init__(self, tm, console):
         self.tm = tm
+        self.console = console
         self.commands = OrderedDict()
         self.log = logger.bind(src="CommandManager")
         self.init()
@@ -47,6 +48,7 @@ class CommandManager(Completer):
             raise ValueError(f"Command '{command_instance.name}' is already registered")
         self.commands[command_instance.name] = command_instance
         command_instance.manager = self
+        command_instance.console = self.console
 
     def get_completions(self, document, complete_event):
         text = document.text_before_cursor
@@ -146,7 +148,9 @@ class CommandManager(Completer):
             print(f"Error: {e}")
 
 class TaskCommandManager(NestedCompleter):
-    def __init__(self, tm):
+    def __init__(self, tm, console):
+        self.tm = tm
+        self.console = console
         names = tm.client_manager.names['enabled']
         commands = {
             '/use': NestedCompleter.from_nested_dict(dict.fromkeys(names)),

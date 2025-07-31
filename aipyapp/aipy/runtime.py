@@ -30,9 +30,12 @@ class CliPythonRuntime(PythonRuntime):
         super().__init__(task.role.envs)
         self.gui = task.gui
         self.task = task
-        self.console = task.console
         self._auto_install = task.settings.get('auto_install')
         self._auto_getenv = task.settings.get('auto_getenv')
+
+    def _get_display_plugin(self):
+        """获取当前显示插件"""
+        return self.task.display
 
     @restore_output
     def install_packages(self, *packages: str) -> bool:
@@ -51,26 +54,39 @@ class CliPythonRuntime(PythonRuntime):
             >>> runtime.install_packages('requests', 'openai')
             False
         """
-        self.console.print(f"\n⚠️ LLM {T('Request to install third-party packages')}: {packages}")
-        ok = utils.confirm(self.console, f"💬 {T('If you agree, please enter')} 'y'> ", auto=self._auto_install)
+        message = f"\n⚠️ LLM {T('Request to install third-party packages')}: {packages}"
+        self.task.broadcast('runtime_message', {'type': 'install_packages', 'message': message, 'packages': packages})
+        
+        display_plugin = self._get_display_plugin()
+        prompt = f"💬 {T('If you agree, please enter')} 'y'> "
+        ok = display_plugin.confirm(prompt, auto=self._auto_install)
+            
         if ok:
             ret = self.ensure_packages(*packages)
-            self.console.print("\n✅" if ret else "\n❌")
+            result_message = "\n✅" if ret else "\n❌"
+            self.task.broadcast('runtime_message', {'type': 'install_result', 'message': result_message, 'success': ret})
             return ret
         return False
     
     @restore_output
     def get_env(self, name: str, default: str = None, *, desc: str = None) -> Union[str, None]:
-        self.console.print(f"\n⚠️ LLM {T('Request to obtain environment variable {}, purpose', name)}: {desc}")
+        message = f"\n⚠️ LLM {T('Request to obtain environment variable {}, purpose', name)}: {desc}"
+        self.task.broadcast('runtime_message', {'type': 'get_env', 'message': message, 'name': name, 'desc': desc})
+        
+        display_plugin = self._get_display_plugin()
+            
         try:
             value = self.envs[name][0]
-            self.console.print(f"✅ {T('Environment variable {} exists, returned for code use', name)}")
+            success_message = f"✅ {T('Environment variable {} exists, returned for code use', name)}"
+            self.task.broadcast('runtime_message', {'type': 'env_exists', 'message': success_message, 'name': name})
         except KeyError:
             if self._auto_getenv:
-                self.console.print(f"✅ {T('Auto confirm')}")
+                auto_message = f"✅ {T('Auto confirm')}"
+                self.task.broadcast('runtime_message', {'type': 'auto_confirm', 'message': auto_message})
                 value = None
             else:
-                value = self.console.input(f"💬 {T('Environment variable {} not found, please enter', name)}: ")
+                prompt = f"💬 {T('Environment variable {} not found, please enter', name)}: "
+                value = display_plugin.input(prompt)
                 value = value.strip()
             if value:
                 self.set_env(name, value, desc)
@@ -93,7 +109,9 @@ class CliPythonRuntime(PythonRuntime):
 
     @restore_output
     def input(self, prompt: str) -> str:
-        return self.console.input(prompt)    
+        self.task.broadcast('runtime_input', {'prompt': prompt})
+        display_plugin = self._get_display_plugin()
+        return display_plugin.input(prompt)
     
     def get_block_by_name(self, block_name: str) -> Union[CodeBlock, None]:
         """

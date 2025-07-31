@@ -23,7 +23,9 @@ class UseCommand(BaseCommand):
             params['role'] = args.role
         if args.name:
             params['llm'] = args.name
-        if params:
-            tm.use(**params)
-        else:
+        if not params:
             self.parser.print_help()
+            return
+        rets = tm.use(**params)
+        for name, ret in rets.items():
+            self.console.print(f"{name}: {'[green]Ok[/green]' if ret else '[red]Error[/red]'}")

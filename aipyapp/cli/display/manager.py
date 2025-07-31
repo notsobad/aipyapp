@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+import os
 from typing import Dict, Type, Optional
 from rich.console import Console
 
@@ -22,10 +23,12 @@ class DisplayManager:
         'minimal': DisplayMinimal,
     }
     
-    def __init__(self, console: Console, default_style: str = 'classic'):
+    def __init__(self, console: Console, default_style: str = 'classic', record: bool = True, quiet: bool = False):
         self.console = console
-        self.current_plugin: Optional[BaseDisplayPlugin] = None
-        self.plugins: Dict[str, BaseDisplayPlugin] = {}
+        self.record = record
+        self.quiet = quiet
+        self.current_style = default_style
+        self._record_buffer = console._record_buffer[:]
         self.logger = logger.bind(src='display_manager')
 
         # 初始化默认插件
@@ -41,18 +44,18 @@ class DisplayManager:
             self.logger.error(f"Invalid display style: {style_name}")
             return False
             
-        # 如果插件还没有创建，则创建它
-        if style_name not in self.plugins:
-            plugin_class = self.DISPLAY_PLUGINS[style_name]
-            self.plugins[style_name] = plugin_class(self.console)
-            
-        self.current_plugin = self.plugins[style_name]
+        self.current_style = style_name
         self.logger.info(f"Set display style to {style_name}")
         return True
         
     def get_current_plugin(self) -> Optional[BaseDisplayPlugin]:
         """获取当前显示插件"""
-        return self.current_plugin
+        plugin_class = self.DISPLAY_PLUGINS[self.current_style]
+        file = open(os.devnull, 'w', encoding='utf-8') if self.quiet else None
+        quiet = False if self.record else self.quiet
+        console = Console(file=file, record=self.record, quiet=quiet)
+        console._record_buffer.extend(self._record_buffer)
+        return plugin_class(console)
         
     def register_plugin(self, name: str, plugin_class: Type[BaseDisplayPlugin]):
         """注册新的显示效果插件"""

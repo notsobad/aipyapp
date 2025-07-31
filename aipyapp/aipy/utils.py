@@ -23,18 +23,6 @@ def restore_output(func):
             sys.stdout, sys.stderr = old_stdout, old_stderr
     return wrapper
 
-def confirm(console, prompt, default="n", auto=None):
-    if auto in (True, False):
-        console.print(f"✅ {T('Auto confirm')}")
-        return auto
-    while True:
-        response = console.input(prompt).strip().lower()
-        if not response:
-            response = default
-        if response in ["y", "n"]:
-            break
-    return response == "y"
-
 def confirm_disclaimer(console):
     DISCLAIMER_TEXT = read_text(__respkg__, "DISCLAIMER.md")
     console.print()
