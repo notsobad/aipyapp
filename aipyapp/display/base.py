@@ -1,17 +1,18 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-from abc import ABC, abstractmethod
+from abc import ABC
 from typing import Any, Dict, Union
 from rich.console import Console
 
-from ... import T
+from .. import T
 
 class BaseDisplayPlugin(ABC):
     """显示效果插件基类"""
     
-    def __init__(self, console: Console):
+    def __init__(self, console: Console, quiet: bool = False):
         self.console = console
+        self.quiet = quiet
 
     def save(self, path: str, clear: bool = False, code_format: str = None):
         """保存输出"""
@@ -43,22 +44,18 @@ class BaseDisplayPlugin(ABC):
                 break
         return response == "y"
 
-    @abstractmethod
     def on_exception(self, msg: str, exception: Exception):
         """异常事件处理"""
         pass
 
-    @abstractmethod
     def on_task_start(self, content: Any):
         """任务开始事件处理"""
         pass
         
-    @abstractmethod
-    def on_response_complete(self, response: Dict[str, Any]):
+    def on_response_complete(self, llm: str, msg: Any):
         """LLM 响应完成事件处理"""
         pass
         
-    @abstractmethod
     def on_exec_result(self, result: Any):
         """代码执行结果事件处理"""
         pass

@@ -10,14 +10,13 @@ import base64
 import mimetypes
 import traceback
 import threading
-from typing import List
+from typing import Dict, Any
 
 import wx
 import wx.html2
 import matplotlib
 import matplotlib.pyplot as plt
 from loguru import logger
-from rich.console import Console
 from wx.lib.newevent import NewEvent
 from wx.lib.agw.hyperlink import HyperLinkCtrl
 from wx import FileDialog, FD_SAVE, FD_OVERWRITE_PROMPT
@@ -27,6 +26,7 @@ from ..aipy.config import ConfigManager, CONFIG_DIR
 from ..aipy import TaskManager
 from . import ConfigDialog, ApiMarketDialog, show_provider_config, AboutDialog, CStatusBar
 from ..config import LLMConfig
+from ..display import DisplayManager
 
 ChatEvent, EVT_CHAT = NewEvent()
 matplotlib.use('Agg')
@@ -88,14 +88,15 @@ class AIPython(threading.Thread):
         evt = ChatEvent(user=user, msg=msg)
         wx.PostEvent(self.gui, evt)
 
-    def on_response_stream(self, msg):
-        user = T("Turing") #msg['llm']
-        #content = f"```markdown\n{msg['content']}\n```"
-        evt = ChatEvent(user=user, msg=msg['content'])
+    def on_stream(self, msg):
+        user = T("Turing")
+        content = '\n'.join(msg['lines'])
+        evt = ChatEvent(user=user, msg=content)
         wx.PostEvent(self.gui, evt)
 
-    def on_summary(self, summary):
+    def on_round_end(self, data: Dict[str, Any], response: str):
         user = T("AIPy")
+        summary = data.get('summary')
         evt = ChatEvent(user=user, msg=f'{T("End processing instruction")} {summary}')
         wx.PostEvent(self.gui, evt)
 
@@ -105,8 +106,9 @@ class AIPython(threading.Thread):
         evt = ChatEvent(user=user, msg=content)
         wx.PostEvent(self.gui, evt)
 
-    def on_result(self, result):
+    def on_exec_result(self, data: Dict[str, Any]):
         user = 'BB-8'
+        result = data.get('result')
         content = json.dumps(result, indent=4, ensure_ascii=False)
         content = f'{T("Run result")}\n```json\n{content}\n```'
         evt = ChatEvent(user=user, msg=content)
@@ -569,15 +571,17 @@ def main(args):
     settings.auto_install = True
     settings.auto_getenv = True
 
-    file = None if args.debug else open(os.devnull, 'w', encoding='utf-8')
-    console = Console(file=file, record=True)
-    console.gui = True
+    # 初始化显示效果管理器
+    display_style = settings.get('display', 'classic')
+    display_manager = DisplayManager(display_style, quiet=True)
+
     try:
-        tm = TaskManager(settings, console=console, gui=True)
+        tm = TaskManager(settings)
     except Exception as e:
         traceback.print_exc()
         return
     tm.config_manager = conf
     tm.llm_config = llm_config
+    tm.set_display_manager(display_manager)
     ChatFrame(tm)
     app.MainLoop()

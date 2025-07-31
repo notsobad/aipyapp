@@ -8,13 +8,13 @@ from rich.markdown import Markdown
 from rich.status import Status
 
 from .base import BaseDisplayPlugin
-from ... import T
+from .. import T
 
 class DisplayMinimal(BaseDisplayPlugin):
     """Minimal display style"""
     
-    def __init__(self, console: Console):
-        super().__init__(console)
+    def __init__(self, console: Console, quiet: bool = False):
+        super().__init__(console, quiet)
         self.live_display = None
         self.received_lines = 0  # 记录接收的行数
         self.status = None  # Status 对象
@@ -64,15 +64,19 @@ class DisplayMinimal(BaseDisplayPlugin):
             if self.status:
                 self.status.update(f"📥 Receiving response... ({self.received_lines} lines)")
                 
-    def on_response_complete(self, response: Dict[str, Any]):
+    def on_response_complete(self, llm: str, msg: Any):
         """LLM 响应完成事件处理"""
-        msg = response.get('content', '')
         if not msg:
             self.console.print("✗ Empty response")
             return
         if msg.role == 'error':
             self.console.print(f"✗ {msg.content}")
             return
+        if msg.reason:
+            content = f"{msg.reason}\n\n-----\n\n{msg.content}"
+        else:
+            content = msg.content
+        self.console.print(content)
 
     def on_parse_reply(self, ret: Union[Dict[str, Any], None]):
         """消息解析结果事件处理"""

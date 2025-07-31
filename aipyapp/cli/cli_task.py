@@ -6,14 +6,13 @@ from rich.console import Console
 from prompt_toolkit import PromptSession
 from prompt_toolkit.history import FileHistory
 from prompt_toolkit.styles import Style
-from prompt_toolkit.completion import WordCompleter, merge_completers
 
 from ..aipy import TaskManager, ConfigManager, CONFIG_DIR
 from .. import T, set_lang, __version__, __respkg__
 from ..config import LLMConfig
 from ..aipy.wizard import config_llm
 from .command import CommandManager, TaskCommandManager
-from .display import DisplayManager
+from ..display import DisplayManager
 
 STYLE_MAIN = {
     'completion-menu.completion': 'bg:#000000 #ffffff',
@@ -144,8 +143,8 @@ def main(args):
     settings.config_dir = CONFIG_DIR
 
     # 初始化显示效果管理器
-    display_style = settings.get('display_style', 'classic')
-    display_manager = DisplayManager(console, display_style)
+    display_style = settings.get('display', 'classic')
+    display_manager = DisplayManager(display_style, console=console)
    
     try:
         tm = TaskManager(settings)

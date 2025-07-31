@@ -24,8 +24,9 @@ class LineReceiver(list):
 
         while '\n' in self.buffer:
             line, self.buffer = self.buffer.split('\n', 1)
-            self.append(line)
-            new_lines.append(line)
+            if line:
+                self.append(line)
+                new_lines.append(line)
 
         return new_lines
     
@@ -63,8 +64,9 @@ class StreamProcessor:
     
     def __exit__(self, exc_type, exc_val, exc_tb):
         """支持上下文管理器协议"""
+        if self.lr.buffer:
+            self.process_chunk('\n')        
         self.task.broadcast('stream_end', {'llm': self.name})
-        self.finish()
     
     def process_chunk(self, content, *, reason=False):
         """处理流式数据块并发送事件"""
@@ -74,11 +76,12 @@ class StreamProcessor:
         # 处理思考内容的结束
         if not reason and self.lr.empty() and not self.lr_reason.empty():
             line = self.lr_reason.done()
-            self.task.broadcast('stream', {
-                'llm': self.name, 
-                'lines': [line], 
-                'reason': True
-            })
+            if line:
+                self.task.broadcast('stream', {
+                    'llm': self.name, 
+                    'lines': [line, "\n\n----\n\n"], 
+                    'reason': True
+                })
 
         # 处理当前数据块
         lr = self.lr_reason if reason else self.lr
@@ -94,12 +97,6 @@ class StreamProcessor:
                 'lines': lines2, 
                 'reason': reason
             })
-
-    def finish(self):
-        """完成流式处理"""
-        if self.lr.buffer:
-            self.process_chunk('\n')
-
 
 class ChatHistory:
     def __init__(self):

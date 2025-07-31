@@ -13,13 +13,13 @@ from rich.table import Table
 from rich.rule import Rule
 
 from .base import BaseDisplayPlugin
-from ... import T
+from .. import T
 
 class DisplayModern(BaseDisplayPlugin):
     """Modern display style"""
     
-    def __init__(self, console: Console):
-        super().__init__(console)
+    def __init__(self, console: Console, quiet: bool = False):
+        super().__init__(console, quiet)
         self.current_block = None
         self.execution_status = {}
         self.stream_buffer = ""
@@ -52,15 +52,19 @@ class DisplayModern(BaseDisplayPlugin):
             self.stream_buffer += content
             self._show_streaming_content()
             
-    def on_response_complete(self, response: Dict[str, Any]):
+    def on_response_complete(self, llm: str, msg: Any):
         """LLM 响应完成事件处理"""
-        content = response.get('content', '')
-        if hasattr(content, 'content'):
-            content = content.content
-            
-        if content:
-            # 解析内容中的代码块
-            self._parse_and_display_content(content)
+        if not msg:
+            self.console.print(f"[red]{T('LLM response is empty')}[/red]")
+            return
+        if msg.role == 'error':
+            self.console.print(f"[red]{msg.content}[/red]")
+            return
+        if msg.reason:
+            content = f"{msg.reason}\n\n-----\n\n{msg.content}"
+        else:
+            content = msg.content
+        self._parse_and_display_content(content)
             
     def on_exec(self, block: Any):
         """代码执行开始事件处理"""

@@ -223,7 +223,7 @@ class Task(Stoppable, EventBus):
         self.broadcast('query_start')
         quiet = self.gui and not self.settings.debug
         msg = self.client(context, system_prompt=system_prompt)
-        self.broadcast('response_complete', {'llm': self.client.name, 'content': msg})
+        self.broadcast('response_complete', llm=self.client.name, msg=msg)
         return msg.content if msg else None
 
     def _get_system_prompt(self):

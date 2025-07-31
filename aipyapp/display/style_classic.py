@@ -14,13 +14,13 @@ from rich.console import Console, Group
 
 from .base import BaseDisplayPlugin
 from .live_display import LiveDisplay
-from ... import T
+from .. import T
 
 class DisplayClassic(BaseDisplayPlugin):
     """Classic display style"""
     
-    def __init__(self, console: Console):
-        super().__init__(console)
+    def __init__(self, console: Console, quiet: bool = False):
+        super().__init__(console, quiet)
         self.live_display = None
 
     def _box(self, title: str, content: str, align: str = None, lang: str = None):
@@ -55,7 +55,7 @@ class DisplayClassic(BaseDisplayPlugin):
 
     def on_query_start(self):
         """查询开始事件处理"""
-        self.console.print(f"{T('Sending message to LLM')}...", style='dim white')
+        self.console.print(f"➡️ {T('Sending message to LLM')}...", style='dim white')
 
     def on_round_start(self, data: Dict[str, Any]):
         """回合开始事件处理"""
@@ -64,9 +64,10 @@ class DisplayClassic(BaseDisplayPlugin):
 
     def on_stream_start(self, response: Dict[str, Any]):
         """流式开始事件处理"""
-        self.live_display = LiveDisplay()
-        self.live_display.__enter__()
-        self.console.print(f"{T('Streaming started')}...", style='dim white')
+        if not self.quiet:
+            self.live_display = LiveDisplay()
+            self.live_display.__enter__()
+            self.console.print(f"🔄 {T('Streaming started')}...", style='dim white')
     
     def on_stream_end(self, response: Dict[str, Any]):
         """流式结束事件处理"""
@@ -78,11 +79,11 @@ class DisplayClassic(BaseDisplayPlugin):
         """LLM 流式响应事件处理"""
         lines = response.get('lines')
         reason = response.get('reason', False)
-        self.live_display.update_display(lines, reason=reason)
+        if self.live_display:
+            self.live_display.update_display(lines, reason=reason)
                 
-    def on_response_complete(self, response: Dict[str, Any]):
+    def on_response_complete(self, llm: str, msg: Any):
         """LLM 响应完成事件处理"""
-        msg = response.get('content', '')
         if not msg:
             self.console.print(f"[red]{T('LLM response is empty')}[/red]")
             return
@@ -93,7 +94,7 @@ class DisplayClassic(BaseDisplayPlugin):
             content = f"{msg.reason}\n\n-----\n\n{msg.content}"
         else:
             content = msg.content
-        self._box(f"[yellow]{T('Reply')} ({response.get('llm')})", content)
+        self._box(f"[yellow]{T('Reply')} ({llm})", content)
 
     def on_parse_reply(self, ret: Union[Dict[str, Any], None]):
         """消息解析结果事件处理"""
