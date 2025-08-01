@@ -145,14 +145,12 @@ def main(args):
     # 初始化显示效果管理器
     display_style = settings.get('display', 'classic')
     display_manager = DisplayManager(display_style, console=console)
-   
     try:
-        tm = TaskManager(settings)
+        tm = TaskManager(settings, display_manager=display_manager)
     except Exception as e:
         console.print_exception()
         return
     
-    tm.set_display_manager(display_manager)
     update = tm.get_update()
     if update and update.get('has_update'):
         console.print(f"[bold red]🔔 号外❗ {T('Update available')}: {update.get('latest_version')}")

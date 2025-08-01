@@ -34,9 +34,10 @@ class TaskContext:
 class TaskManager:
     MAX_TASKS = 16
 
-    def __init__(self, settings):
+    def __init__(self, settings, *, display_manager=None):
         # 核心配置
         self.settings = settings
+        self.display_manager = display_manager
         self.log = logger.bind(src='taskmgr')
         
         # 任务管理
@@ -67,17 +68,11 @@ class TaskManager:
         else:
             self.cwd = Path.cwd()
 
-    def set_display_manager(self, display_manager):
-        self.display_manager = display_manager
-        self.task_context.display_manager = display_manager
-
     def _init_managers(self):
         """初始化各种管理器"""
         # 插件管理器
         self.plugin_manager = PluginManager(PLUGINS_DIR)
         self.plugin_manager.load_plugins()
-
-        self.display_manager = None
 
         # 诊断器
         self.diagnose = Diagnose.create(self.settings)

@@ -76,7 +76,7 @@ class AIPython(threading.Thread):
         evt = ChatEvent(user=user, msg=content)
         wx.PostEvent(self.gui, evt)
 
-    def on_display(self, event):
+    def on_show_image(self, event):
         user = T("Turing")
         if event.data['path']:
             base64_data = image_to_base64(event.data['path'])
@@ -576,12 +576,11 @@ def main(args):
     display_manager = DisplayManager(display_style, quiet=True)
 
     try:
-        tm = TaskManager(settings)
+        tm = TaskManager(settings, display_manager=display_manager)
     except Exception as e:
         traceback.print_exc()
         return
     tm.config_manager = conf
     tm.llm_config = llm_config
-    tm.set_display_manager(display_manager)
     ChatFrame(tm)
     app.MainLoop()

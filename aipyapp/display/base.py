@@ -116,3 +116,7 @@ class BaseDisplayPlugin(ABC):
     def on_runtime_input(self, event: Event):
         """Runtime输入事件处理"""
         pass
+
+    def on_show_image(self, event: Event):
+        """显示图片事件处理"""
+        pass

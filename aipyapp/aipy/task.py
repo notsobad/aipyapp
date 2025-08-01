@@ -50,18 +50,23 @@ class Task(Stoppable, EventBus):
         self.done_time = None
         self.instruction = None
         self.saved = None
+
+        #TODO: 移除 gui 参数
         self.gui = self.settings.gui
 
         self.cwd = context.cwd / self.task_id
         self.max_rounds = self.settings.get('max_rounds', self.MAX_ROUNDS)
         
         self.mcp = context.mcp
+        self.display = None
+        
         self.client = context.client_manager.Client(self)
         self.role = context.role_manager.current_role
         self.code_blocks = CodeBlocks()
         self.runtime = CliPythonRuntime(self)
         self.runner = BlockExecutor()
         self.runner.set_python_runtime(self.runtime)
+
         self.init_plugins()
 
     def init_plugins(self):
@@ -75,8 +80,9 @@ class Task(Stoppable, EventBus):
             self.register_listener(plugin)
             
         # 注册显示效果插件
-        self.display = self.context.display_manager.get_current_plugin()
-        self.register_listener(self.display)
+        if self.context.display_manager:
+            self.display = self.context.display_manager.get_current_plugin()
+            self.register_listener(self.display)
 
     def to_record(self):
         TaskRecord = namedtuple('TaskRecord', ['task_id', 'start_time', 'done_time', 'instruction'])
