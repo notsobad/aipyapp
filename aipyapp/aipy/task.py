@@ -108,7 +108,7 @@ class Task(Stoppable, EventBus):
                 f.write(html_content)
         except Exception as e:
             self.log.exception('Error saving html')
-            self.broadcast('exception', 'save_html', e)
+            self.broadcast('exception', msg='save_html', exception=e)
         
     def _auto_save(self):
         instruction = self.instruction
@@ -125,7 +125,7 @@ class Task(Stoppable, EventBus):
             json.dump(task, open(filename, 'w', encoding='utf-8'), ensure_ascii=False, indent=4, default=str)
         except Exception as e:
             self.log.exception('Error saving task')
-            self.broadcast('exception', 'save_task', e)
+            self.broadcast('exception', msg='save_task', exception=e)
 
         filename = self.cwd / "console.html"
         #self.save_html(filename, task)
@@ -161,7 +161,7 @@ class Task(Stoppable, EventBus):
     def process_reply(self, markdown):
         parse_mcp = self.mcp is not None
         ret = self.code_blocks.parse(markdown, parse_mcp=parse_mcp)
-        self.broadcast('parse_reply', ret)
+        self.broadcast('parse_reply', result=ret)
         if not ret:
             return None
 
@@ -170,9 +170,8 @@ class Task(Stoppable, EventBus):
 
         errors = ret.get('errors')
         if errors:
-            json_str = json.dumps(errors, ensure_ascii=False, default=str)
-            feed_back = f"# 消息解析错误\n{json_str}"
-            ret = self.chat(feed_back)
+            prompt = self.prompts.get_parse_error_prompt(errors)
+            ret = self.chat(prompt)
         elif 'exec_blocks' in ret:
             ret = self.process_code_reply(ret['exec_blocks'])
         else:
@@ -182,10 +181,10 @@ class Task(Stoppable, EventBus):
     def process_code_reply(self, exec_blocks):
         results = OrderedDict()
         for block in exec_blocks:
-            self.pipeline('exec', block)
+            self.pipeline('exec', block=block)
             result = self.runner(block)
             results[block.name] = result
-            self.broadcast('exec_result', {'result': result, 'block': block})
+            self.broadcast('exec_result', result=result, block=block)
 
         msg = self.prompts.get_results_prompt(results)
         return self.chat(msg)
@@ -193,7 +192,7 @@ class Task(Stoppable, EventBus):
     def process_mcp_reply(self, json_content):
         """处理 MCP 工具调用的回复"""
         block = {'content': json_content, 'language': 'json'}
-        self.pipeline('mcp_call', block)
+        self.pipeline('mcp_call', block=block)
 
         call_tool = json.loads(json_content)
         result = self.mcp.call_tool(call_tool['name'], call_tool.get('arguments', {}))
@@ -203,7 +202,7 @@ class Task(Stoppable, EventBus):
             name=call_tool.get('name', 'MCP Tool Call'),
             version=1,
         )
-        self.broadcast('mcp_result', {'block': code_block, 'result': result})
+        self.broadcast('mcp_result', block=code_block, result=result)
         msg = self.prompts.get_mcp_result_prompt(result)
         return self.chat(msg)
 
@@ -221,7 +220,6 @@ class Task(Stoppable, EventBus):
 
     def chat(self, context: LLMContext, *, system_prompt=None):
         self.broadcast('query_start')
-        quiet = self.gui and not self.settings.debug
         msg = self.client(context, system_prompt=system_prompt)
         self.broadcast('response_complete', llm=self.client.name, msg=msg)
         return msg.content if msg else None
@@ -256,12 +254,12 @@ class Task(Stoppable, EventBus):
             if isinstance(content, str):
                 user_prompt = self.prompts.get_task_prompt(content, gui=self.gui)
             system_prompt = self._get_system_prompt()
-            self.pipeline('task_start', {'instruction': instruction, 'user_prompt': user_prompt})
+            self.pipeline('task_start', instruction=instruction, user_prompt=user_prompt)
         else:
             system_prompt = None
             if isinstance(content, str):
                 user_prompt = self.prompts.get_chat_prompt(content, self.instruction)
-            self.pipeline('round_start', {'instruction': instruction, 'user_prompt': user_prompt})
+            self.pipeline('round_start', instruction=instruction, user_prompt=user_prompt)
 
         self.cwd.mkdir(exist_ok=True)
         os.chdir(self.cwd)
@@ -286,7 +284,7 @@ class Task(Stoppable, EventBus):
                 break
 
         summary = self._get_summary()
-        self.broadcast('round_end', summary, response=response)
+        self.broadcast('round_end', summary=summary, response=response)
         self._auto_save()
         self.log.info('Round done', rounds=rounds)
 
@@ -317,7 +315,7 @@ class Task(Stoppable, EventBus):
                 parse_constant=str)
             response = requests.post(url, json=data, verify=True,  timeout=30)
         except Exception as e:
-            self.broadcast('exception', 'sync_to_cloud', e)
+            self.broadcast('exception', msg='sync_to_cloud', exception=e)
             return False
 
         url = None
@@ -326,5 +324,5 @@ class Task(Stoppable, EventBus):
             data = response.json()
             url = data.get('url', '')
 
-        self.broadcast('upload_result', status_code, url)
+        self.broadcast('upload_result', status_code=status_code, url=url)
         return True

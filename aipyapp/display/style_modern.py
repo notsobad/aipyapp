@@ -25,35 +25,42 @@ class DisplayModern(BaseDisplayPlugin):
         self.stream_buffer = ""
         self.thinking_buffer = ""
         
-    def on_task_start(self, content: Any):
+    def on_task_start(self, event):
         """任务开始事件处理"""
+        content = event.data.get('content')
         if isinstance(content, str):
             self.console.print(f"📝 {T('Task')}: {content}")
         else:
             self.console.print(f"📝 {T('Task started')}")
         self.console.print()
         
-    def on_exception(self, msg: str, exception: Exception):
+    def on_exception(self, event):
         """异常事件处理"""
-        self.console.print(f"❌ {msg}")
-        self.console.print_exception(exception)
+        data = event.data
+        msg = data.get('msg', '')
+        exception = data.get('exception')
+        self.console.print(f"❌ {msg}: {exception}")
         
-    def on_response_stream(self, response: Dict[str, Any]):
+    def on_stream(self, event):
         """LLM 流式响应事件处理"""
-        content = response.get('content', '')
+        response = event.data
+        lines = response.get('lines', [])
         reason = response.get('reason', False)
         
         if reason:
             # Thinking 内容
-            self.thinking_buffer += content
+            self.thinking_buffer += '\n'.join(lines)
             self._show_thinking()
         else:
             # 普通内容，累积到缓冲区并实时显示
-            self.stream_buffer += content
+            self.stream_buffer += '\n'.join(lines)
             self._show_streaming_content()
             
-    def on_response_complete(self, llm: str, msg: Any):
+    def on_response_complete(self, event):
         """LLM 响应完成事件处理"""
+        data = event.data
+        llm = data.get('llm', '')
+        msg = data.get('msg')
         if not msg:
             self.console.print(f"[red]{T('LLM response is empty')}[/red]")
             return
@@ -66,8 +73,9 @@ class DisplayModern(BaseDisplayPlugin):
             content = msg.content
         self._parse_and_display_content(content)
             
-    def on_exec(self, block: Any):
+    def on_exec(self, event):
         """代码执行开始事件处理"""
+        block = event.data.get('block')
         block_name = getattr(block, 'name', 'Unknown')
         self.current_block = block_name
         self.execution_status[block_name] = 'running'
@@ -78,19 +86,10 @@ class DisplayModern(BaseDisplayPlugin):
         # 显示执行状态
         self.console.print(f"⏳ {T('Executing')}...")
         
-    def on_result(self, result: Any):
+    def on_exec_result(self, event):
         """代码执行结果事件处理"""
-        if self.current_block:
-            self.execution_status[self.current_block] = 'success'
-            
-        # 显示执行结果
-        self._show_execution_result(result)
-        
-    def on_exec_result(self, data: Dict[str, Any]):
-        """代码执行结果事件处理"""
-        result = data.get('result')
-        block = data.get('block')
-        
+        result = event.data.get('result')
+        block = event.data.get('block')
         if block and hasattr(block, 'name'):
             self.current_block = block.name
             self.execution_status[block.name] = 'success'
@@ -98,27 +97,25 @@ class DisplayModern(BaseDisplayPlugin):
         # 显示执行结果
         self._show_execution_result(result)
         
-    def on_summary(self, summary: str):
+    def on_round_end(self, event):
         """任务总结事件处理"""
-        self.console.print()
+        summary = event.data.get('summary')
         self.console.print(f"✅ {T('Task completed')}")
-        self.console.print(f"📊 {summary}")
+        self.console.print(f"📊 {summary.get('summary')}")
         
-    def on_tool_call(self, block: Any):
+    def on_mcp_call(self, event):
         """工具调用事件处理"""
         self.console.print(f"🔧 {T('Calling tool')}...")
         
     def _show_thinking(self):
         """显示思考过程"""
         if self.thinking_buffer:
-            with self:
-                self.update_live(f"🤔 {T('Thinking')}...\n{self.thinking_buffer}")
+            self.console.print(f"🤔 {T('Thinking')}...\n{self.thinking_buffer}")
                 
     def _show_streaming_content(self):
         """显示流式内容"""
         if self.stream_buffer:
-            with self:
-                self.update_live(self.stream_buffer)
+            self.console.print(self.stream_buffer)
                 
     def _parse_and_display_content(self, content: str):
         """解析并显示内容"""
@@ -208,12 +205,13 @@ class DisplayModern(BaseDisplayPlugin):
         if result:
             self.console.print(f"📤 {T('Result')}: {result}")
 
-    def on_runtime_message(self, data: Dict[str, Any]):
+    def on_runtime_message(self, event):
         """Runtime消息事件处理"""
+        data = event.data
         message = data.get('message', '')
         self.console.print(message)
 
-    def on_runtime_input(self, data: Dict[str, Any]):
+    def on_runtime_input(self, event):
         """Runtime输入事件处理"""
         # 输入事件通常不需要特殊处理，因为input_prompt已经处理了
         pass 

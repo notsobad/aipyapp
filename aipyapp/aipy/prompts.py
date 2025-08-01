@@ -133,6 +133,14 @@ class Prompts:
         """
         return self.get_prompt('chat', instruction=instruction, content=content)
     
+    def get_parse_error_prompt(self, errors: list) -> str:
+        """
+        获取消息解析错误提示
+        :param errors: 错误列表
+        :return: 渲染后的字符串
+        """
+        return self.get_prompt('parse_error', errors=errors)
+    
 if __name__ == '__main__':
     prompts = Prompts()
     print(prompts.get_default_prompt())
