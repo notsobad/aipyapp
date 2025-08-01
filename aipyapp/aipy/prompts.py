@@ -13,6 +13,8 @@ from datetime import datetime
 
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
+from .. import __respath__
+
 def check_commands(commands):
     """
     检查多个命令是否存在，并获取其版本号。
@@ -46,8 +48,8 @@ def check_commands(commands):
 
 class Prompts:
     def __init__(self, template_dir: str = None):
-        if template_dir is None:
-            template_dir = os.path.join(os.path.dirname(__file__), '../res/prompts')
+        if not template_dir:
+            template_dir = __respath__ / 'prompts'
         self.template_dir = os.path.abspath(template_dir)
         self.env = Environment(
             loader=FileSystemLoader(self.template_dir),
