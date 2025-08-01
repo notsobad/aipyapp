@@ -128,7 +128,7 @@ class TaskManager:
     def list_envs(self):
         EnvRecord = namedtuple('EnvRecord', ['Name', 'Description', 'Value'])
         rows = []
-        for name, (value, desc) in self.role_manager.current_role.env.items():    
+        for name, (value, desc) in self.role_manager.current_role.envs.items():    
             rows.append(EnvRecord(name, desc, value[:32]))
         return rows
     

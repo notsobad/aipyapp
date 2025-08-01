@@ -21,7 +21,7 @@ from prompt_toolkit.key_binding import KeyBindings
 
 COMMANDS = [
     InfoCommand, UseCommand, EnvCommand, LLMCommand, 
-    TaskCommand, MCPCommand, ToolsCommand, HelpCommand, DisplayCommand
+    TaskCommand, MCPCommand, ToolsCommand, DisplayCommand,HelpCommand, 
 ]
 
 class CommandManager(Completer):
