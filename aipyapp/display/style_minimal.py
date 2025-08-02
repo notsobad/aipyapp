@@ -85,11 +85,6 @@ class DisplayMinimal(BaseDisplayPlugin):
         if msg.role == 'error':
             self.console.print(f"✗ {msg.content}")
             return
-        if msg.reason:
-            content = f"{msg.reason}\n\n-----\n\n{msg.content}"
-        else:
-            content = msg.content
-        self.console.print(content)
 
     def on_parse_reply(self, event):
         """消息解析结果事件处理"""

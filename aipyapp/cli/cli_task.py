@@ -6,6 +6,8 @@ from rich.console import Console
 from prompt_toolkit import PromptSession
 from prompt_toolkit.history import FileHistory
 from prompt_toolkit.styles import Style
+from prompt_toolkit.cursor_shapes import CursorShape
+from prompt_toolkit.auto_suggest import AutoSuggestFromHistory
 
 from ..aipy import TaskManager, ConfigManager, CONFIG_DIR
 from .. import T, set_lang, __version__, __respkg__
@@ -20,6 +22,7 @@ STYLE_MAIN = {
     'completion-menu.meta': 'bg:#000000 #999999',
     'completion-menu.meta.current': 'bg:#444444 #aaaaaa',
     'prompt': 'green',
+    'bottom-toolbar': 'bg:#FFFFFF green'
 }
 
 STYLE_AI = {
@@ -28,6 +31,7 @@ STYLE_AI = {
     'completion-menu.meta': 'bg:#002244 #cccccc',               # 补全项的 meta 信息
     'completion-menu.meta.current': 'bg:#005577 #eeeeee',       # 当前选中的 meta
     'prompt': 'cyan',
+    'bottom-toolbar': "bg:#880000 cyan"
 }
 
 class InteractiveConsole():
@@ -43,9 +47,12 @@ class InteractiveConsole():
         self.command_manager_task = TaskCommandManager(tm, console)
         self.completer_main = self.command_manager_main
         self.completer_task = self.command_manager_task
-        self.session = PromptSession(history=self.history, completer=self.completer_main, style=self.style_main)
-        self.session_task = PromptSession(history=self.history, completer=self.completer_task, style=self.style_task)
-    
+        self.toolbar_main = [('class:bottom-toolbar', f" {T('Please enter an instruction or `/help` for more information')} ")]
+        self.toolbar_task = [('class:bottom-toolbar', f" {T('[AI mode] Enter Ctrl+d or /done to end current task')} ")]
+        self.session = PromptSession(history=self.history, completer=self.completer_main, style=self.style_main, auto_suggest=AutoSuggestFromHistory(), cursor=CursorShape.BEAM, bottom_toolbar=self.toolbar_main)
+        self.session_task = PromptSession(history=self.history, completer=self.completer_task, style=self.style_task, auto_suggest=AutoSuggestFromHistory(), cursor=CursorShape.BLOCK, bottom_toolbar=self.toolbar_task)
+        
+
     def input_with_possible_multiline(self, prompt_text, task_mode=False):
         session = self.session_task if task_mode else self.session
         first_line = session.prompt([("class:prompt", prompt_text)])
@@ -71,7 +78,7 @@ class InteractiveConsole():
             self.console.print_exception()
 
     def start_task_mode(self, task, instruction):
-        self.console.print(f"{T('Enter AI mode, start processing tasks, enter Ctrl+d or /done to end the task')}", style="cyan")
+        self.console.print(f"{T('[AI mode] Enter Ctrl+d or /done to end current task')}", style="cyan")
         self.run_task(task, instruction)
         while True:
             try:
@@ -95,7 +102,7 @@ class InteractiveConsole():
         self.console.print(f"[{T('Exit AI mode')}]", style="cyan")
 
     def run(self):
-        self.console.print(f"{T('Please enter an instruction or `/help` for more information')}", style="green")
+        #self.console.print(f"{T('Please enter an instruction or `/help` for more information')}", style="green")
         #self.console.print(f"[cyan]{T('Default')}: [green]{self.names['default']}，[cyan]{T('Enabled')}: [yellow]{' '.join(self.names['enabled'])}")
         tm = self.tm
         while True:

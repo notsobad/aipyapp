@@ -41,7 +41,7 @@ en,zh,jp
 "Default","默认","デフォルト"
 "Enabled","已启用","有効"
 "Disabled","未启用","無効"
-"Enter AI mode, start processing tasks, enter Ctrl+d or /done to end the task","进入 AI 模式，开始处理任务，输入 Ctrl+d 或 /done 结束任务","AIモードに入り、タスクの処理を開始します。タスクを終了するにはCtrl+dまたは/doneを入力してください"
+"[AI mode] Enter Ctrl+d or /done to end current task","[AI 模式] 输入 Ctrl+d 或 /done 结束当前任务","[AIモード] Ctrl+dまたは/doneを入力して現在のタスクを終了します"
 "Exit AI mode","退出 AI 模式","AIモードを終了"
 "[AI mode] Unknown command","[AI 模式] 未知命令","[AIモード] 不明なコマンド"
 "Task Summary","任务总结","タスクの概要"
