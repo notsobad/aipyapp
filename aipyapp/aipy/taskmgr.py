@@ -120,6 +120,14 @@ class TaskManager:
     def list_llms(self):
         return self.client_manager.to_records()
     
+    def list_roles(self):
+        RoleRecord = namedtuple('RoleRecord', ['Name', 'Description', 'Tips', 'Current'])
+        rows = []
+        for name, role in self.role_manager.roles.items():
+            current = '*' if role == self.role_manager.current_role else ''
+            rows.append(RoleRecord(name, role.short, len(role.tips), current))
+        return rows
+    
     def list_envs(self):
         EnvRecord = namedtuple('EnvRecord', ['Name', 'Description', 'Value'])
         rows = []

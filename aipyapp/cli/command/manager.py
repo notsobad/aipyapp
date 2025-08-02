@@ -8,6 +8,7 @@ from .base import BaseCommand, CommandMode
 from .cmd_info import InfoCommand
 from .cmd_help import HelpCommand
 from .cmd_llm import LLMCommand
+from .cmd_role import RoleCommand
 from .cmd_use import UseCommand
 from .cmd_env import EnvCommand
 from .cmd_task import TaskCommand
@@ -21,8 +22,8 @@ from rich import print
 from prompt_toolkit.completion import Completer, Completion
 
 COMMANDS = [
-    InfoCommand, UseCommand, EnvCommand, LLMCommand, ContextCommand,
-    TaskCommand, MCPCommand, ToolsCommand, DisplayCommand, HelpCommand
+    InfoCommand, LLMCommand, RoleCommand, DisplayCommand, ContextCommand,
+    TaskCommand, MCPCommand, ToolsCommand, HelpCommand
 ]
 
 @dataclass

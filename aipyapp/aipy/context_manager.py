@@ -25,7 +25,7 @@ class ContextStrategy(Enum):
 @dataclass
 class ContextConfig:
     """上下文管理配置"""
-    max_tokens: int = 8192                 # 最大token数
+    max_tokens: int = 100000               # 最大token数
     max_rounds: int = 10                   # 最大对话轮数
     strategy: ContextStrategy = ContextStrategy.HYBRID
     compression_ratio: float = 0.3         # 压缩比例

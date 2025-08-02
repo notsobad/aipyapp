@@ -8,6 +8,7 @@ from loguru import logger
 from .. import T, __respath__
 from ..llm import CLIENTS, ChatMessage, ModelRegistry, ModelCapability
 from .multimodal import LLMContext
+from .context_manager import ContextManager, ContextConfig, ContextStrategy
 
 class LineReceiver(list):
     def __init__(self):
@@ -152,8 +153,6 @@ class ClientManager(object):
     
     def _get_context_config(self, settings):
         """从设置中读取上下文管理配置"""
-        from .context_manager import ContextConfig, ContextStrategy
-        
         context_settings = settings.get('context_manager', {})
         
         # 解析策略
@@ -262,7 +261,6 @@ class Client:
         self.task = task
         
         # 创建上下文管理器
-        from .context_manager import ContextManager
         self.context_manager = ContextManager(manager.context_config)
         self.history = ChatHistory(self.context_manager)
         
