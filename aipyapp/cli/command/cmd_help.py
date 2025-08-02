@@ -1,6 +1,7 @@
 from rich import print
 
 from  ... import T
+from .base import Completable
 from .base_parser import ParserCommand
 from .utils import print_table
 
@@ -9,7 +10,13 @@ class HelpCommand(ParserCommand):
     description = T('Show available commands or detailed help for a specific command')
 
     def add_arguments(self, parser):
-        parser.add_argument('target_command', nargs='?', default=None, help='Command to show detailed help for')
+        parser.add_argument('target_command', nargs='?', help='Command to show detailed help for')
+
+    def get_arg_values(self, arg, subcommand=None):
+        if arg.name == 'target_command':
+            return [Completable(cmd.name, cmd.description) for cmd in self.manager.commands.values()]
+        else:
+            return []
 
     def execute(self, args):
         manager = self.manager
