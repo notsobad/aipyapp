@@ -87,6 +87,7 @@ class CommandManager(Completer):
             self.commands_task[command.name] = command
             
     def get_completions(self, document, complete_event):
+        """获取自动补齐选项"""
         text = document.text_before_cursor
         if not text.startswith('/'):
             return
@@ -97,129 +98,144 @@ class CommandManager(Completer):
         except ValueError as e:
             self.log.error(f"输入解析错误: {e}")
             return
-        
-        # 提取公共补全函数
-        def complete_items(items, partial, start_pos=None):
-            start_pos = -len(partial) if start_pos is None else start_pos
-            for item in items:
-                if item.name.startswith(partial):
-                    yield Completion(
-                        item.name,
-                        start_position=start_pos,
-                        display_meta=item.desc
-                    )
 
-        if len(words) == 0 or (len(words) == 1 and not text.endswith(' ')):
-            # 补全主命令
-            partial_cmd = words[0] if len(words) > 0 else ''
-            yield from complete_items(self.commands.values(), partial_cmd)
+        # 处理主命令补齐
+        if self._should_complete_main_command(words, text):
+            yield from self._complete_main_commands(words)
             return
 
+        # 获取命令实例和参数
+        command_instance, arguments, subcmd = self._get_command_and_arguments(words)
+        if not command_instance:
+            return
+
+        # 处理子命令补齐
+        if self._should_complete_subcommand(words, text, command_instance):
+            yield from self._complete_subcommands(words, command_instance)
+            return
+
+        # 处理参数补齐
+        if arguments is None:
+            # 当没有参数时（如只有主命令），不进行参数补齐
+            return
+        if text.endswith(' '):
+            yield from self._complete_after_space(words, arguments, command_instance, subcmd)
+        else:
+            yield from self._complete_partial_input(words, arguments, command_instance, subcmd)
+
+    def _should_complete_main_command(self, words, text):
+        """判断是否应该补齐主命令"""
+        return len(words) == 0 or (len(words) == 1 and not text.endswith(' '))
+
+    def _complete_main_commands(self, words):
+        """补齐主命令"""
+        partial_cmd = words[0] if len(words) > 0 else ''
+        yield from self._complete_items(self.commands.values(), partial_cmd)
+
+    def _should_complete_subcommand(self, words, text, command_instance):
+        """判断是否应该补齐子命令"""
+        return (command_instance.subcommands and 
+                (len(words) == 1 or (len(words) == 2 and not text.endswith(' '))))
+
+    def _complete_subcommands(self, words, command_instance):
+        """补齐子命令"""
+        partial_subcmd = words[1] if len(words) > 1 else ''
+        yield from self._complete_items(command_instance.subcommands.values(), partial_subcmd)
+
+    def _get_command_and_arguments(self, words):
+        """获取命令实例和参数"""
         cmd = words[0]
         if cmd not in self.commands:
-            return
+            return None, None, None
 
         command_instance = self.commands[cmd]
         subcommands = command_instance.subcommands
 
-        # 补全子命令
         if subcommands:
-            if len(words) == 1 or (len(words) == 2 and not text.endswith(' ')):
-                partial_subcmd = words[1] if len(words) > 1 else ''
-                yield from complete_items(subcommands.values(), partial_subcmd)
-                return
-
+            if len(words) < 2:
+                # 当只有主命令时，返回命令实例但不设置子命令和参数
+                return command_instance, None, None
             subcmd = words[1]
             if subcmd not in subcommands:
-                return
+                return None, None, None
             arguments = subcommands[subcmd]['arguments']
         else:
             subcmd = None
             arguments = command_instance.arguments
 
-        if text.endswith(' '):
-            # 检查上一个词是否是选项参数
-            if len(words) > 1:
-                last_word = words[-2]  # 最后一个词是空格，所以上一个词是 -2
-                if last_word.startswith('-'):
-                    # 如果上一个词是选项参数，显示该选项参数的补齐选项
-                    arg = arguments.get(last_word, None)
-                    if arg and arg['requires_value']:
-                        choices = command_instance.get_arg_values(arg, subcmd)
-                        if choices:
-                            yield from complete_items(choices, '')
-                            return
-                        # 如果没有通过 get_arg_values 获取到选项，尝试使用 arg 的 choices
-                        if 'choices' in arg and arg['choices']:
-                            # choices 是一个 OrderedDict，需要提取键名
-                            choice_names = list(arg['choices'].keys())
-                            for choice_name in choice_names:
-                                yield Completion(choice_name, start_position=0, display_meta=f"Strategy: {choice_name}")
-                            return
-                    # 如果选项参数不需要值，不显示任何补齐选项
+        return command_instance, arguments, subcmd
+
+    def _complete_after_space(self, words, arguments, command_instance, subcmd):
+        """处理以空格结尾的补齐"""
+        # 检查选项参数
+        for word in [words[-2] if len(words) > 1 else None, words[-1] if len(words) > 0 else None]:
+            if word and word.startswith('-'):
+                yield from self._complete_option_argument(word, arguments, command_instance, subcmd, start_position=0)
+                return
+
+        # 检查位置参数
+        for arg_name, arg in arguments.items():
+            if not arg_name.startswith('-') and arg['requires_value']:
+                choices = command_instance.get_arg_values(arg, subcmd)
+                if choices:
+                    yield from self._complete_items(choices, '')
                     return
-            # 检查最后一个词是否是选项参数（当用户输入以空格结尾时）
-            if len(words) > 0:
-                last_word = words[-1]
-                if last_word.startswith('-'):
-                    # 如果最后一个词是选项参数，显示该选项参数的补齐选项
-                    arg = arguments.get(last_word, None)
-                    if arg and arg['requires_value']:
-                        choices = command_instance.get_arg_values(arg, subcmd)
-                        if choices:
-                            yield from complete_items(choices, '')
-                            return
-                        # 如果没有通过 get_arg_values 获取到选项，尝试使用 arg 的 choices
-                        if 'choices' in arg and arg['choices']:
-                            # choices 是一个 OrderedDict，需要提取键名
-                            choice_names = list(arg['choices'].keys())
-                            for choice_name in choice_names:
-                                yield Completion(choice_name, start_position=0, display_meta=f"Strategy: {choice_name}")
-                            return
-                    # 如果选项参数不需要值，不显示任何补齐选项
-                    return
-            
-            # 当以空格结尾时，检查是否有位置参数需要值
-            for arg_name, arg in arguments.items():
-                # 只处理位置参数（不以 -- 或 - 开头）且需要值的情况
-                if not arg_name.startswith('-') and arg['requires_value']:
-                    choices = command_instance.get_arg_values(arg, subcmd)
-                    if choices:
-                        yield from complete_items(choices, '')
-                        return
-            # 如果没有位置参数需要值，显示所有可用的参数
-            yield from complete_items(arguments.values(), '')
+
+        # 显示所有可用参数
+        yield from self._complete_items(arguments.values(), '')
+
+    def _complete_partial_input(self, words, arguments, command_instance, subcmd):
+        """处理部分输入的补齐"""
+        partial_arg = words[-1]
+        last_word = words[-2] if len(words) > 1 else None
+
+        # 检查当前输入是否是选项参数
+        if partial_arg.startswith('-'):
+            yield from self._complete_option_argument(partial_arg, arguments, command_instance, subcmd, 
+                                                     start_position=-len(partial_arg))
             return
-        else:
-            partial_arg = words[-1]
-            last_word = words[-2]
 
-            # 检查当前输入是否是选项参数
-            if partial_arg.startswith('-'):
-                # 如果当前输入是选项参数，显示该选项参数的补齐选项
-                arg = arguments.get(partial_arg, None)
-                if arg and arg.get('requires_value'):
-                    choices = command_instance.get_arg_values(arg, subcmd)
-                    if choices:
-                        yield from complete_items(choices, '')
-                        return
-                    # 如果没有通过 get_arg_values 获取到选项，尝试使用 arg 的 choices
-                    if 'choices' in arg and arg['choices']:
-                        # choices 是一个 OrderedDict，需要提取键名
-                        choice_names = list(arg['choices'].keys())
-                        for choice_name in choice_names:
-                            yield Completion(choice_name, start_position=-len(partial_arg), display_meta=f"Strategy: {choice_name}")
-                        return
-
-            # 检查上一个词是否是选项参数
+        # 检查上一个词是否是选项参数
+        if last_word and last_word.startswith('-'):
             arg = arguments.get(last_word, None)
             if arg and arg['requires_value']:
                 choices = command_instance.get_arg_values(arg, subcmd)
                 if choices:
-                    yield from complete_items(choices, partial_arg)
+                    yield from self._complete_items(choices, partial_arg)
                 return
 
-        yield from complete_items(arguments.values(), partial_arg)
+        # 显示所有可用参数
+        yield from self._complete_items(arguments.values(), partial_arg)
+
+    def _complete_option_argument(self, option_name, arguments, command_instance, subcmd, start_position):
+        """补齐选项参数"""
+        arg = arguments.get(option_name, None)
+        if not arg or not arg.get('requires_value'):
+            return
+
+        # 尝试通过 get_arg_values 获取选项
+        choices = command_instance.get_arg_values(arg, subcmd)
+        if choices:
+            yield from self._complete_items(choices, '')
+            return
+
+        # 尝试使用 arg 的 choices
+        if 'choices' in arg and arg['choices']:
+            choice_names = list(arg['choices'].keys())
+            for choice_name in choice_names:
+                yield Completion(choice_name, start_position=start_position, 
+                               display_meta=f"Option: {choice_name}")
+
+    def _complete_items(self, items, partial, start_pos=None):
+        """通用的补齐函数"""
+        start_pos = -len(partial) if start_pos is None else start_pos
+        for item in items:
+            if item.name.startswith(partial):
+                yield Completion(
+                    item.name,
+                    start_position=start_pos,
+                    display_meta=item.desc
+                )
 
     def execute(self, user_input):
         """Execute a command"""
