@@ -10,14 +10,14 @@ class TaskCommand(ParserCommand):
     def add_subcommands(self, subparsers):
         subparsers.add_parser('list', help='List tasks')
         parser = subparsers.add_parser('use', help='Load an old task')
-        parser.add_argument('--tid', type=str, required=True, help='Task ID')
+        parser.add_argument('tid', type=str, help='Task ID')
 
     def cmd_list(self, args, ctx):
         rows = ctx.tm.list_tasks()
         print_records(rows)
 
     def get_arg_values(self, arg, subcommand=None):
-        if subcommand == 'use' and arg.name == '--tid':
+        if subcommand == 'use' and arg.name == 'tid':
             tasks = self.manager.tm.get_tasks()
             return [Completable(task.task_id, task.instruction) for task in tasks]
         return super().get_arg_values(arg, subcommand)
