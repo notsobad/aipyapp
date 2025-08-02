@@ -1,9 +1,9 @@
 from rich import print
 
 from ... import T
-from .base import BaseCommand
+from .base_parser import ParserCommand
 
-class MCPCommand(BaseCommand):
+class MCPCommand(ParserCommand):
     name = 'mcp'
     description = T('MCP operations')
 

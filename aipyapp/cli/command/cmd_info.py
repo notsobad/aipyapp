@@ -1,15 +1,16 @@
 import sys
 
 from ... import T
-from .base import BaseCommand
+from .base_parser import ParserCommand
 from .utils import print_table
 
-class InfoCommand(BaseCommand):
+class InfoCommand(ParserCommand):
     name = 'info'
     description = T('System information')
 
     def execute(self, args):
-        tm = self.manager.tm
+        ctx = self.manager.context
+        tm = ctx.tm
         settings = tm.settings
 
         info = [

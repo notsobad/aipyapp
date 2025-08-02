@@ -1,9 +1,10 @@
 import shlex
 import argparse
 from collections import OrderedDict
+from dataclasses import dataclass
+from typing import Any
 
-from ... import T
-from .base import BaseCommand
+from .base import BaseCommand, CommandMode
 from .cmd_info import InfoCommand
 from .cmd_help import HelpCommand
 from .cmd_llm import LLMCommand
@@ -13,43 +14,78 @@ from .cmd_task import TaskCommand
 from .cmd_mcp import MCPCommand
 from .cmd_tools import ToolsCommand
 from .cmd_display import DisplayCommand
+from .cmd_context import ContextCommand
 
 from loguru import logger
 from rich import print
-from prompt_toolkit.completion import Completer, Completion, NestedCompleter
-from prompt_toolkit.key_binding import KeyBindings
+from prompt_toolkit.completion import Completer, Completion
 
 COMMANDS = [
-    InfoCommand, UseCommand, EnvCommand, LLMCommand, 
-    TaskCommand, MCPCommand, ToolsCommand, DisplayCommand,HelpCommand, 
+    InfoCommand, UseCommand, EnvCommand, LLMCommand, ContextCommand,
+    TaskCommand, MCPCommand, ToolsCommand, DisplayCommand, HelpCommand
 ]
+
+@dataclass
+class CommandContext:
+    """命令执行上下文"""
+    task: Any = None
+    tm: Any = None
+    console: Any = None
 
 class CommandManager(Completer):
     def __init__(self, tm, console):
         self.tm = tm
+        self.task = None
         self.console = console
-        self.commands = OrderedDict()
+        self.mode = CommandMode.MAIN
+        self.commands_main = OrderedDict()
+        self.commands_task = OrderedDict()
+        self.commands = self.commands_main
         self.log = logger.bind(src="CommandManager")
         self.init()
-
+        
+    @property
+    def context(self):
+        return CommandContext(task=self.task, tm=self.tm, console=self.console)
+    
     def init(self):
         """Initialize all registered commands"""
-        for command in COMMANDS:
-            self.register_command(command())
+        commands = []
+        for command_class in COMMANDS:
+            command = command_class(self)
+            self.register_command(command)
+            commands.append(command)
         
-        for command in self.commands.values():
+        for command in commands:
             command.init()
+        self.log.info(f"Initialized {len(commands)} commands")
 
-    def register_command(self, command_instance):
+    def is_task_mode(self):
+        return self.mode == CommandMode.TASK
+    
+    def is_main_mode(self):
+        return self.mode == CommandMode.MAIN
+    
+    def set_task_mode(self, task):
+        self.task = task
+        self.mode = CommandMode.TASK
+        self.commands = self.commands_task
+
+    def set_main_mode(self):
+        self.mode = CommandMode.MAIN
+        self.task = None
+        self.commands = self.commands_main
+
+    def register_command(self, command):
         """Register a command instance"""
-        if not isinstance(command_instance, BaseCommand):
+        if not isinstance(command, BaseCommand):
             raise ValueError("Command must be an instance of BaseCommand")
-        if command_instance.name in self.commands:
-            raise ValueError(f"Command '{command_instance.name}' is already registered")
-        self.commands[command_instance.name] = command_instance
-        command_instance.manager = self
-        command_instance.console = self.console
-
+        
+        if CommandMode.MAIN in command.modes:
+            self.commands_main[command.name] = command
+        if CommandMode.TASK in command.modes:
+            self.commands_task[command.name] = command
+            
     def get_completions(self, document, complete_event):
         text = document.text_before_cursor
         if not text.startswith('/'):
@@ -102,18 +138,86 @@ class CommandManager(Completer):
             arguments = command_instance.arguments
 
         if text.endswith(' '):
-            partial_arg = ''
-            last_word = words[-1]
+            # 检查上一个词是否是选项参数
+            if len(words) > 1:
+                last_word = words[-2]  # 最后一个词是空格，所以上一个词是 -2
+                if last_word.startswith('-'):
+                    # 如果上一个词是选项参数，显示该选项参数的补齐选项
+                    arg = arguments.get(last_word, None)
+                    if arg and arg['requires_value']:
+                        choices = command_instance.get_arg_values(arg, subcmd)
+                        if choices:
+                            yield from complete_items(choices, '')
+                            return
+                        # 如果没有通过 get_arg_values 获取到选项，尝试使用 arg 的 choices
+                        if 'choices' in arg and arg['choices']:
+                            # choices 是一个 OrderedDict，需要提取键名
+                            choice_names = list(arg['choices'].keys())
+                            for choice_name in choice_names:
+                                yield Completion(choice_name, start_position=0, display_meta=f"Strategy: {choice_name}")
+                            return
+                    # 如果选项参数不需要值，不显示任何补齐选项
+                    return
+            # 检查最后一个词是否是选项参数（当用户输入以空格结尾时）
+            if len(words) > 0:
+                last_word = words[-1]
+                if last_word.startswith('-'):
+                    # 如果最后一个词是选项参数，显示该选项参数的补齐选项
+                    arg = arguments.get(last_word, None)
+                    if arg and arg['requires_value']:
+                        choices = command_instance.get_arg_values(arg, subcmd)
+                        if choices:
+                            yield from complete_items(choices, '')
+                            return
+                        # 如果没有通过 get_arg_values 获取到选项，尝试使用 arg 的 choices
+                        if 'choices' in arg and arg['choices']:
+                            # choices 是一个 OrderedDict，需要提取键名
+                            choice_names = list(arg['choices'].keys())
+                            for choice_name in choice_names:
+                                yield Completion(choice_name, start_position=0, display_meta=f"Strategy: {choice_name}")
+                            return
+                    # 如果选项参数不需要值，不显示任何补齐选项
+                    return
+            
+            # 当以空格结尾时，检查是否有位置参数需要值
+            for arg_name, arg in arguments.items():
+                # 只处理位置参数（不以 -- 或 - 开头）且需要值的情况
+                if not arg_name.startswith('-') and arg['requires_value']:
+                    choices = command_instance.get_arg_values(arg, subcmd)
+                    if choices:
+                        yield from complete_items(choices, '')
+                        return
+            # 如果没有位置参数需要值，显示所有可用的参数
+            yield from complete_items(arguments.values(), '')
+            return
         else:
             partial_arg = words[-1]
             last_word = words[-2]
 
-        arg = arguments.get(last_word, None)
-        if arg and arg['requires_value']:
-            choices = command_instance.get_arg_values(arg, subcmd)
-            if choices:
-                yield from complete_items(choices, partial_arg)
-            return
+            # 检查当前输入是否是选项参数
+            if partial_arg.startswith('-'):
+                # 如果当前输入是选项参数，显示该选项参数的补齐选项
+                arg = arguments.get(partial_arg, None)
+                if arg and arg.get('requires_value'):
+                    choices = command_instance.get_arg_values(arg, subcmd)
+                    if choices:
+                        yield from complete_items(choices, '')
+                        return
+                    # 如果没有通过 get_arg_values 获取到选项，尝试使用 arg 的 choices
+                    if 'choices' in arg and arg['choices']:
+                        # choices 是一个 OrderedDict，需要提取键名
+                        choice_names = list(arg['choices'].keys())
+                        for choice_name in choice_names:
+                            yield Completion(choice_name, start_position=-len(partial_arg), display_meta=f"Strategy: {choice_name}")
+                        return
+
+            # 检查上一个词是否是选项参数
+            arg = arguments.get(last_word, None)
+            if arg and arg['requires_value']:
+                choices = command_instance.get_arg_values(arg, subcmd)
+                if choices:
+                    yield from complete_items(choices, partial_arg)
+                return
 
         yield from complete_items(arguments.values(), partial_arg)
 
@@ -134,7 +238,6 @@ class CommandManager(Completer):
         
         command_instance = self.commands[command]
         parser = command_instance.parser
-        
         try:
             # Parse remaining arguments (excluding the command name)
             parsed_args = parser.parse_args(args[1:])
@@ -146,49 +249,3 @@ class CommandManager(Completer):
             print(f"Argument error: {e}")
         except Exception as e:
             print(f"Error: {e}")
-
-class TaskCommandManager(NestedCompleter):
-    def __init__(self, tm, console):
-        self.tm = tm
-        self.console = console
-        names = tm.client_manager.names['enabled']
-        commands = {
-            '/use': NestedCompleter.from_nested_dict(dict.fromkeys(names)),
-            '/done': None,
-        }
-        commands['use'] = commands['/use']
-        commands['done'] = commands['/done']
-        for name in names:
-            commands[name] = None
-        super().__init__(commands)
-        self.meta_dict = {
-            'use': T('Switch LLM'),
-            'done': T('End'),
-        }
-        self.names = names
-        self.log = logger.bind(src="TaskCommandManager")
-
-    def get_completions(self, document, complete_event):
-        completions = super().get_completions(document, complete_event)
-        for completion in completions:
-            text = completion.text
-            if text.startswith('/'):
-                text = text[1:]
-            completion._display_meta = self.meta_dict.get(text, '')
-            yield completion
-            
-    def execute(self, task, user_input):
-        """Execute a command
-        return True if the command is processed, otherwise False
-        """
-        words = user_input.split()
-        if len(words) == 1 and words[0] in self.names:
-            task.use(words[0])
-            return True
-        elif words[0] in ('use', '/use'):
-            if len(words) == 2 and words[1] in self.names:
-                task.use(words[1])
-            else:
-                print(f"Unknown client: {words[1]}")
-            return True
-        return False

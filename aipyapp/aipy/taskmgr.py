@@ -168,5 +168,6 @@ class TaskManager:
         # 创建新任务
         task = Task(self.task_context)
         self.tasks.append(task)
+        self.current_task = task
         self.log.info('New task created', task_id=task.task_id)
         return task

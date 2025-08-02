@@ -1,10 +1,10 @@
 from rich import print
 
 from  ... import T
-from .base import BaseCommand
+from .base_parser import ParserCommand
 from .utils import print_table
 
-class HelpCommand(BaseCommand):
+class HelpCommand(ParserCommand):
     name = 'help'
     description = T('Show available commands or detailed help for a specific command')
 
