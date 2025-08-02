@@ -8,6 +8,7 @@ from loguru import logger
 from .. import T, __respath__
 from ..llm import CLIENTS, ChatMessage, ModelRegistry, ModelCapability
 from .multimodal import LLMContext
+from .context_manager import ContextManager, ContextConfig, ContextStrategy
 
 class LineReceiver(list):
     def __init__(self):
@@ -91,9 +92,10 @@ class StreamProcessor:
             self.task.broadcast('stream', llm=self.name, lines=lines2, reason=reason)
 
 class ChatHistory:
-    def __init__(self):
+    def __init__(self, context_manager=None):
         self.messages = []
         self._total_tokens = Counter()
+        self.context_manager = context_manager
 
     def __len__(self):
         return len(self.messages)
@@ -107,6 +109,10 @@ class ChatHistory:
     def add_message(self, message: ChatMessage):
         self.messages.append(message)
         self._total_tokens += message.usage
+        
+        # 如果启用了上下文管理器，添加到上下文管理
+        if self.context_manager:
+            self.context_manager.add_message(message)
 
     def get_usage(self):
         return iter(row.usage for row in self.messages if row.role == "assistant")
@@ -118,8 +124,17 @@ class ChatHistory:
         return summary
 
     def get_messages(self):
-        return [{"role": msg.role, "content": msg.content} for msg in self.messages]
-
+        # 如果启用了上下文管理器，使用压缩后的消息
+        if self.context_manager:
+            return self.context_manager.get_messages()
+        else:
+            return [{"role": msg.role, "content": msg.content} for msg in self.messages]
+    
+    def get_context_stats(self):
+        """获取上下文统计信息"""
+        if self.context_manager:
+            return self.context_manager.get_stats()
+        return None
 
 
 class ClientManager(object):
@@ -132,6 +147,34 @@ class ClientManager(object):
         self.log = logger.bind(src='client_manager')
         self.names = self._init_clients(settings)
         self.model_registry = ModelRegistry(__respath__ / "models.yaml")
+        
+        # 读取上下文管理配置
+        self.context_config = self._get_context_config(settings)
+    
+    def _get_context_config(self, settings):
+        """从设置中读取上下文管理配置"""
+        context_settings = settings.get('context_manager', {})
+        
+        # 解析策略
+        strategy_str = context_settings.get('strategy', 'hybrid')
+        strategy_map = {
+            'sliding_window': ContextStrategy.SLIDING_WINDOW,
+            'importance_filter': ContextStrategy.IMPORTANCE_FILTER,
+            'summary_compression': ContextStrategy.SUMMARY_COMPRESSION,
+            'hybrid': ContextStrategy.HYBRID
+        }
+        strategy = strategy_map.get(strategy_str, ContextStrategy.HYBRID)
+        
+        return ContextConfig(
+            max_tokens=context_settings.get('max_tokens', self.MAX_TOKENS),
+            max_rounds=context_settings.get('max_rounds', 10),
+            strategy=strategy,
+            compression_ratio=context_settings.get('compression_ratio', 0.3),
+            importance_threshold=context_settings.get('importance_threshold', 0.5),
+            summary_max_length=context_settings.get('summary_max_length', 200),
+            preserve_system=context_settings.get('preserve_system', True),
+            preserve_recent=context_settings.get('preserve_recent', 3)
+        )
 
     def _create_client(self, config):
         kind = config.get("type", "openai")
@@ -216,7 +259,11 @@ class Client:
         self.manager = manager
         self.current = manager.current
         self.task = task
-        self.history = ChatHistory()
+        
+        # 创建上下文管理器
+        self.context_manager = ContextManager(manager.context_config)
+        self.history = ChatHistory(self.context_manager)
+        
         self.log = logger.bind(src='client', name=self.current.name)
 
     @property

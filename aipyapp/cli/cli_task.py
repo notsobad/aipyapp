@@ -13,11 +13,11 @@ from ..aipy import TaskManager, ConfigManager, CONFIG_DIR
 from .. import T, set_lang, __version__, __respkg__
 from ..config import LLMConfig
 from ..aipy.wizard import config_llm
-from .command import CommandManager, TaskCommandManager
+from .command import CommandManager
 from ..display import DisplayManager
 
 STYLE_MAIN = {
-    'completion-menu.completion': 'bg:#000000 #ffffff',
+    'completion-menu.completion': 'bg:green #ffffff',
     'completion-menu.completion.current': 'bg:#444444 #ffffff',
     'completion-menu.meta': 'bg:#000000 #999999',
     'completion-menu.meta.current': 'bg:#444444 #aaaaaa',
@@ -26,12 +26,12 @@ STYLE_MAIN = {
 }
 
 STYLE_AI = {
-    'completion-menu.completion': 'bg:#002244 #ffffff',         # 深蓝背景，白色文本
+    'completion-menu.completion': 'bg:#008080 #ffffff',         # 深蓝背景，白色文本
     'completion-menu.completion.current': 'bg:#005577 #ffffff', # 当前选中，亮蓝
     'completion-menu.meta': 'bg:#002244 #cccccc',               # 补全项的 meta 信息
     'completion-menu.meta.current': 'bg:#005577 #eeeeee',       # 当前选中的 meta
-    'prompt': 'cyan',
-    'bottom-toolbar': "bg:#880000 cyan"
+    'prompt': '#008080',
+    'bottom-toolbar': "bg:#880000 #008080"
 }
 
 class InteractiveConsole():
@@ -43,25 +43,28 @@ class InteractiveConsole():
         self.settings = settings
         self.style_main = Style.from_dict(STYLE_MAIN)
         self.style_task = Style.from_dict(STYLE_AI)
-        self.command_manager_main = CommandManager(tm, console)
-        self.command_manager_task = TaskCommandManager(tm, console)
-        self.completer_main = self.command_manager_main
-        self.completer_task = self.command_manager_task
-        self.toolbar_main = [('class:bottom-toolbar', f" {T('Please enter an instruction or `/help` for more information')} ")]
-        self.toolbar_task = [('class:bottom-toolbar', f" {T('[AI mode] Enter Ctrl+d or /done to end current task')} ")]
-        self.session = PromptSession(history=self.history, completer=self.completer_main, style=self.style_main, auto_suggest=AutoSuggestFromHistory(), cursor=CursorShape.BEAM, bottom_toolbar=self.toolbar_main)
-        self.session_task = PromptSession(history=self.history, completer=self.completer_task, style=self.style_task, auto_suggest=AutoSuggestFromHistory(), cursor=CursorShape.BLOCK, bottom_toolbar=self.toolbar_task)
-        
-
+        self.command_manager = CommandManager(tm, console)
+        self.completer = self.command_manager
+        self.session = PromptSession(history=self.history, completer=self.completer, auto_suggest=AutoSuggestFromHistory(), bottom_toolbar=self.get_bottom_toolbar)
+    
+    def get_bottom_toolbar(self):
+        if self.command_manager.is_task_mode():
+            text = T('[AI mode] Enter Ctrl+d or /done to end current task')
+        else:
+            text = T('Please enter an instruction or `/help` for more information')
+        return [('class:bottom-toolbar', f" {text} ")]
+    
     def input_with_possible_multiline(self, prompt_text, task_mode=False):
-        session = self.session_task if task_mode else self.session
-        first_line = session.prompt([("class:prompt", prompt_text)])
+        session = self.session
+        style = self.style_task if task_mode else self.style_main
+        cursor_shape = CursorShape.BEAM if not task_mode else CursorShape.BLOCK
+        first_line = session.prompt([("class:prompt", prompt_text)], style=style, cursor=cursor_shape)
         if not first_line.endswith("\\"):
             return first_line
         # Multi-line input
         lines = [first_line.rstrip("\\")]
         while True:
-            next_line = session.prompt([("class:prompt", "... ")])
+            next_line = session.prompt([("class:prompt", "... ")], style=style)
             if next_line.endswith("\\"):
                 lines.append(next_line.rstrip("\\"))
             else:
@@ -78,9 +81,10 @@ class InteractiveConsole():
             self.console.print_exception()
 
     def start_task_mode(self, task, instruction):
-        self.console.print(f"{T('[AI mode] Enter Ctrl+d or /done to end current task')}", style="cyan")
+        #self.console.print(f"{T('Enter AI mode, start processing tasks, enter Ctrl+d or /done to end the task')}", style="cyan")
         self.run_task(task, instruction)
         while True:
+            self.command_manager.set_task_mode(task)
             try:
                 user_input = self.input_with_possible_multiline(">>> ", task_mode=True).strip()
                 if len(user_input) < 2: continue
@@ -90,9 +94,9 @@ class InteractiveConsole():
             if user_input in ('/done', 'done'):
                 break
 
-            if self.command_manager_task.execute(task, user_input):
+            if user_input.startswith('/'):
+                self.command_manager.execute(user_input)
                 continue
-
             self.run_task(task, user_input)
 
         try:
@@ -106,13 +110,14 @@ class InteractiveConsole():
         #self.console.print(f"[cyan]{T('Default')}: [green]{self.names['default']}，[cyan]{T('Enabled')}: [yellow]{' '.join(self.names['enabled'])}")
         tm = self.tm
         while True:
+            self.command_manager.set_main_mode()
             try:
                 user_input = self.input_with_possible_multiline(">> ").strip()
                 if len(user_input) < 2:
                     continue
 
                 if user_input.startswith('/'):
-                    self.command_manager_main.execute(user_input)
+                    self.command_manager.execute(user_input)
                     continue
                 else:
                     task = tm.new_task()
@@ -122,7 +127,7 @@ class InteractiveConsole():
 
 def main(args):
     console = Console(record=True)
-    console.print(f"[bold cyan]🚀 Python use - AIPython ({__version__}) [[green]https://aipy.app[/green]]")
+    console.print(f"🚀 Python use - AIPython ({__version__}) [[pink]https://aipy.app[/pink]]", style="bold green")
     console.print(read_text(__respkg__, "logo.txt"))
     conf = ConfigManager(args.config_dir)
     settings = conf.get_config()

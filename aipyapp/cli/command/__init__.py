@@ -1,3 +1,3 @@
-from .manager import CommandManager, TaskCommandManager
+from .manager import CommandManager
 
-__all__ = ['CommandManager', 'TaskCommandManager']
+__all__ = ['CommandManager']

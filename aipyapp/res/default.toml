@@ -11,6 +11,17 @@ type = "trust"
 api_key = ""
 enable = false
 
+[context_manager]
+enable = true
+strategy = "hybrid"
+max_tokens = 8192
+max_rounds = 10
+compression_ratio = 0.3
+importance_threshold = 0.5
+summary_max_length = 200
+preserve_system = true
+preserve_recent = 3
+
 [mcp]
 enable = true
 
