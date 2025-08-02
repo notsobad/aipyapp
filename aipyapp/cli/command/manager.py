@@ -9,11 +9,8 @@ from .cmd_info import InfoCommand
 from .cmd_help import HelpCommand
 from .cmd_llm import LLMCommand
 from .cmd_role import RoleCommand
-from .cmd_use import UseCommand
-from .cmd_env import EnvCommand
 from .cmd_task import TaskCommand
 from .cmd_mcp import MCPCommand
-from .cmd_tools import ToolsCommand
 from .cmd_display import DisplayCommand
 from .cmd_context import ContextCommand
 
@@ -23,7 +20,7 @@ from prompt_toolkit.completion import Completer, Completion
 
 COMMANDS = [
     InfoCommand, LLMCommand, RoleCommand, DisplayCommand, ContextCommand,
-    TaskCommand, MCPCommand, ToolsCommand, HelpCommand
+    TaskCommand, MCPCommand, HelpCommand
 ]
 
 @dataclass
