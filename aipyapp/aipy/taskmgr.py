@@ -42,7 +42,6 @@ class TaskManager:
         
         # 任务管理
         self.tasks = deque(maxlen=self.MAX_TASKS)
-        self.current_task: Optional[Task] = None
         
         # 工作环境
         self._init_workenv()
@@ -96,7 +95,6 @@ class TaskManager:
     def get_status(self):
         return {
             'tasks': len(self.tasks),
-            'current_task': self.current_task.task_id if self.current_task else None,
             'workdir': str(self.cwd),
             'role': self.role_manager.current_role.name,
             'llm': repr(self.client_manager.current),
@@ -160,7 +158,7 @@ class TaskManager:
     def get_update(self, force=False):
         return self.diagnose.check_update(force)
 
-    def use(self, llm=None, role=None, task=None):
+    def use(self, llm=None, role=None):
         rets = {}
         if llm:
             ret = self.client_manager.use(llm)
@@ -168,24 +166,12 @@ class TaskManager:
         if role:
             ret = self.role_manager.use(role)
             rets['role'] = ret
-        if task:
-            task = self.get_task_by_id(task)
-            rets['task'] = task
-            self.current_task = task
         return rets
 
     def new_task(self):
         """创建新任务"""
-        # 如果有当前任务，返回它
-        if self.current_task:
-            task = self.current_task
-            self.current_task = None
-            self.log.info('Reload task', task_id=task.task_id)
-            return task
-
         # 创建新任务
         task = Task(self.task_context)
         self.tasks.append(task)
-        self.current_task = task
         self.log.info('New task created', task_id=task.task_id)
         return task

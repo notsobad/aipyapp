@@ -13,7 +13,7 @@ from ..aipy import TaskManager, ConfigManager, CONFIG_DIR
 from .. import T, set_lang, __version__, __respkg__
 from ..config import LLMConfig
 from ..aipy.wizard import config_llm
-from .command import CommandManager
+from .command import CommandManager, CommandError
 from ..display import DisplayManager
 
 STYLE_MAIN = {
@@ -80,9 +80,13 @@ class InteractiveConsole():
         except Exception as e:
             self.console.print_exception()
 
-    def start_task_mode(self, task, instruction):
+    def start_task_mode(self, task, instruction=None):
         #self.console.print(f"{T('Enter AI mode, start processing tasks, enter Ctrl+d or /done to end the task')}", style="cyan")
-        self.run_task(task, instruction)
+        if instruction:
+            self.run_task(task, instruction)
+        else:
+            self.console.print(f"{T('Resuming task')}: {task.instruction[:32]}", style="cyan")
+            
         while True:
             self.command_manager.set_task_mode(task)
             try:
@@ -116,12 +120,19 @@ class InteractiveConsole():
                 if len(user_input) < 2:
                     continue
 
-                if user_input.startswith('/'):
-                    self.command_manager.execute(user_input)
-                    continue
-                else:
+                if not user_input.startswith('/'):
                     task = tm.new_task()
                     self.start_task_mode(task, user_input)
+                    continue
+
+                try:
+                    ret = self.command_manager.execute(user_input)
+                    if ret and ret['command'] == 'task' and ret['subcommand'] == 'use':
+                        task = ret['ret']
+                        self.start_task_mode(task)
+                except CommandError as e:
+                    self.console.print(f"[red]{e}[/red]")
+                    continue
             except (EOFError, KeyboardInterrupt):
                 break
 

@@ -30,6 +30,28 @@ class CommandContext:
     tm: Any = None
     console: Any = None
 
+class CommandError(Exception):
+    """Command error"""
+    pass
+
+class CommandInputError(CommandError):
+    """Command input error"""
+    def __init__(self, message):
+        self.message = message
+        super().__init__(self.message)
+
+class InvalidCommandError(CommandError):
+    """Invalid command error"""
+    def __init__(self, command):
+        self.command = command
+        super().__init__(f"Invalid command: {command}")
+
+class InvalidSubcommandError(CommandError):
+    """Invalid subcommand error"""
+    def __init__(self, message):
+        self.message = message
+        super().__init__(self.message)
+
 class CommandManager(Completer):
     def __init__(self, tm, console):
         self.tm = tm
@@ -235,31 +257,38 @@ class CommandManager(Completer):
                     display_meta=item.desc
                 )
 
-    def execute(self, user_input):
+    def execute(self, user_input: str) -> dict[str, Any]:
         """Execute a command"""
         if not user_input.startswith('/'):
-            return
+            raise CommandInputError(user_input)
         
         user_input = user_input[1:].strip()
         if not user_input:
-            return
+            raise CommandInputError(user_input)
         
         args = shlex.split(user_input)
         command = args[0]
         if command not in self.commands:
-            print(f"Unknown command: {command}")
-            return
+            raise InvalidCommandError(command)
         
         command_instance = self.commands[command]
         parser = command_instance.parser
+        ret = None
         try:
             # Parse remaining arguments (excluding the command name)
             parsed_args = parser.parse_args(args[1:])
             parsed_args.raw_args = args[1:]
-            command_instance.execute(parsed_args)
-        except SystemExit:
-            pass
+            ret = command_instance.execute(parsed_args)
+        except SystemExit as e:
+            raise CommandError(f"SystemExit: {user_input}") from e
         except argparse.ArgumentError as e:
-            print(f"Argument error: {e}")
+            raise CommandInputError(user_input) from e
         except Exception as e:
-            print(f"Error: {e}")
+            raise CommandError(f"Error: {e}") from e
+        
+        return {
+            'command': command,
+            'subcommand': getattr(parsed_args, 'subcommand', None),
+            'args': parsed_args,
+            'ret': ret,
+        }

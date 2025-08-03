@@ -1,3 +1,3 @@
-from .manager import CommandManager
+from .manager import CommandManager, CommandError
 
-__all__ = ['CommandManager']
+__all__ = ['CommandManager', 'CommandError']

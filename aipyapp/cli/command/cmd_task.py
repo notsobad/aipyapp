@@ -19,12 +19,12 @@ class TaskCommand(ParserCommand):
     def get_arg_values(self, arg, subcommand=None):
         if subcommand == 'use' and arg.name == 'tid':
             tasks = self.manager.tm.get_tasks()
-            return [Completable(task.task_id, task.instruction) for task in tasks]
+            return [Completable(task.task_id, task.instruction[:32]) for task in tasks]
         return super().get_arg_values(arg, subcommand)
     
     def cmd_use(self, args, ctx):
-        ctx.tm.use(task=args.tid)
-        self.log.info(f'Use task: {args.tid}')
+        task = ctx.tm.get_task_by_id(args.tid)
+        return task
 
     def cmd(self, args, ctx):
         self.cmd_list(args, ctx)
