@@ -334,10 +334,30 @@ class ContextManager:
             'last_compression': self._last_compression_time
         }
     
+    def _clear_messages_cache(self):
+        """清理消息缓存，只保留最初的两条消息和最后一条消息"""
+        if not self._messages_cache:
+            return
+            
+        # 如果消息数量小于等于3，不需要清理
+        if len(self._messages_cache) <= 3:
+            return
+            
+        # 保留最初的两条消息和最后一条消息
+        first_two = self._messages_cache[:2]
+        last_one = self._messages_cache[-1:]
+        
+        # 合并消息
+        self._messages_cache = first_two + last_one
+        
+        # 重新计算 token 数量
+        self._cached_tokens = sum(self.compressor._estimate_message_tokens(msg) for msg in self._messages_cache)
+        self.log.info(f"Context cleaned: {len(self._messages_cache)} messages, {self._cached_tokens} tokens")
+
     def clear(self):
         """清空上下文"""
-        self._messages_cache.clear()
-        self._cached_tokens = 0
+        self._clear_messages_cache()
+        #self._cached_tokens = 0
         self.token_counter.reset()
         self._last_compression_time = 0
         self.log.info("Context cleared")
