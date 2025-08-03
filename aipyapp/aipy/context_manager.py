@@ -2,16 +2,13 @@
 # -*- coding: utf-8 -*-
 
 import time
-from abc import ABC, abstractmethod
-from collections import Counter, deque
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import List, Dict, Any, Optional, Union, Tuple
 from enum import Enum
 
 from loguru import logger
 
 from ..llm import ChatMessage
-from .multimodal import LLMContext
 
 
 class ContextStrategy(Enum):
@@ -27,6 +24,7 @@ class ContextConfig:
     """上下文管理配置"""
     max_tokens: int = 100000               # 最大token数
     max_rounds: int = 10                   # 最大对话轮数
+    auto_compress: bool = False            # 是否自动压缩
     strategy: ContextStrategy = ContextStrategy.HYBRID
     compression_ratio: float = 0.3         # 压缩比例
     importance_threshold: float = 0.5      # 重要性阈值
@@ -34,6 +32,13 @@ class ContextConfig:
     preserve_system: bool = True           # 是否保留系统消息
     preserve_recent: int = 3               # 保留最近几轮对话
 
+    def set_strategy(self, strategy: str) -> Union[ContextStrategy, None]:
+        try:
+            strategy = ContextStrategy(strategy)
+            self.strategy = strategy
+        except ValueError:
+            strategy = None
+        return strategy
 
 class TokenCounter:
     """Token计数器"""
@@ -289,15 +294,16 @@ class ContextManager:
         current_time = time.time()
         
         # 检查是否需要压缩
-        should_compress = (
-            force_compress or
-            self._cached_tokens > self.config.max_tokens or
-            len(self._messages_cache) > self.config.max_rounds * 2 or
-            (current_time - self._last_compression_time) > 300  # 5分钟强制压缩
-        )
-        
-        if should_compress:
-            self._compress_messages()
+        if force_compress or self.config.auto_compress:
+            should_compress = (
+                force_compress or
+                self._cached_tokens > self.config.max_tokens or
+                len(self._messages_cache) > self.config.max_rounds * 2 or
+                (current_time - self._last_compression_time) > 300  # 5分钟强制压缩
+            )
+            
+            if should_compress:
+                self._compress_messages()
         
         return self._messages_cache.copy()
     

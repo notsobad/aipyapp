@@ -24,6 +24,7 @@ class ContextCommand(ParserCommand):
         parser.add_argument('--strategy', choices=['sliding_window', 'importance_filter', 'summary_compression', 'hybrid'], help=T('Set compression strategy'))
         parser.add_argument('--max-tokens', type=int, help=T('Set max tokens'))
         parser.add_argument('--max-rounds', type=int, help=T('Set max rounds'))
+        parser.add_argument('--auto-compress', action='store_true', help=T('Set auto compress'))
         
     def cmd(self, args, ctx):
         self.cmd_show(args, ctx)
@@ -55,11 +56,8 @@ class ContextCommand(ParserCommand):
         task = ctx.task
         console = ctx.console
         
-        if hasattr(task.client, 'context_manager'):
-            task.client.context_manager.clear()
-            console.print(T("Context cleared"), style="green")
-        else:
-            console.print(T("Context manager not enabled"), style="yellow")
+        task.client.context_manager.clear()
+        console.print(T("Context cleared"), style="green")
     
     def cmd_stats(self, args, ctx):
         """显示上下文统计信息"""
@@ -89,10 +87,6 @@ class ContextCommand(ParserCommand):
         task = ctx.task
         console = ctx.console
         
-        if not hasattr(task.client, 'context_manager'):
-            console.print(T("Context manager not enabled"), style="yellow")
-            return
-        
         if args.strategy or args.max_tokens or args.max_rounds:
             self._update_config(console, args)
 
@@ -105,6 +99,7 @@ class ContextCommand(ParserCommand):
         table.add_row(T("Strategy"), config.strategy.value)
         table.add_row(T("Max tokens"), str(config.max_tokens))
         table.add_row(T("Max rounds"), str(config.max_rounds))
+        table.add_row(T("Auto compress"), str(config.auto_compress))
         table.add_row(T("Compression ratio"), str(config.compression_ratio))
         table.add_row(T("Importance threshold"), str(config.importance_threshold))
         table.add_row(T("Summary max length"), str(config.summary_max_length))
@@ -121,23 +116,12 @@ class ContextCommand(ParserCommand):
             return
         
         task = self.manager.tm.current_task
-        if not hasattr(task.client, 'context_manager'):
-            console.print(T("Context manager not enabled"), style="yellow")
-            return
-        
-        from ...aipy.context_manager import ContextConfig, ContextStrategy
-        
         current_config = task.client.context_manager.config
         
         # 更新配置
         if args.strategy:
-            strategy_map = {
-                'sliding_window': ContextStrategy.SLIDING_WINDOW,
-                'importance_filter': ContextStrategy.IMPORTANCE_FILTER,
-                'summary_compression': ContextStrategy.SUMMARY_COMPRESSION,
-                'hybrid': ContextStrategy.HYBRID
-            }
-            current_config.strategy = strategy_map[args.strategy]
+            if not current_config.set_strategy(args.strategy):
+                console.print(T("Invalid strategy: {}, using default strategy", args.strategy), style="red")
         
         if args.max_tokens:
             current_config.max_tokens = args.max_tokens

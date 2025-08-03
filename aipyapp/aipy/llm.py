@@ -155,26 +155,20 @@ class ClientManager(object):
         """从设置中读取上下文管理配置"""
         context_settings = settings.get('context_manager', {})
         
-        # 解析策略
-        strategy_str = context_settings.get('strategy', 'hybrid')
-        strategy_map = {
-            'sliding_window': ContextStrategy.SLIDING_WINDOW,
-            'importance_filter': ContextStrategy.IMPORTANCE_FILTER,
-            'summary_compression': ContextStrategy.SUMMARY_COMPRESSION,
-            'hybrid': ContextStrategy.HYBRID
-        }
-        strategy = strategy_map.get(strategy_str, ContextStrategy.HYBRID)
-        
-        return ContextConfig(
+        config = ContextConfig(
             max_tokens=context_settings.get('max_tokens', self.MAX_TOKENS),
             max_rounds=context_settings.get('max_rounds', 10),
-            strategy=strategy,
+            auto_compress=context_settings.get('auto_compress', False),
             compression_ratio=context_settings.get('compression_ratio', 0.3),
             importance_threshold=context_settings.get('importance_threshold', 0.5),
             summary_max_length=context_settings.get('summary_max_length', 200),
             preserve_system=context_settings.get('preserve_system', True),
             preserve_recent=context_settings.get('preserve_recent', 3)
         )
+        strategy = context_settings.get('strategy', 'hybrid')
+        if not config.set_strategy(strategy):
+            self.log.warning(f"Invalid strategy: {strategy}, using default strategy")
+        return config
 
     def _create_client(self, config):
         kind = config.get("type", "openai")
