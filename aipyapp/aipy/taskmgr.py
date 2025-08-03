@@ -97,7 +97,8 @@ class TaskManager:
             'tasks': len(self.tasks),
             'workdir': str(self.cwd),
             'role': self.role_manager.current_role.name,
-            'llm': repr(self.client_manager.current),
+            'client': repr(self.client_manager.current),
+            'llm': self.client_manager.current.name,
             'display': self.display_manager.current_style,
         }
 

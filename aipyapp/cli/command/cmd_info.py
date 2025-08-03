@@ -17,7 +17,7 @@ class InfoCommand(ParserCommand):
         info = [
             (T('Current configuration directory'), str(settings.config_dir)),
             (T('Current working directory'), status['workdir']),
-            (T('Current LLM'), status['llm']),
+            (T('Current LLM'), status['client']),
             (T('Current role'), status['role']),
             (T('Current display style'), T(status['display'])),
             ('Python', sys.executable),

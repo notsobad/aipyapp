@@ -41,18 +41,31 @@ class InteractiveConsole():
         self.history = FileHistory(str(CONFIG_DIR / ".history"))
         self.console = console
         self.settings = settings
+        self.task = None
         self.style_main = Style.from_dict(STYLE_MAIN)
         self.style_task = Style.from_dict(STYLE_AI)
         self.command_manager = CommandManager(tm, console)
         self.completer = self.command_manager
         self.session = PromptSession(history=self.history, completer=self.completer, auto_suggest=AutoSuggestFromHistory(), bottom_toolbar=self.get_bottom_toolbar)
     
+    def get_main_status(self):
+        status = self.tm.get_status()
+        return f"LLM: {status['llm']} | Role: {status['role']} | Display: {status['display']} | Tasks: {status['tasks']}"
+    
+    def get_task_status(self):
+        if self.task:
+            status = self.task.get_status()
+            return f"LLM: {status['llm']} | Blocks: {status['blocks']} | Steps: {status['steps']}"
+        return ""
+    
     def get_bottom_toolbar(self):
         if self.command_manager.is_task_mode():
-            text = T('[AI mode] Enter Ctrl+d or /done to end current task')
+            status = self.get_task_status()
+            text = f"[AI]{T('Enter Ctrl+d or /done to end current task')} ⸬ {status}"
         else:
-            text = T('Please enter an instruction or `/help` for more information')
-        return [('class:bottom-toolbar', f" {text} ")]
+            status = self.get_main_status()
+            text = f"[Main]{T('Enter an instruction or `/help`')} ⸬ {status}"
+        return [('class:bottom-toolbar', text)]
     
     def input_with_possible_multiline(self, prompt_text, task_mode=False):
         session = self.session
@@ -88,6 +101,7 @@ class InteractiveConsole():
             self.console.print(f"{T('Resuming task')}: {task.instruction[:32]}", style="cyan")
             
         while True:
+            self.task = task
             self.command_manager.set_task_mode(task)
             try:
                 user_input = self.input_with_possible_multiline(">>> ", task_mode=True).strip()
@@ -107,6 +121,7 @@ class InteractiveConsole():
             task.done()
         except Exception as e:
             self.console.print_exception()
+        self.task = None
         self.console.print(f"[{T('Exit AI mode')}]", style="cyan")
 
     def run(self):

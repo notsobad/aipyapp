@@ -85,6 +85,9 @@ class CodeBlocks:
         )
         self.log = logger.bind(src='code_blocks')
 
+    def __len__(self):
+        return len(self.blocks)
+    
     def parse(self, markdown_text, parse_mcp=False):
         blocks = OrderedDict()
         errors = []

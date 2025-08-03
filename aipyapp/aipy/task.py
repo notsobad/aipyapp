@@ -50,6 +50,7 @@ class Task(Stoppable, EventBus):
         self.done_time = None
         self.instruction = None
         self.saved = None
+        self.steps = 0
 
         #TODO: 移除 gui 参数
         self.gui = self.settings.gui
@@ -68,6 +69,13 @@ class Task(Stoppable, EventBus):
         self.runner.set_python_runtime(self.runtime)
 
         self.init_plugins()
+
+    def get_status(self):
+        return {
+            'llm': self.client.name,
+            'blocks': len(self.code_blocks),
+            'steps': self.steps,
+        }
 
     def init_plugins(self):
         """初始化插件"""
@@ -118,10 +126,11 @@ class Task(Stoppable, EventBus):
         
     def _auto_save(self):
         instruction = self.instruction
+        self.done_time = time.time()
         task = OrderedDict()
         task['instruction'] = instruction
-        task['start_time'] = self.start_time
-        task['done_time'] = self.done_time
+        task['start_time'] = int(self.start_time)
+        task['done_time'] = int(self.done_time)
         task['chats'] = self.client.history.json()
         task['runner'] = self.runner.history
         task['blocks'] = self.code_blocks.to_list()
@@ -144,7 +153,6 @@ class Task(Stoppable, EventBus):
             self.log.warning('Task not started, skipping save')
             return
         
-        self.done_time = time.time()
         if not self.saved:
             self.log.warning('Task not saved, trying to save')
             self._auto_save()
@@ -289,6 +297,7 @@ class Task(Stoppable, EventBus):
                 response = prev_response
                 break
 
+        self.steps += 1
         summary = self._get_summary()
         self.broadcast('round_end', summary=summary, response=response)
         self._auto_save()
