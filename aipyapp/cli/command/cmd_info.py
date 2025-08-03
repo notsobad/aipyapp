@@ -12,13 +12,14 @@ class InfoCommand(ParserCommand):
         ctx = self.manager.context
         tm = ctx.tm
         settings = tm.settings
+        status = tm.get_status()
 
         info = [
             (T('Current configuration directory'), str(settings.config_dir)),
-            (T('Current working directory'), str(tm.workdir)),
-            (T('Current LLM'), repr(tm.client_manager.current)),
-            (T('Current role'), '-' if settings.get('system_prompt') else tm.role_manager.current_role.name),
-            (T('Current display style'), T(tm.display_manager.current_style)),
+            (T('Current working directory'), status['workdir']),
+            (T('Current LLM'), status['llm']),
+            (T('Current role'), status['role']),
+            (T('Current display style'), T(status['display'])),
             ('Python', sys.executable),
             (T('Python version'), sys.version),
             (T('Python base prefix'), sys.base_prefix),

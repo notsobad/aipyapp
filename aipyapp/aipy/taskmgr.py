@@ -93,6 +93,16 @@ class TaskManager:
         # 提示管理器
         self.prompts = Prompts()
 
+    def get_status(self):
+        return {
+            'tasks': len(self.tasks),
+            'current_task': self.current_task.task_id if self.current_task else None,
+            'workdir': str(self.cwd),
+            'role': self.role_manager.current_role.name,
+            'llm': repr(self.client_manager.current),
+            'display': self.display_manager.current_style,
+        }
+
     def _create_task_context(self) -> TaskContext:
         """创建任务上下文"""
         # 构建系统提示
