@@ -200,18 +200,22 @@ class Task(Stoppable, EventBus):
             self.log.warning('Task not started, skipping save')
             return
         
-        if not self.saved:
-            self.log.warning('Task not saved, trying to save')
-            self._auto_save()
-
         os.chdir(self.context.cwd)  # Change back to the original working directory
         curname = self.task_id
-        newname = get_safe_filename(self.instruction, extension=None)
-        if newname and os.path.exists(curname):
-            try:
-                os.rename(curname, newname)
-            except Exception as e:
-                self.log.exception('Error renaming task directory', curname=curname, newname=newname)
+        if os.path.exists(curname):
+            if not self.saved:
+                self.log.warning('Task not saved, trying to save')
+                self._auto_save()
+
+            newname = get_safe_filename(self.instruction, extension=None)
+            if newname:
+                try:
+                    os.rename(curname, newname)
+                except Exception as e:
+                    self.log.exception('Error renaming task directory', curname=curname, newname=newname)
+        else:
+            newname = None
+            self.log.warning('Task directory not found')
 
         self.log.info('Task done', path=newname)
         self.broadcast('task_end', path=newname)
