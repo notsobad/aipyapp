@@ -59,7 +59,7 @@ class Task(Stoppable, EventBus):
         self.done_time = None
         self.instruction = None
         self.saved = None
-        self.steps = 0
+        self.steps = []
 
         #TODO: 移除 gui 参数
         self.gui = self.settings.gui
@@ -96,7 +96,7 @@ class Task(Stoppable, EventBus):
         self.instruction = task_data.get('instruction')
         self.start_time = task_data.get('start_time')
         self.done_time = task_data.get('done_time')
-        self.steps = task_data.get('steps', 0)
+        self.steps = task_data.get('steps', [])
 
         # 恢复客户端状态（包含聊天历史和上下文管理器）
         client_data = task_data.get('client')
@@ -112,7 +112,7 @@ class Task(Stoppable, EventBus):
         return {
             'llm': self.client.name,
             'blocks': len(self.code_blocks),
-            'steps': self.steps,
+            'steps': len(self.steps),
         }
 
     def init_plugins(self):
@@ -269,11 +269,11 @@ class Task(Stoppable, EventBus):
 
     def _get_summary(self, detail=False):
         data = {}
-        history = self.client.history
+        context_manager = self.client.context_manager
         if detail:
-            data['usages'] = history.get_usage()
+            data['usages'] = context_manager.get_usage()
 
-        summary = history.get_summary()
+        summary = context_manager.get_summary()
         summary['elapsed_time'] = time.time() - self.start_time
         summarys = "| {rounds} | {time:.3f}s/{elapsed_time:.3f}s | Tokens: {input_tokens}/{output_tokens}/{total_tokens}".format(**summary)
         data['summary'] = summarys
@@ -328,9 +328,22 @@ class Task(Stoppable, EventBus):
         rounds = 1
         max_rounds = self.max_rounds
         self.saved = False
+        
         response = self.chat(user_prompt, system_prompt=system_prompt)
         if not response:
             self.log.error('No response from LLM')
+            # 记录失败的步骤信息和边界信息
+            step_info = {
+                'instruction': instruction, 
+                'round': 0, 
+                'response': None,
+                'boundaries': {
+                    'messages_count': len(self.client.context_manager),
+                    'runner_count': len(self.runner.history),
+                    'blocks_count': len(self.code_blocks.history)
+                }
+            }
+            self.steps.append(step_info)
             return
         
         while rounds <= max_rounds:
@@ -344,7 +357,18 @@ class Task(Stoppable, EventBus):
                 response = prev_response
                 break
 
-        self.steps += 1
+        # 记录步骤信息和边界信息
+        step_info = {
+            'instruction': instruction, 
+            'round': rounds, 
+            'response': response,
+            'boundaries': {
+                'messages_count': len(self.client.context_manager),
+                'runner_count': len(self.runner.history),
+                'blocks_count': len(self.code_blocks.history)
+            }
+        }
+        self.steps.append(step_info)
         summary = self._get_summary()
         self.broadcast('round_end', summary=summary, response=response)
         self._auto_save()
@@ -371,7 +395,7 @@ class Task(Stoppable, EventBus):
                     'apikey': trustoken_apikey,
                     'author': os.getlogin(),
                     'instruction': self.instruction,
-                    'llm': self.client.history.json(),
+                    'llm': self.client.context_manager.json(),
                     'runner': self.runner.history,
                 }, ensure_ascii=False, default=str),
                 parse_constant=str)
@@ -388,3 +412,67 @@ class Task(Stoppable, EventBus):
 
         self.broadcast('upload_result', status_code=status_code, url=url)
         return True
+
+    def delete_step(self, index: int):
+        """删除指定索引的步骤"""
+        if index < 0 or index >= len(self.steps):
+            raise TaskError(T("Invalid step index"))
+        
+        # 获取要删除的步骤信息
+        step_to_delete = self.steps[index]
+        boundaries = step_to_delete.get('boundaries')
+        
+        # 计算删除范围
+        if index == 0:
+            # 删除第一个步骤，从0开始删除
+            start_messages = 0
+            start_runner = 0
+            start_blocks = 0
+        else:
+            # 从前一个步骤的边界开始删除
+            prev_boundaries = self.steps[index - 1].get('boundaries', {})
+            start_messages = prev_boundaries.get('messages_count', 0)
+            start_runner = prev_boundaries.get('runner_count', 0)
+            start_blocks = prev_boundaries.get('blocks_count', 0)
+        
+        end_messages = boundaries.get('messages_count', 0)
+        end_runner = boundaries.get('runner_count', 0)
+        end_blocks = boundaries.get('blocks_count', 0)
+        
+        # 删除各个 history 中对应的数据
+        self.client.delete_range(start_messages, end_messages)
+        self.runner.delete_range(start_runner, end_runner)
+        self.code_blocks.delete_range(start_blocks, end_blocks)
+        
+        # 更新后续步骤的边界信息
+        deleted_messages = end_messages - start_messages
+        deleted_runner = end_runner - start_runner
+        deleted_blocks = end_blocks - start_blocks
+        
+        for i in range(index + 1, len(self.steps)):
+            step = self.steps[i]
+            if 'boundaries' in step:
+                step['boundaries']['messages_count'] -= deleted_messages
+                step['boundaries']['runner_count'] -= deleted_runner
+                step['boundaries']['blocks_count'] -= deleted_blocks
+        
+        # 删除步骤记录
+        self.steps.pop(index)
+        self.log.info('Step deleted', index=index)
+        return True
+
+    def clear_steps(self):
+        """清空所有步骤"""
+        # 清空所有 history 数据
+        self.client.clear()
+        self.runner.clear()
+        self.code_blocks.clear()
+        
+        # 清空步骤记录
+        self.steps = []
+        self.log.info('Steps cleared')
+
+    def list_steps(self):
+        """列出所有步骤"""
+        StepRecord = namedtuple('StepRecord', ['Index', 'Instruction', 'Round'])
+        return [StepRecord(index, step['instruction'], step['round']) for index, step in enumerate(self.steps)]

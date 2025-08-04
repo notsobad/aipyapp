@@ -79,4 +79,14 @@ class BlockExecutor():
         self.history.clear()
         if runner_data:
             self.history = runner_data.copy()
+    
+    def delete_range(self, start_index, end_index):
+        """删除指定范围的执行历史"""
+        if start_index < 0 or end_index > len(self.history) or start_index >= end_index:
+            return
         
+        # 删除指定范围的执行历史
+        self.history = self.history[:start_index] + self.history[end_index:]
+    
+    def clear(self):
+        self.history.clear()

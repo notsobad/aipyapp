@@ -226,3 +226,23 @@ class CodeBlocks:
                 )
                 self.history.append(code_block)
                 self.blocks[code_block.name] = code_block
+    
+    def delete_range(self, start_index, end_index):
+        """删除指定范围的代码块"""
+        if start_index < 0 or end_index > len(self.history) or start_index >= end_index:
+            return
+        
+        # 获取要删除的代码块
+        deleted_blocks = self.history[start_index:end_index]
+        
+        # 从 blocks 字典中删除对应的代码块
+        for block in deleted_blocks:
+            if block.name in self.blocks:
+                del self.blocks[block.name]
+        
+        # 从 history 列表中删除指定范围
+        self.history = self.history[:start_index] + self.history[end_index:]
+
+    def clear(self):
+        self.history.clear()
+        self.blocks.clear()

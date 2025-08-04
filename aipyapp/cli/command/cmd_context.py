@@ -31,8 +31,7 @@ class ContextCommand(ParserCommand):
         
     def cmd_show(self, args, ctx):
         """显示当前上下文"""
-        history = ctx.task.client.history
-        messages = history.get_messages()
+        messages = ctx.task.client.context_manager.get_messages()
         console = ctx.console
         
         if not messages:
@@ -64,8 +63,7 @@ class ContextCommand(ParserCommand):
         task = ctx.task
         console = ctx.console
         
-        history = task.client.history
-        stats = history.get_context_stats()
+        stats = task.client.context_manager.get_stats()
         
         if not stats:
             console.print(T("Context manager not enabled"), style="yellow")
@@ -84,12 +82,11 @@ class ContextCommand(ParserCommand):
     
     def cmd_config(self, args, ctx):
         """显示上下文配置"""
+        if args.strategy or args.max_tokens or args.max_rounds:
+            return self._update_config(args, ctx)
+
         task = ctx.task
         console = ctx.console
-        
-        if args.strategy or args.max_tokens or args.max_rounds:
-            self._update_config(console, args)
-
         config = task.client.context_manager.config
         
         table = Table(title=T("Context config"))
@@ -108,14 +105,11 @@ class ContextCommand(ParserCommand):
         
         console.print(table)
     
-    def _update_config(self, console: Console, args):
+    def _update_config(self, args, ctx):
         """更新上下文配置"""
-        # 检查是否有活动的任务
-        if not hasattr(self.manager, 'tm') or not self.manager.tm.current_task:
-            console.print(T("No active task"), style="red")
-            return
+        task = ctx.task
+        console = ctx.console
         
-        task = self.manager.tm.current_task
         current_config = task.client.context_manager.config
         
         # 更新配置

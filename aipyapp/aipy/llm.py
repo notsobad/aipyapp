@@ -1,14 +1,13 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-from collections import Counter, defaultdict, namedtuple
-from typing import Union, List, Dict, Any
+from collections import defaultdict, namedtuple
 
 from loguru import logger
 
 from .. import T, __respath__
-from ..llm import CLIENTS, ChatMessage, ModelRegistry, ModelCapability
+from ..llm import CLIENTS, ModelRegistry, ModelCapability
 from .multimodal import LLMContext
-from .context_manager import ContextManager, ContextConfig, ContextStrategy
+from .context_manager import ContextManager, ContextConfig
 
 class LineReceiver(list):
     def __init__(self):
@@ -90,74 +89,6 @@ class StreamProcessor:
         lines2 = [line for line in lines if not line.startswith('<!-- Block-') and not line.startswith('<!-- Cmd-')]
         if lines2:
             self.task.broadcast('stream', llm=self.name, lines=lines2, reason=reason)
-
-class ChatHistory:
-    def __init__(self, context_manager=None):
-        self.messages = []
-        self._total_tokens = Counter()
-        self.context_manager = context_manager
-
-    def __len__(self):
-        return len(self.messages)
-    
-    def get_state(self):
-        """获取需要持久化的状态数据"""
-        return [msg.__dict__ for msg in self.messages]
-    
-    def restore_state(self, state_data):
-        """从状态数据恢复历史状态"""
-        self.messages.clear()
-        self._total_tokens = Counter()
-        
-        if not state_data:
-            return
-        
-        chat_data = state_data
-        
-        # 恢复消息
-        if chat_data:
-            for chat_item in chat_data:
-                usage = Counter(chat_item.get('usage', {}))
-                message = ChatMessage(
-                    role=chat_item['role'],
-                    content=chat_item['content'],
-                    reason=chat_item.get('reason'),
-                    usage=usage
-                )
-                self.add_message(message)
-        
-    def add(self, role, content):
-        self.add_message(ChatMessage(role=role, content=content))
-
-    def add_message(self, message: ChatMessage):
-        self.messages.append(message)
-        self._total_tokens += message.usage
-        
-        # 如果启用了上下文管理器，添加到上下文管理
-        if self.context_manager:
-            self.context_manager.add_message(message)
-
-    def get_usage(self):
-        return iter(row.usage for row in self.messages if row.role == "assistant")
-    
-    def get_summary(self):
-        summary = {'time': 0, 'input_tokens': 0, 'output_tokens': 0, 'total_tokens': 0}
-        summary.update(dict(self._total_tokens))
-        summary['rounds'] = sum(1 for row in self.messages if row.role == "assistant")
-        return summary
-
-    def get_messages(self):
-        # 如果启用了上下文管理器，使用压缩后的消息
-        if self.context_manager:
-            return self.context_manager.get_messages()
-        else:
-            return [{"role": msg.role, "content": msg.content} for msg in self.messages]
-    
-    def get_context_stats(self):
-        """获取上下文统计信息"""
-        if self.context_manager:
-            return self.context_manager.get_stats()
-        return None
 
 
 class ClientManager(object):
@@ -277,11 +208,23 @@ class Client:
         self.current = manager.current
         self.task = task
         
-        # 创建上下文管理器
+        # 创建上下文管理器（包含ChatHistory）
         self.context_manager = ContextManager(manager.context_config)
-        self.history = ChatHistory(self.context_manager)
         
         self.log = logger.bind(src='client', name=self.current.name)
+
+    def __len__(self):
+        return len(self.context_manager.chat_history.messages)
+    
+    def delete_range(self, start_index, end_index):
+        self.context_manager.delete_range(start_index, end_index)
+    
+    def clear(self):
+        self.context_manager.clear()
+    
+    def add_message(self, message):
+        """添加消息"""
+        self.context_manager.add_message(message)
 
     @property
     def name(self):
@@ -325,13 +268,14 @@ class Client:
     def __call__(self, content: LLMContext, *, system_prompt=None):
         client = self.current
         stream_processor = StreamProcessor(self.task, client.name)
-        msg = client(self.history, content, system_prompt=system_prompt, stream_processor=stream_processor)
+        
+        # 直接传递 ContextManager，它已经实现了所需的接口
+        msg = client(self.context_manager, content, system_prompt=system_prompt, stream_processor=stream_processor)
         return msg
     
     def get_state(self):
         """获取需要持久化的状态数据"""
         return {
-            'history': self.history.get_state(),
             'context_manager': self.context_manager.get_state(),
         }
     
@@ -340,10 +284,7 @@ class Client:
         if not state_data:
             return
 
+        # 恢复上下文管理器（包含聊天历史）
         if 'context_manager' in state_data:
             self.context_manager.restore_state(state_data['context_manager'])
-       
-        # 恢复历史记录（包含上下文管理器）
-        if 'history' in state_data:
-            self.history.restore_state(state_data['history'])
- 
+        

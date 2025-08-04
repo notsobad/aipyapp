@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import time
+from collections import Counter
 from dataclasses import dataclass
 from typing import List, Dict, Any, Optional, Union, Tuple
 from enum import Enum
@@ -65,7 +66,77 @@ class TokenCounter:
         self.input_tokens = 0
         self.output_tokens = 0
 
+class ChatHistory:
+    def __init__(self):
+        self.messages = []
+        self._total_tokens = Counter()
 
+    def __len__(self):
+        return len(self.messages)
+    
+    def get_state(self):
+        """获取需要持久化的状态数据"""
+        return [msg.__dict__ for msg in self.messages]
+    
+    def restore_state(self, state_data):
+        """从状态数据恢复历史状态"""
+        self.messages.clear()
+        self._total_tokens = Counter()
+        
+        if not state_data:
+            return
+        
+        chat_data = state_data
+        
+        # 恢复消息
+        if chat_data:
+            for chat_item in chat_data:
+                usage = Counter(chat_item.get('usage', {}))
+                message = ChatMessage(
+                    role=chat_item['role'],
+                    content=chat_item['content'],
+                    reason=chat_item.get('reason'),
+                    usage=usage
+                )
+                self.add_message(message)
+    
+    def clear(self):
+        self.messages.clear()
+        self._total_tokens.clear()
+
+    def delete_range(self, start_index, end_index):
+        """删除指定范围的消息"""
+        if start_index < 0 or end_index > len(self.messages) or start_index >= end_index:
+            return
+        
+        # 删除指定范围的消息
+        deleted_messages = self.messages[start_index:end_index]
+        self.messages = self.messages[:start_index] + self.messages[end_index:]
+        
+        # 重新计算 token 统计
+        self._total_tokens = Counter()
+        for msg in self.messages:
+            self._total_tokens += msg.usage
+        
+    def add(self, role, content):
+        self.add_message(ChatMessage(role=role, content=content))
+
+    def add_message(self, message: ChatMessage):
+        self.messages.append(message)
+        self._total_tokens += message.usage
+        
+    def get_usage(self):
+        return iter(row.usage for row in self.messages if row.role == "assistant")
+    
+    def get_summary(self):
+        summary = {'time': 0, 'input_tokens': 0, 'output_tokens': 0, 'total_tokens': 0}
+        summary.update(dict(self._total_tokens))
+        summary['rounds'] = sum(1 for row in self.messages if row.role == "assistant")
+        return summary
+
+    def get_messages(self):
+        return [{"role": msg.role, "content": msg.content} for msg in self.messages]
+    
 class MessageCompressor:
     """消息压缩器"""
     
@@ -267,14 +338,29 @@ class ContextManager:
         self.compressor = MessageCompressor(self.config)
         self.log = logger.bind(src='context_manager')
         
+        # 原始消息历史
+        self.chat_history = ChatHistory()
+        
         # 消息缓存
         self._messages_cache: List[Dict[str, Any]] = []
         self._cached_tokens = 0
         self._last_compression_time = 0
     
+    def __len__(self):
+        """返回消息数量，用于兼容旧接口"""
+        return len(self.chat_history)
+    
+    def add(self, role, content):
+        """添加简单消息，用于兼容旧接口"""
+        message = ChatMessage(role=role, content=content)
+        self.add_message(message)
+
     def add_message(self, message: ChatMessage):
         """添加消息到上下文"""
-        # 转换为字典格式
+        # 添加到原始历史
+        self.chat_history.add_message(message)
+        
+        # 转换为字典格式添加到缓存
         msg_dict = {
             'role': message.role,
             'content': message.content
@@ -306,6 +392,18 @@ class ContextManager:
                 self._compress_messages()
         
         return self._messages_cache.copy()
+    
+    def get_usage(self):
+        """获取使用统计"""
+        return self.chat_history.get_usage()
+    
+    def get_summary(self):
+        """获取摘要统计"""
+        return self.chat_history.get_summary()
+    
+    def json(self):
+        """获取原始消息的JSON格式，用于序列化"""
+        return self.chat_history.get_state()
     
     def _compress_messages(self):
         """压缩消息"""
@@ -362,11 +460,35 @@ class ContextManager:
 
     def clear(self):
         """清空上下文"""
-        self._clear_messages_cache()
-        #self._cached_tokens = 0
+        self.chat_history.clear()
+        self._messages_cache.clear()
+        self._cached_tokens = 0
         self.token_counter.reset()
         self._last_compression_time = 0
         self.log.info("Context cleared")
+    
+    def delete_range(self, start_index, end_index):
+        """删除指定范围的消息"""
+        # 删除原始历史
+        self.chat_history.delete_range(start_index, end_index)
+        
+        # 重建缓存
+        self._rebuild_cache()
+    
+    def _rebuild_cache(self):
+        """重建消息缓存"""
+        self._messages_cache.clear()
+        self._cached_tokens = 0
+        self.token_counter.reset()
+        
+        for message in self.chat_history.messages:
+            msg_dict = {
+                'role': message.role,
+                'content': message.content
+            }
+            self._messages_cache.append(msg_dict)
+            self._cached_tokens += self.compressor._estimate_message_tokens(msg_dict)
+            self.token_counter.add_message(message)
     
     def update_config(self, config: ContextConfig):
         """更新配置"""
@@ -388,6 +510,7 @@ class ContextManager:
                 'preserve_system': self.config.preserve_system,
                 'preserve_recent': self.config.preserve_recent,
             },
+            'chat_history': self.chat_history.get_state(),
             'messages_cache': self._messages_cache.copy(),
             'cached_tokens': self._cached_tokens,
             'token_counter': {
@@ -418,6 +541,10 @@ class ContextManager:
                 preserve_recent=config_data.get('preserve_recent', 3),
             )
             self.compressor = MessageCompressor(self.config)
+        
+        # 恢复原始聊天历史
+        if 'chat_history' in state_data:
+            self.chat_history.restore_state(state_data['chat_history'])
         
         # 恢复消息缓存
         self._messages_cache = state_data.get('messages_cache', []).copy()
