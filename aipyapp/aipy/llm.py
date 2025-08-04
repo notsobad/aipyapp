@@ -103,6 +103,26 @@ class ChatHistory:
     def json(self):
         return [msg.__dict__ for msg in self.messages]
     
+    def get_state(self):
+        """获取需要持久化的状态数据"""
+        return self.json()
+    
+    def restore_state(self, chat_data):
+        """从聊天数据恢复历史状态"""
+        self.messages.clear()
+        self._total_tokens = Counter()
+        
+        if chat_data:
+            for chat_item in chat_data:
+                usage = Counter(chat_item.get('usage', {}))
+                message = ChatMessage(
+                    role=chat_item['role'],
+                    content=chat_item['content'],
+                    reason=chat_item.get('reason'),
+                    usage=usage
+                )
+                self.add_message(message)
+    
     def add(self, role, content):
         self.add_message(ChatMessage(role=role, content=content))
 

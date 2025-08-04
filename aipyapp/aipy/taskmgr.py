@@ -184,3 +184,11 @@ class TaskManager:
         self.tasks.append(task)
         self.log.info('New task created', task_id=task.task_id)
         return task
+    
+    def load_task(self, task_state):
+        """从任务状态加载任务"""
+        task = Task(self.task_context)
+        task.restore_state(task_state)
+        self.tasks.append(task)
+        self.log.info('Task loaded', task_id=task.task_id)
+        return task

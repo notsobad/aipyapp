@@ -6,14 +6,16 @@ import json
 import uuid
 import time
 from datetime import datetime
-from collections import namedtuple, OrderedDict
+from collections import namedtuple, OrderedDict, Counter
 from importlib.resources import read_text
+from pathlib import Path
 
 import requests
 from loguru import logger
 
 from .. import T, __respkg__
 from ..exec import BlockExecutor
+from ..llm.base import ChatMessage
 from .runtime import CliPythonRuntime
 from .utils import get_safe_filename
 from .blocks import CodeBlocks, CodeBlock
@@ -69,6 +71,30 @@ class Task(Stoppable, EventBus):
         self.runner.set_python_runtime(self.runtime)
 
         self.init_plugins()
+
+    def restore_state(self, task_data):
+        """从任务状态加载任务
+        
+        Args:
+            task_data: 任务状态数据
+            
+        Returns:
+            Task: 加载的任务对象
+        """
+        # 恢复任务基本信息
+        self.instruction = task_data.get('instruction')
+        self.start_time = task_data.get('start_time')
+        self.done_time = task_data.get('done_time')
+        self.steps = task_data.get('steps', 0)
+
+        # 恢复聊天历史
+        self.client.history.restore_state(task_data.get('chats'))
+        
+        # 恢复运行历史
+        self.runner.restore_state(task_data.get('runner'))
+        
+        # 恢复代码块
+        self.code_blocks.restore_state(task_data.get('blocks'))
 
     def get_status(self):
         return {
@@ -128,12 +154,14 @@ class Task(Stoppable, EventBus):
         instruction = self.instruction
         self.done_time = time.time()
         task = OrderedDict()
+        task['task_id'] = self.task_id
         task['instruction'] = instruction
         task['start_time'] = int(self.start_time)
         task['done_time'] = int(self.done_time)
-        task['chats'] = self.client.history.json()
-        task['runner'] = self.runner.history
-        task['blocks'] = self.code_blocks.to_list()
+        task['steps'] = self.steps
+        task['chats'] = self.client.history.get_state()
+        task['runner'] = self.runner.get_state()
+        task['blocks'] = self.code_blocks.get_state()
 
         filename = self.cwd / "task.json"
         try:

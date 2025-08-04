@@ -69,4 +69,14 @@ class BlockExecutor():
         history['result'] = result
         self.history.append(history)
         return result
+
+    def get_state(self):
+        """获取需要持久化的状态数据"""
+        return self.history.copy()
+
+    def restore_state(self, runner_data):
+        """从运行历史数据恢复状态"""
+        self.history.clear()
+        if runner_data:
+            self.history = runner_data.copy()
         

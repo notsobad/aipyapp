@@ -146,7 +146,7 @@ class InteractiveConsole():
 
                 try:
                     ret = self.command_manager.execute(user_input)
-                    if ret and ret['command'] == 'task' and ret['subcommand'] == 'use':
+                    if ret and ret['command'] == 'task' and ret['subcommand'] in ('use', 'load'):
                         task = ret['ret']
                         self.start_task_mode(task)
                 except CommandError as e:
@@ -183,9 +183,11 @@ def main(args):
     settings.gui = False
     settings.debug = args.debug
     settings.config_dir = CONFIG_DIR
+    if args.role:
+        settings['role'] = args.role.lower()
 
     # 初始化显示效果管理器
-    display_style = settings.get('display', 'classic')
+    display_style = args.style or settings.get('display', 'classic')
     display_manager = DisplayManager(display_style, console=console)
     try:
         tm = TaskManager(settings, display_manager=display_manager)

@@ -204,3 +204,25 @@ class CodeBlocks:
         """
         blocks = [block.to_dict() for block in self.history]
         return blocks
+    
+    def get_state(self):
+        """获取需要持久化的状态数据"""
+        return self.to_list()
+    
+    def restore_state(self, blocks_data):
+        """从代码块数据恢复状态"""
+        self.history.clear()
+        self.blocks.clear()
+        
+        if blocks_data:
+            for block_data in blocks_data:
+                code_block = CodeBlock(
+                    name=block_data['name'],
+                    version=block_data['version'],
+                    lang=block_data['lang'],
+                    code=block_data['code'],
+                    path=block_data.get('path'),
+                    deps=block_data.get('deps')
+                )
+                self.history.append(code_block)
+                self.blocks[code_block.name] = code_block
