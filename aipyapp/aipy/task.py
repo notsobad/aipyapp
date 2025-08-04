@@ -6,21 +6,21 @@ import json
 import uuid
 import time
 from datetime import datetime
-from collections import namedtuple, OrderedDict, Counter
+from collections import namedtuple, OrderedDict
 from importlib.resources import read_text
-from pathlib import Path
 
 import requests
 from loguru import logger
 
 from .. import T, __respkg__
 from ..exec import BlockExecutor
-from ..llm.base import ChatMessage
 from .runtime import CliPythonRuntime
 from .utils import get_safe_filename
 from .blocks import CodeBlocks, CodeBlock
 from .interface import Stoppable, EventBus
 from .multimodal import MMContent, LLMContext
+
+TASK_VERSION = 20250804
 
 CONSOLE_WHITE_HTML = read_text(__respkg__, "console_white.html")
 CONSOLE_CODE_HTML = read_text(__respkg__, "console_code.html")
@@ -34,6 +34,13 @@ class TaskInputError(TaskError):
     def __init__(self, message: str, original_error: Exception = None):
         self.message = message
         self.original_error = original_error
+        super().__init__(self.message)
+
+class TastStateError(TaskError):
+    """Task 状态异常"""
+    def __init__(self, message: str, **kwargs):
+        self.message = message
+        self.data = kwargs
         super().__init__(self.message)
 
 class Task(Stoppable, EventBus):
@@ -81,14 +88,19 @@ class Task(Stoppable, EventBus):
         Returns:
             Task: 加载的任务对象
         """
+        version = task_data.get('version')
+        if version != TASK_VERSION:
+            raise TastStateError('Task version mismatch', version=version)
+        
         # 恢复任务基本信息
         self.instruction = task_data.get('instruction')
         self.start_time = task_data.get('start_time')
         self.done_time = task_data.get('done_time')
         self.steps = task_data.get('steps', 0)
 
-        # 恢复聊天历史
-        self.client.history.restore_state(task_data.get('chats'))
+        # 恢复客户端状态（包含聊天历史和上下文管理器）
+        client_data = task_data.get('client')
+        self.client.restore_state(client_data)
         
         # 恢复运行历史
         self.runner.restore_state(task_data.get('runner'))
@@ -151,18 +163,25 @@ class Task(Stoppable, EventBus):
             self.broadcast('exception', msg='save_html', exception=e)
         
     def _auto_save(self):
+        """自动保存任务状态"""
+        # 如果任务目录不存在，则不保存
+        if not self.cwd.exists():
+            self.log.warning('Task directory not found, skipping save')
+            return
+        
         instruction = self.instruction
         self.done_time = time.time()
         task = OrderedDict()
+        task['version'] = TASK_VERSION
         task['task_id'] = self.task_id
         task['instruction'] = instruction
         task['start_time'] = int(self.start_time)
         task['done_time'] = int(self.done_time)
         task['steps'] = self.steps
-        task['chats'] = self.client.history.get_state()
+        task['client'] = self.client.get_state()
         task['runner'] = self.runner.get_state()
         task['blocks'] = self.code_blocks.get_state()
-
+        
         filename = self.cwd / "task.json"
         try:
             json.dump(task, open(filename, 'w', encoding='utf-8'), ensure_ascii=False, indent=4, default=str)

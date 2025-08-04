@@ -100,18 +100,21 @@ class ChatHistory:
     def __len__(self):
         return len(self.messages)
     
-    def json(self):
-        return [msg.__dict__ for msg in self.messages]
-    
     def get_state(self):
         """获取需要持久化的状态数据"""
-        return self.json()
+        return [msg.__dict__ for msg in self.messages]
     
-    def restore_state(self, chat_data):
-        """从聊天数据恢复历史状态"""
+    def restore_state(self, state_data):
+        """从状态数据恢复历史状态"""
         self.messages.clear()
         self._total_tokens = Counter()
         
+        if not state_data:
+            return
+        
+        chat_data = state_data
+        
+        # 恢复消息
         if chat_data:
             for chat_item in chat_data:
                 usage = Counter(chat_item.get('usage', {}))
@@ -122,7 +125,7 @@ class ChatHistory:
                     usage=usage
                 )
                 self.add_message(message)
-    
+        
     def add(self, role, content):
         self.add_message(ChatMessage(role=role, content=content))
 
@@ -324,3 +327,23 @@ class Client:
         stream_processor = StreamProcessor(self.task, client.name)
         msg = client(self.history, content, system_prompt=system_prompt, stream_processor=stream_processor)
         return msg
+    
+    def get_state(self):
+        """获取需要持久化的状态数据"""
+        return {
+            'history': self.history.get_state(),
+            'context_manager': self.context_manager.get_state(),
+        }
+    
+    def restore_state(self, state_data):
+        """从状态数据恢复客户端状态"""
+        if not state_data:
+            return
+
+        if 'context_manager' in state_data:
+            self.context_manager.restore_state(state_data['context_manager'])
+       
+        # 恢复历史记录（包含上下文管理器）
+        if 'history' in state_data:
+            self.history.restore_state(state_data['history'])
+ 

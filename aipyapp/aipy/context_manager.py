@@ -372,4 +372,65 @@ class ContextManager:
         """更新配置"""
         self.config = config
         self.compressor = MessageCompressor(config)
-        self.log.info(f"Context config updated: {config.strategy.value}") 
+        self.log.info(f"Context config updated: {config.strategy.value}")
+    
+    def get_state(self):
+        """获取需要持久化的状态数据"""
+        return {
+            'config': {
+                'max_tokens': self.config.max_tokens,
+                'max_rounds': self.config.max_rounds,
+                'auto_compress': self.config.auto_compress,
+                'strategy': self.config.strategy.value,
+                'compression_ratio': self.config.compression_ratio,
+                'importance_threshold': self.config.importance_threshold,
+                'summary_max_length': self.config.summary_max_length,
+                'preserve_system': self.config.preserve_system,
+                'preserve_recent': self.config.preserve_recent,
+            },
+            'messages_cache': self._messages_cache.copy(),
+            'cached_tokens': self._cached_tokens,
+            'token_counter': {
+                'total_tokens': self.token_counter.total_tokens,
+                'input_tokens': self.token_counter.input_tokens,
+                'output_tokens': self.token_counter.output_tokens,
+            },
+            'last_compression_time': self._last_compression_time,
+        }
+    
+    def restore_state(self, state_data):
+        """从状态数据恢复上下文管理器"""
+        if not state_data:
+            return
+        
+        # 恢复配置
+        if 'config' in state_data:
+            config_data = state_data['config']
+            self.config = ContextConfig(
+                max_tokens=config_data.get('max_tokens', 100000),
+                max_rounds=config_data.get('max_rounds', 10),
+                auto_compress=config_data.get('auto_compress', False),
+                strategy=ContextStrategy(config_data.get('strategy', 'hybrid')),
+                compression_ratio=config_data.get('compression_ratio', 0.3),
+                importance_threshold=config_data.get('importance_threshold', 0.5),
+                summary_max_length=config_data.get('summary_max_length', 200),
+                preserve_system=config_data.get('preserve_system', True),
+                preserve_recent=config_data.get('preserve_recent', 3),
+            )
+            self.compressor = MessageCompressor(self.config)
+        
+        # 恢复消息缓存
+        self._messages_cache = state_data.get('messages_cache', []).copy()
+        self._cached_tokens = state_data.get('cached_tokens', 0)
+        
+        # 恢复token计数器
+        if 'token_counter' in state_data:
+            token_data = state_data['token_counter']
+            self.token_counter.total_tokens = token_data.get('total_tokens', 0)
+            self.token_counter.input_tokens = token_data.get('input_tokens', 0)
+            self.token_counter.output_tokens = token_data.get('output_tokens', 0)
+        
+        # 恢复其他状态
+        self._last_compression_time = state_data.get('last_compression_time', 0)
+        
+        self.log.info(f"Context manager state restored: {len(self._messages_cache)} messages, {self._cached_tokens} tokens")
