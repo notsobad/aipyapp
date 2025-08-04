@@ -66,6 +66,32 @@ class MCPToolManager:
         # 服务器状态缓存，记录每个服务器的启用/禁用状态
         self._server_status = self._init_server_status()
 
+    def get_status(self):
+        sys_mcp_info = self.get_server_info(mcp_type="sys")
+        user_mcp_info = self.get_server_info(mcp_type="user")
+        total_tools = 0
+        enabled_tools = 0
+        enabled_servers = 0
+        total_servers = 0
+        for server_name, server_info in sys_mcp_info.items():
+            total_servers += 1
+            if server_info['enabled']:
+                enabled_servers += 1
+                enabled_tools += server_info['tools_count']
+            total_tools += server_info['tools_count']
+        for server_name, server_info in user_mcp_info.items():
+            total_servers += 1
+            if server_info['enabled']:
+                enabled_servers += 1
+                enabled_tools += server_info['tools_count']
+            total_tools += server_info['tools_count']
+        return {
+            'total_servers': total_servers,
+            'total_tools': total_tools,
+            'enabled_servers': enabled_servers,
+            'enabled_tools': enabled_tools,
+        }
+
     def _init_server_status(self):
         """初始化服务器状态，从配置文件中读取初始状态，包括禁用的服务器，同时会被命令行更新，维护在内存中"""
 

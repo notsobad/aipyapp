@@ -50,7 +50,12 @@ class InteractiveConsole():
     
     def get_main_status(self):
         status = self.tm.get_status()
-        return f"LLM: {status['llm']} | Role: {status['role']} | Display: {status['display']} | Tasks: {status['tasks']}"
+        try:
+            mcp = status['mcp']
+            mcp_text = f" | MCP: {mcp['enabled_servers']}/{mcp['total_servers']}S, {mcp['enabled_tools']}/{mcp['total_tools']}T"
+        except KeyError:
+            mcp_text = ""
+        return f"LLM: {status['llm']} | Role: {status['role']} | Display: {status['display']} | Tasks: {status['tasks']}{mcp_text}"
     
     def get_task_status(self):
         if self.task:
@@ -61,10 +66,10 @@ class InteractiveConsole():
     def get_bottom_toolbar(self):
         if self.command_manager.is_task_mode():
             status = self.get_task_status()
-            text = f"[AI]{T('Enter Ctrl+d or /done to end current task')} ⸬ {status}"
+            text = f"[AI] {status}"
         else:
             status = self.get_main_status()
-            text = f"[Main]{T('Enter an instruction or `/help`')} ⸬ {status}"
+            text = f"[Main] {status}"
         return [('class:bottom-toolbar', text)]
     
     def input_with_possible_multiline(self, prompt_text, task_mode=False):
@@ -94,11 +99,11 @@ class InteractiveConsole():
             self.console.print_exception()
 
     def start_task_mode(self, task, instruction=None):
-        #self.console.print(f"{T('Enter AI mode, start processing tasks, enter Ctrl+d or /done to end the task')}", style="cyan")
         if instruction:
+            self.console.print(f"[AI] {T('Enter Ctrl+d or /done to end current task')}", style="cyan")
             self.run_task(task, instruction)
         else:
-            self.console.print(f"{T('Resuming task')}: {task.instruction[:32]}", style="cyan")
+            self.console.print(f"[AI] {T('Resuming task')}: {task.instruction[:32]}", style="cyan")
             
         while True:
             self.task = task
@@ -125,8 +130,7 @@ class InteractiveConsole():
         self.console.print(f"[{T('Exit AI mode')}]", style="cyan")
 
     def run(self):
-        #self.console.print(f"{T('Please enter an instruction or `/help` for more information')}", style="green")
-        #self.console.print(f"[cyan]{T('Default')}: [green]{self.names['default']}，[cyan]{T('Enabled')}: [yellow]{' '.join(self.names['enabled'])}")
+        self.console.print(f"[Main] {T('Please enter an instruction or `/help` for more information')}", style="green")
         tm = self.tm
         while True:
             self.command_manager.set_main_mode()

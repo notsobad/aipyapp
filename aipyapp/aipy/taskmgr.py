@@ -92,8 +92,12 @@ class TaskManager:
         # 提示管理器
         self.prompts = Prompts()
 
+    @property
+    def is_mcp_enabled(self):
+        return self.settings.get('mcp', {}).get('enable', True)
+    
     def get_status(self):
-        return {
+        status = {
             'tasks': len(self.tasks),
             'workdir': str(self.cwd),
             'role': self.role_manager.current_role.name,
@@ -102,10 +106,14 @@ class TaskManager:
             'display': self.display_manager.current_style,
         }
 
+        if self.is_mcp_enabled:
+            status['mcp'] = self.mcp.get_status()
+        return status
+
     def _create_task_context(self) -> TaskContext:
         """创建任务上下文"""
         # 构建系统提示
-        with_mcp = self.settings.get('mcp', {}).get('enable', True)
+        with_mcp = self.is_mcp_enabled
         
         return TaskContext(
             settings=self.settings,
