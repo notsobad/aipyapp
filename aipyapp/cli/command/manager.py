@@ -14,13 +14,14 @@ from .cmd_mcp import MCPCommand
 from .cmd_display import DisplayCommand
 from .cmd_context import ContextCommand
 from .cmd_steps import StepsCommand
+from .cmd_block import BlockCommand
 
 from loguru import logger
 from prompt_toolkit.completion import Completer, Completion
 
 COMMANDS = [
     InfoCommand, LLMCommand, RoleCommand, DisplayCommand, StepsCommand, 
-    ContextCommand, TaskCommand, MCPCommand, HelpCommand
+    BlockCommand, ContextCommand, TaskCommand, MCPCommand, HelpCommand
 ]
 
 @dataclass

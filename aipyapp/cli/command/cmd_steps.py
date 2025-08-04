@@ -8,7 +8,7 @@ from ... import T
 
 class StepsCommand(ParserCommand):
     """Steps command"""
-    name = "steps"
+    name = "step"
     description = T("Manage task steps")
     modes = [CommandMode.TASK]
 
