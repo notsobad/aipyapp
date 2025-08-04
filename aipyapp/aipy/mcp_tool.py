@@ -230,12 +230,24 @@ class MCPToolManager:
         # 获取所有工具
         all_tools = self.get_available_tools()
         if not all_tools:
-            raise ValueError("No tools available to call.")
+            return {
+                "isError": True,
+                "content": [{
+                    "type": "text",
+                    "text": "No tools available to call."
+                }]
+            }
 
         # 查找匹配的工具，根据id查找
         matching_tools = [t for t in all_tools if t["id"] == tool_name]
         if not matching_tools:
-            raise ValueError(f"No tool found with name: {tool_name}")
+            return {
+                "isError": True,
+                "content": [{
+                    "type": "text",
+                    "text": f"No tool found with name: {tool_name}"
+                }]
+            }
 
         # 选择参数匹配度最高的工具
         best_match = None
@@ -267,23 +279,41 @@ class MCPToolManager:
                 best_match = tool
 
         if not best_match:
-            raise ValueError(
-                f"No suitable tool found for {tool_name} with given arguments"
-            )
+            # 返回错误信息而不是抛出异常
+            error_msg = f"No suitable tool found for {tool_name} with given arguments"
+            return {
+                "isError": True,
+                "content": [{
+                    "type": "text",
+                    "text": error_msg
+                }]
+            }
 
         # 获取服务器配置
         server_name = best_match["server"]
         real_tool_name = best_match["name"]
         server_config = self.mcp_servers[server_name]
 
-        # 创建客户端并调用工具
-        client = MCPClientSync(server_config)
-        ret = client.call_tool(real_tool_name, arguments)
-        # ret需要是json，并且如果同时包含content和structuredContent字段，则丢弃content
-        if (isinstance(ret, dict) and ret.get("content") and ret.get("structuredContent")):
-            del ret["content"]
-
-        return ret
+        try:
+            # 创建客户端并调用工具
+            client = MCPClientSync(server_config)
+            ret = client.call_tool(real_tool_name, arguments)
+            # ret需要是字典，并且如果同时包含content和structuredContent字段，
+            # 则丢弃content
+            if (isinstance(ret, dict) and ret.get("content")
+                and ret.get("structuredContent")):
+                del ret["content"]
+            return ret
+        except Exception as e:
+            # 捕获工具调用异常，返回错误信息给LLM
+            error_msg = f"Tool call failed: {str(e)}"
+            return {
+                "isError": True,
+                "content": [{
+                    "type": "text",
+                    "text": error_msg
+                }]
+            }
 
     def process_command(self, args):
         """处理命令行参数，执行相应操作
