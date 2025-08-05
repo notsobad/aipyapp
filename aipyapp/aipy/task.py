@@ -23,7 +23,7 @@ from .multimodal import MMContent, LLMContext
 from .context_manager import ContextManager, ContextConfig
 from .event_recorder import EventRecorder
 
-TASK_VERSION = 20250805
+TASK_VERSION = 20250806
 
 CONSOLE_WHITE_HTML = read_text(__respkg__, "console_white.html")
 CONSOLE_CODE_HTML = read_text(__respkg__, "console_code.html")
