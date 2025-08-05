@@ -21,6 +21,7 @@ from ..interface import Stoppable, EventBus
 from .step_manager import StepManager
 from .multimodal import MMContent, LLMContext
 from .context_manager import ContextManager, ContextConfig
+from .event_recorder import EventRecorder
 
 TASK_VERSION = 20250805
 
@@ -89,7 +90,23 @@ class Task(Stoppable, EventBus):
         self.step_manager.register_trackable('runner', self.runner)
         self.step_manager.register_trackable('blocks', self.code_blocks)
 
+        # 初始化事件记录器
+        enable_replay = self.settings.get('enable_replay_recording', True)
+        if enable_replay:
+            self.event_recorder = EventRecorder(enabled=True)
+        else:
+            self.event_recorder = None
+
         self.init_plugins()
+    
+    def emit(self, event_name: str, **kwargs):
+        """重写broadcast方法以记录事件"""
+        # 记录事件到事件记录器
+        if self.event_recorder:
+            self.event_recorder.record_event(event_name, kwargs.copy())
+        
+        # 调用父类的broadcast方法
+        super().emit(event_name, **kwargs)
 
     def restore_state(self, task_data):
         """从任务状态加载任务
@@ -122,6 +139,11 @@ class Task(Stoppable, EventBus):
         
         # 恢复代码块
         self.code_blocks.restore_state(task_data.get('blocks'))
+        
+        # 恢复事件记录器状态
+        events_data = task_data.get('events')
+        if events_data:
+            self.event_recorder.restore_state({'events': events_data, 'enabled': True})
 
     def get_status(self):
         return {
@@ -138,12 +160,12 @@ class Task(Stoppable, EventBus):
             if not plugin:
                 self.log.warning(f"Plugin {plugin_name} not found")
                 continue
-            self.register_listener(plugin)
+            self.add_listener(plugin)
             
         # 注册显示效果插件
         if self.context.display_manager:
             self.display = self.context.display_manager.get_current_plugin()
-            self.register_listener(self.display)
+            self.add_listener(self.display)
 
     def to_record(self):
         TaskRecord = namedtuple('TaskRecord', ['task_id', 'start_time', 'done_time', 'instruction'])
@@ -175,7 +197,7 @@ class Task(Stoppable, EventBus):
                 f.write(html_content)
         except Exception as e:
             self.log.exception('Error saving html')
-            self.broadcast('exception', msg='save_html', exception=e)
+            self.emit('exception', msg='save_html', exception=e)
         
     def _auto_save(self):
         """自动保存任务状态"""
@@ -196,13 +218,14 @@ class Task(Stoppable, EventBus):
         task['context_manager'] = self.context_manager.get_state()
         task['runner'] = self.runner.get_state()
         task['blocks'] = self.code_blocks.get_state()
+        task['events'] = self.event_recorder.get_events()
         
         filename = self.cwd / "task.json"
         try:
             json.dump(task, open(filename, 'w', encoding='utf-8'), ensure_ascii=False, indent=4, default=str)
         except Exception as e:
             self.log.exception('Error saving task')
-            self.broadcast('exception', msg='save_task', exception=e)
+            self.emit('exception', msg='save_task', exception=e)
 
         filename = self.cwd / "console.html"
         #self.save_html(filename, task)
@@ -233,14 +256,14 @@ class Task(Stoppable, EventBus):
             self.log.warning('Task directory not found')
 
         self.log.info('Task done', path=newname)
-        self.broadcast('task_end', path=newname)
+        self.emit('task_end', path=newname)
         self.context.diagnose.report_code_error(self.runner.history)
         if self.settings.get('share_result'):
             self.sync_to_cloud()
         
     def process_reply(self, markdown):
         ret = self.code_blocks.parse(markdown, parse_mcp=self.mcp)
-        self.broadcast('parse_reply', result=ret)
+        self.emit('parse_reply', result=ret)
         if not ret:
             return None
 
@@ -260,10 +283,10 @@ class Task(Stoppable, EventBus):
     def process_code_reply(self, exec_blocks):
         results = OrderedDict()
         for block in exec_blocks:
-            self.pipeline('exec', block=block)
+            self.emit('exec', block=block)
             result = self.runner(block)
             results[block.name] = result
-            self.broadcast('exec_result', result=result, block=block)
+            self.emit('exec_result', result=result, block=block)
 
         msg = self.prompts.get_results_prompt(results)
         return self.chat(msg)
@@ -271,7 +294,7 @@ class Task(Stoppable, EventBus):
     def process_mcp_reply(self, json_content):
         """处理 MCP 工具调用的回复"""
         block = {'content': json_content, 'language': 'json'}
-        self.pipeline('mcp_call', block=block)
+        self.emit('mcp_call', block=block)
 
         call_tool = json.loads(json_content)
         result = self.mcp.call_tool(call_tool['name'], call_tool.get('arguments', {}))
@@ -281,7 +304,7 @@ class Task(Stoppable, EventBus):
             name=call_tool.get('name', 'MCP Tool Call'),
             version=1,
         )
-        self.broadcast('mcp_result', block=code_block, result=result)
+        self.emit('mcp_result', block=code_block, result=result)
         msg = self.prompts.get_mcp_result_prompt(result)
         return self.chat(msg)
 
@@ -298,9 +321,9 @@ class Task(Stoppable, EventBus):
         return data
 
     def chat(self, context: LLMContext, *, system_prompt=None):
-        self.broadcast('query_start')
+        self.emit('query_start')
         msg = self.client(context, system_prompt=system_prompt)
-        self.broadcast('response_complete', llm=self.client.name, msg=msg)
+        self.emit('response_complete', llm=self.client.name, msg=msg)
         return msg.content if msg else None
 
     def _get_system_prompt(self):
@@ -330,15 +353,18 @@ class Task(Stoppable, EventBus):
         if not self.start_time:
             self.start_time = time.time()
             self.instruction = instruction
+            # 开始事件记录
+            self.event_recorder.start_recording()
             if isinstance(content, str):
                 user_prompt = self.prompts.get_task_prompt(content, gui=self.gui)
             system_prompt = self._get_system_prompt()
-            self.pipeline('task_start', instruction=instruction, user_prompt=user_prompt)
+            self.emit('task_start', instruction=instruction, task_id=self.task_id)
         else:
             system_prompt = None
             if isinstance(content, str):
                 user_prompt = self.prompts.get_chat_prompt(content, self.instruction)
-            self.pipeline('round_start', instruction=instruction, user_prompt=user_prompt)
+            # 记录轮次开始事件
+            self.emit('round_start', instruction=instruction, step=len(self.step_manager) + 1)
 
         self.cwd.mkdir(exist_ok=True)
         os.chdir(self.cwd)
@@ -368,7 +394,7 @@ class Task(Stoppable, EventBus):
         # 使用新的步骤管理器记录步骤
         self.step_manager.create_checkpoint(instruction, rounds, response)
         summary = self._get_summary()
-        self.broadcast('round_end', summary=summary, response=response)
+        self.emit('round_end', summary=summary, response=response)
         self._auto_save()
         self.log.info('Round done', rounds=rounds)
 
@@ -399,7 +425,7 @@ class Task(Stoppable, EventBus):
                 parse_constant=str)
             response = requests.post(url, json=data, verify=True,  timeout=30)
         except Exception as e:
-            self.broadcast('exception', msg='sync_to_cloud', exception=e)
+            self.emit('exception', msg='sync_to_cloud', exception=e)
             return False
 
         url = None
@@ -408,7 +434,7 @@ class Task(Stoppable, EventBus):
             data = response.json()
             url = data.get('url', '')
 
-        self.broadcast('upload_result', status_code=status_code, url=url)
+        self.emit('upload_result', status_code=status_code, url=url)
         return True
 
     def delete_step(self, index: int):

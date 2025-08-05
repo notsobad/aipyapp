@@ -58,14 +58,14 @@ class StreamProcessor:
     
     def __enter__(self):
         """支持上下文管理器协议"""
-        self.task.broadcast('stream_start', llm=self.name)
+        self.task.emit('stream_start', llm=self.name)
         return self
     
     def __exit__(self, exc_type, exc_val, exc_tb):
         """支持上下文管理器协议"""
         if self.lr.buffer:
             self.process_chunk('\n')        
-        self.task.broadcast('stream_end', llm=self.name)
+        self.task.emit('stream_end', llm=self.name)
     
     def process_chunk(self, content, *, reason=False):
         """处理流式数据块并发送事件"""
@@ -76,7 +76,7 @@ class StreamProcessor:
         if not reason and self.lr.empty() and not self.lr_reason.empty():
             line = self.lr_reason.done()
             if line:
-                self.task.broadcast('stream', llm=self.name, lines=[line, "\n\n----\n\n"], reason=True)
+                self.task.emit('stream', llm=self.name, lines=[line, "\n\n----\n\n"], reason=True)
 
         # 处理当前数据块
         lr = self.lr_reason if reason else self.lr
@@ -87,7 +87,7 @@ class StreamProcessor:
         # 过滤掉特殊注释行
         lines2 = [line for line in lines if not line.startswith('<!-- Block-') and not line.startswith('<!-- Cmd-')]
         if lines2:
-            self.task.broadcast('stream', llm=self.name, lines=lines2, reason=reason)
+            self.task.emit('stream', llm=self.name, lines=lines2, reason=reason)
 
 
 class ClientManager(object):

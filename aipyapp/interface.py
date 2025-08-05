@@ -3,7 +3,7 @@
 
 import threading
 from abc import ABC, abstractmethod
-from typing import Callable, Any, Dict, List, Optional
+from typing import Callable, Any, Dict, List, Optional, Protocol
 
 from loguru import logger
 
@@ -64,54 +64,48 @@ class Stoppable():
         self._stop_event.clear()
 
 class Event:
-    def __init__(self, name: str, data: dict):
+    def __init__(self, name: str, **data):
         self.name = name
         self.data = data
 
     def __str__(self):
         return f"{self.name}: {self.data}"
+    
+    def __getattr__(self, name: str):
+        return self.data.get(name)
+
+EventHandler = Callable[[Event], None]
+
+class EventListener(Protocol):
+    def on_event(self, event: Event) -> None:
+        """事件Fallback处理函数"""
+        ...
 
 class EventBus:
     def __init__(self):
         super().__init__()
-        self._listeners: Dict[str, List[Callable[..., Any]]] = {}
+        self._listeners: Dict[str, List[EventHandler]] = {}
         self._eb_logger = logger.bind(src=self.__class__.__name__)
     
-    def register_event(self, event_name: str, handler: Callable[..., Any]):
+    def on_event(self, event_name: str, handler: EventHandler):
         self._listeners.setdefault(event_name, []).append(handler)
 
-    def register_listener(self, obj: Any):
+    def add_listener(self, obj: EventListener):
         for event_name in dir(obj):
-            if event_name.startswith('on_'):
-                handler = getattr(obj, event_name)
-                if callable(handler):
-                    event_name = event_name[3:]
-                    self.register_event(event_name, handler)
-                    self._eb_logger.info(f"Registered event {event_name} for {obj.__class__.__name__}")
-                else:
-                    self._eb_logger.warning(f"Event {event_name} is not callable for {obj.__class__.__name__}")
+            if not event_name.startswith('on_'):
+                continue
 
-    def broadcast(self, event_name: str, **kwargs):
-        event = Event(event_name, kwargs)
+            handler = getattr(obj, event_name)
+            if callable(handler):
+                event_name = event_name[3:]
+                self.on_event(event_name, handler)
+                self._eb_logger.info(f"Registered event {event_name} for {obj.__class__.__name__}")
+
+    def emit(self, event_name: str, **kwargs):
+        event = Event(event_name, **kwargs)
         for handler in self._listeners.get(event_name, []):
             try:
                 handler(event)
             except Exception as e:
-                self._eb_logger.exception(f"Error broadcasting event {event_name}")
-
-    def pipeline(self, event_name: str, **kwargs):
-        event = Event(event_name, kwargs)
-        for handler in self._listeners.get(event_name, []):
-            try:
-                handler(event)
-            except Exception as e:
-                self._eb_logger.exception(f"Error pipeline event {event_name}")
-
-    def collect(self, event_name: str, **kwargs):
-        event = Event(event_name, kwargs)
-        try:
-            ret = [handler(event) for handler in self._listeners.get(event_name, [])]
-        except Exception as e:
-            ret = []
-            self._eb_logger.exception(f"Error collecting event {event_name}")
-        return ret
+                self._eb_logger.exception(f"Error emitting event {event_name}")
+        return event

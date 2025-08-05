@@ -62,6 +62,7 @@ class CodeBlock:
     def to_dict(self) -> Dict[str, Any]:
         """转换为字典"""
         return {
+            '__type__': 'CodeBlock',
             'name': self.name,
             'version': self.version,
             'lang': self.lang,
@@ -69,6 +70,18 @@ class CodeBlock:
             'path': self.path,
             'deps': self.deps
         }
+    
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> 'CodeBlock':
+        """从字典恢复对象"""
+        return cls(
+            name=data.get('name', ''),
+            version=data.get('version', 1),
+            lang=data.get('lang', ''),
+            code=data.get('code', ''),
+            path=data.get('path'),
+            deps=data.get('deps')
+        )
 
     def __repr__(self):
         return f"<CodeBlock name={self.name}, version={self.version}, lang={self.lang}, path={self.path}>"
