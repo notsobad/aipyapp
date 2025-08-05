@@ -239,8 +239,7 @@ class Task(Stoppable, EventBus):
             self.sync_to_cloud()
         
     def process_reply(self, markdown):
-        parse_mcp = self.mcp is not None
-        ret = self.code_blocks.parse(markdown, parse_mcp=parse_mcp)
+        ret = self.code_blocks.parse(markdown, parse_mcp=self.mcp)
         self.broadcast('parse_reply', result=ret)
         if not ret:
             return None

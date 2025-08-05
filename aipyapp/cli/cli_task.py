@@ -51,8 +51,7 @@ class InteractiveConsole():
     def get_main_status(self):
         status = self.tm.get_status()
         try:
-            mcp = status['mcp']
-            mcp_text = f" | MCP: {mcp['enabled_servers']}/{mcp['total_servers']}S, {mcp['enabled_tools']}/{mcp['total_tools']}T"
+            mcp_text = f" | MCP: {T('Enabled') if status['mcp_enabled'] else T('Disabled')}"
         except KeyError:
             mcp_text = ""
         return f"LLM: {status['llm']} | Role: {status['role']} | Display: {status['display']} | Tasks: {status['tasks']}{mcp_text}"

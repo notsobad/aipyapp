@@ -21,7 +21,3 @@ importance_threshold = 0.5
 summary_max_length = 200
 preserve_system = true
 preserve_recent = 3
-
-[mcp]
-enable = true
-

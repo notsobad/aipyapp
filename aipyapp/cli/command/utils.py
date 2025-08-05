@@ -2,7 +2,7 @@ from rich import print
 from rich.table import Table
 import random
 
-from .. import T
+from ... import T
 
 COLORS = ["red", "green", "blue", "yellow", "magenta", "cyan", "white", "bright_red", "bright_green", "bright_blue", "bright_yellow", "bright_magenta", "bright_cyan"]
 
