@@ -70,3 +70,6 @@ class MCPCommand(ParserCommand):
             ret = True
         ctx.console.print(T('Success') if ret else T('Failed'), style="bold green" if ret else "bold red")
         return ret
+    
+    def cmd(self, args, ctx):
+        return self.cmd_status(args, ctx)
