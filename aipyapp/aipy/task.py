@@ -17,10 +17,12 @@ from ..exec import BlockExecutor
 from .runtime import CliPythonRuntime
 from .utils import get_safe_filename
 from .blocks import CodeBlocks, CodeBlock
-from .interface import Stoppable, EventBus
+from ..interface import Stoppable, EventBus
+from .step_manager import StepManager
 from .multimodal import MMContent, LLMContext
+from .context_manager import ContextManager, ContextConfig
 
-TASK_VERSION = 20250804
+TASK_VERSION = 20250805
 
 CONSOLE_WHITE_HTML = read_text(__respkg__, "console_white.html")
 CONSOLE_CODE_HTML = read_text(__respkg__, "console_code.html")
@@ -59,8 +61,7 @@ class Task(Stoppable, EventBus):
         self.done_time = None
         self.instruction = None
         self.saved = None
-        self.steps = []
-
+        
         #TODO: 移除 gui 参数
         self.gui = self.settings.gui
 
@@ -70,12 +71,23 @@ class Task(Stoppable, EventBus):
         self.mcp = context.mcp
         self.display = None
         
-        self.client = context.client_manager.Client(self)
+        # 创建上下文管理器（从Client移到Task）
+        context_settings = self.settings.get('context_manager', {})
+        self.context_manager = ContextManager(ContextConfig.from_dict(context_settings))
+        
+        # 创建Client时传入context_manager
+        self.client = context.client_manager.Client(self, self.context_manager)
         self.role = context.role_manager.current_role
         self.code_blocks = CodeBlocks()
         self.runtime = CliPythonRuntime(self)
         self.runner = BlockExecutor()
         self.runner.set_python_runtime(self.runtime)
+        
+        # 注册所有可追踪对象到步骤管理器
+        self.step_manager = StepManager()
+        self.step_manager.register_trackable('messages', self.context_manager)
+        self.step_manager.register_trackable('runner', self.runner)
+        self.step_manager.register_trackable('blocks', self.code_blocks)
 
         self.init_plugins()
 
@@ -96,12 +108,15 @@ class Task(Stoppable, EventBus):
         self.instruction = task_data.get('instruction')
         self.start_time = task_data.get('start_time')
         self.done_time = task_data.get('done_time')
-        self.steps = task_data.get('steps', [])
-
-        # 恢复客户端状态（包含聊天历史和上下文管理器）
-        client_data = task_data.get('client')
-        self.client.restore_state(client_data)
         
+        # 恢复步骤信息
+        steps_data = task_data.get('steps', [])
+        self.step_manager.restore_state(steps_data)
+
+        # 恢复上下文管理器状态
+        context_data = task_data.get('context_manager')
+        self.context_manager.restore_state(context_data)
+
         # 恢复运行历史
         self.runner.restore_state(task_data.get('runner'))
         
@@ -112,7 +127,7 @@ class Task(Stoppable, EventBus):
         return {
             'llm': self.client.name,
             'blocks': len(self.code_blocks),
-            'steps': len(self.steps),
+            'steps': len(self.step_manager),
         }
 
     def init_plugins(self):
@@ -177,8 +192,8 @@ class Task(Stoppable, EventBus):
         task['instruction'] = instruction
         task['start_time'] = int(self.start_time)
         task['done_time'] = int(self.done_time)
-        task['steps'] = self.steps
-        task['client'] = self.client.get_state()
+        task['steps'] = self.step_manager.get_state()
+        task['context_manager'] = self.context_manager.get_state()
         task['runner'] = self.runner.get_state()
         task['blocks'] = self.code_blocks.get_state()
         
@@ -273,7 +288,7 @@ class Task(Stoppable, EventBus):
 
     def _get_summary(self, detail=False):
         data = {}
-        context_manager = self.client.context_manager
+        context_manager = self.context_manager
         if detail:
             data['usages'] = context_manager.get_usage()
 
@@ -336,18 +351,8 @@ class Task(Stoppable, EventBus):
         response = self.chat(user_prompt, system_prompt=system_prompt)
         if not response:
             self.log.error('No response from LLM')
-            # 记录失败的步骤信息和边界信息
-            step_info = {
-                'instruction': instruction, 
-                'round': 0, 
-                'response': None,
-                'boundaries': {
-                    'messages_count': len(self.client.context_manager),
-                    'runner_count': len(self.runner.history),
-                    'blocks_count': len(self.code_blocks.history)
-                }
-            }
-            self.steps.append(step_info)
+            # 使用新的步骤管理器记录失败的步骤
+            self.step_manager.create_checkpoint(instruction, 0, '')
             return
         
         while rounds <= max_rounds:
@@ -361,18 +366,8 @@ class Task(Stoppable, EventBus):
                 response = prev_response
                 break
 
-        # 记录步骤信息和边界信息
-        step_info = {
-            'instruction': instruction, 
-            'round': rounds, 
-            'response': response,
-            'boundaries': {
-                'messages_count': len(self.client.context_manager),
-                'runner_count': len(self.runner.history),
-                'blocks_count': len(self.code_blocks.history)
-            }
-        }
-        self.steps.append(step_info)
+        # 使用新的步骤管理器记录步骤
+        self.step_manager.create_checkpoint(instruction, rounds, response)
         summary = self._get_summary()
         self.broadcast('round_end', summary=summary, response=response)
         self._auto_save()
@@ -399,7 +394,7 @@ class Task(Stoppable, EventBus):
                     'apikey': trustoken_apikey,
                     'author': os.getlogin(),
                     'instruction': self.instruction,
-                    'llm': self.client.context_manager.json(),
+                    'llm': self.context_manager.json(),
                     'runner': self.runner.history,
                 }, ensure_ascii=False, default=str),
                 parse_constant=str)
@@ -418,68 +413,16 @@ class Task(Stoppable, EventBus):
         return True
 
     def delete_step(self, index: int):
-        """删除指定索引的步骤"""
-        if index < 0 or index >= len(self.steps):
-            raise TaskError(T("Invalid step index"))
-        
-        # 获取要删除的步骤信息
-        step_to_delete = self.steps[index]
-        boundaries = step_to_delete.get('boundaries')
-        
-        # 计算删除范围
-        if index == 0:
-            # 删除第一个步骤，从0开始删除
-            start_messages = 0
-            start_runner = 0
-            start_blocks = 0
-        else:
-            # 从前一个步骤的边界开始删除
-            prev_boundaries = self.steps[index - 1].get('boundaries', {})
-            start_messages = prev_boundaries.get('messages_count', 0)
-            start_runner = prev_boundaries.get('runner_count', 0)
-            start_blocks = prev_boundaries.get('blocks_count', 0)
-        
-        end_messages = boundaries.get('messages_count', 0)
-        end_runner = boundaries.get('runner_count', 0)
-        end_blocks = boundaries.get('blocks_count', 0)
-        
-        # 删除各个 history 中对应的数据
-        self.client.delete_range(start_messages, end_messages)
-        self.runner.delete_range(start_runner, end_runner)
-        self.code_blocks.delete_range(start_blocks, end_blocks)
-        
-        # 更新后续步骤的边界信息
-        deleted_messages = end_messages - start_messages
-        deleted_runner = end_runner - start_runner
-        deleted_blocks = end_blocks - start_blocks
-        
-        for i in range(index + 1, len(self.steps)):
-            step = self.steps[i]
-            if 'boundaries' in step:
-                step['boundaries']['messages_count'] -= deleted_messages
-                step['boundaries']['runner_count'] -= deleted_runner
-                step['boundaries']['blocks_count'] -= deleted_blocks
-        
-        # 删除步骤记录
-        self.steps.pop(index)
-        self.log.info('Step deleted', index=index)
-        return True
+        """删除指定索引的步骤 - 使用新的步骤管理器"""
+        return self.step_manager.delete_step(index)
 
     def clear_steps(self):
-        """清空所有步骤"""
-        # 清空所有 history 数据
-        self.client.clear()
-        self.runner.clear()
-        self.code_blocks.clear()
-        
-        # 清空步骤记录
-        self.steps = []
-        self.log.info('Steps cleared')
+        """清空所有步骤 - 使用新的步骤管理器"""
+        self.step_manager.clear_all()
 
     def list_steps(self):
-        """列出所有步骤"""
-        StepRecord = namedtuple('StepRecord', ['Index', 'Instruction', 'Round'])
-        return [StepRecord(index, step['instruction'], step['round']) for index, step in enumerate(self.steps)]
+        """列出所有步骤 - 使用新的步骤管理器"""
+        return self.step_manager.list_steps()
 
     def list_code_blocks(self):
         """列出所有代码块"""

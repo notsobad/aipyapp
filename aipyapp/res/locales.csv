@@ -451,3 +451,7 @@ Note: Click the "**Help**" link in the menu bar to contact the **AIPy** official
 "Task step deleted","任务步骤已删除","タスクステップが削除されました"
 "Failed to delete task step","删除任务步骤失败","タスクステップの削除に失敗しました"
 "Task Steps","任务步骤","タスクステップ"
+"Index","索引","インデックス"
+"Instruction","指令","指令"
+"Round","轮数","ラウンド"
+"Ended","结束时间","終了時間"

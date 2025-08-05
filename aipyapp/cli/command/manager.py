@@ -281,7 +281,7 @@ class CommandManager(Completer):
             parsed_args.raw_args = args[1:]
             ret = command_instance.execute(parsed_args)
         except SystemExit as e:
-            raise CommandError(f"SystemExit: {user_input}") from e
+            raise CommandError(f"SystemExit: {e}")
         except argparse.ArgumentError as e:
             raise CommandInputError(user_input) from e
         except Exception as e:

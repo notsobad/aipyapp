@@ -6,7 +6,7 @@ from typing import Any, Dict, Union
 from rich.console import Console
 
 from .. import T
-from ..aipy import Event
+from ..interface import Event
 
 class BaseDisplayPlugin(ABC):
     """显示效果插件基类"""

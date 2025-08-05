@@ -3,9 +3,22 @@
 
 import threading
 from abc import ABC, abstractmethod
-from typing import Callable, Any, Dict, List
+from typing import Callable, Any, Dict, List, Optional
 
 from loguru import logger
+
+class Trackable(ABC):
+    """可追踪对象接口"""
+    
+    @abstractmethod
+    def get_checkpoint(self) -> Any:
+        """获取当前检查点状态"""
+        pass
+    
+    @abstractmethod
+    def restore_to_checkpoint(self, checkpoint: Optional[Any]):
+        """恢复到指定检查点，None表示恢复到初始状态"""
+        pass
 
 class Runtime(ABC):
     @abstractmethod
