@@ -29,15 +29,25 @@ def parse_args():
     parser.add_argument('--style', default=None, help="Style of the display, e.g. 'classic' or 'modern'")
     parser.add_argument('--role', default=None, help="Role to use")
     parser.add_argument('-f', '--fetch-config', default=False, action='store_true', help="login to trustoken and fetch token config")
+    parser.add_argument('--agent', default=False, action='store_true', help="Agent mode - HTTP API server for n8n integration")
+    parser.add_argument('--port', type=int, default=8848, help="Port for agent mode HTTP server (default: 8848)")
+    parser.add_argument('--host', default='127.0.0.1', help="Host for agent mode HTTP server (default: 127.0.0.1)")
     parser.add_argument('cmd', nargs='?', default=None, help="Task to execute, e.g. 'Who are you?'")
     return parser.parse_args()
 
 def ensure_pkg(pkg):
     try:
-        import wx
-    except:
+        if pkg == 'wxpython':
+            import wx
+        elif pkg == 'ipython':
+            import IPython
+        elif pkg == 'fastapi':
+            import fastapi
+        elif pkg == 'uvicorn':
+            import uvicorn
+    except ImportError:
         import subprocess
-
+        print(f"Installing required package: {pkg}")
         cp = subprocess.run([sys.executable, "-m", "pip", "install", pkg])
         assert cp.returncode == 0
 
@@ -49,7 +59,11 @@ def mainw():
 
 def main():
     args = parse_args()
-    if args.python:
+    if args.agent:
+        ensure_pkg('fastapi')
+        ensure_pkg('uvicorn')
+        from .cli.cli_agent import main as aipy_main
+    elif args.python:
         from .cli.cli_python import main as aipy_main
     elif args.ipython:
         ensure_pkg('ipython')

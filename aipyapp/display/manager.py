@@ -13,6 +13,7 @@ from .style_classic import DisplayClassic
 from .style_modern import DisplayModern
 from .style_minimal import DisplayMinimal
 from .style_null import DisplayNull
+from .style_agent import DisplayAgent
 
 class DisplayManager:
     """显示效果管理器"""
@@ -22,6 +23,7 @@ class DisplayManager:
         'classic': DisplayClassic,
         'modern': DisplayModern,
         'minimal': DisplayMinimal,
+        'agent': DisplayAgent,
     }
     
     def __init__(self, style: str, /, console: Console = None, record: bool = True, quiet: bool = False):

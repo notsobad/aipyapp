@@ -12,11 +12,11 @@ from rich.markdown import Markdown
 from rich.rule import Rule
 from rich.console import Console, Group
 
-from .base import BaseDisplayPlugin
+from .base_rich import RichDisplayPlugin
 from .live_display import LiveDisplay
 from .. import T
 
-class DisplayClassic(BaseDisplayPlugin):
+class DisplayClassic(RichDisplayPlugin):
     """Classic display style"""
     
     def __init__(self, console: Console, quiet: bool = False):

@@ -14,11 +14,11 @@ from rich.rule import Rule
 from rich.markdown import Markdown
 from rich.align import Align
 
-from .base import BaseDisplayPlugin
+from .base_rich import RichDisplayPlugin
 from .live_display import LiveDisplay
 from .. import T
 
-class DisplayModern(BaseDisplayPlugin):
+class DisplayModern(RichDisplayPlugin):
     """Modern display style"""
     
     def __init__(self, console: Console, quiet: bool = False):

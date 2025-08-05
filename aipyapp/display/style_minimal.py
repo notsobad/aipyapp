@@ -7,10 +7,10 @@ from rich.console import Console
 from rich.markdown import Markdown
 from rich.status import Status
 
-from .base import BaseDisplayPlugin
+from .base_rich import RichDisplayPlugin
 from .. import T
 
-class DisplayMinimal(BaseDisplayPlugin):
+class DisplayMinimal(RichDisplayPlugin):
     """Minimal display style"""
     
     def __init__(self, console: Console, quiet: bool = False):
