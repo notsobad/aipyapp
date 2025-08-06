@@ -37,7 +37,7 @@ class DisplayClassic(RichDisplayPlugin):
 
     def print_code_result(self, block, result, title=None):
         line_numbers = True if 'traceback' in result else False
-        syntax_code = Syntax(block.code, block.lang, line_numbers=line_numbers, word_wrap=True)
+        syntax_code = Syntax(block.code, block.lang, line_range=(0, 5), line_numbers=line_numbers, word_wrap=True)
         json_result = json.dumps(result, ensure_ascii=False, indent=2, default=str)
         syntax_result = Syntax(json_result, 'json', line_numbers=False, word_wrap=True)
         group = Group(syntax_code, Rule(), syntax_result)
@@ -48,30 +48,30 @@ class DisplayClassic(RichDisplayPlugin):
         """异常事件处理"""
         msg = event.data.get('msg', '')
         exception = event.data.get('exception')
-        self.console.print(f"[red]❌ {msg}: {exception}[/red]")
+        self.console.print(f"❌ {msg}: {exception}", style="error")
 
     def on_task_start(self, event):
         """任务开始事件处理"""
         data = event.data
         instruction = data.get('instruction')
-        self.console.print(f"[yellow]{T('Task processing started')}: {instruction}")
+        self.console.print(f"🚀 {T('Task processing started')}: {instruction}", style="task.running")
 
     def on_query_start(self, event):
         """查询开始事件处理"""
-        self.console.print(f"➡️ {T('Sending message to LLM')}...", style='dim white')
+        self.console.print(f"➡️ {T('Sending message to LLM')}...", style='info')
 
     def on_round_start(self, event):
         """回合开始事件处理"""
         data = event.data
         instruction = data.get('instruction')
-        self.console.print(f"[yellow]{T('Instruction processing started')}: {instruction}")
+        self.console.print(f"▶️ {T('Instruction processing started')}: {instruction}", style="info")
 
     def on_stream_start(self, event):
         """流式开始事件处理"""
         if not self.quiet:
             self.live_display = LiveDisplay()
             self.live_display.__enter__()
-            self.console.print(f"🔄 {T('Streaming started')}...", style='dim white')
+            self.console.print(f"🔄 {T('Streaming started')}...", style='info')
     
     def on_stream_end(self, event):
         """流式结束事件处理"""
@@ -93,50 +93,87 @@ class DisplayClassic(RichDisplayPlugin):
         llm = data.get('llm', '')
         msg = data.get('msg')
         if not msg:
-            self.console.print(f"[red]{T('LLM response is empty')}[/red]")
+            self.console.print(f"{T('LLM response is empty')}", style="error")
             return
         if msg.role == 'error':
-            self.console.print(f"[red]{msg.content}[/red]")
+            self.console.print(f"{msg.content}", style="error")
             return
         if msg.reason:
             content = f"{msg.reason}\n\n-----\n\n{msg.content}"
         else:
             content = msg.content
-        self._box(f"[yellow]{T('Reply')} ({llm})", content)
+        self.console.print(f"🔸 {T('Completed receiving message')} ({llm}):\n", style="info")
+        self.console.print(Markdown(content))
 
     def on_parse_reply(self, event):
         """消息解析结果事件处理"""
         ret = event.data.get('result')
-        if ret:
-            json_str = json.dumps(ret, ensure_ascii=False, indent=2, default=str)
-            self._box(f"✅ {T('Message parse result')}", json_str, lang="json")
+        if not ret:
+            return
+            
+        # 构建简化的显示信息
+        info_parts = []
+        
+        # 显示代码块数量
+        if 'blocks' in ret and ret['blocks']:
+            block_count = len(ret['blocks'])
+            info_parts.append(f"{block_count}个代码块")
+        
+        # 显示要执行的代码块名称
+        if 'exec_blocks' in ret and ret['exec_blocks']:
+            exec_names = [getattr(block, 'name', 'Unknown') for block in ret['exec_blocks']]
+            exec_str = ", ".join(exec_names)
+            info_parts.append(f"执行: {exec_str}")
+        
+        # 显示 MCP 工具调用
+        if 'call_tool' in ret:
+            info_parts.append("MCP工具调用")
+        
+        # 显示解析错误
+        if 'errors' in ret and ret['errors']:
+            error_count = len(ret['errors'])
+            info_parts.append(f"{error_count}个错误")
+        
+        # 如果有内容则显示
+        if info_parts:
+            info = " | ".join(info_parts)
+            self.console.print(f"➔  {T('Message parse result')}: {info}", style="info")
 
     def on_exec(self, event):
         """代码执行开始事件处理"""
         block = event.data.get('block')
         if hasattr(block, 'name'):
-            self.console.print(f"⚡ {T('Start executing code block')}: {block.name}", style='dim white')
+            self.console.print(f"⚡ {T('Start executing code block')}: {block.name}", style='info')
         else:
-            self.console.print(f"⚡ {T('Start executing code block')}", style='dim white')
+            self.console.print(f"⚡ {T('Start executing code block')}", style='info')
             
     def on_exec_result(self, event):
         """代码执行结果事件处理"""
         data = event.data
         result = data.get('result')
         block = data.get('block')
-        self.print_code_result(block, result)
+        
+        # 显示说明信息
+        block_name = getattr(block, 'name', 'Unknown') if block else 'Unknown'
+        self.console.print(f"☑️ {T('Execution result')}: {block_name}", style="info")
+        
+        # JSON格式化和高亮显示结果
+        json_result = json.dumps(result, ensure_ascii=False, indent=2, default=str)
+        self.console.print_json(json_result, style="dim")
 
     def on_mcp_call(self, event):
         """工具调用事件处理"""
-        self.console.print(f"⚡ {T('Start calling MCP tool')} ...", style='dim white')
+        self.console.print(f"⚡ {T('Start calling MCP tool')} ...", style='info')
                 
     def on_mcp_result(self, event):
         """MCP 工具调用结果事件处理"""
         data = event.data
         result = data.get('result')
         block = data.get('block')
-        self.print_code_result(block, result, title=T("MCP tool call result"))
-            
+        self.console.print(f"☑️ {T('MCP tool call result')}: {block.name}", style="info")
+        json_result = json.dumps(result, ensure_ascii=False, indent=2, default=str)
+        self.console.print_json(json_result, style="dim")
+
     def on_round_end(self, event):
         """任务总结事件处理"""
         summary = event.data['summary']
@@ -164,7 +201,7 @@ class DisplayClassic(RichDisplayPlugin):
             self.console.print(table)
 
         summary = summary.get('summary')
-        self.console.print(f"\n⏹ [cyan]{T('End processing instruction')} {summary}")
+        self.console.print(f"\n🔸 {T('End processing instruction')} {summary}", style="info")
 
     def on_upload_result(self, event):
         """云端上传结果事件处理"""
@@ -172,14 +209,14 @@ class DisplayClassic(RichDisplayPlugin):
         status_code = data.get('status_code', 0)
         url = data.get('url', '')
         if url:
-            self.console.print(f"[green]{T('Article uploaded successfully, {}', url)}[/green]")
+            self.console.print(f"🟢 {T('Article uploaded successfully, {}', url)}", style="success")
         else:
-            self.console.print(f"[red]{T('Upload failed (status code: {})', status_code)}")
+            self.console.print(f"🔴 {T('Upload failed (status code: {})', status_code)}", style="error")
 
     def on_task_end(self, event):
         """任务结束事件处理"""
         path = event.data.get('path', '')
-        self.console.print(f"[green]{T('Task completed')}: {path}")
+        self.console.print(f"✅ {T('Task completed')}: {path}", style="info")
 
     def on_runtime_message(self, event):
         """Runtime消息事件处理"""

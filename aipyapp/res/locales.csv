@@ -465,3 +465,7 @@ Note: Click the "**Help**" link in the menu bar to contact the **AIPy** official
 "Load task from task.json file","从 task.json 文件加载任务","task.jsonファイルからタスクを読み込む"
 "Replay task from task.json file","从 task.json 文件重放任务","task.jsonファイルからタスクを再現"
 "Path to task.json file","任务文件路径","タスクファイルのパス"
+"Completed receiving message","完成接收消息","メッセージの受信が完了しました"
+"Message parse result","消息解析结果","メッセージの解析結果"
+"Execution result","执行结果","実行結果"
+"MCP tool call result","MCP工具调用结果","MCPツールの呼び出し結果"

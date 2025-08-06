@@ -99,10 +99,10 @@ class InteractiveConsole():
 
     def start_task_mode(self, task, instruction=None):
         if instruction:
-            self.console.print(f"[AI] {T('Enter Ctrl+d or /done to end current task')}", style="cyan")
+            self.console.print(f"[AI] {T('Enter Ctrl+d or /done to end current task')}", style="dim color(240)")
             self.run_task(task, instruction)
         else:
-            self.console.print(f"[AI] {T('Resuming task')}: {task.instruction[:32]}", style="cyan")
+            self.console.print(f"[AI] {T('Resuming task')}: {task.instruction[:32]}", style="dim color(240)")
             
         while True:
             self.task = task
@@ -130,10 +130,10 @@ class InteractiveConsole():
         except Exception as e:
             self.console.print_exception()
         self.task = None
-        self.console.print(f"[{T('Exit AI mode')}]", style="cyan")
+        self.console.print(f"[{T('Exit AI mode')}]", style="dim")
 
     def run(self):
-        self.console.print(f"[Main] {T('Please enter an instruction or `/help` for more information')}", style="green")
+        self.console.print(f"[Main] {T('Please enter an instruction or `/help` for more information')}", style="dim color(240)")
         tm = self.tm
         while True:
             self.command_manager.set_main_mode()
