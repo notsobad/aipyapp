@@ -159,7 +159,7 @@ class DisplayClassic(RichDisplayPlugin):
         
         # JSON格式化和高亮显示结果
         json_result = json.dumps(result, ensure_ascii=False, indent=2, default=str)
-        self.console.print_json(json_result, style="dim")
+        self.console.print_json(json_result, indent=2)
 
     def on_mcp_call(self, event):
         """工具调用事件处理"""
