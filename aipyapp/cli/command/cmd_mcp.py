@@ -32,6 +32,7 @@ class MCPCommand(ParserCommand):
         elif args.sys:
             ret = mcp.enable_sys_mcp(enable)
         else:
+            ctx.console.print(T('Please specify --user or --sys'), style="bold red")
             ret = None
         ctx.console.print(T('Success') if ret else T('Failed'), style="bold green" if ret else "bold red")
         return ret

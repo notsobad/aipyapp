@@ -376,7 +376,7 @@ class MCPToolManager:
         """返回所有用户MCP服务器列表"""
         status = self.get_server_info(mcp_type="user")
         ServerRecord = namedtuple("ServerRecord", ["Name", "Enabled", "ToolsCount"])
-        return [ServerRecord(name, enabled, tools_count) for name, (enabled, tools_count) in status.items()]
+        return [ServerRecord(name, info['enabled'], info['tools_count']) for name, info in status.items()]
     
     def get_status(self):
         """返回MCP状态信息供状态栏使用"""
