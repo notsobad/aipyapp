@@ -18,6 +18,8 @@ from .cmd_block import BlockCommand
 
 from loguru import logger
 from prompt_toolkit.completion import Completer, Completion
+from prompt_toolkit.key_binding import KeyBindings
+from pathlib import Path
 
 COMMANDS = [
     InfoCommand, LLMCommand, RoleCommand, DisplayCommand, StepsCommand, 
@@ -96,6 +98,120 @@ class CommandManager(Completer):
         self.mode = CommandMode.MAIN
         self.task = None
         self.commands = self.commands_main
+    
+    def create_key_bindings(self):
+        """创建键绑定"""
+        kb = KeyBindings()
+        
+        @kb.add('c-f')  # Ctrl+F: 开启文件补齐模式
+        def _(event):
+            """按Ctrl+F进入文件补齐模式"""
+            buffer = event.app.current_buffer
+            
+            # 插入@符号
+            buffer.insert_text('@')
+            
+            # 创建专门处理@文件引用的补齐器
+            file_completer = self._create_file_reference_completer()
+            
+            # 临时切换到文件引用补齐器
+            buffer.completer = file_completer
+            
+            # 触发补齐
+            buffer.start_completion()
+            
+        @kb.add('escape', eager=True)  # ESC: 恢复默认补齐模式
+        def _(event):
+            """按ESC恢复默认补齐模式"""
+            buffer = event.app.current_buffer
+            
+            # 直接恢复到CommandManager作为补齐器
+            buffer.completer = self
+            
+            # 关闭当前的补齐窗口
+            if buffer.complete_state:
+                buffer.cancel_completion()
+            
+        @kb.add('c-t')  # Ctrl+T: 插入当前时间戳
+        def _(event):
+            """按Ctrl+T插入当前时间戳"""
+            from datetime import datetime
+            timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            event.app.current_buffer.insert_text(timestamp)
+        
+        return kb
+    
+    def _create_file_reference_completer(self):
+        """创建文件引用补齐器"""
+        import shlex
+        import os
+        
+        class FileReferenceCompleter(Completer):
+            def get_completions(self, document, complete_event):
+                # 获取光标前的文本
+                text_before_cursor = document.text_before_cursor
+                
+                # 找到最后一个@符号的位置
+                at_pos = text_before_cursor.rfind('@')
+                if at_pos == -1:
+                    return
+                
+                # 获取@后面的部分作为搜索前缀
+                raw_path = text_before_cursor[at_pos + 1:]
+                
+                # 处理可能包含引号的路径输入
+                try:
+                    # 尝试解析引号，如果失败则使用原始输入
+                    unquoted_path = shlex.split(raw_path)[0] if raw_path else ''
+                except ValueError:
+                    # 如果引号不匹配，使用原始输入
+                    unquoted_path = raw_path
+                
+                # 确定搜索目录和文件前缀
+                if not unquoted_path or not os.path.isabs(unquoted_path):
+                    search_dir = Path.cwd()
+                    if unquoted_path:
+                        if os.sep in unquoted_path:
+                            search_dir = search_dir / os.path.dirname(unquoted_path)
+                            search_prefix = os.path.basename(unquoted_path)
+                        else:
+                            search_prefix = unquoted_path
+                    else:
+                        search_prefix = ''
+                else:
+                    search_dir = Path(os.path.dirname(unquoted_path))
+                    search_prefix = os.path.basename(unquoted_path)
+                
+                # 搜索匹配的文件
+                try:
+                    if search_dir.exists() and search_dir.is_dir():
+                        for item in search_dir.iterdir():
+                            if item.name.startswith(search_prefix):
+                                # 计算需要补全的部分
+                                remaining = item.name[len(search_prefix):]
+                                if remaining:
+                                    # 处理包含空格的文件名
+                                    if ' ' in item.name:
+                                        # 如果文件名包含空格，用引号包装完整的文件名
+                                        quoted_name = shlex.quote(item.name)
+                                        # 计算需要替换的部分：从search_prefix开始到文件名结尾
+                                        if search_prefix:
+                                            # 替换从search_prefix开始的部分
+                                            completion_text = quoted_name[len(search_prefix):]
+                                        else:
+                                            completion_text = quoted_name
+                                    else:
+                                        completion_text = remaining
+                                    
+                                    display_text = item.name
+                                    if item.is_dir():
+                                        display_text += "/"
+                                    
+                                    yield Completion(completion_text, display=display_text)
+                except (OSError, PermissionError):
+                    pass
+        
+        return FileReferenceCompleter()
 
     def register_command(self, command):
         """Register a command instance"""

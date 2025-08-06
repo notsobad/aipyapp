@@ -69,6 +69,12 @@ class MMContent:
                     p = Path(file_path)
                     if not p.is_absolute():
                         file_path = str(base_path / p)
+                
+                # 检查文件是否存在，如果不存在则作为普通文本处理
+                if not Path(file_path).exists():
+                    items.append({'type': 'text', 'text': part})
+                    continue
+                
                 if not file_type:
                     # 判断文本/二进制
                     if is_text_file(file_path):

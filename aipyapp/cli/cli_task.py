@@ -3,6 +3,7 @@
 from importlib.resources import read_text
 
 from rich.console import Console
+from rich.text import Text
 from prompt_toolkit import PromptSession
 from prompt_toolkit.history import FileHistory
 from prompt_toolkit.styles import Style
@@ -46,7 +47,13 @@ class InteractiveConsole():
         self.style_task = Style.from_dict(STYLE_AI)
         self.command_manager = CommandManager(tm, console)
         self.completer = self.command_manager
-        self.session = PromptSession(history=self.history, completer=self.completer, auto_suggest=AutoSuggestFromHistory(), bottom_toolbar=self.get_bottom_toolbar)
+        self.session = PromptSession(
+            history=self.history, 
+            completer=self.completer, 
+            auto_suggest=AutoSuggestFromHistory(), 
+            bottom_toolbar=self.get_bottom_toolbar,
+            key_bindings=self.command_manager.create_key_bindings()
+        )
     
     def get_main_status(self):
         status = self.tm.get_status()
@@ -160,7 +167,8 @@ class InteractiveConsole():
 def main(args):
     console = Console(record=True)
     console.print(f"🚀 Python use - AIPython ({__version__}) [[pink]https://aipy.app[/pink]]", style="bold green")
-    console.print(read_text(__respkg__, "logo.txt"), highlight=False)
+    logo_text = read_text(__respkg__, "logo.txt")
+    console.print(Text.from_ansi(logo_text))
     conf = ConfigManager(args.config_dir)
     settings = conf.get_config()
     lang = settings.get('lang')
