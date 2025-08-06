@@ -8,8 +8,9 @@ from datetime import datetime
 from loguru import logger
 
 from .event_serializer import EventSerializer
+from ..interface import Trackable
 
-class EventRecorder:
+class EventRecorder(Trackable):
     """事件记录器 - 记录任务执行过程中的所有重要事件"""
     
     def __init__(self, enabled: bool = True):
@@ -89,6 +90,23 @@ class EventRecorder:
         self.events.clear()
         self.start_time = None
         self.log.info('Cleared all events')
+    
+    # Trackable接口实现
+    def get_checkpoint(self) -> int:
+        """获取当前检查点状态 - 返回事件数量"""
+        return len(self.events)
+    
+    def restore_to_checkpoint(self, checkpoint: Optional[int]):
+        """恢复到指定检查点"""
+        if checkpoint is None:
+            # 恢复到初始状态
+            self.clear_events()
+        else:
+            # 恢复到指定事件数量
+            if checkpoint < len(self.events):
+                deleted_count = len(self.events) - checkpoint
+                self.events = self.events[:checkpoint]
+                self.log.info(f'Restored to checkpoint {checkpoint}, deleted {deleted_count} events')
     
     def get_state(self) -> Dict[str, Any]:
         """获取需要持久化的状态数据"""

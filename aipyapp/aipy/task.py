@@ -94,6 +94,8 @@ class Task(Stoppable, EventBus):
         enable_replay = self.settings.get('enable_replay_recording', True)
         if enable_replay:
             self.event_recorder = EventRecorder(enabled=True)
+            # 注册事件记录器到步骤管理器
+            self.step_manager.register_trackable('events', self.event_recorder)
         else:
             self.event_recorder = None
 

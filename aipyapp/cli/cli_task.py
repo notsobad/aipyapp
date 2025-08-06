@@ -116,10 +116,14 @@ class InteractiveConsole():
             if user_input in ('/done', 'done'):
                 break
 
-            if user_input.startswith('/'):
-                self.command_manager.execute(user_input)
+            if not user_input.startswith('/'):
+                self.run_task(task, user_input)
                 continue
-            self.run_task(task, user_input)
+
+            try:
+                self.command_manager.execute(user_input)
+            except CommandError as e:
+                self.console.print(f"[red]{e}[/red]")
 
         try:
             task.done()
@@ -145,12 +149,11 @@ class InteractiveConsole():
 
                 try:
                     ret = self.command_manager.execute(user_input)
-                    if ret and ret['command'] == 'task' and ret['subcommand'] in ('use', 'load'):
+                    if ret and ret['command'] == 'task' and ret['subcommand'] in ('use', 'resume'):
                         task = ret['ret']
                         self.start_task_mode(task)
                 except CommandError as e:
                     self.console.print(f"[red]{e}[/red]")
-                    continue
             except (EOFError, KeyboardInterrupt):
                 break
 
