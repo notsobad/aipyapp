@@ -22,8 +22,7 @@ from .step_manager import StepManager
 from .multimodal import MMContent, LLMContext
 from .context_manager import ContextManager, ContextConfig
 from .event_recorder import EventRecorder
-
-TASK_VERSION = 20250806
+from .task_state import TaskState
 
 CONSOLE_WHITE_HTML = read_text(__respkg__, "console_white.html")
 CONSOLE_CODE_HTML = read_text(__respkg__, "console_code.html")
@@ -114,38 +113,21 @@ class Task(Stoppable, EventBus):
         """从任务状态加载任务
         
         Args:
-            task_data: 任务状态数据
+            task_data: 任务状态数据（字典格式）或 TaskState 对象
             
         Returns:
             Task: 加载的任务对象
         """
-        version = task_data.get('version')
-        if version != TASK_VERSION:
-            raise TastStateError('Task version mismatch', version=version)
+        # 支持传入字典或 TaskState 对象
+        if isinstance(task_data, dict):
+            task_state = TaskState.from_dict(task_data)
+        elif isinstance(task_data, TaskState):
+            task_state = task_data
+        else:
+            raise TastStateError('Invalid task_data type, expected dict or TaskState')
         
-        # 恢复任务基本信息
-        self.instruction = task_data.get('instruction')
-        self.start_time = task_data.get('start_time')
-        self.done_time = task_data.get('done_time')
-        
-        # 恢复步骤信息
-        steps_data = task_data.get('steps', [])
-        self.step_manager.restore_state(steps_data)
-
-        # 恢复上下文管理器状态
-        context_data = task_data.get('context_manager')
-        self.context_manager.restore_state(context_data)
-
-        # 恢复运行历史
-        self.runner.restore_state(task_data.get('runner'))
-        
-        # 恢复代码块
-        self.code_blocks.restore_state(task_data.get('blocks'))
-        
-        # 恢复事件记录器状态
-        events_data = task_data.get('events')
-        if events_data:
-            self.event_recorder.restore_state({'events': events_data, 'enabled': True})
+        # 使用 TaskState 恢复状态
+        task_state.restore_to_task(self)
 
     def get_status(self):
         return {
@@ -208,32 +190,20 @@ class Task(Stoppable, EventBus):
             self.log.warning('Task directory not found, skipping save')
             return
         
-        instruction = self.instruction
-        self.done_time = time.time()
-        task = OrderedDict()
-        task['version'] = TASK_VERSION
-        task['task_id'] = self.task_id
-        task['instruction'] = instruction
-        task['start_time'] = int(self.start_time)
-        task['done_time'] = int(self.done_time)
-        task['steps'] = self.step_manager.get_state()
-        task['context_manager'] = self.context_manager.get_state()
-        task['runner'] = self.runner.get_state()
-        task['blocks'] = self.code_blocks.get_state()
-        task['events'] = self.event_recorder.get_events()
-        
-        filename = self.cwd / "task.json"
         try:
-            json.dump(task, open(filename, 'w', encoding='utf-8'), ensure_ascii=False, indent=4, default=str)
+            # 创建 TaskState 对象并保存
+            task_state = TaskState(self)
+            task_state.save_to_file(self.cwd / "task.json")
+            
+            # 保存 HTML 控制台
+            filename = self.cwd / "console.html"
+            self.save(filename)
+            
+            self.saved = True
+            self.log.info('Task auto saved')
         except Exception as e:
             self.log.exception('Error saving task')
             self.emit('exception', msg='save_task', exception=e)
-
-        filename = self.cwd / "console.html"
-        #self.save_html(filename, task)
-        self.save(filename)
-        self.saved = True
-        self.log.info('Task auto saved')
 
     def done(self):
         if not self.instruction or not self.start_time:

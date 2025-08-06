@@ -8,6 +8,7 @@ from rich.panel import Panel
 
 from ... import T, EventBus
 from ...aipy.event_serializer import EventSerializer
+from ...aipy.task_state import TaskState
 from .base import Completable
 from .base_parser import ParserCommand
 from .utils import print_records
@@ -107,37 +108,26 @@ class TaskCommand(ParserCommand):
         task = ctx.tm.get_task_by_id(args.tid)
         return task
 
-    def _load_task_data(self, path):
-        task_file = Path(path)
-        if not task_file.exists():
-            raise FileNotFoundError(f"Task file not found: {path}")
-        if not task_file.name.endswith('.json'):
-            raise ValueError("Task file must be a .json file")
-        
-        # 读取任务数据
-        try:
-            with open(task_file, 'r', encoding='utf-8') as f:
-                task_data = json.load(f)
-        except json.JSONDecodeError as e:
-            raise ValueError(f"Invalid JSON file: {e}")
-        return task_data
+    def _load_task_state(self, path):
+        """加载任务状态"""
+        return TaskState.from_file(path)
     
     def cmd_resume(self, args, ctx):
         """从 task.json 文件加载任务"""
-        task_data = self._load_task_data(args.path)
+        task_state = self._load_task_state(args.path)
         
         # 将任务添加到任务管理器中
-        task = ctx.tm.load_task(task_data)
+        task = ctx.tm.load_task(task_state)
         return task
 
     def cmd_replay(self, args, ctx):
         """重放任务"""
-        task_data = self._load_task_data(args.path)
+        task_state = self._load_task_state(args.path)
         
         # 显示重放信息
-        instruction = task_data.get('instruction')
-        task_id = task_data.get('task_id')
-        events = task_data.get('events', [])
+        instruction = task_state.instruction
+        task_id = task_state.task_id
+        events = task_state.get_component_state('events') or []
         events_count = len(events)
         
         panel = Panel(
