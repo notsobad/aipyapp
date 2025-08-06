@@ -51,7 +51,7 @@ class CliPythonRuntime(PythonRuntime):
             False
         """
         message = f"\n⚠️ LLM {T('Request to install third-party packages')}: {packages}"
-        self.task.broadcast('runtime_message', message=message)
+        self.task.emit('runtime_message', message=message)
         
         if self.display:
             prompt = f"💬 {T('If you agree, please enter')} 'y'> "
@@ -62,23 +62,23 @@ class CliPythonRuntime(PythonRuntime):
         if ok:
             ret = self.ensure_packages(*packages)
             result_message = "\n✅" if ret else "\n❌"
-            self.task.broadcast('runtime_message', message=result_message)
+            self.task.emit('runtime_message', message=result_message)
             return ret
         return False
     
     @restore_output
     def get_env(self, name: str, default: str = None, *, desc: str = None) -> Union[str, None]:
         message = f"\n⚠️ LLM {T('Request to obtain environment variable {}, purpose', name)}: {desc}"
-        self.task.broadcast('runtime_message', message=message)
+        self.task.emit('runtime_message', message=message)
         
         try:
             value = self.envs[name][0]
             success_message = f"✅ {T('Environment variable {} exists, returned for code use', name)}"
-            self.task.broadcast('runtime_message', message=success_message)
+            self.task.emit('runtime_message', message=success_message)
         except KeyError:
             if self._auto_getenv:
                 auto_message = f"✅ {T('Auto confirm')}"
-                self.task.broadcast('runtime_message', message=auto_message)
+                self.task.emit('runtime_message', message=auto_message)
                 value = None
             elif self.display:
                 prompt = f"💬 {T('Environment variable {} not found, please enter', name)}: "
@@ -99,14 +99,14 @@ class CliPythonRuntime(PythonRuntime):
             path: The path of the image
             url: The URL of the image
         """
-        self.task.broadcast('show_image', path=path, url=url)
+        self.task.emit('show_image', path=path, url=url)
         if not self.gui:
             image = from_file(path) if path else from_url(url)
             image.draw()
 
     @restore_output
     def input(self, prompt: str) -> str:
-        self.task.broadcast('runtime_input', prompt=prompt)
+        self.task.emit('runtime_input', prompt=prompt)
         if self.display:
             return self.display.input(prompt)
         return None
