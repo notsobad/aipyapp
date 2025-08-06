@@ -15,7 +15,7 @@ class LLMCommand(ParserCommand):
         use_parser = subparsers.add_parser('use', help=T('Use a LLM provider'))
         use_parser.add_argument('provider', type=str, help=T('Provider name'))
 
-    def get_arg_values(self, arg, subcommand=None):
+    def get_arg_values(self, arg, subcommand=None, partial_value=''):
         if subcommand == 'use' and arg.name == 'provider':
             ctx = self.manager.context
             return [Completable(client.name, str(client)) for client in ctx.tm.client_manager.clients.values()]

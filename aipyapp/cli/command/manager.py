@@ -197,7 +197,7 @@ class CommandManager(Completer):
         # 检查位置参数
         for arg_name, arg in arguments.items():
             if not arg_name.startswith('-') and arg['requires_value']:
-                choices = command_instance.get_arg_values(arg, subcmd)
+                choices = command_instance.get_arg_values(arg, subcmd, '')
                 if choices:
                     yield from self._complete_items(choices, '')
                     return
@@ -220,11 +220,19 @@ class CommandManager(Completer):
         if last_word and last_word.startswith('-'):
             arg = arguments.get(last_word, None)
             if arg and arg['requires_value']:
-                choices = command_instance.get_arg_values(arg, subcmd)
+                choices = command_instance.get_arg_values(arg, subcmd, partial_arg)
                 if choices:
                     yield from self._complete_items(choices, partial_arg)
                 return
 
+        # 检查是否是位置参数的输入
+        for arg_name, arg in arguments.items():
+            if not arg_name.startswith('-') and arg['requires_value']:
+                choices = command_instance.get_arg_values(arg, subcmd, partial_arg)
+                if choices:
+                    yield from self._complete_items(choices, partial_arg)
+                    return
+        
         # 显示所有可用参数
         yield from self._complete_items(arguments.values(), partial_arg)
 
@@ -235,7 +243,7 @@ class CommandManager(Completer):
             return
 
         # 尝试通过 get_arg_values 获取选项
-        choices = command_instance.get_arg_values(arg, subcmd)
+        choices = command_instance.get_arg_values(arg, subcmd, '')
         if choices:
             yield from self._complete_items(choices, '')
             return

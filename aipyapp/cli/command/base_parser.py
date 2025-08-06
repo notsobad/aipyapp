@@ -103,7 +103,7 @@ class ParserCommand(BaseCommand):
         """Add command-specific arguments to the parser"""
         pass
     
-    def get_arg_values(self, arg, subcommand=None):
+    def get_arg_values(self, arg, subcommand=None, partial_value=''):
         """Get argument values for argument `arg`"""
         choices = arg.get('choices')
         if choices:

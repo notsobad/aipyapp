@@ -1,6 +1,8 @@
 import time
 from pathlib import Path
 import json
+import os
+import shlex
 
 from rich.panel import Panel
 
@@ -29,11 +31,77 @@ class TaskCommand(ParserCommand):
         rows = ctx.tm.list_tasks()
         print_records(rows)
 
-    def get_arg_values(self, arg, subcommand=None):
+    def get_arg_values(self, arg, subcommand=None, partial_value=''):
         if subcommand == 'use' and arg.name == 'tid':
             tasks = self.manager.tm.get_tasks()
             return [Completable(task.task_id, task.instruction[:32]) for task in tasks]
+        elif subcommand in ('resume', 'replay') and arg.name == 'path':
+            return self._get_path_completions(partial_value)
         return super().get_arg_values(arg, subcommand)
+
+    def _get_path_completions(self, partial_path=''):
+        """获取文件路径补齐选项，优先显示 .json 文件"""
+        completions = []
+        
+        # 处理可能包含引号的路径输入
+        try:
+            # 尝试解析引号，如果失败则使用原始输入
+            unquoted_path = shlex.split(partial_path)[0] if partial_path else ''
+        except ValueError:
+            # 如果引号不匹配，使用原始输入
+            unquoted_path = partial_path
+        
+        # 如果是空输入或相对路径，从当前目录开始
+        if not unquoted_path or not os.path.isabs(unquoted_path):
+            search_dir = os.getcwd()
+            if unquoted_path:
+                # 处理相对路径
+                if os.sep in unquoted_path:
+                    search_dir = os.path.join(search_dir, os.path.dirname(unquoted_path))
+                    prefix = os.path.basename(unquoted_path)
+                else:
+                    prefix = unquoted_path
+            else:
+                prefix = ''
+        else:
+            # 绝对路径
+            search_dir = os.path.dirname(unquoted_path)
+            prefix = os.path.basename(unquoted_path)
+        
+        try:
+            if os.path.isdir(search_dir):
+                items = os.listdir(search_dir)
+                
+                # 分别收集文件和目录
+                json_files = []
+                other_files = []
+                directories = []
+                
+                for item in items:
+                    if not item.startswith('.') and item.startswith(prefix):
+                        full_path = os.path.join(search_dir, item)
+                        # 处理包含空格的文件名，使用引号包装
+                        display_name = shlex.quote(item) if ' ' in item else item
+                        
+                        if os.path.isdir(full_path):
+                            # 对于目录，在引号内添加 / 后缀
+                            if ' ' in item:
+                                display_name = shlex.quote(item + '/')
+                            else:
+                                display_name = item + '/'
+                            directories.append(Completable(display_name, f"Directory"))
+                        elif item.endswith('.json'):
+                            json_files.append(Completable(display_name, f"JSON file"))
+                        else:
+                            other_files.append(Completable(display_name, f"File"))
+                
+                # 优先显示 JSON 文件，然后目录，最后其他文件
+                completions = json_files + directories + other_files
+        except (OSError, PermissionError):
+            # 如果无法访问目录，返回空列表
+            pass
+        
+        return completions
     
     def cmd_use(self, args, ctx):
         task = ctx.tm.get_task_by_id(args.tid)
