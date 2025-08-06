@@ -3,6 +3,8 @@
 <output_format>
 The output must be in structured Markdown format and adhere to the following rules:
 
+{% include "task_status_header.j2" %}
+
 <code_block_markup>
 1. Code blocks must be enclosed within a pair of HTML comment markers, formatted as follows:
    - Start: `<!-- Block-Start: {"name": "code block name", "version": numeric version like 1/2/3, "path": "optional file path for the code block"} -->`

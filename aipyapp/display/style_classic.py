@@ -58,7 +58,7 @@ class DisplayClassic(RichDisplayPlugin):
 
     def on_query_start(self, event):
         """查询开始事件处理"""
-        self.console.print(f"➡️ {T('Sending message to LLM')}...", style='info')
+        self.console.print(f"➡️ {T('Sending message to LLM')}", style='info')
 
     def on_round_start(self, event):
         """回合开始事件处理"""
@@ -71,7 +71,7 @@ class DisplayClassic(RichDisplayPlugin):
         if not self.quiet:
             self.live_display = LiveDisplay()
             self.live_display.__enter__()
-            self.console.print(f"🔄 {T('Streaming started')}...", style='info')
+            self.console.print(f"🔄 {T('Streaming started')}", style='info')
     
     def on_stream_end(self, event):
         """流式结束事件处理"""
