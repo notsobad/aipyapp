@@ -572,8 +572,8 @@ def main(args):
     settings.auto_getenv = True
 
     # 初始化显示效果管理器
-    display_style = settings.get('display', 'classic')
-    display_manager = DisplayManager(display_style, quiet=True)
+    display_config = settings.get('display', {})
+    display_manager = DisplayManager(display_config)
 
     try:
         tm = TaskManager(settings, display_manager=display_manager)

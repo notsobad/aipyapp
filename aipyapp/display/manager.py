@@ -14,6 +14,7 @@ from .style_modern import DisplayModern
 from .style_minimal import DisplayMinimal
 from .style_null import DisplayNull
 from .style_agent import DisplayAgent
+from .themes import get_theme, THEMES
 
 class DisplayManager:
     """显示效果管理器"""
@@ -26,46 +27,36 @@ class DisplayManager:
         'agent': DisplayAgent,
     }
     
-    def __init__(self, style: str, /, console: Console = None, record: bool = True, quiet: bool = False):
+    def __init__(self, display_config, console: Console = None, record: bool = True, quiet: bool = False):
         """
         Args:
-            style: 显示风格
             console: 控制台对象
             record: 是否记录输出，控制是否可以保存HTML文件
             quiet: 是否安静模式，控制是否输出到控制台，不影响记录功能
+            display_config: display配置字典，包含style、theme等设置
         """
+        # 处理display配置
+        config = display_config or {}
         self.console = console
-        self.record = record
-        self.quiet = quiet
-        self.current_style = None
+        self.style = config.get('style', 'classic')
+        self.theme = config.get('theme', 'default')
+        self.record = config.get('record', True)
+        self.quiet = config.get('quiet', False)
         self._record_buffer = console._record_buffer[:] if console else []
         self.logger = logger.bind(src='display_manager')
-
-        # 初始化默认插件
-        self.set_style(style)
+        self.logger.info(f"DisplayManager initialized with style: {self.style}, theme: {self.theme}")
         
     def get_available_styles(self) -> list:
         """获取可用的显示风格列表"""
         return list(self.DISPLAY_PLUGINS.keys())
         
-    def set_style(self, style_name: str) -> bool:
-        """设置显示风格"""
-        if style_name not in self.DISPLAY_PLUGINS:
-            self.logger.error(f"Invalid display style: {style_name}")
-            self.current_style = 'null'
-            return False
-            
-        self.current_style = style_name
-        self.logger.info(f"Set display style to {style_name}")
-        return True
+    def get_available_themes(self) -> list:
+        """获取可用的主题列表"""
+        return list(THEMES.keys())
         
-    def get_current_plugin(self) -> Optional[BaseDisplayPlugin]:
+    def get_display_plugin(self) -> Optional[BaseDisplayPlugin]:
         """获取当前显示插件"""
-        if self.current_style:
-            plugin_class = self.DISPLAY_PLUGINS[self.current_style]
-        else:
-            self.logger.warning("No display style set, using null display")
-            plugin_class = DisplayNull
+        plugin_class = self.DISPLAY_PLUGINS[self.style]
 
         if self.quiet:
             if not self.record:
@@ -77,7 +68,9 @@ class DisplayManager:
             quiet = False
             file = None
 
-        console = Console(file=file, record=self.record, quiet=quiet)
+        # 获取用户配置的主题
+        rich_theme = get_theme(self.theme)
+        console = Console(file=file, record=self.record, quiet=quiet, theme=rich_theme)
         console._record_buffer.extend(self._record_buffer)
         return plugin_class(console, quiet=self.quiet)
         
@@ -90,4 +83,6 @@ class DisplayManager:
         info = {}
         for name, plugin_class in self.DISPLAY_PLUGINS.items():
             info[name] = T(plugin_class.__doc__) or f"{name} display style"
-        return info 
+        return info
+    
+ 

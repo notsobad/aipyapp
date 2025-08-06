@@ -99,7 +99,7 @@ class TaskManager:
             'role': self.role_manager.current_role.name,
             'client': repr(self.client_manager.current),
             'llm': self.client_manager.current.name,
-            'display': self.display_manager.current_style,
+            'display': self.display_manager.style,
             'mcp_enabled': self.mcp.is_mcp_enabled,
         }
         return status

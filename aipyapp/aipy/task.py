@@ -148,7 +148,7 @@ class Task(Stoppable, EventBus):
             
         # 注册显示效果插件
         if self.context.display_manager:
-            self.display = self.context.display_manager.get_current_plugin()
+            self.display = self.context.display_manager.get_display_plugin()
             self.add_listener(self.display)
 
     def to_record(self):

@@ -189,8 +189,10 @@ def main(args):
         settings['role'] = args.role.lower()
 
     # 初始化显示效果管理器
-    display_style = args.style or settings.get('display', 'classic')
-    display_manager = DisplayManager(display_style, console=console)
+    display_config = settings.get('display', {})
+    if args.style:
+        display_config['style'] = args.style
+    display_manager = DisplayManager(display_config, console=console)
     try:
         tm = TaskManager(settings, display_manager=display_manager)
     except Exception as e:
