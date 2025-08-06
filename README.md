@@ -41,13 +41,11 @@ AIPython has two running modes:
 The default running mode is task mode, which can be switched to Python mode using the `--python` parameter.
 
 ### Basic Config
-aipy.toml:
+~/.aipyapp/aipyapp.toml:
 ```toml
 [llm.deepseek]
 type = "deepseek"
 api_key = "Your DeepSeek API Key"
-enable = true
-default = true
 ```
 
 ### Task Mode
