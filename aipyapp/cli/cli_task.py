@@ -160,7 +160,7 @@ class InteractiveConsole():
 def main(args):
     console = Console(record=True)
     console.print(f"🚀 Python use - AIPython ({__version__}) [[pink]https://aipy.app[/pink]]", style="bold green")
-    console.print(read_text(__respkg__, "logo.txt"))
+    console.print(read_text(__respkg__, "logo.txt"), highlight=False)
     conf = ConfigManager(args.config_dir)
     settings = conf.get_config()
     lang = settings.get('lang')
