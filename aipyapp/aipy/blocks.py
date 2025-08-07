@@ -161,7 +161,7 @@ class CodeBlocks(Trackable):
             try:
                 line_meta = json.loads(json_str)
             except json.JSONDecodeError as e:
-                self.log.error("Invalid JSON in Cmd-{cmd} block", json_str=json_str, reason=e)
+                self.log.error(f"Invalid JSON in Cmd-{cmd} block", json_str=json_str, reason=e)
                 error = {f'Invalid JSON in Cmd-{cmd} block': {'json_str': json_str, 'reason': str(e)}}
                 errors.append(error)
                 continue

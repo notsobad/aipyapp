@@ -206,7 +206,8 @@ def init_agent_manager(settings):
     """初始化Agent管理器"""
     global agent_manager
     try:
-        display_manager = DisplayManager('agent', quiet=True)
+        display_config = {'style': 'agent', 'quiet': True}
+        display_manager = DisplayManager(display_config)
         agent_manager = AgentTaskManager(settings, display_manager=display_manager)
         logger.info("Agent manager initialized successfully")
         return True

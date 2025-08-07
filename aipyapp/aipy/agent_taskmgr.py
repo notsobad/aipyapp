@@ -43,7 +43,7 @@ class AgentTask:
 class AgentTaskManager(TaskManager):
     """Agent模式任务管理器"""
     
-    def __init__(self, settings, display_manager):
+    def __init__(self, settings, /, display_manager=None):
         # 强制使用agent显示模式和headless设置
         super().__init__(settings, display_manager=display_manager)
         

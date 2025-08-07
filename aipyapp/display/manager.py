@@ -46,6 +46,12 @@ class DisplayManager:
         self.logger = logger.bind(src='display_manager')
         self.logger.info(f"DisplayManager initialized with style: {self.style}, theme: {self.theme}")
         
+    def set_style(self, style: str):
+        """设置显示风格"""
+        self.style = style
+        self.logger.info(f"Display style changed to: {self.style}")
+        return True
+        
     def get_available_styles(self) -> list:
         """获取可用的显示风格列表"""
         return list(self.DISPLAY_PLUGINS.keys())

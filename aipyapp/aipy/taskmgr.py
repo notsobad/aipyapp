@@ -34,7 +34,7 @@ class TaskContext:
 class TaskManager:
     MAX_TASKS = 16
 
-    def __init__(self, settings, *, display_manager=None):
+    def __init__(self, settings, /, display_manager=None):
         # 核心配置
         self.settings = settings
         self.display_manager = display_manager
