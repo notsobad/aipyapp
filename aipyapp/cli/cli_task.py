@@ -164,10 +164,18 @@ class InteractiveConsole():
             except (EOFError, KeyboardInterrupt):
                 break
 
+def get_logo_text():
+    path = CONFIG_DIR / "logo.txt"
+    if path.exists():
+        logo_text = path.read_text()
+    else:
+        logo_text = read_text(__respkg__, "logo.txt")
+    return logo_text
+
 def main(args):
     console = Console(record=True)
     console.print(f"🚀 Python use - AIPython ({__version__}) [[pink]https://aipy.app[/pink]]", style="bold green")
-    logo_text = read_text(__respkg__, "logo.txt")
+    logo_text = get_logo_text()
     console.print(Text.from_ansi(logo_text))
     conf = ConfigManager(args.config_dir)
     settings = conf.get_config()
