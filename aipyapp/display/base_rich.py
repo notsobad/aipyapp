@@ -8,15 +8,10 @@
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.   
 
-from rich.console import Console
-from .base import BaseDisplayPlugin
+from .base import DisplayPlugin
 from .. import T
 
-class RichDisplayPlugin(BaseDisplayPlugin):
-    def __init__(self, console: Console, quiet: bool = False):
-        self.console = console
-        self.quiet = quiet
-
+class RichDisplayPlugin(DisplayPlugin):
     def save(self, path: str, clear: bool = False, code_format: str = None):
         """保存输出"""
         if self.console.record:

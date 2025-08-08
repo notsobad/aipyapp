@@ -1,14 +1,14 @@
 #! /usr/bin/env python3
 # -*- coding: utf-8 -*-
 import sys
-from typing import Union, Any
+from typing import Union, Any, Dict
 from functools import wraps
 import inspect
 
 from term_image.image import from_file, from_url
 
-from .tool import llm_call
-from .. import T
+from .functions import FunctionManager
+from .. import T, TaskPlugin
 from ..exec import PythonRuntime
 from .blocks import CodeBlock
 
@@ -32,6 +32,10 @@ class CliPythonRuntime(PythonRuntime):
         self.display = task.display
         self._auto_install = task.settings.get('auto_install')
         self._auto_getenv = task.settings.get('auto_getenv')
+        self.function_manager = FunctionManager()
+
+    def register_plugin(self, plugin: TaskPlugin):
+        self.function_manager.register_functions(plugin.get_functions())
 
     @restore_output
     def install_packages(self, *packages: str) -> bool:
@@ -123,37 +127,38 @@ class CliPythonRuntime(PythonRuntime):
         """
         return self.task.code_blocks.get_block_by_name(block_name)
     
-    def call_tool(self, name: str, **kwargs) -> Any:
+    def call_function(self, name: str, **kwargs) -> Any:
         """
-        Call a tool
+        Call a registered function
 
         Args:
-            name: The name of the tool to call
-            **kwargs: The arguments to pass to the tool
+            name: The name of the function to call
+            **kwargs: The arguments to pass to the function
 
         Returns:
-            Any: The result of the tool call
+            Any: The result of the function call
         """
-        return llm_call(name, **kwargs)
+        self.task.emit('call_function', funcname=name, kwargs=kwargs)
+        return self.function_manager.call(name, **kwargs)
     
-    
-    def get_function_list(self):
+    def get_builtin_functions(self) -> Dict[str, Dict[str, str]]:
         """
         根据函数签名和docstring，生成函数调用提示
         """
         functions = {}
-        names = ['set_state', 'get_block_state', 'set_persistent_state', 'get_persistent_state', 'install_packages', 'get_env', 'show_image', 'get_block_by_name']
-        for name in names:
+        
+        # 内置运行时函数
+        builtin_names = ['set_state', 'get_block_state', 'set_persistent_state', 'get_persistent_state', 'install_packages', 'get_env', 'show_image', 'get_block_by_name', 'call_function']
+        for name in builtin_names:
             func_obj = getattr(self, name)
             docstring = func_obj.__doc__
             signature = inspect.signature(func_obj)
             functions[name] = {
                 'docstring': docstring,
-                'signature': signature
+                'signature': signature,
             }
         return functions
-
-if __name__ == '__main__':
-    runtime = CliPythonRuntime(None)
-    functions = runtime.get_function_list()
-    print(functions)
+    
+    def get_plugin_functions(self):
+        return self.function_manager.get_functions()
+        

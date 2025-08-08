@@ -140,15 +140,16 @@ class Task(Stoppable, EventBus):
         """初始化插件"""
         plugin_manager = self.context.plugin_manager
         for plugin_name, plugin_data in self.role.plugins.items():
-            plugin = plugin_manager.get_plugin(plugin_name, plugin_data)
+            plugin = plugin_manager.create_task_plugin(plugin_name, plugin_data)
             if not plugin:
-                self.log.warning(f"Plugin {plugin_name} not found")
+                self.log.warning(f"Create task plugin {plugin_name} failed")
                 continue
             self.add_listener(plugin)
+            self.runtime.register_plugin(plugin)
             
         # 注册显示效果插件
         if self.context.display_manager:
-            self.display = self.context.display_manager.get_display_plugin()
+            self.display = self.context.display_manager.create_display_plugin()
             self.add_listener(self.display)
 
     def to_record(self):
@@ -252,13 +253,18 @@ class Task(Stoppable, EventBus):
             ret = None
         return ret
 
+    def run_code_block(self, block):
+        """运行代码块"""
+        self.emit('exec', block=block)
+        result = self.runner(block)
+        self.emit('exec_result', result=result, block=block)
+        return result
+
     def process_code_reply(self, exec_blocks):
         results = OrderedDict()
         for block in exec_blocks:
-            self.emit('exec', block=block)
-            result = self.runner(block)
+            result = self.run_code_block(block)
             results[block.name] = result
-            self.emit('exec_result', result=result, block=block)
 
         msg = self.prompts.get_results_prompt(results)
         return self.chat(msg)
@@ -302,8 +308,8 @@ class Task(Stoppable, EventBus):
         params = {}
         if self.mcp:
             params['mcp_tools'] = self.mcp.get_tools_prompt()
-        params['util_functions'] = self.runtime.get_function_list()
-        params['tool_functions'] = {}
+        params['util_functions'] = self.runtime.get_builtin_functions()
+        params['tool_functions'] = self.runtime.get_plugin_functions()
         params['role'] = self.role
         return self.prompts.get_default_prompt(**params)
     

@@ -77,8 +77,7 @@ class Event:
 EventHandler = Callable[[Event], None]
 
 class EventListener(Protocol):
-    def on_event(self, event: Event) -> None:
-        """事件Fallback处理函数"""
+    def get_handlers(self) -> Dict[str, EventHandler]:
         ...
 
 class EventBus:
@@ -91,15 +90,9 @@ class EventBus:
         self._listeners.setdefault(event_name, []).append(handler)
 
     def add_listener(self, obj: EventListener):
-        for event_name in dir(obj):
-            if not event_name.startswith('on_'):
-                continue
-
-            handler = getattr(obj, event_name)
-            if callable(handler):
-                event_name = event_name[3:]
-                self.on_event(event_name, handler)
-                self._eb_logger.info(f"Registered event {event_name} for {obj.__class__.__name__}")
+        for event_name, handler in obj.get_handlers().items():
+            self.on_event(event_name, handler)
+            self._eb_logger.info(f"Registered event {event_name} for {obj.__class__.__name__}")
 
     def emit(self, event_name: str, **kwargs):
         event = Event(event_name, **kwargs)
@@ -109,3 +102,6 @@ class EventBus:
             except Exception as e:
                 self._eb_logger.exception(f"Error emitting event {event_name}")
         return event
+    
+
+__all__ = ['Trackable', 'Runtime', 'Stoppable', 'Event', 'EventHandler', 'EventListener', 'EventBus']

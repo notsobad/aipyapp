@@ -146,7 +146,7 @@ class TaskCommand(ParserCommand):
 
     def _replay_events(self, ctx, events, speed):
         """简化的事件重放 - 直接按时间间隔触发事件"""
-        display = ctx.tm.display_manager.get_current_plugin()
+        display = ctx.tm.display_manager.create_display_plugin()
         event_bus = EventBus()
         event_bus.add_listener(display)
 

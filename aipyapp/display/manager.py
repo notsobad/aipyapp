@@ -8,7 +8,7 @@ from rich.console import Console
 from loguru import logger
 
 from .. import T
-from .base import BaseDisplayPlugin
+from .base import DisplayPlugin
 from .style_classic import DisplayClassic
 from .style_modern import DisplayModern
 from .style_minimal import DisplayMinimal
@@ -60,7 +60,7 @@ class DisplayManager:
         """获取可用的主题列表"""
         return list(THEMES.keys())
         
-    def get_display_plugin(self) -> Optional[BaseDisplayPlugin]:
+    def create_display_plugin(self) -> Optional[DisplayPlugin]:
         """获取当前显示插件"""
         plugin_class = self.DISPLAY_PLUGINS[self.style]
 
@@ -78,11 +78,29 @@ class DisplayManager:
         rich_theme = get_theme(self.theme)
         console = Console(file=file, record=self.record, quiet=quiet, theme=rich_theme)
         console._record_buffer.extend(self._record_buffer)
-        return plugin_class(console, quiet=self.quiet)
+        plugin = plugin_class(console, quiet=self.quiet)
+        try:
+            plugin.init()
+        except Exception as e:
+            self.logger.error(f"Failed to initialize display plugin {plugin_class.__name__}: {e}")
+            return None
+        return plugin
         
-    def register_plugin(self, name: str, plugin_class: Type[BaseDisplayPlugin]):
+    def register_plugin(self, plugin_class: Type[DisplayPlugin], name: str = None):
         """注册新的显示效果插件"""
+        if name is None:
+            name = plugin_class.name or plugin_class.__class__.__name__
+
+        if name in self.DISPLAY_PLUGINS:
+            self.logger.warning(f"Display plugin {name} already registered")
+            return False
+
+        if not issubclass(plugin_class, DisplayPlugin):
+            self.logger.warning(f"Display plugin {name} is not a subclass of DisplayPlugin")
+            return False
+
         self.DISPLAY_PLUGINS[name] = plugin_class
+        return True
         
     def get_plugin_info(self) -> Dict[str, str]:
         """获取插件信息"""

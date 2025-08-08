@@ -16,22 +16,39 @@ AiPy 的插件系统允许开发者通过 Python 代码扩展和自定义 AiPy �
 - 每个插件文件定义一个插件
 
 ### 插件类规范
-- 必须包含一个名为 `Plugin` 的类
-- 插件类必须支持事件监听接口
+- 必须包含一个继承 TaskPlugin 或者 DisplayPlugin 的类
 - 可以实现 `__init__` 方法接收配置参数
 
 ## 插件接口
 
+### 父类
+```python
+from aipyapp import TaskPlugin
+from aipyapp.display import DisplayPlugin
+```
+
+### 插件类属性
+
+- `name`: 插件名称（用于配置和标识）
+- `version`: 版本号
+- `description`: 描述信息
+- `author`: 作者
+
+### 插件方法
+
+- `init(self)`: 插件初始化
+- `on_xxx(self, event:Event)`: 事件处理函数，自动注册
+- `fn_xxx(self, **kwargs)`: LLM可调用函数，自动注册
+
 ### 基本插件类结构
 
 ```python
-class Plugin:
-    def __init__(self, config=None):
+from aipyapp import TaskPlugin
+
+class Plugin(TaskPlugin):
+    def _init(self):
         """插件初始化
-        Args:
-            config: 插件配置参数（来自角色配置）
         """
-        self.config = config
         print("[+] 插件已加载")
     
     # 事件处理方法（可选实现）
@@ -102,20 +119,19 @@ def on_task_start(self, event):
 ### PluginManager 类
 
 ```python
-from aipyapp.aipy.plugin import PluginManager
+from aipyapp.aipy.plugins import PluginManager
 
 # 创建插件管理器
-plugin_manager = PluginManager(plugin_dir="~/.aipyapp/plugins/")
+plugin_manager = PluginManager()
+
+plugin_manager.add_plugin_directory("~/.aipyapp/plugins/")
 
 # 加载所有插件
-plugin_manager.load_plugins()
-
-# 获取插件实例
-plugin = plugin_manager.get_plugin("plugin_name", config_data)
+plugin_manager.load_all_plugins()
 ```
 
 ### 主要方法
-- `load_plugins()`: 加载所有插件文件
+- `load_all_plugins()`: 加载所有插件文件
 - `get_plugin(name, config)`: 获取插件实例
 - `plugins`: 已加载的插件字典
 
@@ -157,9 +173,10 @@ import os
 import datetime
 from pathlib import Path
 
-class Plugin:
-    def __init__(self, config=None):
-        self.config = config or {}
+from aipyapp import TaskPlugin
+
+class Plugin(TaskPlugin):
+    def _init(self):
         self.save_path = self.config.get('save_path', './saved_code')
         print(f"[+] 代码保存插件已加载，保存路径: {self.save_path}")
 
@@ -187,35 +204,15 @@ class Plugin:
             print(f"[!] 保存代码失败: {e}")
 ```
 
-### 2. 提示词修改插件
-
-```python
-class Plugin:
-    def __init__(self, config=None):
-        self.config = config or {}
-        self.template = self.config.get('template', '')
-        print("[+] 提示词修改插件已加载")
-
-    def on_task_start(self, event):
-        """任务开始事件处理"""
-        data = event.data
-        task = data.get('instruction', '')
-        
-        # 修改任务提示词
-        if self.template:
-            modified_task = f"{self.template}\n\n{task}"
-            data['instruction'] = modified_task
-            print(f"[i] 提示词已修改")
-```
-
-### 3. 结果处理插件
+### 2. 结果处理插件
 
 ```python
 import json
 
-class Plugin:
-    def __init__(self, config=None):
-        self.config = config or {}
+from aipyapp import TaskPlugin
+
+class Plugin(TaskPlugin):
+    def _init(self):
         print("[+] 结果处理插件已加载")
 
     def on_exec_result(self, event):
@@ -257,10 +254,10 @@ def __init__(self, config=None):
 ```python
 import logging
 
-class Plugin:
-    def __init__(self, config=None):
-        self.logger = logging.getLogger(__name__)
-        self.config = config
+from aipyapp import TaskPlugin
+
+class Plugin(TaskPlugin):
+    def _init(self):
         self.logger.info("插件已初始化")
 ```
 
@@ -276,7 +273,10 @@ def __del__(self):
 
 ### 1. 启用调试模式
 ```python
-class Plugin:
+
+from aipyapp import TaskPlugin
+
+class Plugin(TaskPlugin):
     def __init__(self, config=None):
         self.debug = config.get('debug', False)
         

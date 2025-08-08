@@ -1,25 +1,16 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-from abc import ABC
-from typing import Any, Dict, Union
-from rich.console import Console
+from typing import Any, Protocol
 
-from .. import T
-from ..interface import Event
+from .. import Event, Plugin, PluginType
 
-class BaseDisplayPlugin(ABC):
-    """显示效果插件基类"""
-    
-    def __init__(self, console: Console, quiet: bool = False):
-        self.console = console
-        self.quiet = quiet
-
+class DisplayProtocol(Protocol):
+    """显示效果插件协议"""
     def save(self, path: str, clear: bool = False, code_format: str = None):
         """保存输出"""
         pass
 
-    # 新增：输入输出相关方法
     def print(self, message: str, style: str = None):
         """显示消息"""
         pass
@@ -44,6 +35,10 @@ class BaseDisplayPlugin(ABC):
         """LLM 响应完成事件处理"""
         pass
         
+    def on_call_function(self, event: Event):
+        """函数调用事件处理"""
+        pass
+    
     def on_exec_result(self, event: Event):
         """代码执行结果事件处理"""
         pass
@@ -106,4 +101,40 @@ class BaseDisplayPlugin(ABC):
 
     def on_show_image(self, event: Event):
         """显示图片事件处理"""
+        pass
+
+class DisplayPlugin(DisplayProtocol, Plugin):
+    """显示效果插件基类"""
+    def __init__(self, console: Any, quiet: bool = False):
+        super().__init__()
+        self.console = console
+        self.quiet = quiet
+
+    def init(self):
+        """初始化显示效果插件"""
+        pass
+
+    @classmethod
+    def get_type(cls) -> PluginType:
+        """Get plugin type
+        
+        Returns:
+            Plugin type
+        """
+        return PluginType.DISPLAY
+
+    def save(self, path: str, clear: bool = False, code_format: str = None):
+        """保存输出"""
+        pass
+
+    def print(self, message: str, style: str = None):
+        """显示消息"""
+        pass
+    
+    def input(self, prompt: str) -> str:
+        """获取用户输入"""
+        pass
+    
+    def confirm(self, prompt, default="n", auto=None):
+        """确认操作"""
         pass

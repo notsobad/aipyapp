@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+import sys
+from functools import wraps
 import json
 from typing import Any, Dict, Union
 
@@ -16,9 +18,25 @@ from .base_rich import RichDisplayPlugin
 from .live_display import LiveDisplay
 from .. import T
 
+def restore_output(func):
+    @wraps(func)
+    def wrapper(self, *args, **kwargs):
+        old_stdout, old_stderr = sys.stdout, sys.stderr
+        sys.stdout, sys.stderr = sys.__stdout__, sys.__stderr__
+
+        try:
+            return func(self, *args, **kwargs)
+        finally:
+            sys.stdout, sys.stderr = old_stdout, old_stderr
+    return wrapper
+
 class DisplayClassic(RichDisplayPlugin):
     """Classic display style"""
-    
+    name = "classic"
+    version = "1.0.0"
+    description = "Classic display style"
+    author = "Aipy"
+
     def __init__(self, console: Console, quiet: bool = False):
         super().__init__(console, quiet)
         self.live_display = None
@@ -147,6 +165,13 @@ class DisplayClassic(RichDisplayPlugin):
         else:
             self.console.print(f"⚡ {T('Start executing code block')}", style='info')
             
+    @restore_output
+    def on_call_function(self, event):
+        """函数调用事件处理"""
+        data = event.data
+        funcname = data.get('funcname')
+        self.console.print(f"⚡ {T('Start calling function')}: {funcname}", style='info')
+
     def on_exec_result(self, event):
         """代码执行结果事件处理"""
         data = event.data

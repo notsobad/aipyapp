@@ -10,7 +10,7 @@ from typing import Optional, Any
 from loguru import logger
 
 from .task import Task
-from .plugin import PluginManager
+from .plugins import PluginManager
 from .prompts import Prompts
 from .diagnose import Diagnose
 from .llm import ClientManager
@@ -70,8 +70,14 @@ class TaskManager:
     def _init_managers(self):
         """初始化各种管理器"""
         # 插件管理器
-        self.plugin_manager = PluginManager(PLUGINS_DIR)
-        self.plugin_manager.load_plugins()
+        plugin_manager = PluginManager()
+        plugin_manager.add_plugin_directory(PLUGINS_DIR)
+        plugin_manager.load_all_plugins()
+        self.plugin_manager = plugin_manager
+
+        if self.display_manager:
+            for plugin in plugin_manager.get_display_plugins():
+                self.display_manager.register_plugin(plugin)
 
         # 诊断器
         self.diagnose = Diagnose.create(self.settings)

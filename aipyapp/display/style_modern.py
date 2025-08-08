@@ -20,7 +20,11 @@ from .. import T
 
 class DisplayModern(RichDisplayPlugin):
     """Modern display style"""
-    
+    name = "modern"
+    version = "1.0.0"
+    description = "Modern display style"
+    author = "Aipy"
+
     def __init__(self, console: Console, quiet: bool = False):
         super().__init__(console, quiet)
         self.current_block = None

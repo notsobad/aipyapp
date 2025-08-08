@@ -12,7 +12,11 @@ from .. import T
 
 class DisplayMinimal(RichDisplayPlugin):
     """Minimal display style"""
-    
+    name = "minimal"
+    version = "1.0.0"
+    description = "Minimal display style"
+    author = "Aipy"
+
     def __init__(self, console: Console, quiet: bool = False):
         super().__init__(console, quiet)
         self.live_display = None

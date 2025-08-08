@@ -11,7 +11,11 @@ from ..interface import Event
 
 class DisplayAgent(RichDisplayPlugin):
     """Agent模式显示插件 - 捕获所有输出用于API返回"""
-    
+    name = "agent"
+    version = "1.0.0"
+    description = "Agent display style"
+    author = "Aipy"
+
     def __init__(self, console, quiet: bool = True):
         super().__init__(console, quiet)
         # 捕获的输出数据
