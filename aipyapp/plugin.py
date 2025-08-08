@@ -27,10 +27,28 @@ class PluginInitError(PluginError):
 class Plugin(EventListener):
     """插件基类"""
     name: str = None
+    version: str = None
+    description: str = None
+    author: str = None
 
     def __init__(self):
         self.logger = logger.bind(src=f"plugin.{self.name}")
 
+    @property
+    def description(self) -> str:
+        """插件描述"""
+        return self.description or self.__doc__
+    
+    @property
+    def version(self) -> str:
+        """插件版本"""
+        return self.version or "1.0.0"
+    
+    @property
+    def author(self) -> str:
+        """插件作者"""
+        return self.author or "Unknown"
+    
     def init(self):
         """插件初始化逻辑
         

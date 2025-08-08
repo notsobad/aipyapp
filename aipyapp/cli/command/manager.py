@@ -15,6 +15,7 @@ from .cmd_display import DisplayCommand
 from .cmd_context import ContextCommand
 from .cmd_steps import StepsCommand
 from .cmd_block import BlockCommand
+from .cmd_plugin import Command as PluginCommand
 
 from loguru import logger
 from prompt_toolkit.completion import Completer, Completion
@@ -22,8 +23,8 @@ from prompt_toolkit.key_binding import KeyBindings
 from pathlib import Path
 
 COMMANDS = [
-    InfoCommand, LLMCommand, RoleCommand, DisplayCommand, StepsCommand, 
-    BlockCommand, ContextCommand, TaskCommand, MCPCommand, HelpCommand
+    InfoCommand, LLMCommand, RoleCommand, DisplayCommand, PluginCommand, StepsCommand, 
+    BlockCommand, ContextCommand, TaskCommand, MCPCommand, HelpCommand, 
 ]
 
 @dataclass
@@ -277,7 +278,7 @@ class CommandManager(Completer):
     def _complete_subcommands(self, words, command_instance):
         """补齐子命令"""
         partial_subcmd = words[1] if len(words) > 1 else ''
-        yield from self._complete_items(command_instance.subcommands.values(), partial_subcmd)
+        yield from self._complete_items(command_instance.get_subcommands().values(), partial_subcmd)
 
     def _get_command_and_arguments(self, words):
         """获取命令实例和参数"""

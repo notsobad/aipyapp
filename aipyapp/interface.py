@@ -98,7 +98,7 @@ class EventBus:
         event = Event(event_name, **kwargs)
         for handler in self._listeners.get(event_name, []):
             try:
-                handler(event)
+                handler(event)  
             except Exception as e:
                 self._eb_logger.exception(f"Error emitting event {event_name}")
         return event

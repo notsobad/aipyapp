@@ -70,7 +70,8 @@ class Task(Stoppable, EventBus):
         
         self.mcp = context.mcp
         self.display = None
-        
+        self.plugins = {}
+
         # 创建上下文管理器（从Client移到Task）
         context_settings = self.settings.get('context_manager', {})
         self.context_manager = ContextManager(ContextConfig.from_dict(context_settings))
@@ -146,6 +147,7 @@ class Task(Stoppable, EventBus):
                 continue
             self.add_listener(plugin)
             self.runtime.register_plugin(plugin)
+            self.plugins[plugin_name] = plugin
             
         # 注册显示效果插件
         if self.context.display_manager:

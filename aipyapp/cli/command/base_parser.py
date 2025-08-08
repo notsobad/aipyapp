@@ -20,6 +20,10 @@ class ParserCommand(BaseCommand):
         self.arguments = None
         self.subcommands = None
 
+    def get_subcommands(self):
+        """Get subcommands"""
+        return self.subcommands
+    
     def init(self):
         """Initialize the command, can be overridden by subclasses"""
         parser = argparse.ArgumentParser(prog=f'/{self.name}', description=self.description)

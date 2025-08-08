@@ -94,11 +94,15 @@ class FunctionManager:
         try:
             parsed = ParamModel(**kwargs)
             self.logger.info(f"Calling function {func_name}, parameters: {parsed.model_dump()}")
-            return fn(**parsed.model_dump())
+            result = fn(**parsed.model_dump())
+            return result
         
         except ValidationError as e:
             self.logger.error(f"Function '{func_name}' parameter validation failed: {e}")
             raise ParameterValidationError(f"Parameter validation failed: {e}")
+        except Exception as e:
+            self.logger.error(f"Function '{func_name}' execution failed: {e}")
+            raise
     
     def get_functions(self) -> Dict[str, Dict[str, str]]:
         """Get all functions
