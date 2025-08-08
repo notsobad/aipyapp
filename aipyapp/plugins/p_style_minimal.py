@@ -1,21 +1,19 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-from typing import Any, Dict, Union
-
 from rich.console import Console
 from rich.markdown import Markdown
 from rich.status import Status
 
-from .base_rich import RichDisplayPlugin
-from .. import T
+from aipyapp.display import RichDisplayPlugin, LiveDisplay
+from aipyapp import T
 
 class DisplayMinimal(RichDisplayPlugin):
     """Minimal display style"""
     name = "minimal"
     version = "1.0.0"
     description = "Minimal display style"
-    author = "Aipy"
+    author = "AiPy Team"
 
     def __init__(self, console: Console, quiet: bool = False):
         super().__init__(console, quiet)

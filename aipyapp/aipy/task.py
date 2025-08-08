@@ -424,6 +424,7 @@ class Task(Stoppable, EventBus):
     def clear_steps(self):
         """清空所有步骤 - 使用新的步骤管理器"""
         self.step_manager.clear_all()
+        return True
 
     def list_steps(self):
         """列出所有步骤 - 使用新的步骤管理器"""

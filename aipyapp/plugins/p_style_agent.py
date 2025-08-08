@@ -1,20 +1,18 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import json
-from typing import Any, Dict, List
+from typing import Any, Dict
 from datetime import datetime
-from io import StringIO
 
-from .base_rich import RichDisplayPlugin
-from ..interface import Event
+from aipyapp import Event
+from aipyapp.display import RichDisplayPlugin
 
 class DisplayAgent(RichDisplayPlugin):
     """Agent模式显示插件 - 捕获所有输出用于API返回"""
     name = "agent"
     version = "1.0.0"
     description = "Agent display style"
-    author = "Aipy"
+    author = "AiPy Team"
 
     def __init__(self, console, quiet: bool = True):
         super().__init__(console, quiet)

@@ -2,28 +2,23 @@
 # -*- coding: utf-8 -*-
 
 import json
-import time
-from typing import Any, Dict, Optional, List
+from typing import Any, Dict, List
 from rich.console import Console
 from rich.text import Text
 from rich.panel import Panel
 from rich.syntax import Syntax
-from rich.live import Live
 from rich.table import Table
-from rich.rule import Rule
 from rich.markdown import Markdown
-from rich.align import Align
 
-from .base_rich import RichDisplayPlugin
-from .live_display import LiveDisplay
-from .. import T
+from aipyapp.display import RichDisplayPlugin, LiveDisplay
+from aipyapp import T
 
 class DisplayModern(RichDisplayPlugin):
     """Modern display style"""
     name = "modern"
     version = "1.0.0"
     description = "Modern display style"
-    author = "Aipy"
+    author = "AiPy Team"
 
     def __init__(self, console: Console, quiet: bool = False):
         super().__init__(console, quiet)

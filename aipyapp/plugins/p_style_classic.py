@@ -4,7 +4,6 @@
 import sys
 from functools import wraps
 import json
-from typing import Any, Dict, Union
 
 from rich.panel import Panel
 from rich.align import Align
@@ -14,9 +13,8 @@ from rich.markdown import Markdown
 from rich.rule import Rule
 from rich.console import Console, Group
 
-from .base_rich import RichDisplayPlugin
-from .live_display import LiveDisplay
-from .. import T
+from aipyapp.display import RichDisplayPlugin, LiveDisplay
+from aipyapp import T
 
 def restore_output(func):
     @wraps(func)
@@ -35,7 +33,7 @@ class DisplayClassic(RichDisplayPlugin):
     name = "classic"
     version = "1.0.0"
     description = "Classic display style"
-    author = "Aipy"
+    author = "AiPy Team"
 
     def __init__(self, console: Console, quiet: bool = False):
         super().__init__(console, quiet)

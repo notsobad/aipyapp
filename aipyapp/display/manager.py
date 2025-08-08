@@ -9,23 +9,10 @@ from loguru import logger
 
 from .. import T
 from .base import DisplayPlugin
-from .style_classic import DisplayClassic
-from .style_modern import DisplayModern
-from .style_minimal import DisplayMinimal
-from .style_null import DisplayNull
-from .style_agent import DisplayAgent
 from .themes import get_theme, THEMES
 
 class DisplayManager:
     """显示效果管理器"""
-    
-    # 可用的显示效果插件
-    DISPLAY_PLUGINS = {
-        'classic': DisplayClassic,
-        'modern': DisplayModern,
-        'minimal': DisplayMinimal,
-        'agent': DisplayAgent,
-    }
     
     def __init__(self, display_config, console: Console = None, record: bool = True, quiet: bool = False):
         """
@@ -38,6 +25,7 @@ class DisplayManager:
         # 处理display配置
         config = display_config or {}
         self.console = console
+        self.plugins = {}
         self.style = config.get('style', 'classic')
         self.theme = config.get('theme', 'default')
         self.record = config.get('record', True)
@@ -54,7 +42,7 @@ class DisplayManager:
         
     def get_available_styles(self) -> list:
         """获取可用的显示风格列表"""
-        return list(self.DISPLAY_PLUGINS.keys())
+        return list(self.plugins.keys())
         
     def get_available_themes(self) -> list:
         """获取可用的主题列表"""
@@ -62,7 +50,7 @@ class DisplayManager:
         
     def create_display_plugin(self) -> Optional[DisplayPlugin]:
         """获取当前显示插件"""
-        plugin_class = self.DISPLAY_PLUGINS[self.style]
+        plugin_class = self.plugins[self.style]
 
         if self.quiet:
             if not self.record:
@@ -91,7 +79,7 @@ class DisplayManager:
         if name is None:
             name = plugin_class.name or plugin_class.__class__.__name__
 
-        if name in self.DISPLAY_PLUGINS:
+        if name in self.plugins:
             self.logger.warning(f"Display plugin {name} already registered")
             return False
 
@@ -99,13 +87,13 @@ class DisplayManager:
             self.logger.warning(f"Display plugin {name} is not a subclass of DisplayPlugin")
             return False
 
-        self.DISPLAY_PLUGINS[name] = plugin_class
+        self.plugins[name] = plugin_class
         return True
         
     def get_plugin_info(self) -> Dict[str, str]:
         """获取插件信息"""
         info = {}
-        for name, plugin_class in self.DISPLAY_PLUGINS.items():
+        for name, plugin_class in self.plugins.items():
             info[name] = T(plugin_class.__doc__) or f"{name} display style"
         return info
     
