@@ -1,7 +1,9 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+import sys
 import json
+from functools import wraps
 from typing import Any, Dict, List
 from rich.console import Console
 from rich.text import Text
@@ -13,6 +15,18 @@ from rich.markdown import Markdown
 from aipyapp.display import RichDisplayPlugin
 from live_display import LiveDisplay
 from aipyapp import T
+
+def restore_output(func):
+    @wraps(func)
+    def wrapper(self, *args, **kwargs):
+        old_stdout, old_stderr = sys.stdout, sys.stderr
+        sys.stdout, sys.stderr = sys.__stdout__, sys.__stderr__
+
+        try:
+            return func(self, *args, **kwargs)
+        finally:
+            sys.stdout, sys.stderr = old_stdout, old_stderr
+    return wrapper
 
 class DisplayModern(RichDisplayPlugin):
     """Modern display style"""
@@ -260,6 +274,44 @@ class DisplayModern(RichDisplayPlugin):
         """Runtime输入事件处理"""
         # 输入事件通常不需要特殊处理，因为input_prompt已经处理了
         pass
+    
+    @restore_output
+    def on_call_function(self, event):
+        """函数调用事件处理"""
+        data = event.data
+        funcname = data.get('funcname')
+        title = Text(f"🔧 {T('Start calling function {}')}".format(funcname), style="bold blue")
+        panel = Panel(Text(funcname, style="white"), title=title, border_style="blue")
+        self.console.print(panel)
+    
+    @restore_output
+    def on_call_function_result(self, event):
+        """函数调用结果事件处理"""
+        data = event.data
+        funcname = data.get('funcname')
+        success = data.get('success', False)
+        result = data.get('result')
+        error = data.get('error')
+        
+        if success:
+            title = Text(f"✅ {T('Function call result {}')}".format(funcname), style="bold green")
+            
+            if result is not None:
+                # 格式化并显示结果
+                if isinstance(result, (dict, list)):
+                    content = Syntax(json.dumps(result, ensure_ascii=False, indent=2, default=str), 'json', line_numbers=False, word_wrap=True)
+                else:
+                    content = Text(str(result), style="white")
+            else:
+                content = Text(T("No return value"), style="dim white")
+            
+            panel = Panel(content, title=title, border_style="green")
+            self.console.print(panel)
+        else:
+            title = Text(f"❌ {T('Function call failed {}')}".format(funcname), style="bold red")
+            content = Text(error if error else T("Unknown error"), style="red")
+            panel = Panel(content, title=title, border_style="red")
+            self.console.print(panel)
         
     def _parse_and_display_content(self, content: str, llm: str = ""):
         """智能解析并显示内容"""

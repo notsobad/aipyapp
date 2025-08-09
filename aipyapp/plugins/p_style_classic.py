@@ -165,6 +165,36 @@ class DisplayClassic(RichDisplayPlugin):
         title = self._get_title(T("Start calling function {}"), funcname)
         self.console.print(title)
 
+    @restore_output
+    def on_call_function_result(self, event):
+        """函数调用结果事件处理"""
+        data = event.data
+        funcname = data.get('funcname')
+        success = data.get('success', False)
+        result = data.get('result')
+        error = data.get('error')
+        
+        if success:
+            style = "success"
+            title = self._get_title(T("Function call result {}"), funcname, style=style)
+            tree = Tree(title)
+            if result is not None:
+                # 格式化并显示结果
+                if isinstance(result, (dict, list)):
+                    json_result = json.dumps(result, ensure_ascii=False, indent=2, default=str)
+                    tree.add(Syntax(json_result, "json", word_wrap=True))
+                else:
+                    tree.add(str(result))
+            else:
+                tree.add(T("No return value"))
+            self.console.print(tree)
+        else:
+            style = "error"
+            title = self._get_title(T("Function call failed {}"), funcname, style=style)
+            tree = Tree(title)
+            tree.add(error if error else T("Unknown error"))
+            self.console.print(tree)
+
     def on_exec_result(self, event):
         """代码执行结果事件处理"""
         data = event.data

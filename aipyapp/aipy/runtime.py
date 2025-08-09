@@ -139,7 +139,13 @@ class CliPythonRuntime(PythonRuntime):
             Any: The result of the function call
         """
         self.task.emit('call_function', funcname=name, kwargs=kwargs)
-        return self.function_manager.call(name, **kwargs)
+        try:
+            result = self.function_manager.call(name, **kwargs)
+            self.task.emit('call_function_result', funcname=name, kwargs=kwargs, result=result, success=True)
+            return result
+        except Exception as e:
+            self.task.emit('call_function_result', funcname=name, kwargs=kwargs, result=None, success=False, error=str(e), exception=e)
+            raise
     
     def get_builtin_functions(self) -> Dict[str, Dict[str, str]]:
         """

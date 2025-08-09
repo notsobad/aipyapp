@@ -3,6 +3,7 @@
 
 from functools import wraps
 import sys
+import json
 
 from rich.tree import Tree
 from rich.text import Text
@@ -176,6 +177,32 @@ class DisplayMinimal(RichDisplayPlugin):
         funcname = data.get('funcname')
         title = self._get_title(T("Start calling function {}"), funcname)
         self.console.print(title)
+    
+    @restore_output
+    def on_call_function_result(self, event):
+        """函数调用结果事件处理"""
+        data = event.data
+        funcname = data.get('funcname')
+        success = data.get('success', False)
+        result = data.get('result')
+        error = data.get('error')
+        
+        if success:
+            style = "success"
+            title = self._get_title(T("Function call result {}"), funcname, style=style)
+            tree = Tree(title)
+            # 简约风格：只显示结果存在性，不显示详细内容
+            if result is not None:
+                tree.add(T("Result returned"))
+            else:
+                tree.add(T("No return value"))
+            self.console.print(tree)
+        else:
+            style = "error"
+            title = self._get_title(T("Function call failed {}"), funcname, style=style)
+            tree = Tree(title)
+            tree.add(error if error else T("Unknown error"))
+            self.console.print(tree)
 
     def on_exec_result(self, event):
         """代码执行结果事件处理"""
