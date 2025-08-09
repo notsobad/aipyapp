@@ -469,9 +469,9 @@ class ContextManager(Trackable):
 
     def clear(self):
         """清空上下文"""
-        self.chat_history.clear()
-        self._messages_cache.clear()
-        self._cached_tokens = 0
+        #self.chat_history.clear()
+        self._clear_messages_cache()
+        #self._cached_tokens = 0
         self.token_counter.reset()
         self._last_compression_time = 0
         self.log.info("Context cleared")
