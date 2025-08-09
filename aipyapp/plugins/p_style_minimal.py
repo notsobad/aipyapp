@@ -150,8 +150,9 @@ class DisplayMinimal(RichDisplayPlugin):
         """任务状态事件处理"""
         status = event.data.get('status')
         completed = status.get('completed', False)
-        title = self._get_title(T("Task status"), style="success" if completed else "error")
-        tree = Tree(title)
+        style = "success" if completed else "error" 
+        title = self._get_title(T("Task status"), style=style)
+        tree = Tree(title, guide_style=style)
         if completed:
             tree.add(T("Completed"))
             tree.add(T("Confidence level: {}", status.get('confidence', 0)))
@@ -272,7 +273,8 @@ class DisplayMinimal(RichDisplayPlugin):
         # 简约显示：只显示总结信息
         title = self._get_title(T("End processing instruction"))
         tree = Tree(title)
-        tree.add(Syntax(response, "markdown", word_wrap=True))
+        if response:
+            tree.add(Syntax(response, "markdown", word_wrap=True))
         tree.add(f"{T('Summary')}: {summary.get('summary')}")
         self.console.print(tree)
 

@@ -135,8 +135,9 @@ class DisplayClassic(RichDisplayPlugin):
         """任务状态事件处理"""
         status = event.data.get('status')
         completed = status.get('completed', False)
-        title = self._get_title(T("Task status"), style="success" if completed else "error")
-        tree = Tree(title)
+        style = "success" if completed else "error" 
+        title = self._get_title(T("Task status"), style=style)
+        tree = Tree(title, guide_style=style)
         if completed:
             tree.add(T("Completed"))
             tree.add(T("Confidence level: {}", status.get('confidence', 0)))

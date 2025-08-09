@@ -330,7 +330,7 @@ class Task(Stoppable, EventBus):
             - yaml_dict 是解析后的 YAML 字典，若无 front matter 则为空字典
             - content 是去除 front matter 后的 Markdown 正文字符串
         """
-        front_matter_pattern = r"^\s*---\s*\n(.*?)\n---\s*\n"
+        front_matter_pattern = r"^\s*---\s*\n(.*?)\n---\s*"
         match = re.match(front_matter_pattern, md_text, re.DOTALL)
         if match:
             yaml_str = match.group(1)
