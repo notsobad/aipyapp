@@ -133,10 +133,16 @@ class CliPythonRuntime(PythonRuntime):
 
         Args:
             name: The name of the function to call
-            **kwargs: The arguments to pass to the function
+            **kwargs: The keyword arguments to pass to the function
 
         Returns:
-            Any: The result of the function call
+            Any: The result of the function call or raise an exception
+
+        Examples:
+            >>> utils.call_function('get_env', name='PATH')
+            '/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin'
+            >>> utils.call_function('get_env', name='PATH')
+            None
         """
         self.task.emit('call_function', funcname=name, kwargs=kwargs)
         try:

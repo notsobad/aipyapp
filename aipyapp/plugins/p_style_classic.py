@@ -182,7 +182,7 @@ class DisplayClassic(RichDisplayPlugin):
                 # 格式化并显示结果
                 if isinstance(result, (dict, list)):
                     json_result = json.dumps(result, ensure_ascii=False, indent=2, default=str)
-                    tree.add(Syntax(json_result, "json", word_wrap=True))
+                    tree.add(Syntax(json_result, "json", word_wrap=True, line_range=(0, 10)))
                 else:
                     tree.add(str(result))
             else:
