@@ -1,5 +1,10 @@
+import json
+
+from rich.tree import Tree
+from rich.syntax import Syntax
+
 from ... import T
-from .base import CommandMode, Completable
+from .base import Completable
 from .base_parser import ParserCommand
 from .utils import print_records
 
@@ -94,6 +99,15 @@ class RoleCommand(ParserCommand):
                 pkg_table.add_row(lang, ', '.join(packages))
             
             print(pkg_table)
+
+        # 插件表格
+        if role.plugins:
+            tree = Tree(T('Plugins'))
+            for plugin_name, plugin_config in role.plugins.items():
+                t = tree.add(plugin_name)
+                t.add(Syntax(json.dumps(plugin_config, ensure_ascii=False, indent=2), "json", word_wrap=True))
+
+            print(tree)
         
     def cmd_use(self, args, ctx):
         success = ctx.tm.use(role=args.role)

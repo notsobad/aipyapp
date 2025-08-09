@@ -296,12 +296,12 @@ class Task(Stoppable, EventBus):
 
         summary = context_manager.get_summary()
         summary['elapsed_time'] = time.time() - self.start_time
-        summarys = "| {rounds} | {time:.3f}s/{elapsed_time:.3f}s | Tokens: {input_tokens}/{output_tokens}/{total_tokens}".format(**summary)
+        summarys = "{rounds} | {time:.3f}s/{elapsed_time:.3f}s | Tokens: {input_tokens}/{output_tokens}/{total_tokens}".format(**summary)
         data['summary'] = summarys
         return data
 
     def chat(self, context: LLMContext, *, system_prompt=None):
-        self.emit('query_start')
+        self.emit('query_start', llm=self.client.name)
         msg = self.client(context, system_prompt=system_prompt)
         self.emit('response_complete', llm=self.client.name, msg=msg)
         return msg.content if msg else None

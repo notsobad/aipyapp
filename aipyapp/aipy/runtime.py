@@ -54,8 +54,8 @@ class CliPythonRuntime(PythonRuntime):
             >>> runtime.install_packages('requests', 'openai')
             False
         """
-        message = f"\n⚠️ LLM {T('Request to install third-party packages')}: {packages}"
-        self.task.emit('runtime_message', message=message)
+        message = f"LLM {T('Request to install third-party packages')}: {packages}"
+        self.task.emit('runtime_message', message=message, status='warning')
         
         if self.display:
             prompt = f"💬 {T('If you agree, please enter')} 'y'> "
@@ -65,8 +65,8 @@ class CliPythonRuntime(PythonRuntime):
             
         if ok:
             ret = self.ensure_packages(*packages)
-            result_message = "\n✅" if ret else "\n❌"
-            self.task.emit('runtime_message', message=result_message)
+            result_message = T("Package installation completed") if ret else T("Package installation failed")
+            self.task.emit('runtime_message', message=result_message, status='success' if ret else 'error')
             return ret
         return False
     

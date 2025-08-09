@@ -57,8 +57,16 @@ class WebToolsPlugin(TaskPlugin):
             params: URL参数
             json_data: JSON请求体
                 
-            Returns:
-                包含网页信息的字典
+        Returns:
+            包含网页信息的字典，其中content为响应内容，success为是否成功，status_code为状态码
+
+        Examples:
+            >>> fn_http_request("https://www.baidu.com")
+            {'success': True, 'status_code': 200, 'headers': {'Content-Type': 'text/html; charset=utf-8'}, 'content': '百度一下，你就知道', 'elapsed': '0.000000s'}
+            >>> fn_http_request("https://www.baidu.com", method="POST", json_data={"name": "John", "age": 30})
+            {'success': True, 'status_code': 200, 'headers': {'Content-Type': 'text/html; charset=utf-8'}, 'content': '百度一下，你就知道', 'elapsed': '0.000000s'}
+            >>> fn_http_request("https://www.baidu.com")
+            {'sucess': False, 'error': '400 Client Error: Bad Request for url'}
         """
         return self._http_request(url, method, headers, params, json_data)
         
@@ -184,7 +192,7 @@ class WebToolsPlugin(TaskPlugin):
                 "success": True,
                 "status_code": response.status_code,
                 "headers": dict(response.headers),
-                "content": response.text[:1000] + "..." if len(response.text) > 1000 else response.text,
+                "content": response.text,
                 "elapsed": str(response.elapsed)
             }
             

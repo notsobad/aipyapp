@@ -1,12 +1,29 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-from rich.console import Console
-from rich.markdown import Markdown
-from rich.status import Status
+from functools import wraps
+import sys
 
-from aipyapp.display import RichDisplayPlugin, LiveDisplay
+from rich.tree import Tree
+from rich.text import Text
+from rich.console import Console
+from rich.status import Status
+from rich.syntax import Syntax
+
+from aipyapp.display import RichDisplayPlugin
 from aipyapp import T
+
+def restore_output(func):
+    @wraps(func)
+    def wrapper(self, *args, **kwargs):
+        old_stdout, old_stderr = sys.stdout, sys.stderr
+        sys.stdout, sys.stderr = sys.__stdout__, sys.__stderr__
+
+        try:
+            return func(self, *args, **kwargs)
+        finally:
+            sys.stdout, sys.stderr = old_stdout, old_stderr
+    return wrapper
 
 class DisplayMinimal(RichDisplayPlugin):
     """Minimal display style"""
@@ -21,38 +38,55 @@ class DisplayMinimal(RichDisplayPlugin):
         self.received_lines = 0  # 记录接收的行数
         self.status = None  # Status 对象
 
+    def _get_title(self, title: str, *args, style: str = "info"):
+        text = Text(f"\n● {title}".format(*args), style=style)
+        text.highlight_words(args, style="bold white")
+        return text
+    
+    def on_exception(self, event):
+        """异常事件处理"""
+        msg = event.data.get('msg', '')
+        exception = event.data.get('exception')
+        title = self._get_title(T("Exception occurred"), msg, style="error")
+        tree = Tree(title)
+        tree.add(exception)
+        self.console.print(tree)
+
     def on_task_start(self, event):
         """任务开始事件处理"""
         data = event.data
         instruction = data.get('instruction')
-        self.console.print(f"→ {instruction}")
+        tree = Tree(f"🚀 {T('Task processing started')}")
+        tree.add(instruction)
+        self.console.print(tree)
 
     def on_task_end(self, event):
         """任务结束事件处理"""
         path = event.data.get('path', '')
         self.console.print(f"[green]{T('Task completed')}: {path}")
 
-    def on_exception(self, event):
-        """异常事件处理"""
-        data = event.data
-        msg = data.get('msg', '')
-        self.console.print(f"✗ {msg}", style='red')
-
     def on_query_start(self, event):
         """查询开始事件处理"""
-        self.console.print("⟳ Sending...", style='dim')
+        data = event.data
+        llm = data.get('llm', '')
+        title = self._get_title(T("Sending message to {}"), llm)
+        self.console.print(title)
 
     def on_round_start(self, event):
         """回合开始事件处理"""
         data = event.data
         instruction = data.get('instruction')
-        self.console.print(f"→ {instruction}")
+        title = self._get_title(T("Instruction processing started"))
+        tree = Tree(title)
+        tree.add(instruction)
+        self.console.print(tree)
 
     def on_stream_start(self, event):
         """流式开始事件处理"""
         # 简约风格：重置行数计数器并启动 Status
         self.received_lines = 0
-        self.status = Status("📥 Receiving response...", console=self.console)
+        title = self._get_title(T("Streaming started"))
+        self.status = Status(title, console=self.console)
         self.status.start()
     
     def on_stream_end(self, event):
@@ -61,7 +95,8 @@ class DisplayMinimal(RichDisplayPlugin):
         if self.status:
             self.status.stop()
             if self.received_lines > 0:
-                self.console.print(f"📥 Received {self.received_lines} lines total", style='dim')
+                title = self._get_title(T("Received {} lines total"), self.received_lines)
+                self.console.print(title)
         self.status = None
 
     def on_stream(self, event):
@@ -74,7 +109,8 @@ class DisplayMinimal(RichDisplayPlugin):
             self.received_lines += len(lines)
             # 使用 Status 在同一行更新进度
             if self.status:
-                self.status.update(f"📥 Receiving response... ({self.received_lines} lines)")
+                title = self._get_title(T("Receiving response... ({})"), self.received_lines)
+                self.status.update(title)
                 
     def on_response_complete(self, event):
         """LLM 响应完成事件处理"""
@@ -82,35 +118,64 @@ class DisplayMinimal(RichDisplayPlugin):
         llm = data.get('llm', '')
         msg = data.get('msg')
         if not msg:
-            self.console.print("✗ Empty response")
+            title = self._get_title(T("LLM response is empty"), style="error")
+            self.console.print(title)
             return
+        
         if msg.role == 'error':
-            self.console.print(f"✗ {msg.content}")
+            title = self._get_title(T("Failed to receive message"), style="error")
+            tree = Tree(title)
+            tree.add(msg.content)
+            self.console.print(tree)
             return
+        
+        if msg.reason:
+            content = f"{msg.reason}\n\n-----\n\n{msg.content}"
+        else:
+            content = msg.content
+        title = self._get_title(f"{T('Completed receiving message')} ({llm})", style="success")
+        tree = Tree(title)
+        self.console.print(tree)
 
     def on_parse_reply(self, event):
         """消息解析结果事件处理"""
         ret = event.data.get('result')
-        if ret:
-            # 简约显示：显示解析到的代码块名称
-            if 'exec_blocks' in ret:
-                blocks = ret['exec_blocks']
-                if blocks:
-                    block_names = [getattr(block, 'name', f'block_{i}') for i, block in enumerate(blocks)]
-                    names_str = ', '.join(block_names[:3])  # 只显示前3个
-                    if len(blocks) > 3:
-                        names_str += f'... (+{len(blocks)-3} more)'
-                    self.console.print(f"📝 Found: {names_str}", style='dim')
-            elif 'call_tool' in ret:
-                self.console.print("🔧 Tool call detected", style='dim')
+        if not ret:
+            return
+            
+        title = self._get_title(T("Message parse result"))
+        tree = Tree(title)
+        if 'blocks' in ret and ret['blocks']:
+            block_count = len(ret['blocks'])
+            tree.add(f"{block_count} {T('code blocks')}")
+        
+        if 'exec_blocks' in ret and ret['exec_blocks']:
+            exec_names = [getattr(block, 'name', 'Unknown') for block in ret['exec_blocks']]
+            exec_str = ", ".join(exec_names)
+            tree.add(f"{T('Execution')}: {exec_str}")
+        
+        if 'call_tool' in ret:
+            tree.add(T("MCP tool call"))
+        
+        if 'errors' in ret and ret['errors']:
+            error_count = len(ret['errors'])
+            tree.add(f"{error_count} {T('errors')}")
+        
+        self.console.print(tree)
 
     def on_exec(self, event):
         """代码执行开始事件处理"""
         block = event.data.get('block')
-        # 简约显示：显示将要执行的代码块信息
-        name = getattr(block, 'name', 'Unknown')
-        lang = getattr(block, 'lang', 'text')
-        self.console.print(f"▶ Executing: {name} ({lang})", style='dim')
+        title = self._get_title(T("Start executing code block {}"), block.name)
+        self.console.print(title)
+            
+    @restore_output
+    def on_call_function(self, event):
+        """函数调用事件处理"""
+        data = event.data
+        funcname = data.get('funcname')
+        title = self._get_title(T("Start calling function {}"), funcname)
+        self.console.print(title)
 
     def on_exec_result(self, event):
         """代码执行结果事件处理"""
@@ -118,39 +183,36 @@ class DisplayMinimal(RichDisplayPlugin):
         result = data.get('result')
         block = data.get('block')
         
-        # 简约显示：显示简要执行结果
-        if isinstance(result, dict):
-            if 'traceback' in result:
-                self.console.print("✗ Error", style='red')
-                # 显示错误的第一行
-                if result.get('traceback'):
-                    error_lines = result['traceback'].split('\n')
-                    for line in error_lines:
-                        if line.strip() and not line.startswith('Traceback'):
-                            self.console.print(f"  {line.strip()}", style='red')
-                            break
-            else:
-                self.console.print("✓ Success", style='green')
-                # 如果有输出且不为空，显示简要输出
-                if 'output' in result and result['output']:
-                    output = str(result['output']).strip()
-                    if output:
-                        # 只显示前100个字符
-                        if len(output) > 100:
-                            output = output[:100] + "..."
-                        self.console.print(f"  {output}", style='dim')
-        else:
-            self.console.print(f"✓ {result}", style='green')
+        try:
+            success = result['__state__']['success']
+            style = "success" if success else "error"
+        except:
+            style = "warning"
+        
+        # 显示说明信息
+        block_name = getattr(block, 'name', 'Unknown') if block else 'Unknown'
+        title = self._get_title(T("Execution result {}"), block_name, style=style)
+        tree = Tree(title)
+        
+        # JSON格式化和高亮显示结果
+        #json_result = json.dumps(result, ensure_ascii=False, indent=2, default=str)
+        #tree.add(Syntax(json_result, "json", word_wrap=True))
+        self.console.print(tree)
 
     def on_mcp_call(self, event):
         """工具调用事件处理"""
-        # 简约风格：不显示工具调用信息
-        pass
-
+        title = self._get_title(T("Start calling MCP tool"))
+        self.console.print(title)
+                
     def on_mcp_result(self, event):
         """MCP 工具调用结果事件处理"""
-        # 简约风格：不显示工具调用结果
-        pass
+        data = event.data
+        result = data.get('result')
+        block = data.get('block')
+        title = self._get_title(T("MCP tool call result {}"), block.name)
+        self.console.print(title)
+        #json_result = json.dumps(result, ensure_ascii=False, indent=2, default=str)
+        #self.console.print_json(json_result, style="dim")
 
     def on_round_end(self, event):
         """任务总结事件处理"""
@@ -158,17 +220,39 @@ class DisplayMinimal(RichDisplayPlugin):
         summary = data.get('summary', {})
         response = data.get('response', '')
         # 简约显示：只显示总结信息
-        self.console.print(Markdown(response)) 
-        self.console.print(f"• {summary.get('summary')}")
+        title = self._get_title(T("End processing instruction"))
+        tree = Tree(title)
+        tree.add(Syntax(response, "markdown", word_wrap=True))
+        tree.add(f"{T('Summary')}: {summary.get('summary')}")
+        self.console.print(tree)
+
+    def on_upload_result(self, event):
+        """云端上传结果事件处理"""
+        data = event.data
+        status_code = data.get('status_code', 0)
+        url = data.get('url', '')
+        if url:
+            self.console.print(f"🟢 {T('Article uploaded successfully, {}', url)}", style="success")
+        else:
+            self.console.print(f"🔴 {T('Upload failed (status code: {})', status_code)}", style="error")
+
+    def on_task_end(self, event):
+        """任务结束事件处理"""
+        path = event.data.get('path', '')
+        title = self._get_title(T("Task completed"))
+        tree = Tree(title)
+        tree.add(path)
+        self.console.print(tree)
 
     def on_runtime_message(self, event):
         """Runtime消息事件处理"""
         data = event.data
         message = data.get('message', '')
-        self.console.print(message)
+        status = data.get('status', 'info')
+        title = self._get_title(message, style=status)
+        self.console.print(title)
 
     def on_runtime_input(self, event):
         """Runtime输入事件处理"""
         # 输入事件通常不需要特殊处理，因为input_prompt已经处理了
-        pass 
-        
+        pass

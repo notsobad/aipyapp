@@ -42,7 +42,7 @@ class DisplayManager:
         
     def get_available_styles(self) -> list:
         """获取可用的显示风格列表"""
-        return list(self.plugins.keys())
+        return [name for name in self.plugins.keys() if name not in ['null', 'agent']]
         
     def get_available_themes(self) -> list:
         """获取可用的主题列表"""
