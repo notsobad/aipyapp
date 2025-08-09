@@ -21,6 +21,15 @@ def parse_args():
     )
 
     parser = argparse.ArgumentParser(description="Python use - AIPython", formatter_class=argparse.RawTextHelpFormatter)
+    
+    # 添加子命令支持
+    subparsers = parser.add_subparsers(dest='command', help='Available commands')
+    
+    # update 子命令
+    update_parser = subparsers.add_parser('update', help='Update aipyapp to latest version')
+    update_parser.add_argument('--beta', action='store_true', help='Include beta versions in update')
+    
+    # 主命令参数
     parser.add_argument("-c", '--config-dir', type=str, help=config_help_message)
     parser.add_argument('-p', '--python', default=False, action='store_true', help="Python mode")
     parser.add_argument('-i', '--ipython', default=False, action='store_true', help="IPython mode")
@@ -51,6 +60,33 @@ def ensure_pkg(pkg):
         cp = subprocess.run([sys.executable, "-m", "pip", "install", pkg])
         assert cp.returncode == 0
 
+def handle_update(args):
+    """处理 update 命令"""
+    import subprocess
+    from . import __version__
+    
+    package_name = 'aipyapp'
+    print(f"当前版本: {__version__}")
+    
+    if args.beta:
+        print(f"更新到最新版本 (包括测试版): {package_name}")
+        cmd = [sys.executable, "-m", "pip", "install", "--upgrade", "--pre", package_name]
+    else:
+        print(f"更新到最新稳定版本: {package_name}")
+        cmd = [sys.executable, "-m", "pip", "install", "--upgrade", package_name]
+    
+    try:
+        result = subprocess.run(cmd, check=True, capture_output=True, text=True)
+        print("更新完成!")
+        if result.stdout.strip():
+            print(result.stdout)
+    except subprocess.CalledProcessError as e:
+        print(f"更新失败: {e.stderr}")
+        sys.exit(1)
+    except Exception as e:
+        print(f"更新失败: {str(e)}")
+        sys.exit(1)
+
 def mainw():
     args = parse_args()
     ensure_pkg('wxpython')
@@ -59,6 +95,12 @@ def mainw():
 
 def main():
     args = parse_args()
+    
+    # 处理 update 子命令
+    if args.command == 'update':
+        handle_update(args)
+        return
+    
     if args.agent:
         ensure_pkg('fastapi')
         ensure_pkg('uvicorn')
