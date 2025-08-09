@@ -138,6 +138,21 @@ class DisplayMinimal(RichDisplayPlugin):
         tree = Tree(title)
         self.console.print(tree)
 
+    def on_task_status(self, event):
+        """任务状态事件处理"""
+        status = event.data.get('status')
+        completed = status.get('completed', False)
+        title = self._get_title(T("Task status"), style="success" if completed else "error")
+        tree = Tree(title)
+        if completed:
+            tree.add(T("Completed"))
+            tree.add(T("Confidence level: {}", status.get('confidence', 0)))
+        else:
+            tree.add(T("Failed"))
+            tree.add(T("Reason: {}", status.get('status', '')))
+            tree.add(T("Suggestion: {}", status.get('suggestion', '')))
+        self.console.print(tree)
+        
     def on_parse_reply(self, event):
         """消息解析结果事件处理"""
         ret = event.data.get('result')

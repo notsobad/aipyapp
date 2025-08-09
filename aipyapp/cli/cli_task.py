@@ -10,10 +10,8 @@ from prompt_toolkit.styles import Style
 from prompt_toolkit.cursor_shapes import CursorShape
 from prompt_toolkit.auto_suggest import AutoSuggestFromHistory
 
-from ..aipy import TaskManager, ConfigManager, CONFIG_DIR
-from .. import T, set_lang, __version__, __respkg__
-from ..config import LLMConfig
-from ..aipy.wizard import config_llm
+from ..aipy import TaskManager
+from .. import T, __version__, __respkg__
 from .command import CommandManager, CommandError
 from ..display import DisplayManager
 
@@ -39,7 +37,7 @@ class InteractiveConsole():
     def __init__(self, tm, console, settings):
         self.tm = tm
         self.names = tm.client_manager.names
-        self.history = FileHistory(str(CONFIG_DIR / ".history"))
+        self.history = FileHistory(str(settings['config_dir'] / ".history"))
         self.console = console
         self.settings = settings
         self.task = None
@@ -164,50 +162,22 @@ class InteractiveConsole():
             except (EOFError, KeyboardInterrupt):
                 break
 
-def get_logo_text():
-    path = CONFIG_DIR / "logo.txt"
+def get_logo_text(config_dir):
+    path = config_dir / "logo.txt"
     if path.exists():
         logo_text = path.read_text()
     else:
         logo_text = read_text(__respkg__, "logo.txt")
     return logo_text
 
-def main(args):
+def main(settings):
     console = Console(record=True)
     console.print(f"🚀 Python use - AIPython ({__version__}) [[pink]https://aipy.app[/pink]]", style="bold green")
-    logo_text = get_logo_text()
+    logo_text = get_logo_text(settings['config_dir'])
     console.print(Text.from_ansi(logo_text))
-    conf = ConfigManager(args.config_dir)
-    settings = conf.get_config()
-    lang = settings.get('lang')
-    if lang: set_lang(lang)
-    llm_config = LLMConfig(CONFIG_DIR / "config")
-    if conf.check_config(gui=True) == 'TrustToken':
-        if llm_config.need_config():
-            console.print(f"[yellow]{T('Starting LLM Provider Configuration Wizard')}[/yellow]")
-            try:
-                config = config_llm(llm_config)
-            except KeyboardInterrupt:
-                console.print(f"[yellow]{T('User cancelled configuration')}[/yellow]")
-                return
-            if not config:
-                return
-        settings["llm"] = llm_config.config
-
-    if args.fetch_config:
-        conf.fetch_config()
-        return
-
-    settings.gui = False
-    settings.debug = args.debug
-    settings.config_dir = CONFIG_DIR
-    if args.role:
-        settings['role'] = args.role.lower()
 
     # 初始化显示效果管理器
     display_config = settings.get('display', {})
-    if args.style:
-        display_config['style'] = args.style
     display_manager = DisplayManager(display_config, console=console)
     try:
         tm = TaskManager(settings, display_manager=display_manager)
@@ -223,7 +193,8 @@ def main(args):
         console.print(f"[bold red]{T('No available LLM, please check the configuration file')}")
         return
     
-    if args.cmd:
-        tm.new_task().run(args.cmd)
+    cmd = settings.get('exec_cmd')
+    if cmd:
+        tm.new_task().run(cmd)
         return
     InteractiveConsole(tm, console, settings).run()

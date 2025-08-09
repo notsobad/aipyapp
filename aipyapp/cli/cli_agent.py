@@ -1,22 +1,16 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import os
-import asyncio
 from typing import Dict, Any, Optional
 from datetime import datetime
 
 import uvicorn
 from fastapi import FastAPI, HTTPException, BackgroundTasks
-from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 from loguru import logger
 
-from ..aipy import ConfigManager, CONFIG_DIR
-from .. import T, set_lang, __version__
-from ..config import LLMConfig
-from ..aipy.wizard import config_llm
+from .. import T, __version__
 from ..aipy.agent_taskmgr import AgentTaskManager
 from ..display import DisplayManager
 
@@ -215,43 +209,14 @@ def init_agent_manager(settings):
         logger.error(f"Failed to initialize agent manager: {e}")
         return False
 
-def main(args):
+def main(settings):
     """Agent模式主函数"""
     global agent_manager
     
+    host = settings.get('host', '127.0.0.1')
+    port = settings.get('port', 8848)
     print(f"🤖 AIPython Agent Mode ({__version__})")
-    print(f"🚀 Starting HTTP API server on {args.host}:{args.port}")
-    
-    # 配置管理
-    conf = ConfigManager(args.config_dir)
-    settings = conf.get_config()
-    
-    # 语言设置
-    lang = settings.get('lang')
-    if lang:
-        set_lang(lang)
-    
-    # LLM配置
-    llm_config = LLMConfig(CONFIG_DIR / "config")
-    if conf.check_config(gui=False) == 'TrustToken':
-        if llm_config.need_config():
-            print(f"⚠️  {T('LLM configuration required')}")
-            try:
-                config = config_llm(llm_config)
-                if not config:
-                    print(f"❌ {T('Configuration failed')}")
-                    return
-            except KeyboardInterrupt:
-                print(f"⚠️  {T('User cancelled configuration')}")
-                return
-        settings["llm"] = llm_config.config
-    
-    # 基础设置
-    settings.gui = False
-    settings.debug = args.debug
-    settings.config_dir = CONFIG_DIR
-    if args.role:
-        settings['role'] = args.role.lower()
+    print(f"🚀 Starting HTTP API server on {host}:{port}")
     
     # 初始化Agent管理器
     if not init_agent_manager(settings):
@@ -259,16 +224,16 @@ def main(args):
         return
     
     print(f"✅ {T('Agent manager initialized')}")
-    print(f"🔗 API Documentation: http://{args.host}:{args.port}/docs")
-    print(f"📊 Health Check: http://{args.host}:{args.port}/health")
+    print(f"🔗 API Documentation: http://{host}:{port}/docs")
+    print(f"📊 Health Check: http://{host}:{port}/health")
     
     # 启动服务器
     try:
         uvicorn.run(
             app,
-            host=args.host,
-            port=args.port,
-            log_level="info" if args.debug else "warning"
+            host=host,
+            port=port,
+            log_level="info" if settings.get('debug', False) else "warning"
         )
     except KeyboardInterrupt:
         print(f"\n⏹️  {T('Server stopped by user')}")

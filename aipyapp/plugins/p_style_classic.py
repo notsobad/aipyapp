@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+import re
 import sys
 from functools import wraps
 import json
@@ -98,7 +99,13 @@ class DisplayClassic(RichDisplayPlugin):
         reason = response.get('reason', False)
         if self.live_display:
             self.live_display.update_display(lines, reason=reason)
-                
+
+    @staticmethod
+    def convert_front_matter(md_text: str) -> str:
+        pattern = r"^---\s*\n(.*?)\n---\s*\n"
+        #return re.sub(pattern, r"```yaml\n\1\n```\n", md_text, flags=re.DOTALL)
+        return re.sub(pattern, "", md_text, flags=re.DOTALL)
+          
     def on_response_complete(self, event):
         """LLM 响应完成事件处理"""
         data = event.data
@@ -116,13 +123,27 @@ class DisplayClassic(RichDisplayPlugin):
             self.console.print(tree)
             return
         
+        content = self.convert_front_matter(msg.content)
         if msg.reason:
-            content = f"{msg.reason}\n\n-----\n\n{msg.content}"
-        else:
-            content = msg.content
+            content = f"{msg.reason}\n\n-----\n\n{content}"
         title = self._get_title(f"{T('Completed receiving message')} ({llm})", style="success")
         tree = Tree(title)
         tree.add(Markdown(content))
+        self.console.print(tree)
+
+    def on_task_status(self, event):
+        """任务状态事件处理"""
+        status = event.data.get('status')
+        completed = status.get('completed', False)
+        title = self._get_title(T("Task status"), style="success" if completed else "error")
+        tree = Tree(title)
+        if completed:
+            tree.add(T("Completed"))
+            tree.add(T("Confidence level: {}", status.get('confidence', 0)))
+        else:
+            tree.add(T("Failed"))
+            tree.add(T("Reason: {}", status.get('status', '')))
+            tree.add(T("Suggestion: {}", status.get('suggestion', '')))
         self.console.print(tree)
 
     def on_parse_reply(self, event):
