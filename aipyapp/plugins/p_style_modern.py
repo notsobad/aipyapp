@@ -10,7 +10,8 @@ from rich.syntax import Syntax
 from rich.table import Table
 from rich.markdown import Markdown
 
-from aipyapp.display import RichDisplayPlugin, LiveDisplay
+from aipyapp.display import RichDisplayPlugin
+from live_display import LiveDisplay
 from aipyapp import T
 
 class DisplayModern(RichDisplayPlugin):

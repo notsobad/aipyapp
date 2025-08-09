@@ -56,16 +56,29 @@ class PluginManager:
 
     def _load_plugins(self, filepath: Path) -> List[Plugin]:
         """Load plugins from a file."""
+        import sys
+        
         name = filepath.stem
-        spec = importlib.util.spec_from_file_location(name, filepath)
-        module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
+        plugin_dir = filepath.parent
+        
+        # 临时添加插件目录到 sys.path
+        original_path = sys.path.copy()
+        if str(plugin_dir) not in sys.path:
+            sys.path.insert(0, str(plugin_dir))
+        
+        try:
+            spec = importlib.util.spec_from_file_location(name, filepath)
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
 
-        plugins = []
-        for cls in module.__dict__.values():
-            if isinstance(cls, type) and issubclass(cls, Plugin) and cls.name:
-                plugins.append(cls)
-        return plugins
+            plugins = []
+            for cls in module.__dict__.values():
+                if isinstance(cls, type) and issubclass(cls, Plugin) and cls.name:
+                    plugins.append(cls)
+            return plugins
+        finally:
+            # 恢复原始 sys.path
+            sys.path = original_path
 
     def _register_plugin(self, plugin: Plugin) -> bool:
         """Register a plugin."""

@@ -12,7 +12,8 @@ from rich.tree import Tree
 from rich.text import Text
 from rich.console import Console
 
-from aipyapp.display import RichDisplayPlugin, LiveDisplay
+from aipyapp.display import RichDisplayPlugin
+from live_display import LiveDisplay
 from aipyapp import T
 
 def restore_output(func):

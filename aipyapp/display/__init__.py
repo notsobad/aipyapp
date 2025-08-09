@@ -4,12 +4,10 @@
 from .base import DisplayProtocol, DisplayPlugin
 from .base_rich import RichDisplayPlugin
 from .manager import DisplayManager
-from .live_display import LiveDisplay
 
 __all__ = [
     'DisplayProtocol',
     'DisplayPlugin',
     'RichDisplayPlugin',
     'DisplayManager',
-    'LiveDisplay',
 ] 
