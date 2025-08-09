@@ -10,6 +10,7 @@ from rich.text import Text
 from rich.console import Console
 from rich.status import Status
 from rich.syntax import Syntax
+from rich.progress import Progress, TimeElapsedColumn
 
 from aipyapp.display import RichDisplayPlugin
 from aipyapp import T
@@ -38,9 +39,10 @@ class DisplayMinimal(RichDisplayPlugin):
         self.live_display = None
         self.received_lines = 0  # 记录接收的行数
         self.status = None  # Status 对象
+        self.progress = None
 
-    def _get_title(self, title: str, *args, style: str = "info"):
-        text = Text(f"\n● {title}".format(*args), style=style)
+    def _get_title(self, title: str, *args, style: str = "info", prefix: str = "\n"):
+        text = Text(f"{prefix}● {title}".format(*args), style=style)
         text.highlight_words(args, style="bold white")
         return text
     
@@ -86,10 +88,13 @@ class DisplayMinimal(RichDisplayPlugin):
         """流式开始事件处理"""
         # 简约风格：重置行数计数器并启动 Status
         self.received_lines = 0
-        title = self._get_title(T("Streaming started"))
-        self.status = Status(title, console=self.console)
-        self.status.start()
-    
+        title = self._get_title(T("Streaming started"), prefix="")
+        #self.status = Status(title, console=self.console)
+        #self.status.start()
+        self.progress = Progress(*Progress.get_default_columns(),TimeElapsedColumn(), transient=False)
+        self.progress.start()
+        self.progress.add_task(title, total=None)
+
     def on_stream_end(self, event):
         """流式结束事件处理"""
         # 简约风格：停止 Status 并显示最终结果
@@ -98,14 +103,17 @@ class DisplayMinimal(RichDisplayPlugin):
             if self.received_lines > 0:
                 title = self._get_title(T("Received {} lines total"), self.received_lines)
                 self.console.print(title)
-        self.status = None
-
+            self.status = None
+        if self.progress:
+            self.progress.stop()
+            self.progress = None
+            
     def on_stream(self, event):
         """LLM 流式响应事件处理"""
         response = event.data
         lines = response.get('lines', [])
         reason = response.get('reason', False)
-        
+
         if not reason:  # 只统计非思考内容
             self.received_lines += len(lines)
             # 使用 Status 在同一行更新进度
@@ -149,7 +157,7 @@ class DisplayMinimal(RichDisplayPlugin):
             tree.add(T("Confidence level: {}", status.get('confidence', 0)))
         else:
             tree.add(T("Failed"))
-            tree.add(T("Reason: {}", status.get('status', '')))
+            tree.add(T("Reason: {}", status.get('reason', '')))
             tree.add(T("Suggestion: {}", status.get('suggestion', '')))
         self.console.print(tree)
         

@@ -40,8 +40,8 @@ class DisplayClassic(RichDisplayPlugin):
         super().__init__(console, quiet)
         self.live_display = None
 
-    def _get_title(self, title: str, *args, style: str = "info"):
-        text = Text(f"\n● {title}".format(*args), style=style)
+    def _get_title(self, title: str, *args, style: str = "info", prefix: str = "\n"):
+        text = Text(f"{prefix}● {title}".format(*args), style=style)
         text.highlight_words(args, style="bold white")
         return text
 
@@ -83,7 +83,7 @@ class DisplayClassic(RichDisplayPlugin):
         if not self.quiet:
             self.live_display = LiveDisplay()
             self.live_display.__enter__()
-            title = self._get_title(T("Streaming started"))
+            title = self._get_title(T("Streaming started"), prefix="")
             self.console.print(title)
     
     def on_stream_end(self, event):
@@ -142,7 +142,7 @@ class DisplayClassic(RichDisplayPlugin):
             tree.add(T("Confidence level: {}", status.get('confidence', 0)))
         else:
             tree.add(T("Failed"))
-            tree.add(T("Reason: {}", status.get('status', '')))
+            tree.add(T("Reason: {}", status.get('reason', '')))
             tree.add(T("Suggestion: {}", status.get('suggestion', '')))
         self.console.print(tree)
 
