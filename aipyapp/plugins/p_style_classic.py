@@ -58,8 +58,11 @@ class DisplayClassic(RichDisplayPlugin):
         """任务开始事件处理"""
         data = event.data
         instruction = data.get('instruction')
+        title = data.get('title')
+        if not title:
+            title = instruction
         tree = Tree(f"🚀 {T('Task processing started')}")
-        tree.add(instruction)
+        tree.add(title)
         self.console.print(tree)
 
     def on_query_start(self, event):
@@ -73,9 +76,12 @@ class DisplayClassic(RichDisplayPlugin):
         """回合开始事件处理"""
         data = event.data
         instruction = data.get('instruction')
+        title = data.get('title')
+        if not title:
+            title = instruction
         title = self._get_title(T("Instruction processing started"))
         tree = Tree(title)
-        tree.add(instruction)
+        tree.add(title)
         self.console.print(tree)
 
     def on_stream_start(self, event):

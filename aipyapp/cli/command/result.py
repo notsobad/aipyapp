@@ -14,6 +14,7 @@ class CommandResult(BaseModel):
 class TaskModeResult(BaseModel):
     task: Any | None = None
     instruction: str | None = None
+    title: str | None = None
 
     @model_validator(mode='after')
     def validate_task_or_instruction(self):

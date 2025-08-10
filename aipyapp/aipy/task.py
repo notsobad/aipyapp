@@ -165,7 +165,7 @@ class Task(Stoppable, EventBus):
             task_id=self.task_id,
             start_time=start_time,
             done_time=done_time,
-            instruction=self.instruction[:32] if self.instruction else '-'
+            instruction=self.title[:32] if self.title else '-'
         )
     
     def use(self, name):
@@ -196,6 +196,7 @@ class Task(Stoppable, EventBus):
             self.log.warning('Task directory not found, skipping save')
             return
         
+        self.done_time = time.time()
         try:
             # 创建 TaskState 对象并保存
             task_state = TaskState(self)
@@ -347,7 +348,7 @@ class Task(Stoppable, EventBus):
 
         return yaml_dict, content
 
-    def run(self, instruction: str):
+    def run(self, instruction: str, title: str | None = None):
         """
         执行自动处理循环，直到 LLM 不再返回代码消息
         instruction: 用户输入的字符串（可包含@file等多模态标记）
@@ -365,18 +366,19 @@ class Task(Stoppable, EventBus):
         if not self.start_time:
             self.start_time = time.time()
             self.instruction = instruction
+            self.title = title or instruction
             # 开始事件记录
             self.event_recorder.start_recording()
             if isinstance(content, str):
                 user_prompt = self.prompts.get_task_prompt(content, gui=self.gui)
             system_prompt = self._get_system_prompt()
-            self.emit('task_start', instruction=instruction, task_id=self.task_id)
+            self.emit('task_start', instruction=instruction, task_id=self.task_id, title=title)
         else:
             system_prompt = None
             if isinstance(content, str):
                 user_prompt = self.prompts.get_chat_prompt(content, self.instruction)
             # 记录轮次开始事件
-            self.emit('round_start', instruction=instruction, step=len(self.step_manager) + 1)
+            self.emit('round_start', instruction=instruction, step=len(self.step_manager) + 1, title=self.title)
 
         self.cwd.mkdir(exist_ok=True)
         os.chdir(self.cwd)

@@ -94,18 +94,18 @@ class InteractiveConsole():
                 break
         return "\n".join(lines)
 
-    def run_task(self, task, instruction):
+    def run_task(self, task, instruction, title=None):
         try:
-            task.run(instruction)
+            task.run(instruction, title=title)
         except (EOFError, KeyboardInterrupt):
             pass
         except Exception as e:
             self.console.print_exception()
 
-    def start_task_mode(self, task, instruction=None):
+    def start_task_mode(self, task, instruction=None, title=None):
         if instruction:
             self.console.print(f"[AI] {T('Enter Ctrl+d or /done to end current task')}", style="dim color(240)")
-            self.run_task(task, instruction)
+            self.run_task(task, instruction, title=title)
         else:
             self.console.print(f"[AI] {T('Resuming task')}: {task.instruction[:32]}", style="dim color(240)")
             
@@ -155,11 +155,14 @@ class InteractiveConsole():
                 try:
                     ret = self.command_manager.execute(user_input)
                     if isinstance(ret, CommandResult) and isinstance(ret.result, TaskModeResult):
-                        if ret.result.instruction:
+                        result = ret.result
+                        if result.instruction:
                             task = tm.new_task()
+                            title = result.title
                         else:
-                            task = ret.result.task
-                        self.start_task_mode(task, ret.result.instruction)
+                            task = result.task
+                            title = None
+                        self.start_task_mode(task, result.instruction, title=title)
                         continue
                 except CommandError as e:
                     self.console.print(f"[red]{e}[/red]")

@@ -261,7 +261,7 @@ class MarkdownCommand(ParserCommand):
             if ctx.task:
                 return ctx.task.chat(final_content)
             else:
-                return TaskModeResult(instruction=final_content)
+                return TaskModeResult(instruction=final_content, title=self.desc)
             
         ctx.console.print(Markdown(final_content))
         return True

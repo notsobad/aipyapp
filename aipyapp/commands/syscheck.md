@@ -15,7 +15,7 @@ arguments:
 
 ## 基本系统信息
 
-```python
+````python
 import platform
 import psutil
 from datetime import datetime
@@ -25,11 +25,11 @@ print(f"操作系统: {platform.system()} {platform.release()}")
 print(f"处理器架构: {platform.machine()}")
 print(f"Python版本: {platform.python_version()}")
 print(f"系统启动时间: {datetime.fromtimestamp(psutil.boot_time()).strftime('%Y-%m-%d %H:%M:%S')}")
-```
+````
 
 ## 资源使用情况
 
-```python
+````python
 import psutil
 
 print("=== 资源使用 ===")
@@ -49,12 +49,12 @@ disk = psutil.disk_usage('/')
 print(f"磁盘使用率: {disk.percent}%")
 print(f"总磁盘空间: {disk.total / (1024**3):.1f} GB")
 print(f"可用磁盘空间: {disk.free / (1024**3):.1f} GB")
-```
+````
 
 {% if detail %}
 ## 详细进程信息
 
-```python
+````python
 import psutil
 
 print("=== 进程信息 ===")
@@ -75,14 +75,14 @@ processes.sort(key=lambda x: x['cpu_percent'] or 0, reverse=True)
 print("CPU使用率最高的前5个进程:")
 for proc in processes[:5]:
     print(f"  {proc['name']} (PID: {proc['pid']}) - CPU: {proc['cpu_percent']:.1f}% Memory: {proc['memory_percent']:.1f}%")
-```
+````
 
 ## 网络状态
 
-```bash
+````bash
 # 检查网络连接
 netstat -tuln | head -10
-```
+````
 {% endif %}
 
 ## 分析请求

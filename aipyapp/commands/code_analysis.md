@@ -14,7 +14,7 @@ arguments:
 
 正在分析文件: `{{ file_path }}`
 
-```python
+````python
 import ast
 import os
 
@@ -74,7 +74,7 @@ try:
 
 except Exception as e:
     print(f"❌ 分析失败: {e}")
-```
+````
 
 ---
 
