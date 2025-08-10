@@ -11,6 +11,7 @@ from ...aipy.event_serializer import EventSerializer
 from ...aipy.task_state import TaskState
 from .base import Completable
 from .base_parser import ParserCommand
+from .result import TaskModeResult
 from .utils import print_records
 
 
@@ -106,7 +107,7 @@ class TaskCommand(ParserCommand):
     
     def cmd_use(self, args, ctx):
         task = ctx.tm.get_task_by_id(args.tid)
-        return task
+        return TaskModeResult(task=task)
 
     def _load_task_state(self, path):
         """加载任务状态"""
@@ -118,7 +119,7 @@ class TaskCommand(ParserCommand):
         
         # 将任务添加到任务管理器中
         task = ctx.tm.load_task(task_state)
-        return task
+        return TaskModeResult(task=task)
 
     def cmd_replay(self, args, ctx):
         """重放任务"""

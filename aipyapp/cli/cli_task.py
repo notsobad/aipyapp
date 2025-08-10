@@ -12,7 +12,7 @@ from prompt_toolkit.auto_suggest import AutoSuggestFromHistory
 
 from ..aipy import TaskManager
 from .. import T, __version__, __respkg__
-from .command import CommandManager, CommandError
+from .command import CommandManager, TaskModeResult, CommandError, CommandResult
 from ..display import DisplayManager
 
 STYLE_MAIN = {
@@ -43,7 +43,7 @@ class InteractiveConsole():
         self.task = None
         self.style_main = Style.from_dict(STYLE_MAIN)
         self.style_task = Style.from_dict(STYLE_AI)
-        self.command_manager = CommandManager(tm, console)
+        self.command_manager = CommandManager(settings,tm, console)
         self.completer = self.command_manager
         self.session = PromptSession(
             history=self.history, 
@@ -154,9 +154,13 @@ class InteractiveConsole():
 
                 try:
                     ret = self.command_manager.execute(user_input)
-                    if ret and ret['command'] == 'task' and ret['subcommand'] in ('use', 'resume'):
-                        task = ret['ret']
-                        self.start_task_mode(task)
+                    if isinstance(ret, CommandResult) and isinstance(ret.result, TaskModeResult):
+                        if ret.result.instruction:
+                            task = tm.new_task()
+                        else:
+                            task = ret.result.task
+                        self.start_task_mode(task, ret.result.instruction)
+                        continue
                 except CommandError as e:
                     self.console.print(f"[red]{e}[/red]")
             except (EOFError, KeyboardInterrupt):

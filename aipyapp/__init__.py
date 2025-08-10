@@ -12,4 +12,4 @@ except ImportError:
 
 __respkg__ = f'{__package__}.res'
 __respath__ = resources.files(__respkg__)
-__pkpath__ = resources.files(__package__)
+__pkgpath__ = resources.files(__package__)

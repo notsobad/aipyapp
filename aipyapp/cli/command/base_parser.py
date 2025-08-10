@@ -1,6 +1,5 @@
 import argparse
 from collections import OrderedDict
-from typing import List
 
 from .base import BaseCommand, Completable
 
@@ -14,7 +13,7 @@ def requires_value(action):
 
 class ParserCommand(BaseCommand):
     """Base class for all commands"""
-    def __init__(self, manager):
+    def __init__(self, manager=None):
         super().__init__(manager)
         self.parser = None
         self.arguments = None

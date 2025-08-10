@@ -8,14 +8,14 @@ from pathlib import Path
 
 from loguru import logger
 
-from .. import __pkpath__, Plugin, PluginType
+from .. import __pkgpath__, Plugin, PluginType
 
 class PluginManager:
     """Plugin manager class."""
     FILE_PATTERN = "p_*.py"
 
     def __init__(self):
-        self.sys_plugin_dir = os.path.join(__pkpath__, 'plugins')
+        self.sys_plugin_dir = os.path.join(__pkgpath__, 'plugins')
         self.plugin_directories: List[Path] = []
         self._plugins: Dict[str, Any] = {}
         self.logger = logger.bind(src=self.__class__.__name__)

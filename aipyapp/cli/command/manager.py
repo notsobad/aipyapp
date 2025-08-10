@@ -4,6 +4,7 @@ from collections import OrderedDict
 from dataclasses import dataclass
 from typing import Any
 
+from ... import __pkgpath__
 from .base import BaseCommand, CommandMode
 from .cmd_info import InfoCommand
 from .cmd_help import HelpCommand
@@ -16,6 +17,9 @@ from .cmd_context import ContextCommand
 from .cmd_steps import StepsCommand
 from .cmd_block import BlockCommand
 from .cmd_plugin import Command as PluginCommand
+from .cmd_custom import CustomCommand
+from .custom_command_manager import CustomCommandManager
+from .result import CommandResult
 
 from loguru import logger
 from prompt_toolkit.completion import Completer, Completion
@@ -24,7 +28,7 @@ from pathlib import Path
 
 COMMANDS = [
     InfoCommand, LLMCommand, RoleCommand, DisplayCommand, PluginCommand, StepsCommand, 
-    BlockCommand, ContextCommand, TaskCommand, MCPCommand, HelpCommand, 
+    BlockCommand, ContextCommand, TaskCommand, MCPCommand, HelpCommand, CustomCommand,
 ]
 
 @dataclass
@@ -57,7 +61,8 @@ class InvalidSubcommandError(CommandError):
         super().__init__(self.message)
 
 class CommandManager(Completer):
-    def __init__(self, tm, console):
+    def __init__(self, settings, tm, console):
+        self.settings = settings
         self.tm = tm
         self.task = None
         self.console = console
@@ -66,6 +71,9 @@ class CommandManager(Completer):
         self.commands_task = OrderedDict()
         self.commands = self.commands_main
         self.log = logger.bind(src="CommandManager")
+        self.custom_command_manager = CustomCommandManager()
+        self.custom_command_manager.add_command_dir(Path(__pkgpath__ / "commands" ))
+        self.custom_command_manager.add_command_dir(Path(self.settings['config_dir']) / "commands" )
         self.init()
         
     @property
@@ -75,14 +83,32 @@ class CommandManager(Completer):
     def init(self):
         """Initialize all registered commands"""
         commands = []
+        
+        # Initialize built-in commands
         for command_class in COMMANDS:
             command = command_class(self)
             self.register_command(command)
             commands.append(command)
         
+        # Initialize custom commands
+        custom_commands = self.custom_command_manager.scan_commands()
+        for custom_command in custom_commands:
+            # Validate command name doesn't conflict
+            if self.custom_command_manager.validate_command_name(
+                custom_command.name, 
+                list(self.commands_main.keys()) + list(self.commands_task.keys())
+            ):
+                custom_command.manager = self  # Set manager reference
+                self.register_command(custom_command)
+                commands.append(custom_command)
+        
+        # Initialize all commands
         for command in commands:
             command.init()
-        self.log.info(f"Initialized {len(commands)} commands")
+        
+        built_in_count = len(COMMANDS)
+        custom_count = len(custom_commands)
+        self.log.info(f"Initialized {built_in_count} built-in commands and {custom_count} custom commands")
 
     def is_task_mode(self):
         return self.mode == CommandMode.TASK
@@ -412,9 +438,32 @@ class CommandManager(Completer):
         except Exception as e:
             raise CommandError(f"Error: {e}") from e
         
-        return {
-            'command': command,
-            'subcommand': getattr(parsed_args, 'subcommand', None),
-            'args': parsed_args,
-            'ret': ret,
-        }
+        return CommandResult(command=command, subcommand=getattr(parsed_args, 'subcommand', None), args=vars(parsed_args), result=ret)
+    
+    def reload_custom_commands(self):
+        """Reload all custom commands"""
+        # Remove existing custom commands
+        custom_command_names = []
+        for name, command in list(self.commands_main.items()):
+            if hasattr(command, 'file_path'):  # It's a custom command
+                custom_command_names.append(name)
+                del self.commands_main[name]
+        
+        for name, command in list(self.commands_task.items()):
+            if hasattr(command, 'file_path'):  # It's a custom command
+                custom_command_names.append(name)
+                del self.commands_task[name]
+        
+        # Reload custom commands
+        custom_commands = self.custom_command_manager.reload_commands()
+        for custom_command in custom_commands:
+            if self.custom_command_manager.validate_command_name(
+                custom_command.name,
+                list(self.commands_main.keys()) + list(self.commands_task.keys())
+            ):
+                custom_command.manager = self
+                self.register_command(custom_command)
+                custom_command.init()
+        
+        self.log.info(f"Reloaded {len(custom_commands)} custom commands")
+        return len(custom_commands)
