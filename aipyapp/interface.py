@@ -90,9 +90,11 @@ class EventBus:
         self._listeners.setdefault(event_name, []).append(handler)
 
     def add_listener(self, obj: EventListener):
+        count = 0
         for event_name, handler in obj.get_handlers().items():
             self.on_event(event_name, handler)
-            self._eb_logger.info(f"Registered event {event_name} for {obj.__class__.__name__}")
+            count += 1
+        self._eb_logger.info(f"Registered {count} events for {obj.__class__.__name__}")
 
     def emit(self, event_name: str, **kwargs):
         event = Event(event_name, **kwargs)
