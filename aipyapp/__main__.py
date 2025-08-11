@@ -115,7 +115,7 @@ def init_settings(conf, args):
                 if llm_config.need_config():
                     print(f"❌ {T('LLM configuration required')}")
                     sys.exit(1)
-                settings["llm"] = llm_config.config
+        settings["llm"] = llm_config.config
         
     settings['config_manager'] = conf
     return settings
