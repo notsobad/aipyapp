@@ -2,7 +2,6 @@ import time
 from pathlib import Path
 import json
 import os
-import shlex
 
 from rich.panel import Panel
 
@@ -42,68 +41,52 @@ class TaskCommand(ParserCommand):
         return super().get_arg_values(arg, subcommand)
 
     def _get_path_completions(self, partial_path=''):
-        """获取文件路径补齐选项，优先显示 .json 文件"""
-        completions = []
+        """获取文件路径补齐选项 - 简化版本
         
-        # 处理可能包含引号的路径输入
-        try:
-            # 尝试解析引号，如果失败则使用原始输入
-            unquoted_path = shlex.split(partial_path)[0] if partial_path else ''
-        except ValueError:
-            # 如果引号不匹配，使用原始输入
-            unquoted_path = partial_path
+        核心思想：
+        1. 使用 glob 进行路径匹配，简单可靠
+        2. 始终返回完整路径，避免复杂的路径拼接
+        3. 优先显示 .json 文件和目录
+        """
+        import glob
+        from pathlib import Path
         
-        # 如果是空输入或相对路径，从当前目录开始
-        if not unquoted_path or not os.path.isabs(unquoted_path):
-            search_dir = os.getcwd()
-            if unquoted_path:
-                # 处理相对路径
-                if os.sep in unquoted_path:
-                    search_dir = os.path.join(search_dir, os.path.dirname(unquoted_path))
-                    prefix = os.path.basename(unquoted_path)
-                else:
-                    prefix = unquoted_path
-            else:
-                prefix = ''
+        # 如果没有输入，列出当前目录
+        if not partial_path:
+            pattern = '*'
         else:
-            # 绝对路径
-            search_dir = os.path.dirname(unquoted_path)
-            prefix = os.path.basename(unquoted_path)
+            # 如果以 / 结尾，列出该目录下的所有内容
+            if partial_path.endswith(os.sep):
+                pattern = partial_path + '*'
+            else:
+                # 否则进行前缀匹配
+                pattern = partial_path + '*'
         
-        try:
-            if os.path.isdir(search_dir):
-                items = os.listdir(search_dir)
-                
-                # 分别收集文件和目录
-                json_files = []
-                other_files = []
-                directories = []
-                
-                for item in items:
-                    if not item.startswith('.') and item.startswith(prefix):
-                        full_path = os.path.join(search_dir, item)
-                        # 处理包含空格的文件名，使用引号包装
-                        display_name = shlex.quote(item) if ' ' in item else item
-                        
-                        if os.path.isdir(full_path):
-                            # 对于目录，在引号内添加 / 后缀
-                            if ' ' in item:
-                                display_name = shlex.quote(item + '/')
-                            else:
-                                display_name = item + '/'
-                            directories.append(Completable(display_name, f"Directory"))
-                        elif item.endswith('.json'):
-                            json_files.append(Completable(display_name, f"JSON file"))
-                        else:
-                            other_files.append(Completable(display_name, f"File"))
-                
-                # 优先显示 JSON 文件，然后目录，最后其他文件
-                completions = json_files + directories + other_files
-        except (OSError, PermissionError):
-            # 如果无法访问目录，返回空列表
-            pass
+        # 使用 glob 获取匹配项
+        matches = glob.glob(pattern)
         
-        return completions
+        # 分类整理结果
+        json_files = []
+        directories = []
+        other_files = []
+        
+        for match in matches:
+            # 跳过隐藏文件
+            if os.path.basename(match).startswith('.'):
+                continue
+            
+            # 根据类型分类
+            if os.path.isdir(match):
+                # 目录不再自动添加 / 后缀
+                # 这样用户输入 / 时会触发新的补齐
+                directories.append(Completable(match, "📁 Directory"))
+            elif match.endswith('.json'):
+                json_files.append(Completable(match, "📄 JSON"))
+            else:
+                other_files.append(Completable(match, "📄 File"))
+        
+        # 按优先级排序：JSON 文件 > 目录 > 其他文件
+        return json_files + directories + other_files
     
     def cmd_use(self, args, ctx):
         task = ctx.tm.get_task_by_id(args.tid)

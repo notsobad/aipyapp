@@ -259,7 +259,7 @@ class MarkdownCommand(ParserCommand):
         
         if should_send_to_llm:
             if ctx.task:
-                return ctx.task.chat(final_content)
+                return ctx.task.run(final_content, title=self.desc)
             else:
                 return TaskModeResult(instruction=final_content, title=self.desc)
             

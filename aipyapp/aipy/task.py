@@ -466,10 +466,11 @@ class Task(Stoppable, EventBus):
             self.emit('task_start', instruction=instruction, task_id=self.task_id, title=title)
         else:
             system_prompt = None
+            title = title or instruction
             if isinstance(content, str):
                 user_prompt = self.prompts.get_chat_prompt(content, self.instruction)
             # 记录轮次开始事件
-            self.emit('round_start', instruction=instruction, step=len(self.step_manager) + 1, title=self.title)
+            self.emit('round_start', instruction=instruction, step=len(self.step_manager) + 1, title=title)
 
         self.cwd.mkdir(exist_ok=True)
         os.chdir(self.cwd)

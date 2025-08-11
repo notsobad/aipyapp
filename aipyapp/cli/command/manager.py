@@ -48,6 +48,12 @@ class CommandInputError(CommandError):
         self.message = message
         super().__init__(self.message)
 
+class CommandArgumentError(CommandError):
+    """Command argument error"""
+    def __init__(self, message):
+        self.message = message
+        super().__init__(self.message)
+
 class InvalidCommandError(CommandError):
     """Invalid command error"""
     def __init__(self, command):
@@ -130,19 +136,33 @@ class CommandManager(Completer):
         """创建键绑定"""
         kb = KeyBindings()
         
-        @kb.add('c-f')  # Ctrl+F: 开启文件补齐模式
+        @kb.add('@')  # @: 插入 @ 并补齐文件路径
         def _(event):
-            """按Ctrl+F进入文件补齐模式"""
+            """按 @ 插入符号并进入文件补齐模式"""
             buffer = event.app.current_buffer
             
-            # 插入@符号
+            # 插入 @ 符号
             buffer.insert_text('@')
             
-            # 创建专门处理@文件引用的补齐器
-            file_completer = self._create_file_reference_completer()
+            # 创建文件补齐器，使用 @ 作为前缀
+            file_completer = self._create_path_completer(prefix='@')
             
-            # 临时切换到文件引用补齐器
+            # 临时切换到文件补齐器
             buffer.completer = file_completer
+            
+            # 触发补齐
+            buffer.start_completion()
+        
+        @kb.add('c-f')  # Ctrl+F: 直接补齐文件路径（不插入 @）
+        def _(event):
+            """按 Ctrl+F 直接进入文件补齐模式（不插入 @）"""
+            buffer = event.app.current_buffer
+            
+            # 创建文件补齐器，不使用前缀
+            path_completer = self._create_path_completer(prefix=None)
+            
+            # 临时切换到路径补齐器
+            buffer.completer = path_completer
             
             # 触发补齐
             buffer.start_completion()
@@ -168,77 +188,70 @@ class CommandManager(Completer):
         
         return kb
     
-    def _create_file_reference_completer(self):
-        """创建文件引用补齐器"""
-        import shlex
+    def _create_path_completer(self, prefix=None):
+        """创建通用路径补齐器
+        
+        Args:
+            prefix: 如果设置（如 '@'），则查找该前缀后的路径；否则从光标位置开始补齐
+        """
+        import glob
         import os
+        import shlex
         
-        class FileReferenceCompleter(Completer):
+        class PathCompleter(Completer):
+            def __init__(self, prefix_char):
+                self.prefix = prefix_char
+            
             def get_completions(self, document, complete_event):
-                # 获取光标前的文本
-                text_before_cursor = document.text_before_cursor
+                text = document.text_before_cursor
                 
-                # 找到最后一个@符号的位置
-                at_pos = text_before_cursor.rfind('@')
-                if at_pos == -1:
-                    return
-                
-                # 获取@后面的部分作为搜索前缀
-                raw_path = text_before_cursor[at_pos + 1:]
-                
-                # 处理可能包含引号的路径输入
-                try:
-                    # 尝试解析引号，如果失败则使用原始输入
-                    unquoted_path = shlex.split(raw_path)[0] if raw_path else ''
-                except ValueError:
-                    # 如果引号不匹配，使用原始输入
-                    unquoted_path = raw_path
-                
-                # 确定搜索目录和文件前缀
-                if not unquoted_path or not os.path.isabs(unquoted_path):
-                    search_dir = Path.cwd()
-                    if unquoted_path:
-                        if os.sep in unquoted_path:
-                            search_dir = search_dir / os.path.dirname(unquoted_path)
-                            search_prefix = os.path.basename(unquoted_path)
-                        else:
-                            search_prefix = unquoted_path
-                    else:
-                        search_prefix = ''
+                # 根据是否有前缀确定路径起始位置
+                if self.prefix:
+                    # 查找前缀位置
+                    prefix_pos = text.rfind(self.prefix)
+                    if prefix_pos == -1:
+                        return
+                    path = text[prefix_pos + 1:]
                 else:
-                    search_dir = Path(os.path.dirname(unquoted_path))
-                    search_prefix = os.path.basename(unquoted_path)
+                    # Ctrl+F 模式：从当前位置开始补齐
+                    # 不分割文本，直接使用全部文本作为路径
+                    # 这样可以处理包含空格的路径
+                    path = text.strip()
                 
-                # 搜索匹配的文件
+                # 处理可能的引号（如果用户输入了引号包裹的路径）
                 try:
-                    if search_dir.exists() and search_dir.is_dir():
-                        for item in search_dir.iterdir():
-                            if item.name.startswith(search_prefix):
-                                # 计算需要补全的部分
-                                remaining = item.name[len(search_prefix):]
-                                if remaining:
-                                    # 处理包含空格的文件名
-                                    if ' ' in item.name:
-                                        # 如果文件名包含空格，用引号包装完整的文件名
-                                        quoted_name = shlex.quote(item.name)
-                                        # 计算需要替换的部分：从search_prefix开始到文件名结尾
-                                        if search_prefix:
-                                            # 替换从search_prefix开始的部分
-                                            completion_text = quoted_name[len(search_prefix):]
-                                        else:
-                                            completion_text = quoted_name
-                                    else:
-                                        completion_text = remaining
-                                    
-                                    display_text = item.name
-                                    if item.is_dir():
-                                        display_text += "/"
-                                    
-                                    yield Completion(completion_text, display=display_text)
-                except (OSError, PermissionError):
+                    if path and (path[0] in ('"', "'") or '"' in path or "'" in path):
+                        # 尝试解析引号
+                        parsed = shlex.split(path)
+                        path = parsed[0] if parsed else path
+                except ValueError:
+                    # 引号不匹配，使用原始路径
                     pass
+                
+                # 使用 glob 匹配文件
+                pattern = path + '*' if path else '*'
+                matches = glob.glob(pattern)
+                
+                for match in matches:
+                    # 跳过隐藏文件
+                    if os.path.basename(match).startswith('.'):
+                        continue
+                    
+                    # 如果文件名包含空格，使用引号包裹
+                    completion_text = shlex.quote(match) if ' ' in match else match
+                    
+                    # 生成补齐项
+                    display = match
+                    if os.path.isdir(match):
+                        display += '/'
+                    
+                    yield Completion(
+                        completion_text,
+                        start_position=-len(path),
+                        display=display
+                    )
         
-        return FileReferenceCompleter()
+        return PathCompleter(prefix)
 
     def register_command(self, command):
         """Register a command instance"""
@@ -282,6 +295,8 @@ class CommandManager(Completer):
         if arguments is None:
             # 当没有参数时（如只有主命令），不进行参数补齐
             return
+        
+        # 简化的补齐逻辑：统一处理，不区分特殊情况
         if text.endswith(' '):
             yield from self._complete_after_space(words, arguments, command_instance, subcmd)
         else:
@@ -434,7 +449,7 @@ class CommandManager(Completer):
         except SystemExit as e:
             raise CommandError(f"SystemExit: {e}")
         except argparse.ArgumentError as e:
-            raise CommandInputError(user_input) from e
+            raise CommandArgumentError(f"ArgumentError: {e}") from e
         except Exception as e:
             raise CommandError(f"Error: {e}") from e
         

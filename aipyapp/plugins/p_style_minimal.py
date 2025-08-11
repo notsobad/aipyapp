@@ -85,8 +85,8 @@ class DisplayMinimal(RichDisplayPlugin):
         title = data.get('title')
         if not title:
             title = instruction
-        title = self._get_title(T("Instruction processing started"))
-        tree = Tree(title)
+        prompt = self._get_title(T("Instruction processing started"))
+        tree = Tree(prompt)
         tree.add(title)
         self.console.print(tree)
 
