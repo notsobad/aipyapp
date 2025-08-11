@@ -124,16 +124,27 @@ class DisplayModern(RichDisplayPlugin):
         ret = event.data.get('result')
         if ret:
             # 显示解析结果摘要
-            if 'exec_blocks' in ret:
-                blocks = ret['exec_blocks']
-                if blocks:
-                    block_names = [getattr(block, 'name', f'block_{i}') for i, block in enumerate(blocks)]
-                    names_str = ', '.join(block_names[:3])
-                    if len(blocks) > 3:
-                        names_str += f'... (+{len(blocks)-3} more)'
-                    self.console.print(f"📝 {T('Found code blocks')}: {names_str}", style="dim green")
+            if 'commands' in ret:
+                commands = ret['commands']
+                if commands:
+                    # 统计不同类型的指令
+                    exec_count = sum(1 for cmd in commands if cmd['type'] == 'exec')
+                    edit_count = sum(1 for cmd in commands if cmd['type'] == 'edit')
+                    
+                    summary_parts = []
+                    if exec_count > 0:
+                        summary_parts.append(f"{exec_count} exec")
+                    if edit_count > 0:
+                        summary_parts.append(f"{edit_count} edit")
+                        
+                    if summary_parts:
+                        summary = ', '.join(summary_parts)
+                        self.console.print(f"🎯 {T('Found commands')}: {summary}", style="dim green")
             elif 'call_tool' in ret:
                 self.console.print(f"🔧 {T('Tool call detected')}", style="dim blue")
+            elif 'blocks' in ret and ret['blocks']:
+                block_count = len(ret['blocks'])
+                self.console.print(f"📝 {T('Found {} code blocks')}.format({block_count})", style="dim green")
                 
     def on_exec(self, event):
         """代码执行开始事件处理"""
@@ -163,6 +174,59 @@ class DisplayModern(RichDisplayPlugin):
             
         # 显示执行结果
         self._show_execution_result(result)
+        
+    def on_edit_start(self, event):
+        """代码编辑开始事件处理"""
+        instruction = event.data.get('instruction', {})
+        block_name = instruction.get('name', 'Unknown')
+        old_str = instruction.get('old', '')
+        new_str = instruction.get('new', '')
+        
+        # 显示编辑操作信息
+        title = Text(f"✏️ 编辑代码块: {block_name}", style="bold yellow")
+        
+        # 创建编辑预览内容
+        content_lines = []
+        if old_str:
+            old_preview = old_str[:50] + '...' if len(old_str) > 50 else old_str
+            content_lines.append(Text(f"替换: {repr(old_preview)}", style="red"))
+        if new_str:
+            new_preview = new_str[:50] + '...' if len(new_str) > 50 else new_str
+            content_lines.append(Text(f"为: {repr(new_preview)}", style="green"))
+        
+        from rich.console import Group
+        content = Group(*content_lines) if content_lines else Text("编辑操作", style="white")
+        panel = Panel(content, title=title, border_style="yellow")
+        self.console.print(panel)
+        
+    def on_edit_result(self, event):
+        """代码编辑结果事件处理"""
+        data = event.data
+        result = data.get('result', {})
+        
+        success = result.get('success', False)
+        message = result.get('message', '')
+        block_name = result.get('block_name', 'Unknown')
+        new_version = result.get('new_version')
+        
+        if success:
+            title = Text(f"✅ 编辑成功: {block_name}", style="bold green")
+            content_lines = []
+            
+            if message:
+                content_lines.append(Text(message, style="white"))
+            if new_version:
+                content_lines.append(Text(f"新版本: v{new_version}", style="cyan"))
+                
+            from rich.console import Group
+            content = Group(*content_lines) if content_lines else Text("编辑完成", style="white")
+            panel = Panel(content, title=title, border_style="green")
+        else:
+            title = Text(f"❌ 编辑失败: {block_name}", style="bold red")
+            content = Text(message or "编辑操作失败", style="red")
+            panel = Panel(content, title=title, border_style="red")
+            
+        self.console.print(panel)
         
     def on_mcp_call(self, event):
         """MCP 工具调用事件处理"""

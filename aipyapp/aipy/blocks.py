@@ -154,7 +154,7 @@ class CodeBlocks(Trackable):
 
         self.blocks.update(blocks)
 
-        exec_blocks = []
+        commands = []  # 按顺序收集所有命令
         line_matches = self.line_pattern.findall(markdown_text)
         for line_match in line_matches:
             cmd, json_str = line_match
@@ -174,7 +174,31 @@ class CodeBlocks(Trackable):
                 elif exec_name not in self.blocks:
                     error = {'Cmd-Exec block not found': {'exec_name': exec_name, 'json_str': json_str}}
                 else:
-                    exec_blocks.append(self.blocks[exec_name])
+                    commands.append({
+                        'type': 'exec',
+                        'block_name': exec_name
+                    })
+            elif cmd == 'Edit':
+                edit_name = line_meta.get("name")
+                if not edit_name:
+                    error = {'Cmd-Edit block without name': {'json_str': json_str}}
+                elif edit_name not in self.blocks:
+                    error = {'Cmd-Edit block not found': {'edit_name': edit_name, 'json_str': json_str}}
+                elif not line_meta.get("old"):
+                    error = {'Cmd-Edit block without old string': {'json_str': json_str}}
+                elif "new" not in line_meta:
+                    error = {'Cmd-Edit block without new string': {'json_str': json_str}}
+                else:
+                    commands.append({
+                        'type': 'edit',
+                        'instruction': {
+                            'name': edit_name,
+                            'old': line_meta.get("old"),
+                            'new': line_meta.get("new"),
+                            'replace_all': line_meta.get("replace_all", False),
+                            'json_str': json_str
+                        }
+                    })
             else:
                 error = {f'Unknown command in Cmd-{cmd} block': {'cmd': cmd}}
 
@@ -183,7 +207,7 @@ class CodeBlocks(Trackable):
 
         ret = {}
         if errors: ret['errors'] = errors
-        if exec_blocks: ret['exec_blocks'] = exec_blocks
+        if commands: ret['commands'] = commands
         if blocks: ret['blocks'] = [v for v in blocks.values()]
 
         if parse_mcp:
@@ -209,6 +233,70 @@ class CodeBlocks(Trackable):
         except KeyError:
             self.log.error("Code name not found", code_name=code_name)
             return None
+
+    def apply_edit_modification(self, edit_instruction):
+        """
+        应用编辑指令到指定代码块，创建新版本而不修改原代码块
+        
+        Args:
+            edit_instruction: 包含name, old, new, replace_all等字段的编辑指令
+            
+        Returns:
+            tuple: (success: bool, message: str, new_block: CodeBlock or None)
+        """
+        name = edit_instruction['name']
+        old_str = edit_instruction['old']
+        new_str = edit_instruction['new']
+        replace_all = edit_instruction.get('replace_all', False)
+        
+        if name not in self.blocks:
+            return False, f"代码块 '{name}' 不存在", None
+            
+        original_block = self.blocks[name]
+        
+        # 检查是否找到匹配的字符串
+        if old_str not in original_block.code:
+            return False, f"未找到匹配的代码片段: {old_str[:50]}...", None
+        
+        # 检查匹配次数
+        match_count = original_block.code.count(old_str)
+        if match_count > 1 and not replace_all:
+            return False, f"代码片段匹配 {match_count} 个位置，请设置 replace_all: true 或提供更具体的上下文", None
+        
+        # 执行替换生成新代码
+        if replace_all:
+            new_code = original_block.code.replace(old_str, new_str)
+            replaced_count = match_count
+        else:
+            # 只替换第一个匹配项
+            new_code = original_block.code.replace(old_str, new_str, 1)
+            replaced_count = 1
+        
+        # 创建新的代码块（版本号+1）
+        new_block = CodeBlock(
+            name=original_block.name,
+            version=original_block.version + 1,
+            lang=original_block.lang,
+            code=new_code,
+            path=original_block.path,
+            deps=original_block.deps.copy() if original_block.deps else None
+        )
+        
+        # 保存新代码块到文件
+        try:
+            new_block.save()
+            self.log.info("Created and saved new block version", code_block=new_block, replaced_count=replaced_count)
+        except Exception as e:
+            self.log.error("Failed to save new block", code_block=new_block, reason=e)
+        
+        # 更新blocks字典为新版本（同名代码块始终指向最新版本）
+        self.blocks[name] = new_block
+        
+        # 添加新版本到历史记录
+        self.history.append(new_block)
+        
+        message = f"成功替换 {replaced_count} 处匹配项，创建版本 v{new_block.version}"
+        return True, message, new_block
 
     def to_list(self):
         """将 CodeBlocks 对象转换为 JSON 字符串

@@ -176,14 +176,20 @@ class DisplayMinimal(RichDisplayPlugin):
             
         title = self._get_title(T("Message parse result"))
         tree = Tree(title)
+        
         if 'blocks' in ret and ret['blocks']:
             block_count = len(ret['blocks'])
             tree.add(f"{block_count} {T('code blocks')}")
         
-        if 'exec_blocks' in ret and ret['exec_blocks']:
-            exec_names = [getattr(block, 'name', 'Unknown') for block in ret['exec_blocks']]
-            exec_str = ", ".join(exec_names)
-            tree.add(f"{T('Execution')}: {exec_str}")
+        if 'commands' in ret and ret['commands']:
+            commands = ret['commands']
+            exec_count = sum(1 for cmd in commands if cmd['type'] == 'exec')
+            edit_count = sum(1 for cmd in commands if cmd['type'] == 'edit')
+            
+            if exec_count > 0:
+                tree.add(f"{T('Execution')}: {exec_count}")
+            if edit_count > 0:
+                tree.add(f"{T('Edit')}: {edit_count}")
         
         if 'call_tool' in ret:
             tree.add(T("MCP tool call"))
@@ -198,6 +204,32 @@ class DisplayMinimal(RichDisplayPlugin):
         """代码执行开始事件处理"""
         block = event.data.get('block')
         title = self._get_title(T("Start executing code block {}"), block.name)
+        self.console.print(title)
+        
+    def on_edit_start(self, event):
+        """代码编辑开始事件处理"""
+        instruction = event.data.get('instruction', {})
+        block_name = instruction.get('name', 'Unknown')
+        title = self._get_title(T("Start editing {}"), block_name, style="warning")
+        self.console.print(title)
+        
+    def on_edit_result(self, event):
+        """代码编辑结果事件处理"""
+        data = event.data
+        result = data.get('result', {})
+        
+        success = result.get('success', False)
+        block_name = result.get('block_name', 'Unknown')
+        new_version = result.get('new_version')
+        
+        if success:
+            style = "success"
+            version_info = f" (v{new_version})" if new_version else ""
+            title = self._get_title(T("Edit completed {}{}"), block_name, version_info, style=style)
+        else:
+            style = "error"
+            title = self._get_title(T("Edit failed {}"), block_name, style=style)
+            
         self.console.print(title)
             
     @restore_output

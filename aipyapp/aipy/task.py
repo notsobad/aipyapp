@@ -252,12 +252,13 @@ class Task(Stoppable, EventBus):
         errors = ret.get('errors')
         if errors:
             prompt = self.prompts.get_parse_error_prompt(errors)
-            ret = self.chat(prompt)
-        elif 'exec_blocks' in ret:
-            ret = self.process_code_reply(ret['exec_blocks'])
-        else:
-            ret = None
-        return ret
+            return self.chat(prompt)
+
+        commands = ret.get('commands', [])
+        if commands:
+            return self.process_commands(commands)
+        
+        return None
 
     def run_code_block(self, block):
         """运行代码块"""
@@ -273,6 +274,96 @@ class Task(Stoppable, EventBus):
             results[block.name] = result
 
         msg = self.prompts.get_results_prompt(results)
+        return self.chat(msg)
+
+    def process_commands(self, commands):
+        """按顺序处理混合指令，智能错误处理"""
+        all_results = OrderedDict()
+        failed_blocks = set()  # 记录编辑失败的代码块
+        
+        for command in commands:
+            cmd_type = command['type']
+            
+            if cmd_type == 'exec':
+                block_name = command['block_name']
+                
+                # 如果这个代码块之前编辑失败，跳过执行
+                if block_name in failed_blocks:
+                    self.log.warning(f'Skipping execution of {block_name} due to previous edit failure')
+                    all_results[f"exec_{block_name}"] = {
+                        'type': 'exec',
+                        'block_name': block_name,
+                        'result': {
+                            'error': f'Execution skipped: previous edit of {block_name} failed',
+                            'skipped': True
+                        }
+                    }
+                    continue
+                
+                # 动态获取最新版本的代码块
+                block = self.code_blocks.blocks[block_name]
+                result = self.run_code_block(block)
+                all_results[f"exec_{block_name}"] = {
+                    'type': 'exec',
+                    'block_name': block_name,
+                    'result': result
+                }
+                
+            elif cmd_type == 'edit':
+                edit_instruction = command['instruction']
+                block_name = edit_instruction['name']
+                
+                self.emit('edit_start', instruction=edit_instruction)
+                success, message, modified_block = self.code_blocks.apply_edit_modification(edit_instruction)
+                
+                # 编辑失败时标记这个代码块
+                if not success:
+                    failed_blocks.add(block_name)
+                    self.log.warning(f'Edit failed for {block_name}: {message}')
+                
+                result = {
+                    'type': 'edit',
+                    'success': success,
+                    'message': message,
+                    'block_name': block_name,
+                    'old_str': edit_instruction['old'][:100] + '...' if len(edit_instruction['old']) > 100 else edit_instruction['old'],
+                    'new_str': edit_instruction['new'][:100] + '...' if len(edit_instruction['new']) > 100 else edit_instruction['new'],
+                    'replace_all': edit_instruction.get('replace_all', False)
+                }
+                
+                if modified_block:
+                    result['new_version'] = modified_block.version
+                
+                all_results[f"edit_{block_name}"] = result
+                self.emit('edit_result', result=result, instruction=edit_instruction)
+        
+        # 生成混合结果的prompt
+        msg = self.prompts.get_mixed_results_prompt(all_results)
+        return self.chat(msg)
+
+    def process_edit_reply(self, edit_instructions):
+        """处理编辑指令"""
+        results = OrderedDict()
+        for edit_instruction in edit_instructions:
+            self.emit('edit_start', instruction=edit_instruction)
+            success, message, modified_block = self.code_blocks.apply_edit_modification(edit_instruction)
+            
+            result = {
+                'success': success,
+                'message': message,
+                'block_name': edit_instruction['name'],
+                'old_str': edit_instruction['old'][:100] + '...' if len(edit_instruction['old']) > 100 else edit_instruction['old'],
+                'new_str': edit_instruction['new'][:100] + '...' if len(edit_instruction['new']) > 100 else edit_instruction['new'],
+                'replace_all': edit_instruction.get('replace_all', False)
+            }
+            
+            if modified_block:
+                result['new_version'] = modified_block.version
+                
+            results[edit_instruction['name']] = result
+            self.emit('edit_result', result=result, instruction=edit_instruction)
+
+        msg = self.prompts.get_edit_results_prompt(results)
         return self.chat(msg)
 
     def process_mcp_reply(self, json_content):

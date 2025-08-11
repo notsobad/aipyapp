@@ -161,14 +161,30 @@ class DisplayClassic(RichDisplayPlugin):
             
         title = self._get_title(T("Message parse result"))
         tree = Tree(title)
+        
         if 'blocks' in ret and ret['blocks']:
             block_count = len(ret['blocks'])
             tree.add(f"{block_count} {T('code blocks')}")
         
-        if 'exec_blocks' in ret and ret['exec_blocks']:
-            exec_names = [getattr(block, 'name', 'Unknown') for block in ret['exec_blocks']]
-            exec_str = ", ".join(exec_names)
-            tree.add(f"{T('Execution')}: {exec_str}")
+        if 'commands' in ret and ret['commands']:
+            commands = ret['commands']
+            # 分别统计和显示不同类型的指令
+            exec_commands = [cmd for cmd in commands if cmd['type'] == 'exec']
+            edit_commands = [cmd for cmd in commands if cmd['type'] == 'edit']
+            
+            if exec_commands:
+                exec_names = [cmd.get('block_name', 'Unknown') for cmd in exec_commands]
+                exec_str = ", ".join(exec_names[:3])
+                if len(exec_names) > 3:
+                    exec_str += f" (+{len(exec_names)-3} more)"
+                tree.add(f"{T('Execution')}: {exec_str}")
+                
+            if edit_commands:
+                edit_names = [cmd['instruction']['name'] for cmd in edit_commands if 'instruction' in cmd]
+                edit_str = ", ".join(edit_names[:3])
+                if len(edit_names) > 3:
+                    edit_str += f" (+{len(edit_names)-3} more)"
+                tree.add(f"{T('Edit')}: {edit_str}")
         
         if 'call_tool' in ret:
             tree.add(T("MCP tool call"))
@@ -184,6 +200,52 @@ class DisplayClassic(RichDisplayPlugin):
         block = event.data.get('block')
         title = self._get_title(T("Start executing code block {}"), block.name)
         self.console.print(title)
+        
+    def on_edit_start(self, event):
+        """代码编辑开始事件处理"""
+        instruction = event.data.get('instruction', {})
+        block_name = instruction.get('name', 'Unknown')
+        old_str = instruction.get('old', '')
+        new_str = instruction.get('new', '')
+        
+        title = self._get_title(T("Start editing code block {}"), block_name, style="warning")
+        tree = Tree(title)
+        
+        if old_str:
+            old_preview = old_str[:50] + '...' if len(old_str) > 50 else old_str
+            tree.add(f"{T('Replace')}: {repr(old_preview)}")
+        if new_str:
+            new_preview = new_str[:50] + '...' if len(new_str) > 50 else new_str
+            tree.add(f"{T('With')}: {repr(new_preview)}")
+            
+        self.console.print(tree)
+        
+    def on_edit_result(self, event):
+        """代码编辑结果事件处理"""
+        data = event.data
+        result = data.get('result', {})
+        
+        success = result.get('success', False)
+        message = result.get('message', '')
+        block_name = result.get('block_name', 'Unknown')
+        new_version = result.get('new_version')
+        
+        if success:
+            style = "success"
+            title = self._get_title(T("Edit completed {}"), block_name, style=style)
+            tree = Tree(title)
+            
+            if message:
+                tree.add(message)
+            if new_version:
+                tree.add(f"{T('New version')}: v{new_version}")
+        else:
+            style = "error"
+            title = self._get_title(T("Edit failed {}"), block_name, style=style)
+            tree = Tree(title)
+            tree.add(message or T("Edit operation failed"))
+            
+        self.console.print(tree)
             
     @restore_output
     def on_call_function(self, event):

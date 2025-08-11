@@ -179,6 +179,29 @@ class DisplayAgent(RichDisplayPlugin):
             'language': block.lang if (block and hasattr(block, 'lang')) else 'unknown',
             'code': block.code if (block and hasattr(block, 'code')) else 'No code'
         })
+        
+    def on_edit_start(self, event: Event):
+        """代码编辑开始"""
+        instruction = event.data.get('instruction', {})
+        self._add_message('edit_start', {
+            'block_name': instruction.get('name', 'unknown'),
+            'old_str': instruction.get('old', ''),
+            'new_str': instruction.get('new', ''),
+            'replace_all': instruction.get('replace_all', False)
+        })
+        
+    def on_edit_result(self, event: Event):
+        """代码编辑结果"""
+        result = event.data.get('result', {})
+        self._add_message('edit_result', {
+            'success': result.get('success', False),
+            'message': result.get('message', ''),
+            'block_name': result.get('block_name', 'unknown'),
+            'new_version': result.get('new_version'),
+            'old_str': result.get('old_str', ''),
+            'new_str': result.get('new_str', ''),
+            'replace_all': result.get('replace_all', False)
+        })
 
     def on_mcp_call(self, event: Event):
         """MCP工具调用"""
