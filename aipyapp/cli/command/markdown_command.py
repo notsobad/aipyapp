@@ -170,11 +170,17 @@ class MarkdownCommand(ParserCommand):
             self._add_argument_from_config(parser, arg_config)
         
         # Add universal --test argument for all custom commands
-        parser.add_argument(
-            '--test', 
-            action='store_true',
-            help='测试模式：预览命令输出，不发送给LLM'
-        )
+        # Check if --test already exists to avoid conflicts
+        existing_options = [action.option_strings for action in parser._actions 
+                           if hasattr(action, 'option_strings')]
+        existing_options_flat = [opt for opts in existing_options for opt in opts]
+        
+        if '--test' not in existing_options_flat:
+            parser.add_argument(
+                '--test', 
+                action='store_true',
+                help='测试模式：预览命令输出，不发送给LLM'
+            )
     
     def add_subcommands(self, subparsers):
         """Add subcommands defined in the configuration"""
