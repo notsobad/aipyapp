@@ -1,4 +1,4 @@
-
+import argparse
 from pathlib import Path
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, NamedTuple
@@ -10,7 +10,7 @@ from rich.markdown import Markdown
 from jinja2 import Environment, BaseLoader
 
 from ..base import ParserCommand
-from ..common import TaskModeResult, CommandMode
+from ..common import TaskModeResult, CommandMode, CommandContext
 
 @dataclass
 class CustomCommandConfig:
@@ -30,6 +30,11 @@ class CodeBlock(NamedTuple):
     start_pos: int
     end_pos: int
 
+class RenderContext(NamedTuple):
+    """Represents the context for rendering"""
+    ctx: CommandContext
+    args: argparse.Namespace
+    subcommand: Optional[str] = None
 
 class ParsedContent(NamedTuple):
     """Represents parsed content with separated markdown and code blocks"""
@@ -50,8 +55,8 @@ class StringTemplateLoader(BaseLoader):
 class CodeExecutor:
     """Unified code execution engine for both TASK and MAIN modes"""
     
-    def __init__(self, ctx):
-        self.ctx = ctx
+    def __init__(self, render_ctx: RenderContext):
+        self.render_ctx = render_ctx
     
     def execute_code_block(self, code_block: CodeBlock) -> Optional[str]:
         """Execute a code block and return output"""
@@ -68,10 +73,13 @@ class CodeExecutor:
         
         try:
             exec_globals = {
-                'ctx': self.ctx,
-                'tm': getattr(self.ctx, 'tm', None),
-                'console': self.ctx.console,
-                'print': print
+                'ctx': self.render_ctx.ctx,
+                'args': self.render_ctx.args,
+                'subcommand': self.render_ctx.subcommand,
+                'tm': getattr(self.render_ctx.ctx, 'tm', None),
+                'console': self.render_ctx.ctx.console,
+                'print': self.render_ctx.ctx.console.print,
+                '__name__': '__main__'
             }
             
             with redirect_stdout(stdout_buffer), redirect_stderr(stderr_buffer):
@@ -89,6 +97,8 @@ class CodeExecutor:
             return "\n".join(output) if output else None
             
         except Exception as e:
+            import traceback
+            traceback.print_exc()
             return f"Python 执行错误: {e}"
     
     def _execute_shell(self, code: str) -> Optional[str]:
@@ -243,14 +253,17 @@ class MarkdownCommand(ParserCommand):
         if not subcommand:
             subcommand = getattr(args, 'subcommand', None)
         
+        render_ctx = RenderContext(ctx=ctx, args=args, subcommand=subcommand)
+        
         # Render template with arguments
-        rendered_content = self._render_template(args, subcommand, ctx)
+        rendered_content = self._render_template(render_ctx)
         
         # Parse content once
         parsed_content = self.content_parser.parse_content(rendered_content)
-        
+        self.log.info(f"Num code blocks: {parsed_content.num_code_blocks}")
+
         # 渲染代码块
-        final_content = self._render_code_block(parsed_content, ctx)
+        final_content = self._render_code_block(parsed_content, render_ctx)
         
         # 检查是否是测试模式
         is_test_mode = getattr(args, 'test', False)
@@ -269,20 +282,20 @@ class MarkdownCommand(ParserCommand):
         
         if should_send_to_llm:
             if ctx.task:
-                return ctx.task.run(final_content, title=self.desc)
+                return ctx.task.run(final_content, title=self.description)
             else:
-                return TaskModeResult(instruction=final_content, title=self.desc)
+                return TaskModeResult(instruction=final_content, title=self.description)
             
         ctx.console.print(Markdown(final_content))
         return True
     
-    def _render_code_block(self, parsed_content: ParsedContent, ctx) -> str:
+    def _render_code_block(self, parsed_content: ParsedContent, render_ctx: RenderContext) -> str:
         """Render code block"""
         if parsed_content.num_code_blocks == 0:
             return parsed_content.parts[0][1]
         
         result_parts = []
-        executor = CodeExecutor(ctx)
+        executor = CodeExecutor(render_ctx)
         
         for part_type, content in parsed_content.parts:
             if part_type == 'markdown':
@@ -296,13 +309,13 @@ class MarkdownCommand(ParserCommand):
 
         return "\n".join(result_parts)
     
-    def _render_template(self, args, subcommand: Optional[str] = None, ctx=None) -> str:
+    def _render_template(self, render_ctx: RenderContext) -> str:
         """Render the command template with arguments"""
         # Build template variables
         template_vars = {}
         
         # Add argument values
-        for key, value in vars(args).items():
+        for key, value in vars(render_ctx.args).items():
             if key not in ('subcommand', 'raw_args'):
                 template_vars[key] = value
         
@@ -310,12 +323,12 @@ class MarkdownCommand(ParserCommand):
         template_vars.update(self.config.template_vars)
         
         # Add subcommand info
-        if subcommand:
-            template_vars['subcommand'] = subcommand
+        if render_ctx.subcommand:
+            template_vars['subcommand'] = render_ctx.subcommand
             
         # Add context object for main mode commands
-        if ctx:
-            template_vars['ctx'] = ctx
+        if render_ctx.ctx:
+            template_vars['ctx'] = render_ctx.ctx
         
         try:
             return self.template.render(**template_vars)
@@ -324,9 +337,3 @@ class MarkdownCommand(ParserCommand):
                 self.log.error(f"Template rendering error: {e}")
             return self.content
     
-    def get_arg_values(self, arg, subcommand=None, partial_value=''):
-        """Get argument values for auto-completion"""
-        choices = arg.get('choices')
-        if choices:
-            return list(choices.values())
-        return None
