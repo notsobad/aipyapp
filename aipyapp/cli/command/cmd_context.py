@@ -6,8 +6,7 @@ from rich.table import Table
 from rich.panel import Panel
 from rich.text import Text
 
-from .base import CommandMode
-from .base_parser import ParserCommand
+from .base import CommandMode, ParserCommand
 from ... import T
 
 class ContextCommand(ParserCommand):

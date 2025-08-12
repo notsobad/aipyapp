@@ -2,7 +2,7 @@ from rich import print
 from rich.table import Table
 
 from ... import T
-from .base_parser import ParserCommand
+from .base import ParserCommand
 from .utils import print_table
 
 class DisplayCommand(ParserCommand):

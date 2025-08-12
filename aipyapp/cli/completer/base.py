@@ -1,11 +1,33 @@
 """补齐器基础架构"""
 
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
-from typing import List, Optional, Any, Callable
+from dataclasses import dataclass, field, InitVar
+from typing import List, Optional, Any, Callable, Dict
 from prompt_toolkit.completion import Completion
 
+@dataclass
+class CompleteItem:
+    name: str
+    desc: str
+    _options: dict[str, Any] = field(default_factory=dict, init=False)
+    _kwargs: InitVar[Optional[Dict[str, Any]]] = None
 
+    def __post_init__(self, _kwargs: Optional[Dict[str, Any]]):
+        if _kwargs:
+            self._options.update(_kwargs)
+
+    def __getitem__(self, key):
+        return self._options[key]
+
+    def __setitem__(self, key, value):
+        self._options[key] = value
+
+    def __contains__(self, key):
+        return key in self._options
+
+    def get(self, key, default=None):
+        return self._options.get(key, default)
+    
 @dataclass
 class CompleterContext:
     """补齐上下文信息"""

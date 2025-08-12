@@ -1,9 +1,8 @@
-from rich import print
 
 from  ... import T
-from .base import Completable
-from .base_parser import ParserCommand
+from .base import ParserCommand
 from .utils import print_table
+from .markdown_command import MarkdownCommand
 
 class HelpCommand(ParserCommand):
     name = 'help'
@@ -12,26 +11,28 @@ class HelpCommand(ParserCommand):
     def add_arguments(self, parser):
         parser.add_argument('target_command', nargs='?', help='Command to show detailed help for')
 
-    def get_arg_values(self, arg, subcommand=None, partial_value=''):
-        if arg.name == 'target_command':
-            return [Completable(cmd.name, cmd.description) for cmd in self.manager.commands.values()]
-        else:
-            return []
-
-    def execute(self, args):
-        manager = self.manager
+    def get_arg_values(self, name, subcommand=None):
+        if name == 'target_command':
+            return [(cmd.name, cmd.description) for cmd in self.manager.commands.values()]
+        return None
+    
+    def execute(self, args, ctx):
+        console = ctx.console
+        commands = self.manager.commands
         if args.target_command:
-            if args.target_command in manager.commands:
-                parser = manager.commands[args.target_command].parser
-                print(f"Help for command '{args.target_command}':")
-                print(parser.format_help())
+            if args.target_command in commands:
+                parser = commands[args.target_command].parser
+                console.print(f"Help for command '{args.target_command}':")
+                console.print(parser.format_help())
             else:
-                print(f"Unknown command: {args.target_command}")
+                console.print(f"Unknown command: {args.target_command}")
         else:
             rows = []
-            for cmd, cmd_instance in sorted(manager.commands.items()):
-                rows.append([f"/{cmd}", cmd_instance.description])
-            print_table(rows, headers=[T('Command'), T('Description')], title=T('Available commands'))
-            print()
-            print(T("Or directly enter the question to be processed by AI, for example:\n>> Who are you?"))
-            print()
+            for name, command in commands.items():
+                kind = "user" if isinstance(command, MarkdownCommand) else "system"
+                modes = ', '.join([mode.value for mode in command.modes])
+                rows.append([f"/{name}", kind, modes,command.description])
+            print_table(rows, headers=[T('Command'), T('Type'), T('Modes'), T('Description')], title=T('Available commands'))
+            console.print()
+            console.print(T("Or directly enter the question to be processed by AI, for example:\n>> Who are you?"))
+            console.print()

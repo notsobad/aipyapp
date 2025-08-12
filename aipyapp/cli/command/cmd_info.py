@@ -1,18 +1,16 @@
 import sys
 
 from ... import T
-from .base_parser import ParserCommand
+from .base import ParserCommand
 from .utils import print_table
 
 class InfoCommand(ParserCommand):
     name = 'info'
     description = T('System information')
 
-    def execute(self, args):
-        ctx = self.manager.context
-        tm = ctx.tm
-        settings = tm.settings
-        status = tm.get_status()
+    def execute(self, args, ctx):
+        settings = ctx.settings
+        status = ctx.tm.get_status()
 
         info = [
             (T('Current configuration directory'), str(settings.config_dir)),

@@ -2,11 +2,18 @@
 
 import argparse
 import shlex
-from typing import List, Optional, Dict, Any, Set
+from typing import List, Optional, Dict, Set, Callable, Tuple, Protocol
 from prompt_toolkit.completion import Completion
 
 from .base import CompleterBase, CompleterContext, create_completion
 
+class HasParser(Protocol):
+    @property
+    def parser(self) -> argparse.ArgumentParser:
+        ...
+
+    def get_arg_values(self, name: str, subcommand: Optional[str]) -> Optional[List[Tuple[str, str]]]:
+        ... 
 
 class ArgumentInfo:
     """参数信息封装"""
@@ -78,8 +85,9 @@ class ParsedArguments:
 class ArgparseCompleter(CompleterBase):
     """基于 argparse.ArgumentParser 的补齐器"""
     
-    def __init__(self, parser: argparse.ArgumentParser):
-        self.parser = parser
+    def __init__(self, command: HasParser, parser: argparse.ArgumentParser=None):
+        self.command = command
+        self.parser = parser or command.parser
         self._analyze_parser()
     
     def _analyze_parser(self):
@@ -94,7 +102,7 @@ class ArgparseCompleter(CompleterBase):
             if isinstance(action, argparse._SubParsersAction):
                 self.has_subcommands = True
                 for name, subparser in action.choices.items():
-                    self.subparsers[name] = ArgparseCompleter(subparser)
+                    self.subparsers[name] = ArgparseCompleter(self.command, subparser)
             elif action.dest != 'help':
                 arg_info = ArgumentInfo(action)
                 self.arguments.append(arg_info)
@@ -200,8 +208,12 @@ class ArgparseCompleter(CompleterBase):
         completions = []
         partial = context.current_word
         
+        has_subcommand = getattr(self.command, 'has_subcommand', None)
+        if has_subcommand and not callable(has_subcommand):
+            has_subcommand = None
+        
         for name, subparser_completer in self.subparsers.items():
-            if name.startswith(partial):
+            if name.startswith(partial) and (not has_subcommand or has_subcommand(name)):
                 # 获取子命令的描述
                 description = ""
                 if subparser_completer.parser.description:
@@ -243,8 +255,19 @@ class ArgparseCompleter(CompleterBase):
         """补齐选项值"""
         completions = []
         partial = context.current_word if not context.is_empty_position else ""
-        
-        if option_info.choices:
+
+        get_arg_values = getattr(self.command, 'get_arg_values', None)
+        if get_arg_values and callable(get_arg_values):
+            values = get_arg_values(option_info.dest, None)
+            if values:
+                for name, desc in values:
+                    if name.startswith(partial):
+                            completions.append(create_completion(
+                                name,
+                                start_position=-len(partial) if partial else 0,
+                                display_meta=desc or ""
+                            ))
+        elif option_info.choices:
             for choice in option_info.choices:
                 choice_str = str(choice)
                 if choice_str.startswith(partial):
@@ -259,8 +282,20 @@ class ArgparseCompleter(CompleterBase):
         """补齐位置参数"""
         completions = []
         partial = context.current_word if not context.is_empty_position else ""
-        
-        if arg_info.choices:
+
+        get_arg_values = getattr(self.command, 'get_arg_values', None)
+        if get_arg_values and callable(get_arg_values):
+            values = get_arg_values(arg_info.dest, None)
+            
+            if values:
+                for name, desc in values:
+                    if name.startswith(partial):
+                            completions.append(create_completion(
+                                name,
+                                start_position=-len(partial) if partial else 0,
+                                display_meta=desc or ""
+                            ))
+        elif arg_info.choices:
             for choice in arg_info.choices:
                 choice_str = str(choice)
                 if choice_str.startswith(partial):

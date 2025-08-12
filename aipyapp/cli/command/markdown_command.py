@@ -10,8 +10,7 @@ from contextlib import redirect_stdout, redirect_stderr
 from rich.markdown import Markdown
 from jinja2 import Template, Environment, BaseLoader
 
-from .base import Completable, CommandMode
-from .base_parser import ParserCommand
+from .base import ParserCommand
 from .custom_command_manager import CustomCommandConfig
 from .result import TaskModeResult
 
@@ -143,19 +142,15 @@ class MarkdownCommand(ParserCommand):
     """Custom command loaded from markdown file"""
     
     def __init__(self, config: CustomCommandConfig, content: str, file_path: Path):
-        super().__init__()
         self.config = config
         self.content = content
         self.file_path = file_path
         
         # Set command properties from config
         self.name = config.name
-        self.desc = config.description
-        self.description = config.description #TODO: fix this
+        self.description = config.description
         self.modes = config.modes
-        
-        # Initialize manager to None, will be set by CommandManager
-        self.manager = None
+        super().__init__()
         
         # Template environment
         self.template_env = Environment(loader=StringTemplateLoader(content))

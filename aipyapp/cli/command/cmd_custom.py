@@ -1,15 +1,10 @@
-import os
-from pathlib import Path
 
-from rich import print
 from rich.panel import Panel
 from rich.syntax import Syntax
 
 from ... import T
-from .base import CommandMode, Completable
-from .base_parser import ParserCommand
+from .base import CommandMode, ParserCommand
 from .utils import print_table
-
 
 class CustomCommand(ParserCommand):
     name = 'custom'
@@ -23,16 +18,11 @@ class CustomCommand(ParserCommand):
         show_parser = subparsers.add_parser('show', help=T('Show custom command details'))
         show_parser.add_argument('name', type=str, help=T('Custom command name'))
         
-        create_parser = subparsers.add_parser('create', help=T('Create new custom command'))
-        create_parser.add_argument('name', type=str, help=T('Command name'))
-        create_parser.add_argument('--description', type=str, default='', help=T('Command description'))
-        create_parser.add_argument('--mode', choices=['main', 'task', 'both'], default='task', help=T('Command mode'))
-
-    def get_arg_values(self, arg, subcommand=None, partial_value=''):
-        if arg.name == 'name' and subcommand == 'show':
+    def get_arg_values(self, name, subcommand=None):
+        if name == 'name' and subcommand == 'show':
             custom_commands = self.manager.custom_command_manager.get_all_commands()
-            return [Completable(cmd.name, cmd.description) for cmd in custom_commands]
-        return super().get_arg_values(arg, subcommand, partial_value)
+            return [(cmd.name, cmd.description) for cmd in custom_commands]
+        return None
 
     def cmd_list(self, args, ctx):
         """List all custom commands"""
@@ -96,67 +86,6 @@ class CustomCommand(ParserCommand):
             print(Panel(syntax, title=T('Command Content'), border_style="green"))
         except Exception as e:
             print(f"[red]{T('Error reading file')}: {e}[/red]")
-
-    def cmd_create(self, args, ctx):
-        """Create a new custom command"""
-        # Use the first available directory or create a default one
-        command_dirs = self.manager.custom_command_manager.command_dirs
-        
-        if not command_dirs:
-            print(f"[red]{T('No custom command directories configured')}[/red]")
-            return
-            
-        # Use the first directory for creation
-        command_dir = next(iter(command_dirs))
-        
-        # Ensure the directory exists
-        command_dir.mkdir(parents=True, exist_ok=True)
-        
-        command_file = command_dir / f"{args.name}.md"
-        
-        if command_file.exists():
-            print(f"[red]{T('Command already exists')}: {args.name}[/red]")
-            return
-        
-        # Determine modes
-        if args.mode == 'both':
-            modes = ['main', 'task']
-        else:
-            modes = [args.mode]
-        
-        # Create command template
-        template_content = f'''---
-name: "{args.name}"
-description: "{args.description or f'Custom {args.name} command'}"
-modes: {modes}
-arguments:
-  - name: "input"
-    type: "str"
-    required: false
-    help: "Input parameter"
----
-
-# {args.name.title()} Command
-
-This is a custom command: {{{{input}}}}
-
-You can modify this template to create your custom command logic.
-
-## Available template variables:
-- {{{{input}}}}: The input parameter
-- {{{{subcommand}}}}: The subcommand if any
-
-## Template syntax:
-- Use Jinja2 syntax for advanced templating
-- Simple {{{{variable}}}} replacement for basic usage
-'''
-        
-        try:
-            command_file.write_text(template_content, encoding='utf-8')
-            print(f"[green]{T('Created custom command')}: {command_file}[/green]")
-            print(f"[yellow]{T('Run')}: /custom reload {T('to load the new command')}[/yellow]")
-        except Exception as e:
-            print(f"[red]{T('Error creating command')}: {e}[/red]")
 
     def cmd(self, args, ctx):
         """Default action: list commands"""

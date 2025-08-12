@@ -1,7 +1,7 @@
 
 from ... import T
-from .base import CommandMode, Completable
-from .base_parser import ParserCommand
+from .base import CommandMode
+from .base import ParserCommand
 from .utils import print_table
 
 class Command(ParserCommand):
@@ -22,11 +22,11 @@ class Command(ParserCommand):
             return subcommands
         return super().get_subcommands()
 
-    def get_arg_values(self, arg, subcommand=None, partial_value=''):
-        if arg.name == 'name':
+    def get_arg_values(self, name, subcommand=None):
+        if name == 'name':
             ctx = self.manager.context
-            return [Completable(plugin.name, plugin.description) for plugin in ctx.tm.plugin_manager]
-        return super().get_arg_values(arg, subcommand, partial_value)
+            return [(plugin.name, plugin.description) for plugin in ctx.tm.plugin_manager]
+        return None
 
     def cmd_list(self, args, ctx):
         """列出可用的插件"""

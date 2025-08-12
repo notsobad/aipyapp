@@ -2,7 +2,7 @@ from rich import print
 import argparse
 
 from ... import T
-from .base_parser import ParserCommand
+from .base import ParserCommand
 from .utils import print_records, print_table
 
 class MCPCommand(ParserCommand):

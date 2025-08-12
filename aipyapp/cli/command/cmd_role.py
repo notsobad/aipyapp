@@ -4,8 +4,7 @@ from rich.tree import Tree
 from rich.syntax import Syntax
 
 from ... import T
-from .base import Completable
-from .base_parser import ParserCommand
+from .base import ParserCommand
 from .utils import print_records
 
 class RoleCommand(ParserCommand):
@@ -24,11 +23,11 @@ class RoleCommand(ParserCommand):
         use_parser = subparsers.add_parser('use', help=T('Use a role'))
         use_parser.add_argument('role', type=str, help=T('Role name'))
 
-    def get_arg_values(self, arg, subcommand=None, partial_value=''):
-        if subcommand in ['show', 'use'] and arg.name == 'role':
+    def get_arg_values(self, name, subcommand=None):
+        if name == 'role':
             ctx = self.manager.context
-            return [Completable(name, role.short) for name, role in ctx.tm.role_manager.roles.items()]
-        return super().get_arg_values(arg, subcommand)
+            return [(name, role.short) for name, role in ctx.tm.role_manager.roles.items()]
+        return None
             
     def cmd_list(self, args, ctx):
         rows = ctx.tm.list_roles()

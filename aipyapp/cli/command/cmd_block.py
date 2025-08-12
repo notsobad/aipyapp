@@ -1,11 +1,11 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+from typing import List, Tuple, Optional
 from rich.syntax import Syntax
 
 from .utils import print_records
-from .base import CommandMode, Completable
-from .base_parser import ParserCommand
+from .base import CommandMode, ParserCommand
 from ... import T
 
 class BlockCommand(ParserCommand):
@@ -14,10 +14,10 @@ class BlockCommand(ParserCommand):
     description = T("Manage code blocks")
     modes = [CommandMode.TASK]
     
-    def get_arg_values(self, arg, subcommand=None, partial_value=''):
-        if arg.name == 'index':
+    def get_arg_values(self, name, subcommand=None) -> Optional[List[Tuple[str, str]]]:
+        if name == 'index':
             ctx = self.manager.context
-            return [Completable(str(block.Index), f"{block.Name} ({block.Language})") for block in ctx.task.list_code_blocks()]
+            return [(str(block.Index), f"{block.Name} ({block.Language})") for block in ctx.task.list_code_blocks()]
         return None
 
     def add_subcommands(self, subparsers):

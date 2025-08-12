@@ -2,8 +2,7 @@
 # -*- coding: utf-8 -*-
 
 from .utils import print_records
-from .base import CommandMode, Completable
-from .base_parser import ParserCommand
+from .base import CommandMode, ParserCommand
 from ... import T
 
 class StepsCommand(ParserCommand):
@@ -18,10 +17,10 @@ class StepsCommand(ParserCommand):
         parser = subparsers.add_parser('delete', help=T('Delete task steps'))
         parser.add_argument('index', type=int, help=T('Index of the task step to delete'))
         
-    def get_arg_values(self, arg, subcommand=None, partial_value=''):
-        if subcommand == 'delete' and arg.name == 'index':
+    def get_arg_values(self, name, subcommand=None):
+        if subcommand == 'delete' and name == 'index':
             ctx = self.manager.context
-            return [Completable(str(step.Index), step.Instruction[:32]) for step in ctx.task.list_steps()]
+            return [(str(step.Index), step.Instruction[:32]) for step in ctx.task.list_steps()]
         return None
     
     def cmd(self, args, ctx):
