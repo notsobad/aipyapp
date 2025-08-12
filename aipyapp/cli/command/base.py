@@ -6,8 +6,7 @@ import argparse
 
 from loguru import logger
 
-from ..completer.base import CompleterBase
-from ..completer.argparse_completer import ArgparseCompleter
+from .completer import CompleterBase, ArgparseCompleter
 from .common import CommandMode
 
 class Command(ABC):

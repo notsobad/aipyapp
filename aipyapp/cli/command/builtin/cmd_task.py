@@ -1,16 +1,14 @@
 import time
-from pathlib import Path
-import json
 import os
 
 from rich.panel import Panel
 
-from ... import T, EventBus
-from ...aipy.event_serializer import EventSerializer
-from ...aipy.task_state import TaskState
-from .base import ParserCommand
-from .common import TaskModeResult
-from .utils import print_records
+from aipyapp import T, EventBus
+from aipyapp.aipy.event_serializer import EventSerializer
+from aipyapp.aipy.task_state import TaskState
+from ..base import ParserCommand
+from ..common import TaskModeResult
+from .utils import record2table
 
 
 class TaskCommand(ParserCommand):
@@ -29,7 +27,8 @@ class TaskCommand(ParserCommand):
 
     def cmd_list(self, args, ctx):
         rows = ctx.tm.list_tasks()
-        print_records(rows)
+        table = record2table(rows)
+        ctx.console.print(table)
 
     def get_arg_values(self, name, subcommand=None):
         if name == 'tid':

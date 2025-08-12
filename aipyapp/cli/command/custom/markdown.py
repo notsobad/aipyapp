@@ -1,18 +1,27 @@
-import argparse
+
 from pathlib import Path
+from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, NamedTuple
-from collections import OrderedDict
 import re
 import io
-import sys
 from contextlib import redirect_stdout, redirect_stderr
 
 from rich.markdown import Markdown
-from jinja2 import Template, Environment, BaseLoader
+from jinja2 import Environment, BaseLoader
 
-from .base import ParserCommand
-from .custom_command_manager import CustomCommandConfig
-from .result import TaskModeResult
+from ..base import ParserCommand
+from ..common import TaskModeResult, CommandMode
+
+@dataclass
+class CustomCommandConfig:
+    """Configuration for a custom command"""
+    name: str
+    description: str = ""
+    modes: List[CommandMode] = field(default_factory=lambda: [CommandMode.TASK])
+    arguments: List[Dict[str, Any]] = field(default_factory=list)
+    subcommands: Dict[str, Dict[str, Any]] = field(default_factory=dict)
+    template_vars: Dict[str, Any] = field(default_factory=dict)
+    task: bool|None = None  # 是否在MAIN模式下创建新任务
 
 class CodeBlock(NamedTuple):
     """Represents a code block with its metadata"""

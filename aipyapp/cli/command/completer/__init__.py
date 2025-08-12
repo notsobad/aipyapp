@@ -1,6 +1,6 @@
 """补齐器模块"""
 
-from .base import CompleterBase, CompleterChain, CompleterContext
+from .base import CompleterBase, CompleterChain, CompleterContext, PrefixCompleter
 from .argparse_completer import ArgparseCompleter
 from .specialized import (
     PathCompleter,
@@ -18,4 +18,5 @@ __all__ = [
     'ChoiceCompleter',
     'CompositeCompleter',
     'DynamicCompleter',
+    'PrefixCompleter',
 ]

@@ -1,8 +1,7 @@
-
-from  ... import T
-from .base import ParserCommand
-from .utils import print_table
-from .markdown_command import MarkdownCommand
+from aipyapp import T
+from ..base import ParserCommand
+from .utils import row2table
+from ..custom import MarkdownCommand
 
 class HelpCommand(ParserCommand):
     name = 'help'
@@ -32,7 +31,8 @@ class HelpCommand(ParserCommand):
                 kind = "user" if isinstance(command, MarkdownCommand) else "system"
                 modes = ', '.join([mode.value for mode in command.modes])
                 rows.append([f"/{name}", kind, modes,command.description])
-            print_table(rows, headers=[T('Command'), T('Type'), T('Modes'), T('Description')], title=T('Available commands'))
+            table = row2table(rows, headers=[T('Command'), T('Type'), T('Modes'), T('Description')], title=T('Available commands'))
+            console.print(table)
             console.print()
             console.print(T("Or directly enter the question to be processed by AI, for example:\n>> Who are you?"))
             console.print()

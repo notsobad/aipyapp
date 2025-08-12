@@ -4,9 +4,9 @@
 from typing import List, Tuple, Optional
 from rich.syntax import Syntax
 
-from .utils import print_records
-from .base import CommandMode, ParserCommand
-from ... import T
+from .utils import record2table
+from ..base import CommandMode, ParserCommand
+from aipyapp import T
 
 class BlockCommand(ParserCommand):
     """Block command"""
@@ -61,4 +61,5 @@ class BlockCommand(ParserCommand):
         """列出所有代码块"""
         task = ctx.task
         blocks = task.list_code_blocks()
-        print_records(blocks, title=T("Code Blocks"))
+        table = record2table(blocks, title=T("Code Blocks"))
+        ctx.console.print(table)

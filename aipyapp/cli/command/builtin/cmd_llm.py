@@ -1,6 +1,6 @@
-from ... import T
-from .base import CommandMode, ParserCommand
-from .utils import print_records
+from aipyapp import T
+from ..base import CommandMode, ParserCommand
+from .utils import record2table
 
 class LLMCommand(ParserCommand):
     name = 'llm'
@@ -20,7 +20,8 @@ class LLMCommand(ParserCommand):
             
     def cmd_list(self, args, ctx):
         rows = ctx.tm.list_llms()
-        print_records(rows)
+        table = record2table(rows)
+        ctx.console.print(table)
         
     def cmd_use(self, args, ctx):
         if ctx.task:

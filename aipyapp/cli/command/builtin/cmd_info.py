@@ -1,8 +1,8 @@
 import sys
 
-from ... import T
-from .base import ParserCommand
-from .utils import print_table
+from aipyapp import T
+from ..base import ParserCommand
+from .utils import row2table
 
 class InfoCommand(ParserCommand):
     name = 'info'
@@ -23,4 +23,5 @@ class InfoCommand(ParserCommand):
             (T('Python base prefix'), sys.base_prefix),
         ]
 
-        print_table(info, title=T("System information"), headers=[T("Parameter"), T("Value")])
+        table = row2table(info, title=T("System information"), headers=[T("Parameter"), T("Value")])
+        ctx.console.print(table)

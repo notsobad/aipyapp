@@ -95,7 +95,7 @@ class InteractiveConsole():
             completer=self.command_manager,  # CommandManager 实现了 Completer 接口
             auto_suggest=AutoSuggestFromHistory(),
             bottom_toolbar=self.get_bottom_toolbar,
-            #key_bindings=self.command_manager.create_key_bindings()
+            key_bindings=self.command_manager.key_bindings
         )
            
     def get_main_status(self):

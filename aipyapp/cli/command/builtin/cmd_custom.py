@@ -2,9 +2,9 @@
 from rich.panel import Panel
 from rich.syntax import Syntax
 
-from ... import T
-from .base import CommandMode, ParserCommand
-from .utils import print_table
+from aipyapp import T
+from ..base import CommandMode, ParserCommand
+from .utils import row2table
 
 class CustomCommand(ParserCommand):
     name = 'custom'
@@ -51,26 +51,27 @@ class CustomCommand(ParserCommand):
             
             rows.append([cmd.name, cmd.description, modes_str, file_path_str])
         
-        print_table(
+        table = row2table(
             rows, 
             headers=[T('Name'), T('Description'), T('Modes'), T('File')], 
             title=T('Custom Commands')
         )
+        ctx.console.print(table)
 
     def cmd_reload(self, args, ctx):
         """Reload custom commands from disk"""
         count = self.manager.reload_custom_commands()
-        print(f"[green]{T('Reloaded')} {count} {T('custom commands')}[/green]")
+        ctx.console.print(f"[green]{T('Reloaded')} {count} {T('custom commands')}[/green]")
 
     def cmd_show(self, args, ctx):
         """Show custom command details"""
         command = self.manager.custom_command_manager.get_command(args.name)
         if not command:
-            print(f"[red]{T('Custom command not found')}: {args.name}[/red]")
+            ctx.console.print(f"[red]{T('Custom command not found')}: {args.name}[/red]")
             return
         
         # Show command info
-        print(Panel(
+        ctx.console.print(Panel(
             f"**{T('Name')}:** {command.name}\n"
             f"**{T('Description')}:** {command.description}\n"
             f"**{T('Modes')}:** {', '.join([mode.value for mode in command.modes])}\n"
@@ -83,9 +84,9 @@ class CustomCommand(ParserCommand):
         try:
             content = command.file_path.read_text(encoding='utf-8')
             syntax = Syntax(content, "markdown", theme="monokai", line_numbers=True)
-            print(Panel(syntax, title=T('Command Content'), border_style="green"))
+            ctx.console.print(Panel(syntax, title=T('Command Content'), border_style="green"))
         except Exception as e:
-            print(f"[red]{T('Error reading file')}: {e}[/red]")
+            ctx.console.print(f"[red]{T('Error reading file')}: {e}[/red]")
 
     def cmd(self, args, ctx):
         """Default action: list commands"""

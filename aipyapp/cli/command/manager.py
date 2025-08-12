@@ -4,34 +4,15 @@ import shlex
 import argparse
 from collections import OrderedDict
 from typing import Dict, Optional, Any, List
-from dataclasses import dataclass
 from prompt_toolkit.completion import Completer, Completion
 from loguru import logger
 
 from .common import CommandContext, CommandMode, CommandManagerConfig, CommandError, CommandResult
 from .base import Command
-from ..completer.base import CompleterBase, CompleterContext
-from .custom_command_manager import CustomCommandManager
-
-from .cmd_info import InfoCommand
-from .cmd_help import HelpCommand
-from .cmd_llm import LLMCommand
-from .cmd_role import RoleCommand
-from .cmd_task import TaskCommand
-from .cmd_mcp import MCPCommand
-from .cmd_display import DisplayCommand
-from .cmd_context import ContextCommand
-from .cmd_steps import StepsCommand
-from .cmd_block import BlockCommand
-from .cmd_plugin import Command as PluginCommand
-from .cmd_custom import CustomCommand
-from .markdown_command import MarkdownCommand
-
-# 内置命令列表
-BUILTIN_COMMANDS = [
-    InfoCommand, LLMCommand, RoleCommand, DisplayCommand, PluginCommand, StepsCommand,
-    BlockCommand, ContextCommand, TaskCommand, MCPCommand, HelpCommand, CustomCommand,
-]
+from .completer import CompleterBase, CompleterContext
+from .custom.manager import CustomCommandManager
+from .builtin import BUILTIN_COMMANDS
+from .keybindings import create_key_bindings
 
 class CommandRegistry:
     """
@@ -286,6 +267,9 @@ class CommandManager(Completer):
         
         # 初始化命令
         self._init_commands()
+
+        # 创建键绑定
+        self.key_bindings = create_key_bindings(self)
     
     @property
     def commands(self) -> OrderedDict[str, Command]:

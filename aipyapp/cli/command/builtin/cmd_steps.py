@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-from .utils import print_records
-from .base import CommandMode, ParserCommand
-from ... import T
+from .utils import record2table
+from ..base import CommandMode, ParserCommand
+from aipyapp import T
 
 class StepsCommand(ParserCommand):
     """Steps command"""
@@ -29,7 +29,8 @@ class StepsCommand(ParserCommand):
     def cmd_list(self, args, ctx):
         task = ctx.task
         steps = task.list_steps()
-        print_records(steps, title=T("Task Steps"))
+        table = record2table(steps, title=T("Task Steps"))
+        ctx.console.print(table)
     
     def cmd_clear(self, args, ctx):
         task = ctx.task
