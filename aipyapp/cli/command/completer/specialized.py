@@ -62,7 +62,20 @@ class PathCompleter(CompleterBase):
             pattern = os.path.join(search_dir, prefix + self.glob_pattern)
             matches = glob.glob(pattern)
             
-            for match in sorted(matches):
+            # 按修改时间排序，最新的在前面
+            matches_with_mtime = []
+            for match in matches:
+                try:
+                    mtime = os.path.getmtime(match)
+                    matches_with_mtime.append((mtime, match))
+                except (OSError, PermissionError):
+                    # 如果无法获取修改时间，使用0作为默认值
+                    matches_with_mtime.append((0, match))
+            
+            # 按修改时间降序排序（最新的在前）
+            matches_with_mtime.sort(key=lambda x: x[0], reverse=True)
+            
+            for _, match in matches_with_mtime:
                 basename = os.path.basename(match)
                 
                 # 检查是否显示隐藏文件
