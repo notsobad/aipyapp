@@ -3,8 +3,9 @@ import contextlib
 import os
 import sys
 import time
+import threading
 from datetime import timedelta
-from typing import Dict, Optional, Tuple
+from typing import Dict, Optional, Tuple, Any
 
 from loguru import logger
 from mcp.client.session_group import (
@@ -12,8 +13,10 @@ from mcp.client.session_group import (
     SseServerParameters,
     StreamableHttpParameters,
 )
+from mcp.client.session import ClientSession
 from mcp.client.stdio import StdioServerParameters
 from mcp.shared.exceptions import McpError
+
 
 class LazyMCPClient:
     """
@@ -23,18 +26,36 @@ class LazyMCPClient:
     - 支持“serverKey:toolName”命名以避免全量扫描
     """
 
-    def __init__(self, mcp_servers: dict, idle_ttl_seconds: int = 300, suppress_output: bool = True):
+    def __init__(
+        self,
+        mcp_servers: dict,
+        idle_ttl_seconds: int = 300,
+        suppress_output: bool = True,
+    ):
         self._servers: dict = mcp_servers or {}
         self._idle_ttl = idle_ttl_seconds
         self._suppress_output = suppress_output
 
         self._group: Optional[ClientSessionGroup] = None
-        self._connected: Dict[str, object] = {}          # serverKey -> mcp.ClientSession
-        self._last_used_ts: Dict[str, float] = {}        # serverKey -> last used unix ts
+        self._connected: Dict[str, ClientSession] = {}
+        self._last_used_ts: Dict[str, float] = {}  # serverKey -> last used ts
         self._connecting_locks: Dict[str, asyncio.Lock] = {}
 
         # 用于在聚合时将工具名命名为 "serverKey:toolName"
         self._current_prefix: Optional[str] = None
+
+        # 在后台线程维护持久事件循环，避免每次调用后关闭导致子进程退出
+        self._loop = asyncio.new_event_loop()
+        self._loop_thread = threading.Thread(
+            target=self._loop_runner,
+            name="LazyMCPClientLoop",
+            daemon=True,
+        )
+        self._loop_thread.start()
+
+    def _loop_runner(self):
+        asyncio.set_event_loop(self._loop)
+        self._loop.run_forever()
 
     # ---------- 工具方法 ----------
     def _now(self) -> float:
@@ -60,7 +81,8 @@ class LazyMCPClient:
     def _run_async(self, coro):
         with self._suppress_stdout_stderr():
             try:
-                return asyncio.run(coro)
+                fut = asyncio.run_coroutine_threadsafe(coro, self._loop)
+                return fut.result()
             except Exception as e:
                 logger.error(f"Async run error: {e}")
                 return None
@@ -73,17 +95,17 @@ class LazyMCPClient:
                     url=cfg["url"],
                     headers=cfg.get("headers"),
                     timeout=timedelta(seconds=cfg.get("timeout", 30)),
-                    sse_read_timeout=timedelta(seconds=cfg.get("sse_read_timeout", 300)),
+                    sse_read_timeout=timedelta(
+                        seconds=cfg.get("sse_read_timeout", 300)
+                    ),
                     terminate_on_close=cfg.get("terminate_on_close", True),
                 )
-            # 默认 SSE
             return SseServerParameters(
                 url=cfg["url"],
                 headers=cfg.get("headers"),
                 timeout=cfg.get("timeout", 5),
                 sse_read_timeout=cfg.get("sse_read_timeout", 300),
             )
-        # STDIO
         return StdioServerParameters(
             command=cfg.get("command", ""),
             args=cfg.get("args", []),
@@ -92,7 +114,6 @@ class LazyMCPClient:
 
     async def _ensure_group(self):
         if self._group is None:
-            # 将工具名聚合为 "serverKey:toolName"
             def name_hook(name: str, server_info) -> str:
                 prefix = self._current_prefix or server_info.name
                 return f"{prefix}:{name}"
@@ -103,13 +124,12 @@ class LazyMCPClient:
     async def _connect_if_needed(self, server_key: str):
         if server_key in self._connected:
             return
-
         if server_key not in self._servers:
             raise KeyError(f"Unknown server '{server_key}'")
 
         await self._ensure_group()
+        assert self._group is not None
 
-        # 并发首连保护
         lock = self._connecting_locks.setdefault(server_key, asyncio.Lock())
         async with lock:
             if server_key in self._connected:
@@ -134,7 +154,9 @@ class LazyMCPClient:
             try:
                 await self._group.disconnect_from_server(session)
             except Exception as e:
-                logger.warning(f"Disconnect '{server_key}' failed: {e}")
+                logger.warning(
+                    f"Disconnect '{server_key}' failed: {e}"
+                )
 
     async def _reap_idle(self):
         if not self._connected:
@@ -153,7 +175,8 @@ class LazyMCPClient:
     # ---------- 对外同步API ----------
     def list_tools(self, discover_all: bool = False) -> list:
         """
-        返回当前已连接服务器的工具列表；若 discover_all=True，会按需连接所有服务器以枚举工具。
+        返回当前已连接服务器的工具列表；
+        若 discover_all=True，会按需连接所有服务器以枚举工具。
         为避免常驻，可保持默认 False。
         """
         return self._run_async(self._list_tools_async(discover_all)) or []
@@ -163,22 +186,35 @@ class LazyMCPClient:
         await self._reap_idle()
 
         if discover_all:
-            # 按需逐个连接（可能较慢，但只在需要时发生）
             for server_key in self._servers.keys():
                 if server_key not in self._connected:
                     try:
                         await self._connect_if_needed(server_key)
                     except Exception as e:
-                        logger.warning(f"Connect '{server_key}' failed during discovery: {e}")
+                        logger.warning(
+                            f"Connect '{server_key}' failed during discovery: {e}"
+                        )
 
         tools = []
-        for name, tool in (self._group.tools if self._group else {}).items():
-            tools.append({
-                "name": name,  # 已是 "serverKey:toolName"
-                "description": tool.description,
-                "inputSchema": tool.inputSchema,
-            })
+        if self._group is not None:
+            for name, tool in self._group.tools.items():
+                tools.append({
+                    "name": name,
+                    "description": tool.description,
+                    "inputSchema": tool.inputSchema,
+                })
         return tools
+
+    def _to_obj(self, res: Any):
+        if res is None:
+            return None
+        try:
+            return res.model_dump()
+        except Exception:
+            try:
+                return res.dict()
+            except Exception:
+                return res
 
     def call_tool(self, tool_name: str, arguments: dict):
         """
@@ -191,6 +227,8 @@ class LazyMCPClient:
     async def _call_tool_async(self, tool_name: str, arguments: dict):
         await self._ensure_group()
         await self._reap_idle()
+        group = self._group
+        assert group is not None
 
         server_key, bare_tool = self._parse_server_and_tool(tool_name)
 
@@ -198,42 +236,73 @@ class LazyMCPClient:
             await self._connect_if_needed(server_key)
             self._last_used_ts[server_key] = self._now()
             qualified = self._qualified(server_key, bare_tool)
-            if qualified not in self._group.tools:
-                # 工具不存在
+            if qualified not in group.tools:
                 return None, {"error": f"Tool '{qualified}' not found"}
             try:
-                res = await self._group.call_tool(qualified, arguments)
+                res = await group.call_tool(qualified, arguments)
                 return res, None
             except Exception as e:
                 return None, e
 
-        # 已指定 serverKey，最省资源
         if server_key:
             res, err = await try_call_on(server_key, bare_tool)
-            # 出错时（崩溃/断线等）尝试一次重连重试
             if err:
                 await self._disconnect(server_key)
                 try:
                     res2, err2 = await try_call_on(server_key, bare_tool)
                     if err2:
-                        raise err2
-                    return res2.model_dump()
+                        raise RuntimeError(str(err2))
+                    return self._to_obj(res2)
                 except Exception as e:
-                    logger.exception(f"Call failed after reconnect on '{server_key}': {e}")
-                    return {"error": str(e), "tool_name": tool_name, "arguments": arguments}
-            return res.model_dump() if res else {"error": "Unknown error"}
+                    logger.exception(
+                        f"Call failed after reconnect on '{server_key}': {e}"
+                    )
+                    return {
+                        "error": str(e),
+                        "tool_name": tool_name,
+                        "arguments": arguments,
+                    }
+            return self._to_obj(res) if res else {"error": "Unknown error"}
 
-        # 未指定 serverKey：按需连接搜索
         for sk in self._servers.keys():
             try:
                 res, err = await try_call_on(sk, bare_tool)
                 if err is None and res is not None:
-                    return res.model_dump()
-                # 不存在该工具则换下一个server；若为传输异常则断开以免占用
+                    return self._to_obj(res)
                 if isinstance(err, (McpError, OSError, ConnectionError)):
                     await self._disconnect(sk)
             except Exception as e:
                 await self._disconnect(sk)
                 logger.debug(f"Skip server '{sk}' due to error: {e}")
 
-        return {"error": f"Tool '{bare_tool}' not found on any server", "tool_name": tool_name, "arguments": arguments}
+        return {
+            "error": f"Tool '{bare_tool}' not found on any server",
+            "tool_name": tool_name,
+            "arguments": arguments,
+        }
+
+    def close(self):
+        async def _shutdown():
+            for sk in list(self._connected.keys()):
+                with contextlib.suppress(Exception):
+                    await self._disconnect(sk)
+            if self._group is not None:
+                with contextlib.suppress(Exception):
+                    await self._group.__aexit__(None, None, None)
+                self._group = None
+
+        with self._suppress_stdout_stderr():
+            try:
+                fut = asyncio.run_coroutine_threadsafe(_shutdown(), self._loop)
+                fut.result(timeout=5)
+            except Exception as e:
+                logger.debug(f"Shutdown error: {e}")
+            finally:
+                if self._loop.is_running():
+                    self._loop.call_soon_threadsafe(self._loop.stop)
+                if self._loop_thread and self._loop_thread.is_alive():
+                    self._loop_thread.join(timeout=2)
+
+    def __del__(self):
+        with contextlib.suppress(Exception):
+            self.close()
