@@ -120,7 +120,6 @@ class CustomCommandManager:
             arguments=[],
             subcommands={},
             template_vars={},
-            task=True
         )
     
     def _parse_command_config(self, frontmatter: Dict[str, Any], default_name: str) -> CustomCommandConfig:
@@ -131,7 +130,7 @@ class CustomCommandManager:
             arguments=frontmatter.get('arguments', []),
             subcommands=frontmatter.get('subcommands', {}),
             template_vars=frontmatter.get('template_vars', {}),
-            task=frontmatter.get('task')
+            local=frontmatter.get('local', False)
         )
         
         # Parse modes

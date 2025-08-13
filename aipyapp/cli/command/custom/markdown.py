@@ -21,7 +21,7 @@ class CustomCommandConfig:
     arguments: List[Dict[str, Any]] = field(default_factory=list)
     subcommands: Dict[str, Dict[str, Any]] = field(default_factory=dict)
     template_vars: Dict[str, Any] = field(default_factory=dict)
-    task: bool|None = None  # 是否在MAIN模式下创建新任务
+    local: bool|None = None  # 是否在本地下执行，即不发送给LLM
 
 class CodeBlock(NamedTuple):
     """Represents a code block with its metadata"""
@@ -202,11 +202,11 @@ class MarkdownCommand(ParserCommand):
                            if hasattr(action, 'option_strings')]
         existing_options_flat = [opt for opts in existing_options for opt in opts]
         
-        if '--test' not in existing_options_flat:
+        if '--local' not in existing_options_flat:
             parser.add_argument(
-                '--test', 
+                '--local', 
                 action='store_true',
-                help='测试模式：预览命令输出，不发送给LLM'
+                help='本地模式：预览命令输出，不发送给LLM'
             )
     
     def add_subcommands(self, subparsers):
@@ -279,21 +279,19 @@ class MarkdownCommand(ParserCommand):
         final_content = self._render_code_block(parsed_content, render_ctx)
         
         # 检查是否是测试模式
-        is_test_mode = getattr(args, 'test', False)
-        
-        if is_test_mode:
-            # 测试模式：始终显示输出，不发送给LLM
-            ctx.console.print("[yellow]🧪 测试模式 - 以下是命令输出预览：[/yellow]")
+        is_local_mode = getattr(args, 'local', False)
+        if is_local_mode:
+            # 本地模式：始终显示输出，不发送给LLM
+            ctx.console.print("[yellow]🧪 本地模式 - 以下是命令输出：[/yellow]")
             ctx.console.print(Markdown(final_content))
-            ctx.console.print("[yellow]💡 移除 --test 参数即可正常执行命令[/yellow]")
             return True
         
         # 判断是否发送给LLM
-        should_send_to_llm = self.config.task
-        if should_send_to_llm is None:
-            should_send_to_llm = True if ctx.task else False
+        is_local_mode = self.config.local
+        if is_local_mode is None:
+            is_local_mode = False if ctx.task else True
         
-        if should_send_to_llm:
+        if not is_local_mode:
             if ctx.task:
                 return ctx.task.run(final_content, title=self.description)
             else:
