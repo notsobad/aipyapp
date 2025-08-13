@@ -28,12 +28,8 @@ class CustomCommandManager:
         
         for command_dir in self.command_dirs:
             if not command_dir.exists():
-                # Create default directory if it doesn't exist
-                if command_dir.name == "custom_commands":
-                    self._ensure_default_command_dir(command_dir)
-                else:
-                    self.log.warning(f"Command directory does not exist: {command_dir}")
-                    continue
+                self.log.warning(f"Command directory does not exist: {command_dir}")
+                continue
         
             # Scan for .md files
             for md_file in command_dir.rglob("*.md"):
@@ -89,7 +85,7 @@ class CustomCommandManager:
                 config = self._create_default_config(final_command_name, content)
                 body = content  # Use entire content as body
             
-            return MarkdownCommand(config, body, md_file)
+            return MarkdownCommand(config, body, md_file, command_dir)
         except Exception as e:
             self.log.error(f"Error loading command from {md_file}: {e}")
             return None

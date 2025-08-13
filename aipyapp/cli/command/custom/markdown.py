@@ -7,7 +7,7 @@ import io
 from contextlib import redirect_stdout, redirect_stderr
 
 from rich.markdown import Markdown
-from jinja2 import Environment, BaseLoader
+from jinja2 import Environment, BaseLoader, FileSystemLoader, ChoiceLoader, TemplateNotFound
 
 from ..base import ParserCommand
 from ..common import TaskModeResult, CommandMode, CommandContext
@@ -45,11 +45,14 @@ class ParsedContent(NamedTuple):
 class StringTemplateLoader(BaseLoader):
     """Simple template loader for string templates"""
     
-    def __init__(self, template_string: str):
+    def __init__(self, template_string: str, main_template_name: str = '_main_'):
         self.template_string = template_string
+        self.main_template_name = main_template_name
     
     def get_source(self, environment, template):
-        return self.template_string, None, lambda: True
+        if template == self.main_template_name:
+            return self.template_string, None, lambda: True
+        raise TemplateNotFound(template)
 
 
 class CodeExecutor:
@@ -160,7 +163,7 @@ class ContentParser:
 class MarkdownCommand(ParserCommand):
     """Custom command loaded from markdown file"""
     
-    def __init__(self, config: CustomCommandConfig, content: str, file_path: Path):
+    def __init__(self, config: CustomCommandConfig, content: str, file_path: Path, command_dir: Path):
         self.config = config
         self.content = content
         self.file_path = file_path
@@ -171,12 +174,22 @@ class MarkdownCommand(ParserCommand):
         self.modes = config.modes
         super().__init__()
         
-        # Template environment
-        self.template_env = Environment(loader=StringTemplateLoader(content))
-        self.template = self.template_env.from_string(content)
+        # Template environment with include support
+        self.template_env = self._create_template_environment(content, command_dir)
+        self.template = self.template_env.get_template('_main_')
         
         # Unified content parser
         self.content_parser = ContentParser()
+    
+    def _create_template_environment(self, content: str, command_dir: Path) -> Environment:
+        """创建支持文件包含的模板环境"""
+        # 混合加载器：按优先级查找模板
+        loaders = [
+            StringTemplateLoader(content, '_main_'),  # 主模板
+            FileSystemLoader(str(self.file_path.parent)),  # 当前模板目录
+            FileSystemLoader(str(command_dir))  # 命令主目录（共享模板）
+        ]
+        return Environment(loader=ChoiceLoader(loaders))
     
     def add_arguments(self, parser):
         """Add arguments defined in the command configuration"""
