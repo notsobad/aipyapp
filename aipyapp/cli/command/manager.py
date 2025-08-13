@@ -261,7 +261,8 @@ class CommandCompleter(CompleterBase):
                     full_name,  # 目录补全时添加斜杠
                     start_position=-len(partial) if partial else 0,
                     display=display_name + '/',
-                    display_meta="目录"
+                    display_meta="目录",
+                    style="fg:red"
                 ))
             else:
                 # 找到对应的命令对象获取描述
