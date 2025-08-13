@@ -44,7 +44,7 @@ class PluginCommand(ParserCommand):
             return
         plugin = task.plugins.get(args.name)
         if not plugin:
-            ctx.console.print(f"[red]{T('Plugin not found')}: {args.name}[/red]")
+            ctx.console.print(f"[red]{T('Plugin not enabled')}: {args.name}[/red]")
             return
         
         rows = []
