@@ -38,11 +38,13 @@ class CustomCommandManager:
             # Scan for .md files
             for md_file in command_dir.rglob("*.md"):
                 try:
-                    command = self._load_command_from_file(md_file)
+                    # Calculate relative path to determine command name
+                    rel_path = md_file.relative_to(command_dir)
+                    command = self._load_command_from_file(md_file, command_dir)
                     if command:
                         commands.append(command)
                         self.commands[command.name] = command
-                        self.log.info(f"Loaded custom command: {command.name} from {md_file.relative_to(command_dir)}")
+                        self.log.info(f"Loaded custom command: {command.name} from {rel_path}")
                 except Exception as e:
                     self.log.error(f"Failed to load command from {md_file}: {e}")
         
@@ -50,19 +52,41 @@ class CustomCommandManager:
             self.log.info(f"Loaded {len(commands)} custom commands")
         return commands
     
-    def _load_command_from_file(self, md_file: Path) -> Optional['MarkdownCommand']:
+    def _load_command_from_file(self, md_file: Path, command_dir: Path) -> Optional['MarkdownCommand']:
         """Load a command from a markdown file"""
         try:
             content = md_file.read_text(encoding='utf-8')
             frontmatter, body = self._parse_frontmatter(content)
             
+            # Calculate command name based on directory structure
+            rel_path = md_file.relative_to(command_dir)
+            # Convert path to command name: test/debug.md -> test/debug
+            base_command_name = str(rel_path.with_suffix('')).replace('\\', '/')
+            
+            # Determine final command name
+            if frontmatter and 'name' in frontmatter:
+                # Replace the last component (filename) with the custom name
+                path_parts = base_command_name.split('/')
+                if len(path_parts) > 1:
+                    # Has directory: test/custom_name.md + name: special -> test/special
+                    path_parts[-1] = frontmatter['name']
+                    final_command_name = '/'.join(path_parts)
+                else:
+                    # Root level: custom_name.md + name: special -> special
+                    final_command_name = frontmatter['name']
+            else:
+                # No custom name, use directory-based name
+                final_command_name = base_command_name
+            
+            final_command_name = 'usercmd/' + final_command_name
             if frontmatter:
                 # File has frontmatter, parse configuration from it
-                config = self._parse_command_config(frontmatter, md_file.stem)
+                config = self._parse_command_config(frontmatter, final_command_name)
+                config.name = final_command_name
             else:
                 # No frontmatter, use default configuration
                 self.log.info(f"No frontmatter found in {md_file}, using default configuration")
-                config = self._create_default_config(md_file.stem, content)
+                config = self._create_default_config(final_command_name, content)
                 body = content  # Use entire content as body
             
             return MarkdownCommand(config, body, md_file)

@@ -4,6 +4,7 @@ import shlex
 import argparse
 from collections import OrderedDict
 from typing import Dict, Optional, Any, List
+
 from prompt_toolkit.completion import Completer, Completion
 from loguru import logger
 
@@ -211,7 +212,7 @@ class CommandCompleter(CompleterBase):
         return completer.get_completions(arg_context)
     
     def _complete_command_names(self, partial: str, context: CompleterContext) -> List[Completion]:
-        """补齐命令名"""
+        """补齐命令名，支持目录级别的分组"""
         completions = []
         
         # 获取当前模式
@@ -219,13 +220,57 @@ class CommandCompleter(CompleterBase):
         
         # 获取当前模式的命令
         commands = self.registry.get_commands_by_mode(current_mode)
+        
+        # 分析当前输入的路径层级
+        path_parts = partial.split('/') if partial else ['']
+        current_level = '/'.join(path_parts[:-1]) if len(path_parts) > 1 else ''
+        current_partial = path_parts[-1]
+        
+        # 收集当前层级的项目（命令和目录）
+        items_at_level = set()
+        
         for command in commands:
-            if command.name.startswith(partial):
+            # 检查命令是否匹配当前层级
+            if current_level:
+                # 在子目录中，只显示该目录下的命令
+                if not command.name.startswith(current_level + '/'):
+                    continue
+                # 移除前缀获取相对路径
+                relative_name = command.name[len(current_level + '/'):]
+            else:
+                # 在根级别
+                relative_name = command.name
+            
+            # 检查是否有更深层级的目录
+            if '/' in relative_name:
+                # 这是一个子目录，添加目录项
+                dir_name = relative_name.split('/')[0]
+                full_dir_path = f"{current_level}/{dir_name}" if current_level else dir_name
+                
+                if dir_name.startswith(current_partial):
+                    items_at_level.add(('dir', full_dir_path, dir_name))
+            else:
+                # 这是一个直接的命令
+                if relative_name.startswith(current_partial):
+                    items_at_level.add(('cmd', command.name, relative_name))
+        
+        # 生成补全项
+        for item_type, full_name, display_name in sorted(items_at_level):
+            if item_type == 'dir':
                 completions.append(Completion(
-                    command.name,
+                    full_name,  # 目录补全时添加斜杠
                     start_position=-len(partial) if partial else 0,
-                    display=command.name,
-                    display_meta=command.description
+                    display=display_name + '/',
+                    display_meta="目录"
+                ))
+            else:
+                # 找到对应的命令对象获取描述
+                command = next((cmd for cmd in commands if cmd.name == full_name), None)
+                completions.append(Completion(
+                    full_name,
+                    start_position=-len(partial) if partial else 0,
+                    display=display_name,
+                    display_meta=command.description if command else ""
                 ))
         
         return completions
@@ -386,4 +431,3 @@ class CommandManager(Completer):
         # 转换为 prompt_toolkit 的 Completion
         for completion in completions:
             yield completion
-    

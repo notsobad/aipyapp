@@ -1,5 +1,5 @@
 ---
-name: generate_cmd
+name: usercmd
 description: 总结当前任务执行经验并生成可复用的用户命令
 modes: [task]
 arguments:

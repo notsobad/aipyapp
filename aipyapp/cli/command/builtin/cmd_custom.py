@@ -19,7 +19,7 @@ class CustomCommand(ParserCommand):
         show_parser.add_argument('name', type=str, help=T('Custom command name'))
         
     def get_arg_values(self, name, subcommand=None):
-        if name == 'name' and subcommand == 'show':
+        if name == 'name':
             custom_commands = self.manager.custom_command_manager.get_all_commands()
             return [(cmd.name, cmd.description) for cmd in custom_commands]
         return None
