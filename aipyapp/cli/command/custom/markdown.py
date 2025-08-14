@@ -166,7 +166,10 @@ class MarkdownCommand(ParserCommand):
     def __init__(self, config: CustomCommandConfig, content: str, file_path: Path, command_dir: Path):
         self.config = config
         self.content = content
+        self.builtin = False
         self.file_path = file_path
+        self.command_dir = command_dir
+        self.relative_path = file_path.relative_to(command_dir)
         
         # Set command properties from config
         self.name = config.name

@@ -35,13 +35,18 @@ class CommandRegistry:
         """获取所有命令"""
         return self._commands
     
-    def register(self, command: Command, user_cmd: bool = False):
+    @property
+    def user_commands(self) -> OrderedDict[str, Command]:
+        """获取所有用户命令"""
+        return self._user_commands
+    
+    def register(self, command: Command):
         """注册命令"""
         # 注册主名称
         name = command.name
         self._commands[name] = command
         
-        if user_cmd:
+        if not command.builtin:
             self._user_commands[name] = command
         
         # 按模式分类
@@ -58,7 +63,8 @@ class CommandRegistry:
         for mode in command.modes:
             self._commands_by_mode[mode].pop(name, None)
         
-        self._user_commands.pop(name, None)
+        if not command.builtin:
+            self._user_commands.pop(name, None)
         return True
     
     def unregister_user_commands(self):
@@ -218,7 +224,7 @@ class CommandCompleter(CompleterBase):
         # 获取当前模式的命令
         commands = self.registry.get_commands_by_mode(current_mode)
         for name, command in commands.items():
-            style = "fg:yellow" if name.startswith('usercmd/') else ""
+            style = "fg:yellow" if not command.builtin else ""
             completions.append(Completion(
                 name,
                 start_position=-len(partial) if partial else 0,
@@ -332,26 +338,25 @@ class CommandManager(Completer):
         """获取所有命令"""
         return self.registry.commands
     
+    @property
+    def user_commands(self) -> OrderedDict[str, Command]:
+        """获取所有用户命令"""
+        return self.registry.user_commands
+    
     def _create_custom_command_manager(self) -> CustomCommandManager:
         """创建自定义命令管理器"""
-        manager = CustomCommandManager()
-        
-        # 内置命令目录
-        if self.config.builtin_command_dir:
-            self.log.info(f"Adding builtin command directory: {self.config.builtin_command_dir}")
-            manager.add_command_dir(self.config.builtin_command_dir)
+        manager = CustomCommandManager(self.config.builtin_command_dir)
         
         # 添加自定义命令目录
         for cmd_dir in self.config.custom_command_dirs:
             if cmd_dir.exists():
-                self.log.info(f"Adding custom command directory: {cmd_dir}")
                 manager.add_command_dir(cmd_dir)
         
         return manager
         
-    def register_command(self, command: Command, user_cmd: bool = False):
+    def register_command(self, command: Command):
         """注册命令"""
-        self.registry.register(command, user_cmd)
+        self.registry.register(command)
         self.log.info(f"Registered command: {command.name}")
     
     def unregister_command(self, name: str):
@@ -375,7 +380,7 @@ class CommandManager(Completer):
                 all_names
             ):
                 custom_command.init(self)
-                self.register_command(custom_command, user_cmd=True)
+                self.register_command(custom_command)
                 commands.append(custom_command)
 
         self.log.info(f"Initialized {len(commands)} user commands")
