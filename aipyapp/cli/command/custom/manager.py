@@ -130,7 +130,7 @@ class CustomCommandManager:
             arguments=frontmatter.get('arguments', []),
             subcommands=frontmatter.get('subcommands', {}),
             template_vars=frontmatter.get('template_vars', {}),
-            local=frontmatter.get('local', False)
+            local=frontmatter.get('local')
         )
         
         # Parse modes

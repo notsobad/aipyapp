@@ -60,8 +60,8 @@ class CustomCommand(ParserCommand):
 
     def cmd_reload(self, args, ctx):
         """Reload custom commands from disk"""
-        count = self.manager.reload_custom_commands()
-        ctx.console.print(f"[green]{T('Reloaded')} {count} {T('custom commands')}[/green]")
+        commands = self.manager.init_custom_commands(reload=True)
+        ctx.console.print(f"[green]{T('Reloaded')} {len(commands)} {T('custom commands')}[/green]")
 
     def cmd_show(self, args, ctx):
         """Show custom command details"""
