@@ -1,6 +1,5 @@
 import asyncio
 import contextlib
-import os
 import sys
 import time
 import threading
@@ -23,7 +22,7 @@ class LazyMCPClient:
     惰性MCP会话管理器：
     - 仅在调用某个server的工具时才连接该server
     - 可配置空闲TTL，超时自动断开
-    - 支持“serverKey:toolName”命名以避免全量扫描
+    - 支持"serverKey:toolName"命名以避免全量扫描
     """
 
     def __init__(
@@ -55,7 +54,12 @@ class LazyMCPClient:
 
     def _loop_runner(self):
         asyncio.set_event_loop(self._loop)
-        self._loop.run_forever()
+        try:
+            self._loop.run_forever()
+        except Exception as e:
+            logger.error(f"Event loop error: {e}")
+        finally:
+            logger.debug("Event loop stopped")
 
     # ---------- 工具方法 ----------
     def _now(self) -> float:
@@ -71,10 +75,18 @@ class LazyMCPClient:
             return
         orig_out, orig_err = sys.stdout, sys.stderr
         try:
-            with open(os.devnull, "w") as devnull:
-                sys.stdout = devnull
-                sys.stderr = devnull
-                yield
+            # 使用 StringIO 而不是 devnull，避免文件关闭问题
+            import io
+            dummy_out = io.StringIO()
+            dummy_err = io.StringIO()
+            sys.stdout = dummy_out
+            sys.stderr = dummy_err
+            yield
+        except Exception as e:
+            # 如果重定向失败，直接使用原始流
+            sys.stdout, sys.stderr = orig_out, orig_err
+            logger.debug(f"Output suppression failed: {e}")
+            yield
         finally:
             sys.stdout, sys.stderr = orig_out, orig_err
 
@@ -82,10 +94,13 @@ class LazyMCPClient:
         with self._suppress_stdout_stderr():
             try:
                 fut = asyncio.run_coroutine_threadsafe(coro, self._loop)
-                return fut.result()
+                return fut.result(timeout=60)  # 添加超时限制
+            except asyncio.TimeoutError as e:
+                logger.error(f"Async operation timeout (60s): {e}")
+                return {"error": "Operation timeout", "details": str(e)}
             except Exception as e:
                 logger.error(f"Async run error: {e}")
-                return None
+                return {"error": "Async execution failed", "details": str(e)}
 
     def _create_server_parameters(self, cfg: dict):
         if "url" in cfg:
@@ -96,15 +111,15 @@ class LazyMCPClient:
                     headers=cfg.get("headers"),
                     timeout=timedelta(seconds=cfg.get("timeout", 30)),
                     sse_read_timeout=timedelta(
-                        seconds=cfg.get("sse_read_timeout", 300)
+                        seconds=cfg.get("sse_read_timeout", 120)  # 减少超时时间
                     ),
                     terminate_on_close=cfg.get("terminate_on_close", True),
                 )
             return SseServerParameters(
                 url=cfg["url"],
                 headers=cfg.get("headers"),
-                timeout=cfg.get("timeout", 5),
-                sse_read_timeout=cfg.get("sse_read_timeout", 300),
+                timeout=cfg.get("timeout", 10),  # 减少超时时间
+                sse_read_timeout=cfg.get("sse_read_timeout", 120),  # 减少超时时间
             )
         return StdioServerParameters(
             command=cfg.get("command", ""),
@@ -138,10 +153,37 @@ class LazyMCPClient:
             params = self._create_server_parameters(self._servers[server_key])
             self._current_prefix = server_key
             try:
-                session = await self._group.connect_to_server(params)
+                logger.info(f"Connecting to server '{server_key}'...")
+                session = await asyncio.wait_for(
+                    self._group.connect_to_server(params),
+                    timeout=30.0  # 30秒连接超时
+                )
                 self._connected[server_key] = session
                 self._last_used_ts[server_key] = self._now()
-                logger.debug(f"Connected to server '{server_key}'")
+                logger.info(f"Successfully connected to server '{server_key}'")
+            except asyncio.TimeoutError:
+                logger.error(f"Connection timeout for server '{server_key}' (30s)")
+                raise ConnectionError(f"Connection timeout for server '{server_key}'")
+            except (OSError, ConnectionError) as e:
+                # 网络相关错误
+                logger.error(f"Network error connecting to server '{server_key}': {e}")
+                raise ConnectionError(f"Network error for server '{server_key}': {e}")
+            except Exception as e:
+                # 捕获所有其他异常，包括 SSE 相关错误
+                error_msg = str(e)
+                if any(keyword in error_msg.lower() for keyword in 
+                       ['read', 'sse', 'stream', 'http', 'connection']):
+                    logger.error(
+                        f"SSE/HTTP error connecting to server '{server_key}': {e}"
+                    )
+                    raise ConnectionError(
+                        f"SSE/HTTP error for server '{server_key}': {e}"
+                    )
+                else:
+                    logger.error(
+                        f"Unexpected error connecting to server '{server_key}': {e}"
+                    )
+                    raise
             finally:
                 self._current_prefix = None
 
@@ -152,11 +194,16 @@ class LazyMCPClient:
         self._last_used_ts.pop(server_key, None)
         if session:
             try:
-                await self._group.disconnect_from_server(session)
-            except Exception as e:
-                logger.warning(
-                    f"Disconnect '{server_key}' failed: {e}"
+                logger.debug(f"Disconnecting from server '{server_key}'...")
+                await asyncio.wait_for(
+                    self._group.disconnect_from_server(session),
+                    timeout=10.0  # 10秒断开超时
                 )
+                logger.debug(f"Successfully disconnected from server '{server_key}'")
+            except asyncio.TimeoutError:
+                logger.warning(f"Disconnect timeout for server '{server_key}' (10s)")
+            except Exception as e:
+                logger.warning(f"Disconnect '{server_key}' failed: {e}")
 
     async def _reap_idle(self):
         if not self._connected:
@@ -179,7 +226,13 @@ class LazyMCPClient:
         若 discover_all=True，会按需连接所有服务器以枚举工具。
         为避免常驻，可保持默认 False。
         """
-        return self._run_async(self._list_tools_async(discover_all)) or []
+        result = self._run_async(self._list_tools_async(discover_all))
+        if isinstance(result, dict) and "error" in result:
+            logger.error(f"List tools failed: {result}")
+            return []
+        if isinstance(result, list):
+            return result
+        return []
 
     async def _list_tools_async(self, discover_all: bool) -> list:
         await self._ensure_group()
@@ -190,9 +243,13 @@ class LazyMCPClient:
                 if server_key not in self._connected:
                     try:
                         await self._connect_if_needed(server_key)
-                    except Exception as e:
+                    except (ConnectionError, asyncio.TimeoutError) as e:
                         logger.warning(
                             f"Connect '{server_key}' failed during discovery: {e}"
+                        )
+                    except Exception as e:
+                        logger.error(
+                            f"Unexpected error connecting '{server_key}': {e}"
                         )
 
         tools = []
@@ -233,45 +290,87 @@ class LazyMCPClient:
         server_key, bare_tool = self._parse_server_and_tool(tool_name)
 
         async def try_call_on(server_key: str, bare_tool: str):
-            await self._connect_if_needed(server_key)
-            self._last_used_ts[server_key] = self._now()
-            qualified = self._qualified(server_key, bare_tool)
-            if qualified not in group.tools:
-                return None, {"error": f"Tool '{qualified}' not found"}
             try:
-                res = await group.call_tool(qualified, arguments)
+                await self._connect_if_needed(server_key)
+                self._last_used_ts[server_key] = self._now()
+                qualified = self._qualified(server_key, bare_tool)
+                if qualified not in group.tools:
+                    return None, {"error": f"Tool '{qualified}' not found"}
+                
+                logger.debug(f"Calling tool '{qualified}' with args: {arguments}")
+                res = await asyncio.wait_for(
+                    group.call_tool(qualified, arguments),
+                    timeout=120.0  # 2分钟工具调用超时
+                )
+                logger.debug(f"Tool '{qualified}' completed successfully")
                 return res, None
+            except asyncio.TimeoutError as e:
+                logger.error(f"Tool call timeout for '{server_key}:{bare_tool}' (120s)")
+                return None, {"error": "Tool call timeout", "details": str(e)}
+            except ConnectionError as e:
+                logger.error(f"Connection error for '{server_key}': {e}")
+                return None, {"error": "Connection error", "details": str(e)}
+            except (OSError, IOError) as e:
+                # 网络I/O错误
+                logger.error(f"I/O error for '{server_key}:{bare_tool}': {e}")
+                return None, {"error": "I/O error", "details": str(e)}
+            except McpError as e:
+                logger.error(f"MCP error for '{server_key}:{bare_tool}': {e}")
+                return None, {"error": "MCP protocol error", "details": str(e)}
             except Exception as e:
-                return None, e
+                # 检查是否是网络相关异常
+                error_msg = str(e)
+                if any(keyword in error_msg.lower() for keyword in 
+                       ['read', 'sse', 'stream', 'http', 'connection', 'network']):
+                    logger.error(
+                        f"Network error calling '{server_key}:{bare_tool}': {e}"
+                    )
+                    return None, {"error": "Network error", "details": str(e)}
+                else:
+                    logger.error(
+                        f"Unexpected error calling '{server_key}:{bare_tool}': {e}"
+                    )
+                    return None, {"error": "Unexpected error", "details": str(e)}
 
         if server_key:
             res, err = await try_call_on(server_key, bare_tool)
             if err:
+                logger.warning(
+                    f"First attempt failed, reconnecting to '{server_key}'..."
+                )
                 await self._disconnect(server_key)
                 try:
                     res2, err2 = await try_call_on(server_key, bare_tool)
                     if err2:
-                        raise RuntimeError(str(err2))
+                        logger.error(f"Retry failed for '{server_key}': {err2}")
+                        return err2
                     return self._to_obj(res2)
                 except Exception as e:
                     logger.exception(
                         f"Call failed after reconnect on '{server_key}': {e}"
                     )
                     return {
-                        "error": str(e),
+                        "error": "Failed after reconnect",
                         "tool_name": tool_name,
                         "arguments": arguments,
+                        "details": str(e)
                     }
             return self._to_obj(res) if res else {"error": "Unknown error"}
 
+        # 尝试所有服务器
+        last_error = None
         for sk in self._servers.keys():
             try:
                 res, err = await try_call_on(sk, bare_tool)
                 if err is None and res is not None:
                     return self._to_obj(res)
-                if isinstance(err, (McpError, OSError, ConnectionError)):
-                    await self._disconnect(sk)
+                if err:
+                    last_error = err
+                    err_str = str(err).lower()
+                    if "timeout" in err_str or "connection" in err_str:
+                        await self._disconnect(sk)
             except Exception as e:
+                last_error = {"error": str(e)}
                 await self._disconnect(sk)
                 logger.debug(f"Skip server '{sk}' due to error: {e}")
 
@@ -279,10 +378,12 @@ class LazyMCPClient:
             "error": f"Tool '{bare_tool}' not found on any server",
             "tool_name": tool_name,
             "arguments": arguments,
+            "last_error": last_error
         }
 
     def close(self):
         async def _shutdown():
+            logger.info("Shutting down MCP client...")
             for sk in list(self._connected.keys()):
                 with contextlib.suppress(Exception):
                     await self._disconnect(sk)
@@ -290,18 +391,21 @@ class LazyMCPClient:
                 with contextlib.suppress(Exception):
                     await self._group.__aexit__(None, None, None)
                 self._group = None
+            logger.info("MCP client shutdown complete")
 
         with self._suppress_stdout_stderr():
             try:
                 fut = asyncio.run_coroutine_threadsafe(_shutdown(), self._loop)
-                fut.result(timeout=5)
+                fut.result(timeout=10)  # 增加超时时间到10秒
+            except asyncio.TimeoutError:
+                logger.error("Shutdown timeout (10s)")
             except Exception as e:
                 logger.debug(f"Shutdown error: {e}")
             finally:
                 if self._loop.is_running():
                     self._loop.call_soon_threadsafe(self._loop.stop)
                 if self._loop_thread and self._loop_thread.is_alive():
-                    self._loop_thread.join(timeout=2)
+                    self._loop_thread.join(timeout=5)  # 增加超时时间
 
     def __del__(self):
         with contextlib.suppress(Exception):
