@@ -2,6 +2,7 @@
 name: code_analysis
 description: 分析Python文件结构并让AI审查
 modes: [main, task]
+local: false
 arguments:
   - name: file_path
     type: str
