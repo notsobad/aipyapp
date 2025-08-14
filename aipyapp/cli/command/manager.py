@@ -10,7 +10,7 @@ from loguru import logger
 
 from .common import CommandContext, CommandMode, CommandManagerConfig, CommandError, CommandResult
 from .base import Command
-from .completer import CompleterBase, CompleterContext
+from .completer import CompleterBase, CompleterContext, FuzzyCompleter
 from .custom import CustomCommandManager
 from .builtin import BUILTIN_COMMANDS
 from .keybindings import create_key_bindings
@@ -165,6 +165,7 @@ class CommandCompleter(CompleterBase):
     def __init__(self, registry: CommandRegistry, context_provider: CommandContext):
         self.registry = registry
         self.context_provider = context_provider  # 用于获取当前执行上下文
+        self.log = logger.bind(src="CommandCompleter")
     
     def get_completions(self, context: CompleterContext) -> List[Completion]:
         """获取补齐建议"""
@@ -216,12 +217,23 @@ class CommandCompleter(CompleterBase):
         
         # 获取当前模式的命令
         commands = self.registry.get_commands_by_mode(current_mode)
-        
+        for name, command in commands.items():
+            style = "fg:yellow" if name.startswith('usercmd/') else ""
+            completions.append(Completion(
+                name,
+                start_position=-len(partial) if partial else 0,
+                display=name,
+                display_meta=command.description if command else "",
+                style=style
+            ))
+        return completions
+
         # 分析当前输入的路径层级
         path_parts = partial.split('/') if partial else ['']
         current_level = '/'.join(path_parts[:-1]) if len(path_parts) > 1 else ''
         current_partial = path_parts[-1]
-        
+        self.log.info(f"current_level: {current_level}, current_partial: {current_partial}, path_parts: {path_parts}")
+
         # 收集当前层级的项目（命令和目录）
         items_at_level = set()
         
@@ -250,6 +262,8 @@ class CommandCompleter(CompleterBase):
                 if relative_name.startswith(current_partial):
                     items_at_level.add(('cmd', name, relative_name))
         
+        self.log.info(f"items_at_level: {items_at_level}")
+
         # 生成补全项
         for item_type, full_name, display_name in sorted(items_at_level):
             if item_type == 'dir':
@@ -301,7 +315,7 @@ class CommandManager(Completer):
         self.context = context   
         self.registry = CommandRegistry()
         self.executor = CommandExecutor(self.registry)
-        self.completer = CommandCompleter(self.registry, self.context)  # 传递 context 以获取当前模式
+        self.completer = FuzzyCompleter(CommandCompleter(self.registry, self.context))  # 传递 context 以获取当前模式
         self.log = logger.bind(src="CommandManager")
 
         # 自定义命令管理器

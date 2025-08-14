@@ -111,15 +111,16 @@ class CustomCommandManager:
     
     def _create_default_config(self, default_name: str, content: str = "") -> CustomCommandConfig:
         """Create default configuration for pure markdown files"""
-        mode = CommandMode.TASK
+        mode = [CommandMode.TASK, CommandMode.MAIN]
         
         return CustomCommandConfig(
             name=default_name,
             description=f"Custom command: {default_name}",
-            modes=[mode],
+            modes=mode,
             arguments=[],
             subcommands={},
             template_vars={},
+            local=False
         )
     
     def _parse_command_config(self, frontmatter: Dict[str, Any], default_name: str) -> CustomCommandConfig:
