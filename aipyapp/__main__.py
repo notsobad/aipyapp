@@ -3,6 +3,7 @@
 
 import os
 import sys
+import time
 
 if "pythonw" in sys.executable.lower():
     sys.stdout = open(os.devnull, "w", encoding='utf-8')
@@ -72,6 +73,11 @@ def handle_update(args):
         print(f"更新到最新稳定版本: {package_name}")
         cmd = [sys.executable, "-m", "pip", "install", "--upgrade", package_name]
     
+    # China mirror
+    if time.timezone / 3600 == -8:
+        os.environ['PIP_INDEX_URL'] = 'https://mirrors.aliyun.com/pypi/simple'
+        os.environ['PIP_EXTRA_INDEX_URL'] = 'https://pypi.tuna.tsinghua.edu.cn/simple'
+
     try:
         result = subprocess.run(cmd, check=True, capture_output=True, text=True)
         print("更新完成!")
