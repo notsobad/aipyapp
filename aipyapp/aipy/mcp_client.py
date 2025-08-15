@@ -46,9 +46,7 @@ class LazyMCPClient:
         # 在后台线程维护持久事件循环，避免每次调用后关闭导致子进程退出
         self._loop = asyncio.new_event_loop()
         self._loop_thread = threading.Thread(
-            target=self._loop_runner,
-            name="LazyMCPClientLoop",
-            daemon=True,
+            target=self._loop_runner, name="LazyMCPClientLoop", daemon=True
         )
         self._loop_thread.start()
 
@@ -77,6 +75,7 @@ class LazyMCPClient:
         try:
             # 使用 StringIO 而不是 devnull，避免文件关闭问题
             import io
+
             dummy_out = io.StringIO()
             dummy_err = io.StringIO()
             sys.stdout = dummy_out
@@ -122,13 +121,12 @@ class LazyMCPClient:
                 sse_read_timeout=cfg.get("sse_read_timeout", 120),  # 减少超时时间
             )
         return StdioServerParameters(
-            command=cfg.get("command", ""),
-            args=cfg.get("args", []),
-            env=cfg.get("env"),
+            command=cfg.get("command", ""), args=cfg.get("args", []), env=cfg.get("env")
         )
 
     async def _ensure_group(self):
         if self._group is None:
+
             def name_hook(name: str, server_info) -> str:
                 prefix = self._current_prefix or server_info.name
                 return f"{prefix}:{name}"
@@ -156,7 +154,7 @@ class LazyMCPClient:
                 logger.info(f"Connecting to server '{server_key}'...")
                 session = await asyncio.wait_for(
                     self._group.connect_to_server(params),
-                    timeout=30.0  # 30秒连接超时
+                    timeout=30.0,  # 30秒连接超时
                 )
                 self._connected[server_key] = session
                 self._last_used_ts[server_key] = self._now()
@@ -171,8 +169,10 @@ class LazyMCPClient:
             except Exception as e:
                 # 捕获所有其他异常，包括 SSE 相关错误
                 error_msg = str(e)
-                if any(keyword in error_msg.lower() for keyword in 
-                       ['read', 'sse', 'stream', 'http', 'connection']):
+                if any(
+                    keyword in error_msg.lower()
+                    for keyword in ['read', 'sse', 'stream', 'http', 'connection']
+                ):
                     logger.error(
                         f"SSE/HTTP error connecting to server '{server_key}': {e}"
                     )
@@ -197,7 +197,7 @@ class LazyMCPClient:
                 logger.debug(f"Disconnecting from server '{server_key}'...")
                 await asyncio.wait_for(
                     self._group.disconnect_from_server(session),
-                    timeout=10.0  # 10秒断开超时
+                    timeout=10.0,  # 10秒断开超时
                 )
                 logger.debug(f"Successfully disconnected from server '{server_key}'")
             except asyncio.TimeoutError:
@@ -248,18 +248,18 @@ class LazyMCPClient:
                             f"Connect '{server_key}' failed during discovery: {e}"
                         )
                     except Exception as e:
-                        logger.error(
-                            f"Unexpected error connecting '{server_key}': {e}"
-                        )
+                        logger.error(f"Unexpected error connecting '{server_key}': {e}")
 
         tools = []
         if self._group is not None:
             for name, tool in self._group.tools.items():
-                tools.append({
-                    "name": name,
-                    "description": tool.description,
-                    "inputSchema": tool.inputSchema,
-                })
+                tools.append(
+                    {
+                        "name": name,
+                        "description": tool.description,
+                        "inputSchema": tool.inputSchema,
+                    }
+                )
         return tools
 
     def _to_obj(self, res: Any):
@@ -273,21 +273,31 @@ class LazyMCPClient:
             except Exception:
                 return res
 
-    def call_tool(self, tool_name: str, arguments: dict):
+    def call_tool(
+        self, tool_name: str, arguments: dict, server_name: Optional[str] = None
+    ):
         """
-        支持两种调用：
-        - "serverKey:toolName"：仅连接该server，最省资源（推荐）
-        - "toolName"：将按需尝试连接各server，直到发现该工具（可能连接多个server）
+        支持三种调用方式：
+        1. call_tool("search_web", {}, "Search")  # 推荐：明确指定服务器
+        2. call_tool("Search:search_web", {})     # 兼容：使用 serverKey:toolName 格式
+        3. call_tool("search_web", {})            # 通用：尝试所有服务器直到找到工具
         """
-        return self._run_async(self._call_tool_async(tool_name, arguments))
+        return self._run_async(self._call_tool_async(tool_name, arguments, server_name))
 
-    async def _call_tool_async(self, tool_name: str, arguments: dict):
+    async def _call_tool_async(
+        self, tool_name: str, arguments: dict, server_name: Optional[str] = None
+    ):
         await self._ensure_group()
         await self._reap_idle()
         group = self._group
         assert group is not None
 
-        server_key, bare_tool = self._parse_server_and_tool(tool_name)
+        # 优先使用 server_name 参数，其次解析 tool_name 中的服务器名
+        if server_name:
+            server_key = server_name
+            bare_tool = tool_name
+        else:
+            server_key, bare_tool = self._parse_server_and_tool(tool_name)
 
         async def try_call_on(server_key: str, bare_tool: str):
             try:
@@ -296,11 +306,11 @@ class LazyMCPClient:
                 qualified = self._qualified(server_key, bare_tool)
                 if qualified not in group.tools:
                     return None, {"error": f"Tool '{qualified}' not found"}
-                
+
                 logger.debug(f"Calling tool '{qualified}' with args: {arguments}")
                 res = await asyncio.wait_for(
                     group.call_tool(qualified, arguments),
-                    timeout=120.0  # 2分钟工具调用超时
+                    timeout=120.0,  # 2分钟工具调用超时
                 )
                 logger.debug(f"Tool '{qualified}' completed successfully")
                 return res, None
@@ -320,8 +330,17 @@ class LazyMCPClient:
             except Exception as e:
                 # 检查是否是网络相关异常
                 error_msg = str(e)
-                if any(keyword in error_msg.lower() for keyword in 
-                       ['read', 'sse', 'stream', 'http', 'connection', 'network']):
+                if any(
+                    keyword in error_msg.lower()
+                    for keyword in [
+                        'read',
+                        'sse',
+                        'stream',
+                        'http',
+                        'connection',
+                        'network',
+                    ]
+                ):
                     logger.error(
                         f"Network error calling '{server_key}:{bare_tool}': {e}"
                     )
@@ -353,7 +372,7 @@ class LazyMCPClient:
                         "error": "Failed after reconnect",
                         "tool_name": tool_name,
                         "arguments": arguments,
-                        "details": str(e)
+                        "details": str(e),
                     }
             return self._to_obj(res) if res else {"error": "Unknown error"}
 
@@ -378,7 +397,7 @@ class LazyMCPClient:
             "error": f"Tool '{bare_tool}' not found on any server",
             "tool_name": tool_name,
             "arguments": arguments,
-            "last_error": last_error
+            "last_error": last_error,
         }
 
     def close(self):
