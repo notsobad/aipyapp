@@ -371,7 +371,7 @@ class CommandManager(Completer):
             self.log.info(f"Unregistered {count} user commands")
         
         commands = []
-        custom_commands = self.custom_command_manager.scan_commands()
+        custom_commands = self.custom_command_manager.scan_commands(reload=reload)
         for custom_command in custom_commands:
             # 验证命令名不冲突
             all_names = list(self.registry.commands.keys())

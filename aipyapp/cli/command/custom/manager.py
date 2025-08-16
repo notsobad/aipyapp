@@ -40,11 +40,19 @@ class CustomCommandManager:
                 self.log.error(f"Failed to load command from {md_file}: {e}")
         return commands
 
-    def scan_commands(self) -> List['MarkdownCommand']:
-        """Scan the command directories for markdown commands"""
-        commands = self._scan_command_dir(self.builtin_dir, builtin=True)
-        if commands:
-            self.log.info(f"Loaded {len(commands)} builtin markdown commands")
+    def scan_commands(self, reload: bool = False) -> List['MarkdownCommand']:
+        """Scan the command directories for markdown commands
+        Args:
+            reload: Whether to reload the commands. If False, the builtin commands will be reloaded.
+        Returns:
+            List[MarkdownCommand]: A list of loaded commands
+        """
+        if not reload:
+            commands = self._scan_command_dir(self.builtin_dir, builtin=True)
+            if commands:
+                self.log.info(f"Loaded {len(commands)} builtin markdown commands")
+        else:
+            commands = []
         
         for command_dir in self.command_dirs:
             if not command_dir.exists():
