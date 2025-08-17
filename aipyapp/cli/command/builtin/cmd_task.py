@@ -4,7 +4,7 @@ import os
 from rich.panel import Panel
 
 from aipyapp import T, EventBus
-from aipyapp.aipy.event_serializer import EventSerializer
+from aipyapp.aipy.events import EventFactory, TypedEventBus
 from aipyapp.aipy.task_state import TaskState
 from ..base import ParserCommand
 from ..common import TaskModeResult
@@ -109,8 +109,8 @@ class TaskCommand(ParserCommand):
         # 显示重放信息
         instruction = task_state.instruction
         task_id = task_state.task_id
-        events = task_state.get_component_state('events') or []
-        events_count = len(events)
+        records = task_state.get_component_state('events') or []
+        events_count = len(records)
         
         panel = Panel(
             f"🎬 Task Replay\n\n"
@@ -123,37 +123,62 @@ class TaskCommand(ParserCommand):
         )
         ctx.console.print(panel)
         
-        if events:
-            self._replay_events(ctx, events, args.speed)
+        if records:
+            self._replay_events(ctx, records, args.speed)
 
-    def _replay_events(self, ctx, events, speed):
+    def _replay_events(self, ctx, records, speed):
         """简化的事件重放 - 直接按时间间隔触发事件"""
         display = ctx.tm.display_manager.create_display_plugin()
-        event_bus = EventBus()
+        event_bus = TypedEventBus()
         event_bus.add_listener(display)
 
-        # 反序列化事件中的对象
-        replay_events = EventSerializer.deserialize_events(events)
-
-        for i, event in enumerate(replay_events):
+        for i, event in enumerate(records.events):
             # 检查是否是 round_start 事件，需要用户确认
-            if event['type'] == 'round_start':
+            if event.name == 'round_start':
                 if not self._confirm_round_start(ctx,event):
                     print("\n🛑 重放已取消")
                     return
             
             # 计算等待时间
             if i > 0:
-                prev_event = replay_events[i - 1]
-                wait_time = (event['relative_time'] - prev_event['relative_time']) / speed
+                prev_event = records.events[i - 1]
+                wait_time = (event.timestamp - prev_event.timestamp) / speed
                 if wait_time > 0:
                     time.sleep(wait_time)
             
-            event_name = event['type']
-            event_data = event['data'].copy() if isinstance(event['data'], dict) else {}
-            
-            event_bus.emit(event_name, **event_data)
+            event_bus.emit_event(event)
 
+    def _deserialize_events_for_replay(self, events):
+        """将存储的事件数据反序列化为可重放的格式"""
+        replay_events = []
+        for event in events:
+            try:
+                event_name = event['type']
+                event_data = event.get('data', {})
+                
+                # 为事件数据添加 name 字段（如果不存在）
+                if 'name' not in event_data:
+                    event_data = event_data.copy()
+                    event_data['name'] = event_name
+                
+                # 直接使用 Pydantic 反序列化！
+                typed_event = EventFactory.deserialize_event(event_data)
+                
+                # 保持原有格式用于重放逻辑
+                replay_event = {
+                    'type': event_name,
+                    'data': event_data,
+                    'relative_time': event.get('relative_time', 0),
+                    'timestamp': event.get('timestamp', 0)
+                }
+                replay_events.append(replay_event)
+                
+            except Exception as e:
+                # 如果反序列化失败，保持原格式
+                replay_events.append(event)
+        
+        return replay_events
+    
     def _confirm_round_start(self, ctx, event):
         """在 round_start 事件时提示用户确认是否继续"""
         console = ctx.console

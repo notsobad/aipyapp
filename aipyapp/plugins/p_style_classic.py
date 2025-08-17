@@ -65,10 +65,9 @@ class DisplayClassic(RichDisplayPlugin):
         tree.add(title)
         self.console.print(tree)
 
-    def on_query_start(self, event):
+    def on_request_started(self, event):
         """查询开始事件处理"""
-        data = event.data
-        llm = data.get('llm', '')
+        llm = event.typed_event.llm
         title = self._get_title(T("Sending message to {}"), llm)
         self.console.print(title)
 
@@ -112,11 +111,10 @@ class DisplayClassic(RichDisplayPlugin):
         #return re.sub(pattern, r"```yaml\n\1\n```\n", md_text, flags=re.DOTALL)
         return re.sub(pattern, "", md_text, flags=re.DOTALL)
           
-    def on_response_complete(self, event):
+    def on_response_completed(self, event):
         """LLM 响应完成事件处理"""
-        data = event.data
-        llm = data.get('llm', '')
-        msg = data.get('msg')
+        llm = event.typed_event.llm
+        msg = event.typed_event.msg
         if not msg:
             title = self._get_title(T("LLM response is empty"), style="error")
             self.console.print(title)
@@ -155,60 +153,51 @@ class DisplayClassic(RichDisplayPlugin):
 
     def on_parse_reply(self, event):
         """消息解析结果事件处理"""
-        ret = event.data.get('result')
-        if not ret:
+        response = event.response
+        if not response:
             return
             
         title = self._get_title(T("Message parse result"))
         tree = Tree(title)
         
-        if 'blocks' in ret and ret['blocks']:
-            block_count = len(ret['blocks'])
-            tree.add(f"{block_count} {T('code blocks')}")
+        if response.code_blocks:
+            block_names = [f"{block.name}/{block.lang}" for block in response.code_blocks]    
+            block_str = ", ".join(block_names[:3])
+            if len(block_names) > 3:
+                block_str += f" (+{len(block_names)-3} more)"
+            tree.add(f"{T('Blocks')}: {block_str}")
         
-        if 'commands' in ret and ret['commands']:
-            commands = ret['commands']
-            # 分别统计和显示不同类型的指令
-            exec_commands = [cmd for cmd in commands if cmd['type'] == 'exec']
-            edit_commands = [cmd for cmd in commands if cmd['type'] == 'edit']
+        if response.tool_calls:
+            sub_tree = tree.add(T('Tool Calls'))
+            for tool_call in response.tool_calls:
+                if tool_call.name == 'Exec':    
+                    sub_tree.add(f"{T('Exec')}: {tool_call.arguments.name}")
+                elif tool_call.name == 'Edit':
+                    sub_tree.add(f"{T('Edit')}: {tool_call.arguments.name}")
+                else:
+                    sub_tree.add(f"{tool_call.name.value}: {tool_call.arguments}")
             
-            if exec_commands:
-                exec_names = [cmd.get('block_name', 'Unknown') for cmd in exec_commands]
-                exec_str = ", ".join(exec_names[:3])
-                if len(exec_names) > 3:
-                    exec_str += f" (+{len(exec_names)-3} more)"
-                tree.add(f"{T('Execution')}: {exec_str}")
-                
-            if edit_commands:
-                edit_names = [cmd['instruction']['name'] for cmd in edit_commands if 'instruction' in cmd]
-                edit_str = ", ".join(edit_names[:3])
-                if len(edit_names) > 3:
-                    edit_str += f" (+{len(edit_names)-3} more)"
-                tree.add(f"{T('Edit')}: {edit_str}")
-        
-        if 'call_tool' in ret:
-            tree.add(T("MCP tool call"))
-        
-        if 'errors' in ret and ret['errors']:
-            error_count = len(ret['errors'])
-            tree.add(f"{error_count} {T('errors')}")
+        errors = event.errors
+        if errors:
+            et = tree.add(T('Errors'))
+            for error in errors:
+                et.add(error.message)
         
         self.console.print(tree)
 
-    def on_exec(self, event):
+    def on_exec_started(self, event):
         """代码执行开始事件处理"""
-        block = event.data.get('block')
+        block = event.typed_event.block
         title = self._get_title(T("Start executing code block {}"), block.name)
         self.console.print(title)
         
-    def on_edit_start(self, event):
+    def on_edit_started(self, event):
         """代码编辑开始事件处理"""
-        instruction = event.data.get('instruction', {})
-        block_name = instruction.get('name', 'Unknown')
-        old_str = instruction.get('old', '')
-        new_str = instruction.get('new', '')
+        block = event.typed_event.block
+        old_str = block.old
+        new_str = block.new
         
-        title = self._get_title(T("Start editing code block {}"), block_name, style="warning")
+        title = self._get_title(T("Start editing code block {}"), block.name, style="warning")
         tree = Tree(title)
         
         if old_str:
@@ -220,49 +209,46 @@ class DisplayClassic(RichDisplayPlugin):
             
         self.console.print(tree)
         
-    def on_edit_result(self, event):
+    def on_edit_completed(self, event):
         """代码编辑结果事件处理"""
-        data = event.data
-        result = data.get('result', {})
-        
-        success = result.get('success', False)
-        message = result.get('message', '')
-        block_name = result.get('block_name', 'Unknown')
-        new_version = result.get('new_version')
+        typed_event = event.typed_event
+        success = typed_event.success
+        new_version = typed_event.new_version
+        block_name = typed_event.block_name
         
         if success:
             style = "success"
             title = self._get_title(T("Edit completed {}"), block_name, style=style)
             tree = Tree(title)
             
-            if message:
-                tree.add(message)
             if new_version:
                 tree.add(f"{T('New version')}: v{new_version}")
         else:
             style = "error"
             title = self._get_title(T("Edit failed {}"), block_name, style=style)
             tree = Tree(title)
-            tree.add(message or T("Edit operation failed"))
+            tree.add(T("Edit operation failed"))
             
         self.console.print(tree)
             
     @restore_output
-    def on_call_function(self, event):
+    def on_function_call_started(self, event):
         """函数调用事件处理"""
-        data = event.data
-        funcname = data.get('funcname')
+        funcname = event.typed_event.funcname
+        kwargs = event.typed_event.kwargs
         title = self._get_title(T("Start calling function {}"), funcname)
-        self.console.print(title)
+        tree = Tree(title)
+        json_kwargs = json.dumps(kwargs, ensure_ascii=False, default=str)
+        tree.add(json_kwargs[:64] + '...' if len(json_kwargs) > 64 else json_kwargs)
+        self.console.print(tree)
 
     @restore_output
-    def on_call_function_result(self, event):
+    def on_function_call_completed(self, event):
         """函数调用结果事件处理"""
-        data = event.data
-        funcname = data.get('funcname')
-        success = data.get('success', False)
-        result = data.get('result')
-        error = data.get('error')
+        funcname = event.typed_event.funcname
+        success = event.typed_event.success
+        result = event.typed_event.result
+        error = event.typed_event.error
         
         if success:
             style = "success"
@@ -285,11 +271,11 @@ class DisplayClassic(RichDisplayPlugin):
             tree.add(error if error else T("Unknown error"))
             self.console.print(tree)
 
-    def on_exec_result(self, event):
+    def on_exec_completed(self, event):
         """代码执行结果事件处理"""
-        data = event.data
-        result = data.get('result')
-        block = data.get('block')
+        typed_event = event.typed_event
+        result = typed_event.result
+        block = typed_event.block
         
         try:
             success = result['__state__']['success']
@@ -298,8 +284,7 @@ class DisplayClassic(RichDisplayPlugin):
             style = "warning"
         
         # 显示说明信息
-        block_name = getattr(block, 'name', 'Unknown') if block else 'Unknown'
-        title = self._get_title(T("Execution result {}"), block_name, style=style)
+        title = self._get_title(T("Execution result {}"), block.name, style=style)
         tree = Tree(title)
         
         # JSON格式化和高亮显示结果
@@ -307,20 +292,24 @@ class DisplayClassic(RichDisplayPlugin):
         tree.add(Syntax(json_result, "json", word_wrap=True))
         self.console.print(tree)
 
-    def on_mcp_call(self, event):
-        """工具调用事件处理"""
-        title = self._get_title(T("Start calling MCP tool"))
-        self.console.print(title)
-                
-    def on_mcp_result(self, event):
+    def on_tool_call_started(self, event):
+        """工具调用开始事件处理"""
+        tool_call = event.typed_event.tool_call
+        title = self._get_title(T("Start calling tool {}"), tool_call.name.value)
+        tree = Tree(title)
+        args = tool_call.arguments.model_dump_json()
+        tree.add(args[:64] + '...' if len(args) > 64 else args)
+        self.console.print(tree)
+
+    def on_tool_call_completed(self, event):
         """MCP 工具调用结果事件处理"""
-        data = event.data
-        result = data.get('result')
-        block = data.get('block')
-        title = self._get_title(T("MCP tool call result {}"), block.name)
-        self.console.print(title)
-        json_result = json.dumps(result, ensure_ascii=False, indent=2, default=str)
-        self.console.print_json(json_result, style="dim")
+        typed_event = event.typed_event
+        result = typed_event.result
+        title = self._get_title(T("Tool call result {}"), result.tool_name.value)
+        tree = Tree(title)
+        json_result = result.result.model_dump_json(indent=2, exclude_none=True)
+        tree.add(Syntax(json_result, "json", word_wrap=True))
+        self.console.print(tree)
 
     def on_round_end(self, event):
         """任务总结事件处理"""

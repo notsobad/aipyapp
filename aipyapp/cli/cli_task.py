@@ -107,8 +107,8 @@ class InteractiveConsole():
         return f"LLM: {status['llm']} | Role: {status['role']} | Display: {status['display']} | Tasks: {status['tasks']}{mcp_text}"
     
     def get_task_status(self):
-        if self.task:
-            status = self.task.get_status()
+        if self.command_context.task:
+            status = self.command_context.task.get_status()
             return f"LLM: {status['llm']} | Blocks: {status['blocks']} | Steps: {status['steps']}"
         return ""
     
@@ -189,7 +189,6 @@ class InteractiveConsole():
             task.done()
         except Exception as e:
             self.console.print_exception()
-        self.task = None
         self.console.print(f"[{T('Exit AI mode')}]", style="dim")
 
     def run(self):

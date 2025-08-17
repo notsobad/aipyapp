@@ -71,7 +71,7 @@ class DisplayMinimal(RichDisplayPlugin):
         path = event.data.get('path', '')
         self.console.print(f"[green]{T('Task completed')}: {path}")
 
-    def on_query_start(self, event):
+    def on_request_started(self, event):
         """查询开始事件处理"""
         data = event.data
         llm = data.get('llm', '')
@@ -127,11 +127,10 @@ class DisplayMinimal(RichDisplayPlugin):
                 title = self._get_title(T("Receiving response... ({})"), self.received_lines)
                 self.status.update(title)
                 
-    def on_response_complete(self, event):
+    def on_response_completed(self, event):
         """LLM 响应完成事件处理"""
-        data = event.data
-        llm = data.get('llm', '')
-        msg = data.get('msg')
+        llm = event.typed_event.llm
+        msg = event.typed_event.msg
         if not msg:
             title = self._get_title(T("LLM response is empty"), style="error")
             self.console.print(title)
@@ -170,57 +169,51 @@ class DisplayMinimal(RichDisplayPlugin):
         
     def on_parse_reply(self, event):
         """消息解析结果事件处理"""
-        ret = event.data.get('result')
-        if not ret:
+        response = event.typed_event.response
+        if not response:
             return
             
         title = self._get_title(T("Message parse result"))
         tree = Tree(title)
         
-        if 'blocks' in ret and ret['blocks']:
-            block_count = len(ret['blocks'])
+        if response.code_blocks:
+            block_count = len(response.code_blocks)
             tree.add(f"{block_count} {T('code blocks')}")
         
-        if 'commands' in ret and ret['commands']:
-            commands = ret['commands']
-            exec_count = sum(1 for cmd in commands if cmd['type'] == 'exec')
-            edit_count = sum(1 for cmd in commands if cmd['type'] == 'edit')
+        if response.tool_calls:
+            tool_calls = response.tool_calls
+            exec_count = sum(1 for tool_call in tool_calls if tool_call.name.value == 'Exec')
+            edit_count = sum(1 for tool_call in tool_calls if tool_call.name.value == 'Edit')
             
             if exec_count > 0:
                 tree.add(f"{T('Execution')}: {exec_count}")
             if edit_count > 0:
                 tree.add(f"{T('Edit')}: {edit_count}")
         
-        if 'call_tool' in ret:
-            tree.add(T("MCP tool call"))
-        
-        if 'errors' in ret and ret['errors']:
-            error_count = len(ret['errors'])
+        if response.errors:
+            error_count = len(response.errors)
             tree.add(f"{error_count} {T('errors')}")
         
         self.console.print(tree)
 
-    def on_exec(self, event):
+    def on_exec_started(self, event):
         """代码执行开始事件处理"""
-        block = event.data.get('block')
+        block = event.typed_event.block
         title = self._get_title(T("Start executing code block {}"), block.name)
         self.console.print(title)
         
-    def on_edit_start(self, event):
+    def on_edit_started(self, event):
         """代码编辑开始事件处理"""
-        instruction = event.data.get('instruction', {})
-        block_name = instruction.get('name', 'Unknown')
-        title = self._get_title(T("Start editing {}"), block_name, style="warning")
+        block = event.typed_event.block
+        title = self._get_title(T("Start editing {}"), block.name, style="warning")
         self.console.print(title)
         
-    def on_edit_result(self, event):
+    def on_edit_completed(self, event):
         """代码编辑结果事件处理"""
-        data = event.data
-        result = data.get('result', {})
-        
-        success = result.get('success', False)
-        block_name = result.get('block_name', 'Unknown')
-        new_version = result.get('new_version')
+        block = event.typed_event.block
+        success = block.success
+        block_name = block.name
+        new_version = block.version
         
         if success:
             style = "success"
@@ -233,21 +226,19 @@ class DisplayMinimal(RichDisplayPlugin):
         self.console.print(title)
             
     @restore_output
-    def on_call_function(self, event):
+    def on_function_call_started(self, event):
         """函数调用事件处理"""
-        data = event.data
-        funcname = data.get('funcname')
+        funcname = event.typed_event.funcname
         title = self._get_title(T("Start calling function {}"), funcname)
         self.console.print(title)
     
     @restore_output
-    def on_call_function_result(self, event):
+    def on_function_call_completed(self, event):
         """函数调用结果事件处理"""
-        data = event.data
-        funcname = data.get('funcname')
-        success = data.get('success', False)
-        result = data.get('result')
-        error = data.get('error')
+        funcname = event.typed_event.funcname
+        success = event.typed_event.success
+        result = event.typed_event.result
+        error = event.typed_event.error
         
         if success:
             style = "success"
@@ -266,11 +257,10 @@ class DisplayMinimal(RichDisplayPlugin):
             tree.add(error if error else T("Unknown error"))
             self.console.print(tree)
 
-    def on_exec_result(self, event):
+    def on_exec_completed(self, event):
         """代码执行结果事件处理"""
-        data = event.data
-        result = data.get('result')
-        block = data.get('block')
+        result = event.typed_event.result
+        block = event.typed_event.block
         
         try:
             success = result['__state__']['success']
@@ -288,20 +278,24 @@ class DisplayMinimal(RichDisplayPlugin):
         #tree.add(Syntax(json_result, "json", word_wrap=True))
         self.console.print(tree)
 
-    def on_mcp_call(self, event):
-        """工具调用事件处理"""
-        title = self._get_title(T("Start calling MCP tool"))
-        self.console.print(title)
-                
-    def on_mcp_result(self, event):
+    def on_tool_call_started(self, event):
+        """工具调用开始事件处理"""
+        tool_call = event.typed_event.tool_call
+        title = self._get_title(T("Start calling tool {}"), tool_call.name.value)
+        tree = Tree(title)
+        args = tool_call.arguments.model_dump_json()
+        tree.add(args[:64] + '...' if len(args) > 64 else args)
+        self.console.print(tree)
+
+    def on_tool_call_completed(self, event):
         """MCP 工具调用结果事件处理"""
-        data = event.data
-        result = data.get('result')
-        block = data.get('block')
-        title = self._get_title(T("MCP tool call result {}"), block.name)
-        self.console.print(title)
-        #json_result = json.dumps(result, ensure_ascii=False, indent=2, default=str)
-        #self.console.print_json(json_result, style="dim")
+        typed_event = event.typed_event
+        result = typed_event.result
+        title = self._get_title(T("Tool call result {}"), result.tool_name.value)
+        tree = Tree(title)
+        json_result = result.result.model_dump_json(exclude_none=True, exclude_defaults=True)
+        tree.add(json_result[:64] + '...' if len(json_result) > 64 else json_result)
+        self.console.print(tree)
 
     def on_round_end(self, event):
         """任务总结事件处理"""
