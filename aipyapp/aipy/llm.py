@@ -1,13 +1,53 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-from collections import defaultdict, namedtuple
+from collections import Counter, defaultdict, namedtuple
 
 from loguru import logger
+from pydantic import BaseModel, Field
 
 from .. import T, __respath__
-from ..llm import CLIENTS, ModelRegistry, ModelCapability
+from ..llm import CLIENTS, ModelRegistry, ModelCapability, ChatMessage
 from .multimodal import LLMContext
 
+class ChatHistory(BaseModel):
+    messages: list[ChatMessage] = Field(default_factory=list)
+
+    def __len__(self):
+        return len(self.messages)
+    
+    def clear(self):
+        self.messages.clear()
+
+    def delete_range(self, start_index, end_index):
+        """删除指定范围的消息"""
+        if start_index < 0 or end_index > len(self.messages) or start_index >= end_index:
+            return
+        
+        # 删除指定范围的消息
+        self.messages = self.messages[:start_index] + self.messages[end_index:]
+        
+        
+    def add(self, role, content):
+        self.add_message(ChatMessage(role=role, content=content))
+
+    def add_message(self, message: ChatMessage):
+        self.messages.append(message)
+        
+    def get_usage(self):
+        return iter(row.usage for row in self.messages if row.role == "assistant")
+    
+    def get_summary(self):
+        summary = {'time': 0, 'input_tokens': 0, 'output_tokens': 0, 'total_tokens': 0}
+        total_tokens = Counter()
+        for msg in self.messages:
+            total_tokens += msg.usage
+        summary.update(dict(total_tokens))
+        summary['rounds'] = sum(1 for row in self.messages if row.role == "assistant")
+        return summary
+
+    def get_messages(self):
+        return [{"role": msg.role, "content": msg.content} for msg in self.messages]
+    
 class LineReceiver(list):
     def __init__(self):
         super().__init__()

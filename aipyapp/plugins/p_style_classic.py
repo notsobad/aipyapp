@@ -174,7 +174,7 @@ class DisplayClassic(RichDisplayPlugin):
                 else:
                     sub_tree.add(f"{tool_call.name.value}: {tool_call.arguments}")
             
-        errors = event.typed_event.errors
+        errors = response.errors
         if errors:
             et = tree.add(T('Errors'))
             for error in errors:

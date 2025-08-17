@@ -63,6 +63,7 @@ class Response(BaseModel):
     task_status: TaskCompleted | TaskCannotContinue | None = Field(default=None, description="Task status")
     code_blocks: List[CodeBlock] = Field(default_factory=list)
     tool_calls: List[ToolCall] = Field(default_factory=list)
+    errors: Errors = Field(default_factory=Errors)
     
     @property
     def log(self):
@@ -74,7 +75,8 @@ class Response(BaseModel):
     def __bool__(self):
         return bool(self.code_blocks) or bool(self.tool_calls)
     
-    def parse_markdown(self, markdown: str, parse_mcp: bool = False) -> Errors:
+    @classmethod
+    def from_markdown(cls, markdown: str, parse_mcp: bool = False) -> 'Response':
         """
         内部解析方法
         
@@ -82,22 +84,20 @@ class Response(BaseModel):
             markdown_text: 要解析的 Markdown 文本
             parse_mcp: 是否解析 MCP 调用
         """
-        errors = Errors()
-
+        self = cls()
         _, content = self._parse_front_matter(markdown)
         markdown = content
 
-        # 解析代码块
-        errors.extend(self._parse_code_blocks(markdown))
+        self.errors.extend(self._parse_code_blocks(markdown))
         
         # 解析工具调用
-        errors.extend(self._parse_tool_calls(markdown))
+        self.errors.extend(self._parse_tool_calls(markdown))
         
         # 解析 MCP 调用（如果需要）
         if parse_mcp:
-            errors.extend(self._parse_mcp_calls(markdown))
+            self.errors.extend(self._parse_mcp_calls(markdown))
         
-        return errors
+        return self
     
     def _parse_code_blocks(self, markdown: str) -> Errors:
         """解析代码块"""

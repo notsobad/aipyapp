@@ -166,7 +166,7 @@ class DisplayMinimal(RichDisplayPlugin):
     def on_parse_reply_completed(self, event):
         """消息解析结果事件处理"""
         response = event.typed_event.response
-        errors = event.typed_event.errors
+        errors = response.errors
         if not response:
             return
             

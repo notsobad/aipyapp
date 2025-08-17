@@ -5,11 +5,15 @@ import os
 import json
 import uuid
 import time
+from typing import Any, List
+from pathlib import Path
+from dataclasses import dataclass
 from datetime import datetime
 from collections import namedtuple
 from importlib.resources import read_text
 
 import requests
+from pydantic import BaseModel, Field
 from loguru import logger
 
 from .. import T, __respkg__, Stoppable
@@ -23,8 +27,12 @@ from .multimodal import MMContent, LLMContext
 from .context_manager import ContextManager, ContextConfig
 from .event_recorder import EventRecorder
 from .task_state import TaskState
-from .toolcalls import ToolCallProcessor
+from .toolcalls import ToolCallProcessor, ToolCallResult
 from .response import Response
+from .events import BaseEvent
+from .llm import ChatHistory, Client
+from .role import Role
+from .prompts import Prompts
 
 CONSOLE_WHITE_HTML = read_text(__respkg__, "console_white.html")
 CONSOLE_CODE_HTML = read_text(__respkg__, "console_code.html")
@@ -46,6 +54,45 @@ class TastStateError(TaskError):
         self.message = message
         self.data = kwargs
         super().__init__(self.message)
+
+@dataclass
+class TaskContext:
+    settings: dict
+    prompts: Prompts
+    cwd: Path
+    event_bus: TypedEventBus
+    mcp: Any
+    runner: BlockExecutor
+    client: Client
+    role: Role
+    display: Any
+    tool_call_processor: ToolCallProcessor
+
+class Round(BaseModel):
+    response: Response = Field(default_factory=Response)
+    toolcall_results: List[ToolCallResult] = Field(default_factory=list)
+
+class Step(BaseModel):
+    instruction: str
+    title: str
+    chats: ChatHistory = Field(default_factory=ChatHistory)
+    events: list[BaseEvent.get_subclasses_union] = Field(default_factory=list)
+    response: Response = Field(default_factory=Response)
+    blocks: CodeBlocks = Field(default_factory=CodeBlocks)
+
+    def __init__(self, context: TaskContext, **kwargs):
+        super().__init__(**kwargs)
+        self._context = context
+
+    def model_post_init(self, __context):
+        if __context and 'context' in __context:
+            self._context = __context
+
+    @property
+    def context(self):
+        return self._context
+
+
 
 class Task(Stoppable):
     MAX_ROUNDS = 16
@@ -103,6 +150,25 @@ class Task(Stoppable):
             self.event_recorder = None
 
         self.init_plugins()
+        self._task_context = self.create_task_context(context)
+
+    @property
+    def task_context(self):
+        return self._task_context
+    
+    def create_task_context(self, context):
+        return TaskContext(
+            settings=context.settings,
+            prompts=context.prompts,
+            cwd=self.cwd,
+            event_bus=self._event_bus,
+            mcp=context.mcp,
+            runner=BlockExecutor(),
+            client=context.client_manager.Client(self, self.context_manager),
+            role=context.role_manager.current_role,
+            display=self.display,
+            tool_call_processor=ToolCallProcessor(self)
+        )
     
     def emit(self, event_name: str, **kwargs):
         """重写broadcast方法以记录事件"""
@@ -243,11 +309,10 @@ class Task(Stoppable):
             self.sync_to_cloud()
         
     def process_reply(self, markdown):
-        response = Response()
-        errors = response.parse_markdown(markdown, parse_mcp=self.mcp)
-        self.emit('parse_reply_completed', response=response, errors=errors)
-        if errors:
-            prompt = self.prompts.get_parse_error_prompt(errors)
+        response = Response.from_markdown(markdown, parse_mcp=self.mcp)
+        self.emit('parse_reply_completed', response=response)
+        if response.errors:
+            prompt = self.prompts.get_parse_error_prompt(response.errors)
             return self.chat(prompt)
         
         if response.task_status:
@@ -297,8 +362,6 @@ class Task(Stoppable):
         params['role'] = self.role
         return self.prompts.get_default_prompt(**params)
 
-
-
     def run(self, instruction: str, title: str | None = None):
         """
         执行自动处理循环，直到 LLM 不再返回代码消息
@@ -314,10 +377,11 @@ class Task(Stoppable):
             raise TaskInputError(T("Current model does not support this content"))
 
         user_prompt = content
+        title = title or instruction
         if not self.start_time:
             self.start_time = time.time()
             self.instruction = instruction
-            self.title = title or instruction
+            
             # 开始事件记录
             self.event_recorder.start_recording()
             if isinstance(content, str):
@@ -326,7 +390,6 @@ class Task(Stoppable):
             self.emit('task_start', instruction=instruction, task_id=self.task_id, title=title)
         else:
             system_prompt = None
-            title = title or instruction
             if isinstance(content, str):
                 user_prompt = self.prompts.get_chat_prompt(content, self.instruction)
             # 记录轮次开始事件
@@ -338,7 +401,8 @@ class Task(Stoppable):
         rounds = 1
         max_rounds = self.max_rounds
         self.saved = False
-        
+        step = Step(instruction=instruction, title=title, context=self.task_context)
+
         response = self.chat(user_prompt, system_prompt=system_prompt)
         if not response:
             self.log.error('No response from LLM')

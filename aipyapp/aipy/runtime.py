@@ -72,20 +72,20 @@ class CliPythonRuntime(PythonRuntime):
     
     @restore_output
     def get_env(self, name: str, default: str = None, *, desc: str = None) -> Union[str, None]:
-        message = f"\n⚠️ LLM {T('Request to obtain environment variable {}, purpose', name)}: {desc}"
+        message = f"LLM {T('Request to obtain environment variable {}, purpose', name)}: {desc}"
         self.task.emit('runtime_message', message=message)
         
         try:
             value = self.envs[name][0]
-            success_message = f"✅ {T('Environment variable {} exists, returned for code use', name)}"
+            success_message = f"{T('Environment variable {} exists, returned for code use', name)}"
             self.task.emit('runtime_message', message=success_message)
         except KeyError:
             if self._auto_getenv:
-                auto_message = f"✅ {T('Auto confirm')}"
+                auto_message = T('Auto confirm')
                 self.task.emit('runtime_message', message=auto_message)
                 value = None
             elif self.display:
-                prompt = f"💬 {T('Environment variable {} not found, please enter', name)}: "
+                prompt = f"{T('Environment variable {} not found, please enter', name)}: "
                 value = self.display.input(prompt)
                 value = value.strip()
             else:
