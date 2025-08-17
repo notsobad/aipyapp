@@ -47,14 +47,15 @@ class TastStateError(TaskError):
         self.data = kwargs
         super().__init__(self.message)
 
-class Task(Stoppable, TypedEventBus):
+class Task(Stoppable):
     MAX_ROUNDS = 16
 
     def __init__(self, context):
         super().__init__()
         self.task_id = uuid.uuid4().hex
         self.log = logger.bind(src='task', id=self.task_id)
-        
+        self._event_bus = TypedEventBus()
+
         self.context = context
         self.settings = context.settings
         self.prompts = context.prompts
@@ -106,7 +107,7 @@ class Task(Stoppable, TypedEventBus):
     def emit(self, event_name: str, **kwargs):
         """重写broadcast方法以记录事件"""
         # 调用父类的broadcast方法获取强类型事件
-        event = super().emit(event_name, **kwargs)
+        event = self._event_bus.emit(event_name, **kwargs)
         
         # 记录强类型事件对象到事件记录器
         if self.event_recorder is not None:
@@ -149,14 +150,14 @@ class Task(Stoppable, TypedEventBus):
             if not plugin:
                 self.log.warning(f"Create task plugin {plugin_name} failed")
                 continue
-            self.add_listener(plugin)
+            self._event_bus.add_listener(plugin)
             self.runtime.register_plugin(plugin)
             self.plugins[plugin_name] = plugin
             
         # 注册显示效果插件
         if self.context.display_manager:
             self.display = self.context.display_manager.create_display_plugin()
-            self.add_listener(self.display)
+            self._event_bus.add_listener(self.display)
 
     def to_record(self):
         TaskRecord = namedtuple('TaskRecord', ['task_id', 'start_time', 'done_time', 'instruction'])
