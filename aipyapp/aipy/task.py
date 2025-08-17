@@ -244,7 +244,7 @@ class Task(Stoppable, TypedEventBus):
     def process_reply(self, markdown):
         response = Response()
         errors = response.parse_markdown(markdown, parse_mcp=self.mcp)
-        self.emit('parse_reply', response=response, errors=errors)
+        self.emit('parse_reply_completed', response=response, errors=errors)
         if errors:
             prompt = self.prompts.get_parse_error_prompt(errors)
             return self.chat(prompt)

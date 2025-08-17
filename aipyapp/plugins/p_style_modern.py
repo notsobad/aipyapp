@@ -139,7 +139,7 @@ class DisplayModern(RichDisplayPlugin):
         panel = Panel(content, title=title, border_style=style)
         self.console.print(panel)
         
-    def on_parse_reply(self, event):
+    def on_parse_reply_completed(self, event):
         """消息解析结果事件处理"""
         response = event.typed_event.response
         if not response:

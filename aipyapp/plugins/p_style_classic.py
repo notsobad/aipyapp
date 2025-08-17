@@ -47,8 +47,8 @@ class DisplayClassic(RichDisplayPlugin):
 
     def on_exception(self, event):
         """异常事件处理"""
-        msg = event.data.get('msg', '')
-        exception = event.data.get('exception')
+        msg = event.typed_event.msg
+        exception = event.typed_event.exception
         title = self._get_title(T("Exception occurred"), msg, style="error")
         tree = Tree(title)
         tree.add(exception)
@@ -56,9 +56,8 @@ class DisplayClassic(RichDisplayPlugin):
 
     def on_task_start(self, event):
         """任务开始事件处理"""
-        data = event.data
-        instruction = data.get('instruction')
-        title = data.get('title')
+        instruction = event.typed_event.instruction
+        title = event.typed_event.title
         if not title:
             title = instruction
         tree = Tree(f"🚀 {T('Task processing started')}")
@@ -73,9 +72,8 @@ class DisplayClassic(RichDisplayPlugin):
 
     def on_round_start(self, event):
         """回合开始事件处理"""
-        data = event.data
-        instruction = data.get('instruction')
-        title = data.get('title')
+        instruction = event.typed_event.instruction
+        title = event.typed_event.title
         if not title:
             title = instruction
         prompt = self._get_title(T("Instruction processing started"))
@@ -99,9 +97,8 @@ class DisplayClassic(RichDisplayPlugin):
 
     def on_stream(self, event):
         """LLM 流式响应事件处理"""
-        response = event.data
-        lines = response.get('lines')
-        reason = response.get('reason', False)
+        lines = event.typed_event.lines
+        reason = event.typed_event.reason
         if self.live_display:
             self.live_display.update_display(lines, reason=reason)
 
@@ -151,9 +148,9 @@ class DisplayClassic(RichDisplayPlugin):
             tree.add(T("Suggestion: {}", status.suggestion))
         self.console.print(tree)
 
-    def on_parse_reply(self, event):
+    def on_parse_reply_completed(self, event):
         """消息解析结果事件处理"""
-        response = event.response
+        response = event.typed_event.response
         if not response:
             return
             
@@ -177,7 +174,7 @@ class DisplayClassic(RichDisplayPlugin):
                 else:
                     sub_tree.add(f"{tool_call.name.value}: {tool_call.arguments}")
             
-        errors = event.errors
+        errors = event.typed_event.errors
         if errors:
             et = tree.add(T('Errors'))
             for error in errors:
@@ -313,7 +310,7 @@ class DisplayClassic(RichDisplayPlugin):
 
     def on_round_end(self, event):
         """任务总结事件处理"""
-        summary = event.data['summary']
+        summary = event.typed_event.summary
         usages = summary.get('usages', [])
         if usages:
             table = Table(title=T("Task Summary"), show_lines=True)
@@ -345,9 +342,8 @@ class DisplayClassic(RichDisplayPlugin):
 
     def on_upload_result(self, event):
         """云端上传结果事件处理"""
-        data = event.data
-        status_code = data.get('status_code', 0)
-        url = data.get('url', '')
+        status_code = event.typed_event.status_code
+        url = event.typed_event.url
         if url:
             self.console.print(f"🟢 {T('Article uploaded successfully, {}', url)}", style="success")
         else:
@@ -355,7 +351,7 @@ class DisplayClassic(RichDisplayPlugin):
 
     def on_task_end(self, event):
         """任务结束事件处理"""
-        path = event.data.get('path', '')
+        path = event.typed_event.path or ''
         title = self._get_title(T("Task completed"))
         tree = Tree(title)
         tree.add(path)
@@ -363,9 +359,8 @@ class DisplayClassic(RichDisplayPlugin):
 
     def on_runtime_message(self, event):
         """Runtime消息事件处理"""
-        data = event.data
-        message = data.get('message', '')
-        status = data.get('status', 'info')
+        message = event.typed_event.message
+        status = event.typed_event.status or 'info'
         title = self._get_title(message, style=status)
         self.console.print(title)
 

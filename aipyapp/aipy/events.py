@@ -11,6 +11,7 @@ from .response import Response, TaskCompleted, TaskCannotContinue
 from .blocks import CodeBlock
 from ..llm.base import ChatMessage
 from .toolcalls import ToolCall, ToolCallResult
+from .types import Errors
 
 # ==================== Strongly-Typed Event System ====================
 
@@ -208,10 +209,11 @@ class StreamEvent(BaseEvent):
 
 # ==================== Message Parsing Events ====================
 
-class ParseReplyEvent(BaseEvent):
+class ParseReplyCompletedEvent(BaseEvent):
     """Event fired when parsing LLM response"""
-    name: Literal["parse_reply"] = "parse_reply"
+    name: Literal["parse_reply_completed"] = "parse_reply_completed"
     response: Response = Field(..., title="Response", description="Parsed response object")
+    errors: Errors = Field(..., title="Errors", description="Errors occurred during parsing")
 
 # ==================== Code Execution Events ====================
 
