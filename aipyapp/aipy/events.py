@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-from typing import Any, Dict, List, Optional, Literal
-from pydantic import BaseModel, Field
+from typing import Any, Dict, List, Optional, Literal, Union
+from pydantic import BaseModel, Field, ConfigDict
 from datetime import datetime
 
 from loguru import logger
@@ -24,10 +24,11 @@ class BaseEvent(BaseModel):
         description="Unix timestamp when the event occurred"
     )
     
-    class Config:
-        # Allow extra fields for backward compatibility
-        extra = "allow"
-        arbitrary_types_allowed = True
+    model_config = ConfigDict(extra='allow', arbitrary_types_allowed=True)
+
+    @classmethod
+    def get_subclasses_union(cls):
+        return Union[tuple(cls.__subclasses__())]
 
 class TypedEvent:
     """Wrapper for backward compatibility with existing Event class"""
@@ -94,23 +95,6 @@ class EventFactory:
         """Get the event class for a given event name"""
         return cls._event_registry.get(event_name, BaseEvent)
     
-    @classmethod
-    def deserialize_event(cls, data: Dict[str, Any]) -> BaseEvent:
-        """Deserialize event data using direct Pydantic validation"""
-        event_name = data.get('name')
-        if not event_name:
-            raise ValueError("Event data must contain 'name' field")
-        
-        event_class = cls.get_event_class(event_name)
-        try:
-            # 直接使用 Pydantic 的 model_validate
-            # 现在数据应该是干净的强类型事件数据
-            return event_class.model_validate(data)
-        except Exception as e:
-            logger.warning(f"Failed to deserialize event {event_name}: {e}")
-            # 回退到 BaseEvent
-            return BaseEvent.model_validate(data)
-
 # Updated EventBus with strongly-typed event support
 class TypedEventBus:
     """Event bus with strongly-typed event support"""
@@ -327,114 +311,10 @@ class UploadResultEvent(BaseEvent):
 # Register all event types with the factory
 def _register_all_events():
     """Register all event types with the EventFactory"""
-    event_types = {
-        # Task lifecycle events
-        "task_start": TaskStartEvent,
-        "task_end": TaskEndEvent,
-        "round_start": RoundStartEvent,
-        "round_end": RoundEndEvent,
-        "task_status": TaskStatusEvent,
-        
-        # LLM interaction events
-        "request_started": RequestStartedEvent,
-        "response_completed": ResponseCompletedEvent,
-        "stream_start": StreamStartEvent,
-        "stream_end": StreamEndEvent,
-        "stream": StreamEvent,
-        
-        # Message parsing events
-        "parse_reply": ParseReplyEvent,
-        
-        # Code execution events
-        "exec_started": ExecStartedEvent,
-        "exec_completed": ExecCompletedEvent,
-        
-        # Code editing events
-        "edit_started": EditStartedEvent,
-        "edit_completed": EditCompletedEvent,
-        
-        # Tool calling events
-        "tool_call_started": ToolCallStartedEvent,
-        "tool_call_completed": ToolCallCompletedEvent,
-        
-        # Function calling events
-        "function_call_started": FunctionCallStartedEvent,
-        "function_call_completed": FunctionCallCompletedEvent,
-        
-        # Runtime events
-        "runtime_message": RuntimeMessageEvent,
-        "runtime_input": RuntimeInputEvent,
-        "show_image": ShowImageEvent,
-        
-        # System events
-        "exception": ExceptionEvent,
-        "upload_result": UploadResultEvent,
-    }
-    
-    for event_name, event_class in event_types.items():
+    subclasses = BaseEvent.__subclasses__()
+    for event_class in subclasses:
+        event_name = event_class.model_fields['name'].default
         EventFactory.register_event(event_name, event_class)
 
 # Register all events when module is imported
 _register_all_events()
-
-
-# ==================== Usage Examples and Exports ====================
-
-# Export all event types
-__all__ = [
-    # Base classes
-    'BaseEvent', 'EventFactory', 'TypedEvent', 'TypedEventBus',
-    
-    # Task lifecycle events
-    'TaskStartEvent', 'TaskEndEvent', 'RoundStartEvent', 'RoundEndEvent', 'TaskStatusEvent',
-    
-    # LLM interaction events
-    'RequestStartedEvent', 'ResponseCompletedEvent', 'StreamStartEvent', 'StreamEndEvent', 'StreamEvent',
-    
-    # Message parsing events
-    'ParseReplyEvent',
-    
-    # Code execution events
-    'ExecStartedEvent', 'ExecCompletedEvent',
-    
-    # Code editing events
-    'EditStartedEvent', 'EditCompletedEvent',
-    
-    # Tool calling events
-    'ToolCallResultEvent', 'McpCallEvent', 'McpResultEvent',
-    
-    # Function calling events
-    'FunctionCallStartedEvent', 'FunctionCallCompletedEvent',
-    
-    # Runtime events
-    'RuntimeMessageEvent', 'RuntimeInputEvent', 'ShowImageEvent',
-    
-    # System events
-    'ExceptionEvent', 'UploadResultEvent',
-]
-
-# Usage example
-if __name__ == "__main__":
-    # Create event bus
-    bus = TypedEventBus()
-    
-    # Register event handler
-    def handle_task_start(event):
-        print(f"Task started: {event.instruction} (ID: {event.task_id})")
-    
-    bus.on_event("task_start", handle_task_start)
-    
-    # Emit event
-    event = bus.emit("task_start", 
-                    instruction="Test task", 
-                    task_id="123", 
-                    title="Test Title")
-    
-    print(f"Event: {event.name}")
-    print(f"Instruction: {event.instruction}")
-    print(f"Task ID: {event.task_id}")
-    
-    # Show all registered event types
-    print("\nRegistered event types:")
-    for event_name in EventFactory.get_registered_events():
-        print(f"  - {event_name}")

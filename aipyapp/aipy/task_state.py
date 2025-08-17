@@ -47,7 +47,7 @@ class TaskState(BaseModel):
     done_time: Optional[float] = None
 
     blocks: CodeBlocks
-    records: EventRecords | None
+    records: EventRecords | None = None
     steps: Any
     context_manager: Any
 
@@ -80,7 +80,7 @@ class TaskState(BaseModel):
             start_time=task.start_time,
             done_time=task.done_time,
             blocks=task.code_blocks,
-            records=task.event_recorder.records if task.event_recorder else None,
+            records=task.event_recorder.records if task.event_recorder is not None else None,
             steps=task.step_manager.get_state(),
             context_manager=task.context_manager.get_state(),
         )
@@ -120,7 +120,7 @@ class TaskState(BaseModel):
         
         try:
             with open(path, 'w', encoding='utf-8') as f:
-                f.write(self.model_dump_json(indent=2, exclude_none=True, exclude_defaults=True))
+                f.write(self.model_dump_json(indent=2, exclude_none=True))
             self._log.info('Saved task state to file', path=str(path))
         except Exception as e:
             self._log.exception('Failed to save task state', path=str(path))
@@ -134,8 +134,7 @@ class TaskState(BaseModel):
             'instruction': self.instruction[:50] + '...' if self.instruction and len(self.instruction) > 50 else self.instruction,
             'start_time': self.start_time,
             'done_time': self.done_time,
-            'components': list(self._component_states.keys())
         }
     
     def __repr__(self):
-        return f"<TaskState task_id={self.task_id}, version={self.version}, components={list(self._component_states.keys())}>"
+        return f"<TaskState task_id={self.task_id}, version={self.version}>"

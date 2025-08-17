@@ -13,7 +13,7 @@ from .events import BaseEvent
 class EventRecords(BaseModel):
     start_time: Optional[float] = Field(default=None)
     end_time: Optional[float] = Field(default=None)
-    events: List[BaseEvent] = Field(default_factory=list)
+    events: List[BaseEvent.get_subclasses_union()] = Field(default_factory=list)
 
 class EventRecorder(Trackable):
     """事件记录器 - 记录任务执行过程中的所有重要事件"""
@@ -46,9 +46,6 @@ class EventRecorder(Trackable):
         Args:
             event: 事件对象
         """
-        if not self.enabled:
-            return
-        
         self.records.events.append(event)
         
         # 记录调试信息（简化版本，避免logger level检查）
@@ -76,15 +73,6 @@ class EventRecorder(Trackable):
                 deleted_count = len(self.records.events) - checkpoint
                 self.records.events = self.records.events[:checkpoint]
                 self.log.info(f'Restored to checkpoint {checkpoint}, deleted {deleted_count} events')
-    
-    def get_state(self) -> Dict[str, Any]:
-        """获取需要持久化的状态数据"""
-        return self.records.model_dump()
-    
-    def restore_state(self, state_data: Dict[str, Any]):
-        """从状态数据恢复事件记录器"""
-        self.records = EventRecords.model_validate(state_data)
-        self.log.info(f'Restored event recorder with {len(self.records.events)} events')
     
     def get_summary(self) -> Dict[str, Any]:
         """获取事件摘要统计"""

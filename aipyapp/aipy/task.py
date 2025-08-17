@@ -113,7 +113,7 @@ class Task(Stoppable, TypedEventBus):
         event = super().emit(event_name, **kwargs)
         
         # 记录强类型事件对象到事件记录器
-        if self.event_recorder:
+        if self.event_recorder is not None:
             self.event_recorder.record_event(event)
         
         return event

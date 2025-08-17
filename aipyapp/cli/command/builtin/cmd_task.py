@@ -109,8 +109,8 @@ class TaskCommand(ParserCommand):
         # 显示重放信息
         instruction = task_state.instruction
         task_id = task_state.task_id
-        records = task_state.get_component_state('events') or []
-        events_count = len(records)
+        records = task_state.records or []
+        events_count = len(records.events)
         
         panel = Panel(
             f"🎬 Task Replay\n\n"
@@ -148,45 +148,13 @@ class TaskCommand(ParserCommand):
             
             event_bus.emit_event(event)
 
-    def _deserialize_events_for_replay(self, events):
-        """将存储的事件数据反序列化为可重放的格式"""
-        replay_events = []
-        for event in events:
-            try:
-                event_name = event['type']
-                event_data = event.get('data', {})
-                
-                # 为事件数据添加 name 字段（如果不存在）
-                if 'name' not in event_data:
-                    event_data = event_data.copy()
-                    event_data['name'] = event_name
-                
-                # 直接使用 Pydantic 反序列化！
-                typed_event = EventFactory.deserialize_event(event_data)
-                
-                # 保持原有格式用于重放逻辑
-                replay_event = {
-                    'type': event_name,
-                    'data': event_data,
-                    'relative_time': event.get('relative_time', 0),
-                    'timestamp': event.get('timestamp', 0)
-                }
-                replay_events.append(replay_event)
-                
-            except Exception as e:
-                # 如果反序列化失败，保持原格式
-                replay_events.append(event)
-        
-        return replay_events
-    
     def _confirm_round_start(self, ctx, event):
         """在 round_start 事件时提示用户确认是否继续"""
         console = ctx.console
-        data = event.get('data', {})
         
         # 获取 step 信息
-        round_num = data.get('round', 'Unknown')
-        instruction = data.get('instruction', 'Unknown instruction')
+        round_num = event.round
+        instruction = event.instruction
         
         # 显示提示面板
         panel = Panel(
