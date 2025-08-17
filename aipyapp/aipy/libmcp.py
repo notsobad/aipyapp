@@ -71,7 +71,7 @@ CODE_BLOCK_PATTERN = re.compile(r"```(?:json)?\s*([\s\S]*?)\s*```")
 JSON_PATTERN = re.compile(r"(\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\})")
 
 
-def extra_call_tool_blocks(blocks) -> str:
+def extra_call_tool_blocks(blocks) -> list[dict]:
     """
     从代码块列表中提取 MCP call_tool JSON。
 
@@ -82,8 +82,9 @@ def extra_call_tool_blocks(blocks) -> str:
         str: 找到的 JSON 字符串，如果没找到则返回空字符串
     """
     if not blocks:
-        return ""
+        return []
 
+    tools = []
     for block in blocks:
         # 检查代码块是否是 JSON 格式
         if hasattr(block, 'lang') and block.lang and block.lang.lower() in ['json', '']:
@@ -102,14 +103,14 @@ def extra_call_tool_blocks(blocks) -> str:
                         continue
 
                     # 返回 JSON 字符串
-                    return json.dumps(data, ensure_ascii=False)
+                    tools.append(data)
                 except json.JSONDecodeError:
                     continue
 
-    return ""
+    return tools
 
 
-def extract_call_tool_str(text) -> str:
+def extract_call_tool_str(text) -> list[dict]:
     """
     Extract MCP call_tool JSON from text.
 
@@ -130,6 +131,7 @@ def extract_call_tool_str(text) -> str:
     standalone_jsons = JSON_PATTERN.findall(text)
     candidates.extend(standalone_jsons)
 
+    tools = []
     # Try to parse each candidate
     for candidate in candidates:
         candidate = candidate.strip()
@@ -144,11 +146,11 @@ def extract_call_tool_str(text) -> str:
                 continue
 
             # return json string. not dict
-            return json.dumps(data, ensure_ascii=False)
+            tools.append(data)
         except json.JSONDecodeError:
             continue
 
-    return ""
+    return tools
 
 
 class MCPConfigReader:

@@ -1,0 +1,179 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+"""LLM 响应解析模块 - 专注于纯解析，不包含业务验证"""
+
+import re
+import json
+from typing import List, Dict, Any
+from enum import Enum
+from pydantic import BaseModel, ValidationError, Field, TypeAdapter
+
+from .types import Errors
+from .blocks import CodeBlock
+from .toolcalls import ToolCall
+from .libmcp import extract_call_tool_str, extra_call_tool_blocks
+
+BLOCK_PATTERN = re.compile(
+    r'<!--\s*Block-Start:\s*(\{.*?\})\s*-->\s*(?P<ticks>`{3,})(\w+)?\s*\n(.*?)\n(?P=ticks)\s*<!--\s*Block-End:\s*(\{.*?\})\s*-->',
+    re.DOTALL
+)
+TOOLCALL_PATTERN = re.compile(r'<!--\s*ToolCall:\s*(\{.*?\})\s*-->')
+
+class ParseErrorType(Enum):
+    """解析错误类型"""
+    JSON_DECODE_ERROR = "json_decode_error"
+    INVALID_FORMAT = "invalid_format"
+    PYDANTIC_VALIDATION_ERROR = "pydantic_validation_error"
+
+
+class ParseError(BaseModel):
+    """解析错误"""
+    error_type: ParseErrorType
+    message: str
+    raw_content: str = ""
+    context: Dict[str, Any] = Field(default_factory=dict)
+    
+    def __str__(self):
+        return f"[{self.error_type.value}] {self.message}"
+
+class Response(BaseModel):
+    """响应对象 - 封装解析结果"""
+    code_blocks: List[CodeBlock] = Field(default_factory=list)
+    tool_calls: List[ToolCall] = Field(default_factory=list)
+    
+    def __bool__(self):
+        return bool(self.code_blocks) or bool(self.tool_calls)
+    
+    def parse_markdown(self, markdown: str, parse_mcp: bool = False) -> Errors:
+        """
+        内部解析方法
+        
+        Args:
+            markdown_text: 要解析的 Markdown 文本
+            parse_mcp: 是否解析 MCP 调用
+        """
+        errors = Errors()
+        # 解析代码块
+        errors.extend(self._parse_code_blocks(markdown))
+        
+        # 解析工具调用
+        errors.extend(self._parse_tool_calls(markdown))
+        
+        # 解析 MCP 调用（如果需要）
+        if parse_mcp:
+            errors.extend(self._parse_mcp_calls(markdown))
+        
+        return errors
+    
+    def _parse_code_blocks(self, markdown: str) -> Errors:
+        """解析代码块"""
+        errors = Errors()
+        for match in BLOCK_PATTERN.finditer(markdown):
+            start_json, _, lang, content, end_json = match.groups()
+            
+            # 解析开始标签
+            try:
+                start_meta = json.loads(start_json)
+            except json.JSONDecodeError as e:
+                errors.add(
+                    "Invalid JSON in Block-Start",
+                    json_str=start_json,
+                    exception=str(e),
+                    position="Block-Start",
+                    error_type=ParseErrorType.JSON_DECODE_ERROR,
+                )
+                continue
+            
+            # 解析结束标签
+            try:
+                end_meta = json.loads(end_json)
+            except json.JSONDecodeError as e:
+                errors.add(
+                    "Invalid JSON in Block-End",
+                    json_str=end_json,
+                    exception=str(e),
+                    position="Block-End",
+                    error_type=ParseErrorType.JSON_DECODE_ERROR,
+                )
+                continue
+            
+            # 检查名称是否一致
+            start_name = start_meta.get("name")
+            end_name = end_meta.get("name")
+            
+            if not start_name or start_name != end_name:
+                errors.add(
+                    "Block-Start and Block-End name mismatch",
+                    start_name=start_name,
+                    end_name=end_name,
+                    error_type=ParseErrorType.INVALID_FORMAT,
+                )
+                continue
+            
+            # 创建 CodeBlock 对象，让 Pydantic 处理验证
+            try:
+                code_block = CodeBlock(
+                    name=start_name,
+                    lang=lang or "markdown",
+                    code=content,
+                    path=start_meta.get("path")
+                )
+                self.code_blocks.append(code_block)
+            except ValidationError as e:
+                errors.add(
+                    "Failed to create CodeBlock",
+                    exception=str(e),
+                    error_type=ParseErrorType.PYDANTIC_VALIDATION_ERROR,
+                )
+
+        return errors
+    
+    def _parse_tool_calls(self, markdown: str) -> Errors:
+        """解析工具调用"""
+        errors = Errors()
+        for match in TOOLCALL_PATTERN.finditer(markdown):
+            json_str = match.group(1)
+            
+            # 直接使用 Pydantic 解析，让它处理所有验证
+            try:
+                tool_call = ToolCall.model_validate_json(json_str)
+                self.tool_calls.append(tool_call)
+            except json.JSONDecodeError as e:
+                errors.add(
+                    "Invalid JSON in ToolCall",
+                    json_str=json_str,
+                    exception=str(e),
+                    error_type=ParseErrorType.JSON_DECODE_ERROR,
+                )
+            except ValidationError as e:
+                errors.add(
+                    "Invalid ToolCall data",
+                    json_str=json_str,
+                    exception=str(e),
+                    error_type=ParseErrorType.PYDANTIC_VALIDATION_ERROR,
+                )
+        return errors
+    
+    def _parse_mcp_calls(self, markdown: str) -> Errors:
+        """解析 MCP 调用"""
+        errors = Errors()
+        mcp_calls = extra_call_tool_blocks(self.code_blocks)
+        if not mcp_calls:
+            mcp_calls = extract_call_tool_str(markdown)
+
+        if not mcp_calls:
+            return errors
+        
+        for call in mcp_calls:
+            try:
+                mcp_call = ToolCall.model_validate(call)
+                self.tool_calls.append(mcp_call)
+            except ValidationError as e:
+                errors.add(
+                    "Invalid MCPToolCall data",
+                    data=call,
+                    exception=str(e),
+                    error_type=ParseErrorType.PYDANTIC_VALIDATION_ERROR,
+                )
+        return errors

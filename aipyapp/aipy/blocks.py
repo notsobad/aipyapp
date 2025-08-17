@@ -1,27 +1,24 @@
 #! /usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-import re
-import json
 from pathlib import Path
 from collections import OrderedDict
-from dataclasses import dataclass
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 
 from loguru import logger
+from pydantic import BaseModel, Field, PrivateAttr
 
-from .libmcp import extract_call_tool_str, extra_call_tool_blocks
+from .types import Error, Errors
 from ..interface import Trackable
 
-@dataclass
-class CodeBlock:
-    """代码块对象"""
-    name: str
-    version: int
-    lang: str
-    code: str
-    path: Optional[str] = None
-    deps: Optional[Dict[str, set]] = None
+class CodeBlock(BaseModel):
+    """Code block"""
+    name: str = Field(title="Block name", min_length=1, strip_whitespace=True)
+    lang: str = Field(title="Block language", min_length=1, strip_whitespace=True)
+    code: str = Field(title="Block code", min_length=1)
+    path: Optional[str] = Field(title="Block path", default=None)
+    version: int = Field(default=1, ge=1, title="Block version")
+    deps: Optional[Dict[str, set]] = Field(default_factory=dict, title="Block dependencies")
 
     def add_dep(self, dep_name: str, dep_value: Any):
         """添加依赖"""
@@ -39,14 +36,18 @@ class CodeBlock:
         else:
             deps.add(dep_value)
 
-    def save(self):
+    def save(self) -> bool:
         """保存代码块到文件"""
         if not self.path:
             return False
             
-        path = Path(self.path)
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(self.code, encoding='utf-8')
+        try:
+            path = Path(self.path)
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(self.code, encoding='utf-8')
+        except Exception as e:
+            logger.error(f"Failed to save block {self.name} to {self.path}", error=e)
+            return False
         return True
 
     @property
@@ -58,277 +59,111 @@ class CodeBlock:
     def get_lang(self):
         lang = self.lang.lower()
         return lang
-    
-    def to_dict(self) -> Dict[str, Any]:
-        """转换为字典"""
-        return {
-            '__type__': 'CodeBlock',
-            'name': self.name,
-            'version': self.version,
-            'lang': self.lang,
-            'code': self.code,
-            'path': self.path,
-            'deps': self.deps
-        }
-    
-    @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> 'CodeBlock':
-        """从字典恢复对象"""
-        return cls(
-            name=data.get('name', ''),
-            version=data.get('version', 1),
-            lang=data.get('lang', ''),
-            code=data.get('code', ''),
-            path=data.get('path'),
-            deps=data.get('deps')
-        )
 
-    def __repr__(self):
+    def __str__(self):
         return f"<CodeBlock name={self.name}, version={self.version}, lang={self.lang}, path={self.path}>"
 
-class CodeBlocks(Trackable):
-    def __init__(self):
-        self.history = []
-        self.blocks = OrderedDict()
-        self.code_pattern = re.compile(
-            r'<!--\s*Block-Start:\s*(\{.*?\})\s*-->\s*(?P<ticks>`{3,})(\w+)?\s*\n(.*?)\n(?P=ticks)\s*<!--\s*Block-End:\s*(\{.*?\})\s*-->',
-            re.DOTALL
-        )
-        self.line_pattern = re.compile(
-            r'<!--\s*Cmd-(\w+):\s*(\{.*?\})\s*-->'
-        )
-        self.log = logger.bind(src='code_blocks')
+class CodeBlocks(Trackable, BaseModel):
+    """代码块集合"""
+    history: List[CodeBlock] = Field(default_factory=list)
+    blocks: Dict[str, CodeBlock] = Field(default_factory=OrderedDict, exclude=True)
+
+    def model_post_init(self, __context: Any):
+        self._log = logger.bind(src='CodeBlocks')
 
     def __len__(self):
         return len(self.blocks)
+
+    def __getitem__(self, key: str) -> CodeBlock:
+        return self.blocks[key]
+
+    def __contains__(self, key: str) -> bool:
+        return key in self.blocks
+
+    def __iter__(self):
+        return iter(self.blocks.values())
     
-    def parse(self, markdown_text, parse_mcp=False):
-        blocks = OrderedDict()
-        errors = []
-        for match in self.code_pattern.finditer(markdown_text):
-            start_json, _, lang, content, end_json = match.groups()
-            try:
-                start_meta = json.loads(start_json)
-                end_meta = json.loads(end_json)
-            except json.JSONDecodeError as e:
-                self.log.exception('Error parsing code block', start_json=start_json, end_json=end_json)
-                error = {'JSONDecodeError': {'Block-Start': start_json, 'Block-End': end_json, 'reason': str(e)}}
-                errors.append(error)
-                continue
+    def _add_block(self, block: CodeBlock, validate: bool = True):
+        """添加代码块"""
+        if validate:
+            old_block = self.blocks.get(block.name)
+            if old_block:
+                block.version = old_block.version + 1
+                self._log.info(f"Update block {block.name} version to {block.version}")
+            
+        self.blocks[block.name] = block
+        self.history.append(block)
+        block.save()
 
-            code_name = start_meta.get("name")
-            if code_name != end_meta.get("name"):
-                self.log.error("Start and end name mismatch", start_name=code_name, end_name=end_meta.get("name"))
-                error = {'Start and end name mismatch': {'start_name': code_name, 'end_name': end_meta.get("name")}}
-                errors.append(error)
-                continue
+    def add_blocks(self, code_blocks: List[CodeBlock]):
+        """添加代码块"""
+        for block in code_blocks:
+            self._add_block(block)
+        self._log.info(f"Added {len(code_blocks)} blocks")
 
-            version = start_meta.get("version", 1)
-            if code_name in blocks or code_name in self.blocks:
-                old_block = blocks.get(code_name) or self.blocks.get(code_name)
-                old_version = old_block.version
-                if old_version >= version:
-                    self.log.error("Duplicate code name with same or newer version", code_name=code_name, old_version=old_version, version=version)
-                    error = {'Duplicate code name with same or newer version': {'code_name': code_name, 'old_version': old_version, 'version': version}}
-                    errors.append(error)
-                    continue
+    def get(self, block_name: str) -> Optional[CodeBlock]:
+        block = self.blocks.get(block_name)
+        if not block:
+            self._log.error("Block not found", block_name=block_name)
+        return block
 
-            # 创建代码块对象
-            block = CodeBlock(
-                name=code_name,
-                version=version,
-                lang=lang,
-                code=content,
-                path=start_meta.get('path'),
-            )
-
-            blocks[code_name] = block
-            self.history.append(block)
-            self.log.info("Parsed code block", code_block=block)
-
-            try:
-                block.save()
-                self.log.info("Saved code block", code_block=block)
-            except Exception as e:
-                self.log.error("Failed to save file", code_block=block, reason=e)
-
-        self.blocks.update(blocks)
-
-        commands = []  # 按顺序收集所有命令
-        line_matches = self.line_pattern.findall(markdown_text)
-        for line_match in line_matches:
-            cmd, json_str = line_match
-            try:
-                line_meta = json.loads(json_str)
-            except json.JSONDecodeError as e:
-                self.log.error(f"Invalid JSON in Cmd-{cmd} block", json_str=json_str, reason=e)
-                error = {f'Invalid JSON in Cmd-{cmd} block': {'json_str': json_str, 'reason': str(e)}}
-                errors.append(error)
-                continue
-
-            error = None
-            if cmd == 'Exec':
-                exec_name = line_meta.get("name")
-                if not exec_name:
-                    error = {'Cmd-Exec block without name': {'json_str': json_str}}
-                elif exec_name not in self.blocks:
-                    error = {'Cmd-Exec block not found': {'exec_name': exec_name, 'json_str': json_str}}
-                else:
-                    commands.append({
-                        'type': 'exec',
-                        'block_name': exec_name
-                    })
-            elif cmd == 'Edit':
-                edit_name = line_meta.get("name")
-                if not edit_name:
-                    error = {'Cmd-Edit block without name': {'json_str': json_str}}
-                elif edit_name not in self.blocks:
-                    error = {'Cmd-Edit block not found': {'edit_name': edit_name, 'json_str': json_str}}
-                elif not line_meta.get("old"):
-                    error = {'Cmd-Edit block without old string': {'json_str': json_str}}
-                elif "new" not in line_meta:
-                    error = {'Cmd-Edit block without new string': {'json_str': json_str}}
-                else:
-                    commands.append({
-                        'type': 'edit',
-                        'instruction': {
-                            'name': edit_name,
-                            'old': line_meta.get("old"),
-                            'new': line_meta.get("new"),
-                            'replace_all': line_meta.get("replace_all", False),
-                            'json_str': json_str
-                        }
-                    })
-            else:
-                error = {f'Unknown command in Cmd-{cmd} block': {'cmd': cmd}}
-
-            if error:
-                errors.append(error)
-
-        ret = {}
-        if errors: ret['errors'] = errors
-        if commands: ret['commands'] = commands
-        if blocks: ret['blocks'] = [v for v in blocks.values()]
-
-        if parse_mcp:
-            # 首先尝试从代码块中提取 MCP 调用, 然后尝试从markdown文本中提取
-            json_content = extra_call_tool_blocks(list(blocks.values())) or extract_call_tool_str(markdown_text)
-
-            if json_content:
-                ret['call_tool'] = json_content
-                self.log.info("Parsed MCP call_tool", json_content=json_content)
-
-        return ret
-    
-    def get_code_by_name(self, code_name):
-        try:
-            return self.blocks[code_name].code
-        except KeyError:
-            self.log.error("Code name not found", code_name=code_name)
-            return None
-
-    def get_block_by_name(self, code_name):
-        try:
-            return self.blocks[code_name]
-        except KeyError:
-            self.log.error("Code name not found", code_name=code_name)
-            return None
-
-    def apply_edit_modification(self, edit_instruction):
+    def edit_block(self, block_name: str, old_str: str, new_str: str, replace_all: bool = False) -> Optional[Error]:
         """
-        应用编辑指令到指定代码块，创建新版本而不修改原代码块
+        编辑指定代码块，创建新版本而不修改原代码块
         
         Args:
-            edit_instruction: 包含name, old, new, replace_all等字段的编辑指令
+            block_name: 代码块名称
+            old_str: 要替换的字符串
+            new_str: 新字符串
+            replace_all: 是否替换所有匹配项
             
         Returns:
-            tuple: (success: bool, message: str, new_block: CodeBlock or None)
+            Error: 错误信息
         """
-        name = edit_instruction['name']
-        old_str = edit_instruction['old']
-        new_str = edit_instruction['new']
-        replace_all = edit_instruction.get('replace_all', False)
-        
-        if name not in self.blocks:
-            return False, f"代码块 '{name}' 不存在", None
+        if block_name not in self.blocks:
+            return Error.new("Block not found")
             
-        original_block = self.blocks[name]
+        original_block = self.blocks[block_name]
         
         # 检查是否找到匹配的字符串
         if old_str not in original_block.code:
-            return False, f"未找到匹配的代码片段: {old_str[:50]}...", None
+            return Error.new(f"No match found for {old_str[:50]}...")
         
         # 检查匹配次数
         match_count = original_block.code.count(old_str)
         if match_count > 1 and not replace_all:
-            return False, f"代码片段匹配 {match_count} 个位置，请设置 replace_all: true 或提供更具体的上下文", None
+            return Error.new(f"Multiple matches found for {old_str[:50]}...", suggestion="set replace_all: true or provide more specific context")
         
         # 执行替换生成新代码
-        if replace_all:
-            new_code = original_block.code.replace(old_str, new_str)
-            replaced_count = match_count
-        else:
-            # 只替换第一个匹配项
-            new_code = original_block.code.replace(old_str, new_str, 1)
-            replaced_count = 1
+        new_code = original_block.code.replace(old_str, new_str, -1 if replace_all else 1)
         
         # 创建新的代码块（版本号+1）
-        new_block = CodeBlock(
-            name=original_block.name,
-            version=original_block.version + 1,
-            lang=original_block.lang,
-            code=new_code,
-            path=original_block.path,
-            deps=original_block.deps.copy() if original_block.deps else None
+        new_block = original_block.model_copy(
+            update={
+                "version": original_block.version + 1,
+                "code": new_code,
+                "deps": original_block.deps.copy() if original_block.deps else {}
+            }
         )
-        
-        # 保存新代码块到文件
-        try:
-            new_block.save()
-            self.log.info("Created and saved new block version", code_block=new_block, replaced_count=replaced_count)
-        except Exception as e:
-            self.log.error("Failed to save new block", code_block=new_block, reason=e)
-        
-        # 更新blocks字典为新版本（同名代码块始终指向最新版本）
-        self.blocks[name] = new_block
-        
-        # 添加新版本到历史记录
-        self.history.append(new_block)
-        
-        message = f"成功替换 {replaced_count} 处匹配项，创建版本 v{new_block.version}"
-        return True, message, new_block
+        self._add_block(new_block, validate=False)
+        return None
 
-    def to_list(self):
-        """将 CodeBlocks 对象转换为 JSON 字符串
+    def get_state(self) -> dict:
+        """Get state data for persistence"""
+        return self.model_dump(include={'history'})
+    
+    def restore_state(self, state: dict):
+        """Restore state from code block data"""
+        try:
+            history = state['history']
+        except Exception as e:
+            self._log.error(f"Failed to restore state: {e}")
+            return
         
-        Returns:
-            str: JSON 格式的字符串
-        """
-        blocks = [block.to_dict() for block in self.history]
-        return blocks
-    
-    def get_state(self):
-        """获取需要持久化的状态数据"""
-        return self.to_list()
-    
-    def restore_state(self, blocks_data):
-        """从代码块数据恢复状态"""
-        self.history.clear()
-        self.blocks.clear()
-        
-        if blocks_data:
-            for block_data in blocks_data:
-                code_block = CodeBlock(
-                    name=block_data['name'],
-                    version=block_data['version'],
-                    lang=block_data['lang'],
-                    code=block_data['code'],
-                    path=block_data.get('path'),
-                    deps=block_data.get('deps')
-                )
-                self.history.append(code_block)
-                self.blocks[code_block.name] = code_block
-    
+        if history:
+            self.history = self.model_validate(history)
+            for block in self.history:
+                self.blocks[block.name] = block
 
     def clear(self):
         self.history.clear()

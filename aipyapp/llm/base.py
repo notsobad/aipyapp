@@ -2,42 +2,28 @@
 # -*- coding: utf-8 -*-
 
 import time
+from enum import Enum
 from collections import Counter
 from abc import ABC, abstractmethod
-from dataclasses import dataclass, field
 from typing import Union, List, Dict, Any
 
 from loguru import logger
+from pydantic import BaseModel, Field
 
 from .. import T
 
-@dataclass
-class ChatMessage:
-    role: str
-    content: Union[str, List[Dict[str, Any]]]
-    reason: str = None
-    usage: Counter = field(default_factory=Counter)
-    
-    def to_dict(self) -> Dict[str, Any]:
-        """转换为字典用于序列化"""
-        return {
-            '__type__': 'ChatMessage',
-            'role': self.role,
-            'content': self.content,
-            'reason': self.reason,
-            'usage': dict(self.usage) if self.usage else {}
-        }
-    
-    @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> 'ChatMessage':
-        """从字典恢复对象"""
-        return cls(
-            role=data.get('role', 'assistant'),
-            content=data.get('content', ''),
-            reason=data.get('reason', ''),
-            usage=Counter(data.get('usage', {}))
-        )
+class MessageRole(str, Enum):
+    SYSTEM = "system"
+    USER = "user"
+    ASSISTANT = "assistant"
+    ERROR = "error"
 
+class ChatMessage(BaseModel):
+    role: MessageRole
+    content: Union[str, List[Dict[str, Any]]]
+    reason: str | None = None
+    usage: Counter = Field(default_factory=Counter)
+    
 class BaseClient(ABC):
     MODEL = None
     BASE_URL = None
@@ -122,7 +108,7 @@ class BaseClient(ABC):
         else:
             msg = self._parse_response(response)
 
-        msg.usage['time'] = round(time.time() - start, 3)
+        msg.usage['time'] = int(time.time() - start)
         history.add_message(msg)
         return msg
     

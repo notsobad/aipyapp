@@ -7,7 +7,7 @@ import uuid
 import time
 import re
 import yaml
-from typing import Dict, Tuple
+from typing import Dict, Tuple, List, Any
 from datetime import datetime
 from collections import namedtuple, OrderedDict
 from importlib.resources import read_text
@@ -15,17 +15,20 @@ from importlib.resources import read_text
 import requests
 from loguru import logger
 
-from .. import T, __respkg__
+from .. import T, __respkg__, Stoppable
 from ..exec import BlockExecutor
 from .runtime import CliPythonRuntime
 from .utils import get_safe_filename
 from .blocks import CodeBlocks, CodeBlock
-from ..interface import Stoppable, EventBus
+from .events import TypedEventBus
 from .step_manager import StepManager
 from .multimodal import MMContent, LLMContext
 from .context_manager import ContextManager, ContextConfig
 from .event_recorder import EventRecorder
 from .task_state import TaskState
+from .toolcalls import ToolCallProcessor
+from .response import Response
+from .types import Error
 
 CONSOLE_WHITE_HTML = read_text(__respkg__, "console_white.html")
 CONSOLE_CODE_HTML = read_text(__respkg__, "console_code.html")
@@ -48,7 +51,7 @@ class TastStateError(TaskError):
         self.data = kwargs
         super().__init__(self.message)
 
-class Task(Stoppable, EventBus):
+class Task(Stoppable, TypedEventBus):
     MAX_ROUNDS = 16
 
     def __init__(self, context):
@@ -86,11 +89,11 @@ class Task(Stoppable, EventBus):
         self.runtime = CliPythonRuntime(self)
         self.runner = BlockExecutor()
         self.runner.set_python_runtime(self.runtime)
-        
+        self.tool_call_processor = ToolCallProcessor(self)
+
         # 注册所有可追踪对象到步骤管理器
         self.step_manager = StepManager()
         self.step_manager.register_trackable('messages', self.context_manager)
-        self.step_manager.register_trackable('runner', self.runner)
         self.step_manager.register_trackable('blocks', self.code_blocks)
 
         # 初始化事件记录器
@@ -106,14 +109,16 @@ class Task(Stoppable, EventBus):
     
     def emit(self, event_name: str, **kwargs):
         """重写broadcast方法以记录事件"""
-        # 记录事件到事件记录器
-        if self.event_recorder:
-            self.event_recorder.record_event(event_name, kwargs.copy())
+        # 调用父类的broadcast方法获取强类型事件
+        event = super().emit(event_name, **kwargs)
         
-        # 调用父类的broadcast方法
-        super().emit(event_name, **kwargs)
+        # 记录强类型事件对象到事件记录器
+        if self.event_recorder:
+            self.event_recorder.record_event(event)
+        
+        return event
 
-    def restore_state(self, task_data):
+    def restore_state(self, task_data: dict | TaskState):
         """从任务状态加载任务
         
         Args:
@@ -124,7 +129,7 @@ class Task(Stoppable, EventBus):
         """
         # 支持传入字典或 TaskState 对象
         if isinstance(task_data, dict):
-            task_state = TaskState.from_dict(task_data)
+            task_state = TaskState.model_validate(task_data)
         elif isinstance(task_data, TaskState):
             task_state = task_data
         else:
@@ -199,7 +204,7 @@ class Task(Stoppable, EventBus):
         self.done_time = time.time()
         try:
             # 创建 TaskState 对象并保存
-            task_state = TaskState(self)
+            task_state = TaskState.from_task(self)
             task_state.save_to_file(self.cwd / "task.json")
             
             # 保存 HTML 控制台
@@ -236,152 +241,34 @@ class Task(Stoppable, EventBus):
 
         self.log.info('Task done', path=newname)
         self.emit('task_end', path=newname)
-        self.context.diagnose.report_code_error(self.runner.history)
+        #self.context.diagnose.report_code_error(self.runner.history)
         if self.settings.get('share_result'):
             self.sync_to_cloud()
         
     def process_reply(self, markdown):
-        ret = self.code_blocks.parse(markdown, parse_mcp=self.mcp)
-        self.emit('parse_reply', result=ret)
-        if not ret:
-            return None
-
-        if 'call_tool' in ret:
-            return self.process_mcp_reply(ret['call_tool'])
-
-        errors = ret.get('errors')
+        response = Response()
+        errors = response.parse_markdown(markdown, parse_mcp=self.mcp)
+        self.emit('parse_reply', response=response, errors=errors)
         if errors:
             prompt = self.prompts.get_parse_error_prompt(errors)
             return self.chat(prompt)
-
-        commands = ret.get('commands', [])
-        if commands:
-            return self.process_commands(commands)
+        
+        if response.code_blocks:
+            self.code_blocks.add_blocks(response.code_blocks)
+        
+        if response.tool_calls:
+            results = self.tool_call_processor.process(response.tool_calls)
+            msg = self.prompts.get_toolcall_results_prompt(results)
+            return self.chat(msg)
         
         return None
-
+        
     def run_code_block(self, block):
         """运行代码块"""
-        self.emit('exec', block=block)
+        self.emit('exec_started', block=block)
         result = self.runner(block)
-        self.emit('exec_result', result=result, block=block)
+        self.emit('exec_completed', result=result, block=block)
         return result
-
-    def process_code_reply(self, exec_blocks):
-        results = OrderedDict()
-        for block in exec_blocks:
-            result = self.run_code_block(block)
-            results[block.name] = result
-
-        msg = self.prompts.get_results_prompt(results)
-        return self.chat(msg)
-
-    def process_commands(self, commands):
-        """按顺序处理混合指令，智能错误处理"""
-        all_results = OrderedDict()
-        failed_blocks = set()  # 记录编辑失败的代码块
-        
-        for command in commands:
-            cmd_type = command['type']
-            
-            if cmd_type == 'exec':
-                block_name = command['block_name']
-                
-                # 如果这个代码块之前编辑失败，跳过执行
-                if block_name in failed_blocks:
-                    self.log.warning(f'Skipping execution of {block_name} due to previous edit failure')
-                    all_results[f"exec_{block_name}"] = {
-                        'type': 'exec',
-                        'block_name': block_name,
-                        'result': {
-                            'error': f'Execution skipped: previous edit of {block_name} failed',
-                            'skipped': True
-                        }
-                    }
-                    continue
-                
-                # 动态获取最新版本的代码块
-                block = self.code_blocks.blocks[block_name]
-                result = self.run_code_block(block)
-                all_results[f"exec_{block_name}"] = {
-                    'type': 'exec',
-                    'block_name': block_name,
-                    'result': result
-                }
-                
-            elif cmd_type == 'edit':
-                edit_instruction = command['instruction']
-                block_name = edit_instruction['name']
-                
-                self.emit('edit_start', instruction=edit_instruction)
-                success, message, modified_block = self.code_blocks.apply_edit_modification(edit_instruction)
-                
-                # 编辑失败时标记这个代码块
-                if not success:
-                    failed_blocks.add(block_name)
-                    self.log.warning(f'Edit failed for {block_name}: {message}')
-                
-                result = {
-                    'type': 'edit',
-                    'success': success,
-                    'message': message,
-                    'block_name': block_name,
-                    'old_str': edit_instruction['old'][:100] + '...' if len(edit_instruction['old']) > 100 else edit_instruction['old'],
-                    'new_str': edit_instruction['new'][:100] + '...' if len(edit_instruction['new']) > 100 else edit_instruction['new'],
-                    'replace_all': edit_instruction.get('replace_all', False)
-                }
-                
-                if modified_block:
-                    result['new_version'] = modified_block.version
-                
-                all_results[f"edit_{block_name}"] = result
-                self.emit('edit_result', result=result, instruction=edit_instruction)
-        
-        # 生成混合结果的prompt
-        msg = self.prompts.get_mixed_results_prompt(all_results)
-        return self.chat(msg)
-
-    def process_edit_reply(self, edit_instructions):
-        """处理编辑指令"""
-        results = OrderedDict()
-        for edit_instruction in edit_instructions:
-            self.emit('edit_start', instruction=edit_instruction)
-            success, message, modified_block = self.code_blocks.apply_edit_modification(edit_instruction)
-            
-            result = {
-                'success': success,
-                'message': message,
-                'block_name': edit_instruction['name'],
-                'old_str': edit_instruction['old'][:100] + '...' if len(edit_instruction['old']) > 100 else edit_instruction['old'],
-                'new_str': edit_instruction['new'][:100] + '...' if len(edit_instruction['new']) > 100 else edit_instruction['new'],
-                'replace_all': edit_instruction.get('replace_all', False)
-            }
-            
-            if modified_block:
-                result['new_version'] = modified_block.version
-                
-            results[edit_instruction['name']] = result
-            self.emit('edit_result', result=result, instruction=edit_instruction)
-
-        msg = self.prompts.get_edit_results_prompt(results)
-        return self.chat(msg)
-
-    def process_mcp_reply(self, json_content):
-        """处理 MCP 工具调用的回复"""
-        block = {'content': json_content, 'language': 'json'}
-        self.emit('mcp_call', block=block)
-
-        call_tool = json.loads(json_content)
-        result = self.mcp.call_tool(call_tool['name'], call_tool.get('arguments', {}))
-        code_block = CodeBlock(
-            code=json_content,
-            lang='json',
-            name=call_tool.get('name', 'MCP Tool Call'),
-            version=1,
-        )
-        self.emit('mcp_result', block=code_block, result=result)
-        msg = self.prompts.get_mcp_result_prompt(result)
-        return self.chat(msg)
 
     def _get_summary(self, detail=False):
         data = {}
@@ -396,9 +283,9 @@ class Task(Stoppable, EventBus):
         return data
 
     def chat(self, context: LLMContext, *, system_prompt=None):
-        self.emit('query_start', llm=self.client.name)
+        self.emit('request_started', llm=self.client.name)
         msg = self.client(context, system_prompt=system_prompt)
-        self.emit('response_complete', llm=self.client.name, msg=msg)
+        self.emit('response_completed', llm=self.client.name, msg=msg)
         return msg.content if msg else None
 
     def _get_system_prompt(self):
