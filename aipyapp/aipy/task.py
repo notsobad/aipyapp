@@ -5,11 +5,8 @@ import os
 import json
 import uuid
 import time
-import re
-import yaml
-from typing import Dict, Tuple, List, Any
 from datetime import datetime
-from collections import namedtuple, OrderedDict
+from collections import namedtuple
 from importlib.resources import read_text
 
 import requests
@@ -19,7 +16,7 @@ from .. import T, __respkg__, Stoppable
 from ..exec import BlockExecutor
 from .runtime import CliPythonRuntime
 from .utils import get_safe_filename
-from .blocks import CodeBlocks, CodeBlock
+from .blocks import CodeBlocks
 from .events import TypedEventBus
 from .step_manager import StepManager
 from .multimodal import MMContent, LLMContext
@@ -28,7 +25,6 @@ from .event_recorder import EventRecorder
 from .task_state import TaskState
 from .toolcalls import ToolCallProcessor
 from .response import Response
-from .types import Error
 
 CONSOLE_WHITE_HTML = read_text(__respkg__, "console_white.html")
 CONSOLE_CODE_HTML = read_text(__respkg__, "console_code.html")
@@ -253,6 +249,9 @@ class Task(Stoppable, TypedEventBus):
             prompt = self.prompts.get_parse_error_prompt(errors)
             return self.chat(prompt)
         
+        if response.task_status:
+            self.emit('task_status', status=response.task_status)
+        
         if response.code_blocks:
             self.code_blocks.add_blocks(response.code_blocks)
         
@@ -297,34 +296,7 @@ class Task(Stoppable, TypedEventBus):
         params['role'] = self.role
         return self.prompts.get_default_prompt(**params)
 
-    def _parse_front_matter(self, md_text: str) -> Tuple[Dict, str]:
-        """
-        解析 Markdown 字符串，提取 YAML front matter 和正文内容。
 
-        参数：
-            md_text: 包含 YAML front matter 和 Markdown 内容的字符串
-
-        返回：
-            (yaml_dict, content)：
-            - yaml_dict 是解析后的 YAML 字典，若无 front matter 则为空字典
-            - content 是去除 front matter 后的 Markdown 正文字符串
-        """
-        front_matter_pattern = r"^\s*---\s*\n(.*?)\n---\s*"
-        match = re.match(front_matter_pattern, md_text, re.DOTALL)
-        if match:
-            yaml_str = match.group(1)
-            try:
-                yaml_dict = yaml.safe_load(yaml_str) or {}
-            except yaml.YAMLError:
-                yaml_dict = {}
-                self.log.error('Invalid front matter', yaml_str=yaml_str)
-            self.log.info('Front matter', yaml_dict=yaml_dict)
-            content = md_text[match.end():]
-        else:
-            yaml_dict = {}
-            content = md_text
-
-        return yaml_dict, content
 
     def run(self, instruction: str, title: str | None = None):
         """
@@ -374,11 +346,6 @@ class Task(Stoppable, TypedEventBus):
             return
         
         while rounds <= max_rounds:
-            status, content = self._parse_front_matter(response)
-            if status:
-                response = content
-                self.log.info('Task status', status=status)
-                self.emit('task_status', status=status)
             prev_response = response
             response = self.process_reply(response)
             rounds += 1

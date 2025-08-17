@@ -5,14 +5,19 @@
 
 import re
 import json
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Tuple, Literal
 from enum import Enum
-from pydantic import BaseModel, ValidationError, Field, TypeAdapter
+
+import yaml
+from loguru import logger
+from pydantic import BaseModel, ValidationError, Field
 
 from .types import Errors
 from .blocks import CodeBlock
 from .toolcalls import ToolCall
 from .libmcp import extract_call_tool_str, extra_call_tool_blocks
+
+FRONT_MATTER_PATTERN = r"^\s*---\s*\n(.*?)\n---\s*"
 
 BLOCK_PATTERN = re.compile(
     r'<!--\s*Block-Start:\s*(\{.*?\})\s*-->\s*(?P<ticks>`{3,})(\w+)?\s*\n(.*?)\n(?P=ticks)\s*<!--\s*Block-End:\s*(\{.*?\})\s*-->',
@@ -37,11 +42,35 @@ class ParseError(BaseModel):
     def __str__(self):
         return f"[{self.error_type.value}] {self.message}"
 
+class TaskCompleted(BaseModel):
+    """任务完成"""
+    completed: Literal[True] = Field(description="Task completed")
+    confidence: float = Field(description="Confidence in the quality of the completion")
+
+class TaskCannotContinue(BaseModel):
+    """任务无法继续"""
+    completed: Literal[False] = Field(description="Task cannot continue")
+    status: Literal['refused', 'need_info', 'failed'] = Field(description="Status of the task")
+    reason: str = Field(description="Reason for the task status")
+    suggestion: str = Field(description="Suggestion to resolve the issue")
+
+class FrontMatter(BaseModel):
+    """Front Matter 数据"""
+    task_status: TaskCompleted | TaskCannotContinue = Field(description="Task status")
+
 class Response(BaseModel):
     """响应对象 - 封装解析结果"""
+    task_status: TaskCompleted | TaskCannotContinue | None = Field(default=None, description="Task status")
     code_blocks: List[CodeBlock] = Field(default_factory=list)
     tool_calls: List[ToolCall] = Field(default_factory=list)
     
+    @property
+    def log(self):
+        return self._log
+    
+    def model_post_init(self, __context: Any):
+        self._log = logger.bind(src='Response')
+
     def __bool__(self):
         return bool(self.code_blocks) or bool(self.tool_calls)
     
@@ -54,6 +83,10 @@ class Response(BaseModel):
             parse_mcp: 是否解析 MCP 调用
         """
         errors = Errors()
+
+        _, content = self._parse_front_matter(markdown)
+        markdown = content
+
         # 解析代码块
         errors.extend(self._parse_code_blocks(markdown))
         
@@ -177,3 +210,49 @@ class Response(BaseModel):
                     error_type=ParseErrorType.PYDANTIC_VALIDATION_ERROR,
                 )
         return errors
+    
+    def _parse_front_matter(self, md_text: str) -> Tuple[Errors, str]:
+        """
+        解析 Markdown 字符串，提取 YAML front matter 和正文内容。
+
+        参数：
+            md_text: 包含 YAML front matter 和 Markdown 内容的字符串
+
+        返回：
+            (errors, content)：
+            - errors 是解析错误，若无 front matter 则为空字典
+            - content 是去除 front matter 后的 Markdown 正文字符串
+        """
+        errors = Errors()
+        yaml_dict = None
+        match = re.match(FRONT_MATTER_PATTERN, md_text, re.DOTALL)
+        if match:
+            yaml_str = match.group(1)
+            try:
+                yaml_dict = yaml.safe_load(yaml_str)
+                self.log.info('Front matter', yaml_dict=yaml_dict)
+            except yaml.YAMLError:
+                self.log.error('Invalid front matter', yaml_str=yaml_str)
+                errors.add(
+                    "Invalid front matter",
+                    yaml_str=yaml_str,
+                    error_type=ParseErrorType.INVALID_FORMAT,
+                )
+            content = md_text[match.end():]
+        else:
+            content = md_text
+
+        if yaml_dict:
+            try:
+                self.task_status = FrontMatter.model_validate({'task_status': yaml_dict}).task_status
+            except ValidationError as e:
+                self.log.error('Invalid front matter', yaml_dict=yaml_dict, exception=str(e), errors=e.errors())
+                errors.add(
+                    "Invalid front matter",
+                    yaml_dict=yaml_dict,
+                    exception=str(e),
+                    errors = e.errors(),
+                    error_type=ParseErrorType.PYDANTIC_VALIDATION_ERROR,
+                )
+
+        return errors, content

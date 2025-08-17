@@ -40,38 +40,35 @@ class DisplayModern(RichDisplayPlugin):
         self.current_block = None
         self.execution_status = {}
         self.live_display = None
-        self.stream_buffer = ""
-        self.thinking_buffer = ""
-        self.is_thinking = False
         
     def on_task_start(self, event):
         """任务开始事件处理"""
-        data = event.data
-        instruction = data.get('instruction', '')
-        user_prompt = data.get('user_prompt', '')
+        instruction = event.typed_event.instruction
+        title = event.typed_event.title or instruction
         
         # 显示任务开始信息
-        title = Text("🚀 任务开始", style="bold blue")
-        content = Text(instruction, style="white")
-        panel = Panel(content, title=title, border_style="blue")
+        title_text = Text("🚀 任务开始", style="bold blue")
+        content = Text(title, style="white")
+        panel = Panel(content, title=title_text, border_style="blue")
         self.console.print(panel)
         self.console.print()
         
     def on_round_start(self, event):
         """回合开始事件处理"""
-        data = event.data
-        instruction = data.get('instruction', '')
+        instruction = event.typed_event.instruction
+        title = event.typed_event.title or instruction
         
         # 显示回合开始信息
-        title = Text("🔄 回合开始", style="bold yellow")
-        content = Text(instruction, style="white")
-        panel = Panel(content, title=title, border_style="yellow")
+        title_text = Text("🔄 回合开始", style="bold yellow")
+        content = Text(title, style="white")
+        panel = Panel(content, title=title_text, border_style="yellow")
         self.console.print(panel)
         self.console.print()
         
-    def on_query_start(self, event):
+    def on_request_started(self, event):
         """查询开始事件处理"""
-        self.console.print(f"📤 {T('Sending message to LLM')}...", style="dim cyan")
+        llm = event.typed_event.llm
+        self.console.print(f"📤 {T('Sending message to {}')}...".format(llm), style="dim cyan")
         
     def on_stream_start(self, event):
         """流式开始事件处理"""
@@ -89,18 +86,16 @@ class DisplayModern(RichDisplayPlugin):
         
     def on_stream(self, event):
         """LLM 流式响应事件处理"""
-        response = event.data
-        lines = response.get('lines', [])
-        reason = response.get('reason', False)
+        lines = event.typed_event.lines
+        reason = event.typed_event.reason
         
         if self.live_display:
             self.live_display.update_display(lines, reason=reason)
         
-    def on_response_complete(self, event):
+    def on_response_completed(self, event):
         """LLM 响应完成事件处理"""
-        data = event.data
-        llm = data.get('llm', '')
-        msg = data.get('msg')
+        llm = event.typed_event.llm
+        msg = event.typed_event.msg
         
         if not msg:
             self.console.print(f"❌ {T('LLM response is empty')}", style="red")
@@ -119,36 +114,49 @@ class DisplayModern(RichDisplayPlugin):
         # 智能解析和显示内容
         self._parse_and_display_content(content, llm)
         
+    def on_task_status(self, event):
+        """任务状态事件处理"""
+        status = event.typed_event.status
+        completed = status.completed
+        style = "success" if completed else "error"
+        
+        if completed:
+            title = Text("✅ 任务状态", style="bold green")
+            content_lines = [
+                Text("已完成", style="green"),
+                Text(f"置信度: {status.confidence}", style="cyan")
+            ]
+        else:
+            title = Text("❌ 任务状态", style="bold red")
+            content_lines = [
+                Text(status.status, style="red"),
+                Text(f"原因: {status.reason}", style="yellow"),
+                Text(f"建议: {status.suggestion}", style="cyan")
+            ]
+        
+        from rich.console import Group
+        content = Group(*content_lines)
+        panel = Panel(content, title=title, border_style=style)
+        self.console.print(panel)
+        
     def on_parse_reply(self, event):
         """消息解析结果事件处理"""
-        ret = event.data.get('result')
-        if ret:
-            # 显示解析结果摘要
-            if 'commands' in ret:
-                commands = ret['commands']
-                if commands:
-                    # 统计不同类型的指令
-                    exec_count = sum(1 for cmd in commands if cmd['type'] == 'exec')
-                    edit_count = sum(1 for cmd in commands if cmd['type'] == 'edit')
-                    
-                    summary_parts = []
-                    if exec_count > 0:
-                        summary_parts.append(f"{exec_count} exec")
-                    if edit_count > 0:
-                        summary_parts.append(f"{edit_count} edit")
-                        
-                    if summary_parts:
-                        summary = ', '.join(summary_parts)
-                        self.console.print(f"🎯 {T('Found commands')}: {summary}", style="dim green")
-            elif 'call_tool' in ret:
-                self.console.print(f"🔧 {T('Tool call detected')}", style="dim blue")
-            elif 'blocks' in ret and ret['blocks']:
-                block_count = len(ret['blocks'])
-                self.console.print(f"📝 {T('Found {} code blocks')}.format({block_count})", style="dim green")
+        response = event.typed_event.response
+        if not response:
+            return
+            
+        # 显示解析结果摘要
+        if response.code_blocks:
+            block_count = len(response.code_blocks)
+            self.console.print(f"📝 {T('Found {} code blocks').format(block_count)}", style="dim green")
+        
+        if response.tool_calls:
+            tool_count = len(response.tool_calls)
+            self.console.print(f"🔧 {T('Found {} tool calls').format(tool_count)}", style="dim blue")
                 
-    def on_exec(self, event):
+    def on_exec_started(self, event):
         """代码执行开始事件处理"""
-        block = event.data.get('block')
+        block = event.typed_event.block
         if not block:
             return
             
@@ -162,11 +170,10 @@ class DisplayModern(RichDisplayPlugin):
         # 显示执行状态
         self.console.print(f"⏳ {T('Executing')}...", style="yellow")
         
-    def on_exec_result(self, event):
+    def on_exec_completed(self, event):
         """代码执行结果事件处理"""
-        data = event.data
-        result = data.get('result')
-        block = data.get('block')
+        result = event.typed_event.result
+        block = event.typed_event.block
         
         if block and hasattr(block, 'name'):
             self.current_block = block.name
@@ -175,12 +182,11 @@ class DisplayModern(RichDisplayPlugin):
         # 显示执行结果
         self._show_execution_result(result)
         
-    def on_edit_start(self, event):
+    def on_edit_started(self, event):
         """代码编辑开始事件处理"""
-        instruction = event.data.get('instruction', {})
-        block_name = instruction.get('name', 'Unknown')
-        old_str = instruction.get('old', '')
-        new_str = instruction.get('new', '')
+        block_name = event.typed_event.block_name
+        old_str = event.typed_event.old
+        new_str = event.typed_event.new
         
         # 显示编辑操作信息
         title = Text(f"✏️ 编辑代码块: {block_name}", style="bold yellow")
@@ -199,22 +205,16 @@ class DisplayModern(RichDisplayPlugin):
         panel = Panel(content, title=title, border_style="yellow")
         self.console.print(panel)
         
-    def on_edit_result(self, event):
+    def on_edit_completed(self, event):
         """代码编辑结果事件处理"""
-        data = event.data
-        result = data.get('result', {})
-        
-        success = result.get('success', False)
-        message = result.get('message', '')
-        block_name = result.get('block_name', 'Unknown')
-        new_version = result.get('new_version')
+        success = event.typed_event.success
+        block_name = event.typed_event.block_name
+        new_version = event.typed_event.new_version
         
         if success:
             title = Text(f"✅ 编辑成功: {block_name}", style="bold green")
             content_lines = []
             
-            if message:
-                content_lines.append(Text(message, style="white"))
             if new_version:
                 content_lines.append(Text(f"新版本: v{new_version}", style="cyan"))
                 
@@ -223,43 +223,34 @@ class DisplayModern(RichDisplayPlugin):
             panel = Panel(content, title=title, border_style="green")
         else:
             title = Text(f"❌ 编辑失败: {block_name}", style="bold red")
-            content = Text(message or "编辑操作失败", style="red")
+            content = Text("编辑操作失败", style="red")
             panel = Panel(content, title=title, border_style="red")
             
         self.console.print(panel)
         
-    def on_mcp_call(self, event):
-        """MCP 工具调用事件处理"""
-        block = event.data.get('block')
-        if block and hasattr(block, 'content'):
-            # 显示工具调用内容
-            title = Text("🔧 MCP 工具调用", style="bold blue")
-            content = Syntax(block.content, 'json', line_numbers=False, word_wrap=True)
-            panel = Panel(content, title=title, border_style="blue")
-            self.console.print(panel)
-        else:
-            self.console.print(f"🔧 {T('Calling MCP tool')}...", style="dim blue")
+    def on_tool_call_started(self, event):
+        """工具调用开始事件处理"""
+        tool_call = event.typed_event.tool_call
+        title = Text(f"🔧 工具调用: {tool_call.name.value}", style="bold blue")
+        args = tool_call.arguments.model_dump_json()
+        content = Syntax(args, 'json', line_numbers=False, word_wrap=True)
+        panel = Panel(content, title=title, border_style="blue")
+        self.console.print(panel)
                 
-    def on_mcp_result(self, event):
-        """MCP 工具调用结果事件处理"""
-        data = event.data
-        result = data.get('result')
-        block = data.get('block')
+    def on_tool_call_completed(self, event):
+        """工具调用结果事件处理"""
+        result = event.typed_event.result
         
         # 显示工具调用结果
-        title = Text("🔧 MCP 工具结果", style="bold green")
-        if isinstance(result, dict):
-            content = Syntax(json.dumps(result, ensure_ascii=False, indent=2), 'json', line_numbers=False, word_wrap=True)
-        else:
-            content = Text(str(result), style="white")
+        title = Text(f"🔧 工具结果: {result.tool_name.value}", style="bold green")
+        content = Syntax(result.result.model_dump_json(indent=2, exclude_none=True), 'json', line_numbers=False, word_wrap=True)
         panel = Panel(content, title=title, border_style="green")
         self.console.print(panel)
         
     def on_round_end(self, event):
         """回合结束事件处理"""
-        data = event.data
-        summary = data.get('summary', {})
-        response = data.get('response', '')
+        summary = event.typed_event.summary
+        response = event.typed_event.response
         
         # 显示统计信息
         if 'usages' in summary and summary['usages']:
@@ -280,17 +271,16 @@ class DisplayModern(RichDisplayPlugin):
             
     def on_task_end(self, event):
         """任务结束事件处理"""
-        path = event.data.get('path', '')
+        path = event.typed_event.path or ''
         title = Text("✅ 任务完成", style="bold green")
-        content = Text(f"结果已保存到: {path}", style="white")
+        content = Text(f"结果已保存到: {path}", style="white") if path else Text("任务完成", style="white")
         panel = Panel(content, title=title, border_style="green")
         self.console.print(panel)
         
     def on_upload_result(self, event):
         """云端上传结果事件处理"""
-        data = event.data
-        status_code = data.get('status_code', 0)
-        url = data.get('url', '')
+        status_code = event.typed_event.status_code
+        url = event.typed_event.url
         
         if url:
             title = Text("☁️ 上传成功", style="bold green")
@@ -306,15 +296,11 @@ class DisplayModern(RichDisplayPlugin):
     def on_exception(self, event):
         """异常事件处理"""
         import traceback
-        data = event.data
-        msg = data.get('msg', '')
-        exception = data.get('exception')
-        traceback_str = data.get('traceback')
+        msg = event.typed_event.msg
+        exception = event.typed_event.exception
         
         title = Text("💥 异常", style="bold red")
-        if traceback_str:
-            content = Syntax(traceback_str, 'python', line_numbers=True, word_wrap=True)
-        elif exception:
+        if exception:
             try:
                 tb_lines = traceback.format_exception(type(exception), exception, exception.__traceback__)
                 tb_str = ''.join(tb_lines)
@@ -329,10 +315,15 @@ class DisplayModern(RichDisplayPlugin):
         
     def on_runtime_message(self, event):
         """Runtime消息事件处理"""
-        data = event.data
-        message = data.get('message', '')
+        message = event.typed_event.message
+        status = event.typed_event.status or 'info'
         if message:
-            self.console.print(message, style="dim white")
+            if status == 'error':
+                self.console.print(message, style="red")
+            elif status == 'warning':
+                self.console.print(message, style="yellow")
+            else:
+                self.console.print(message, style="dim white")
             
     def on_runtime_input(self, event):
         """Runtime输入事件处理"""
@@ -340,22 +331,23 @@ class DisplayModern(RichDisplayPlugin):
         pass
     
     @restore_output
-    def on_call_function(self, event):
-        """函数调用事件处理"""
-        data = event.data
-        funcname = data.get('funcname')
-        title = Text(f"🔧 {T('Start calling function {}')}".format(funcname), style="bold blue")
-        panel = Panel(Text(funcname, style="white"), title=title, border_style="blue")
+    def on_function_call_started(self, event):
+        """函数调用开始事件处理"""
+        funcname = event.typed_event.funcname
+        kwargs = event.typed_event.kwargs
+        title = Text(f"🔧 {T('Start calling function {}').format(funcname)}", style="bold blue")
+        args_text = json.dumps(kwargs, ensure_ascii=False, default=str) if kwargs else ""
+        content = Text(args_text[:64] + '...' if len(args_text) > 64 else args_text, style="white")
+        panel = Panel(content, title=title, border_style="blue")
         self.console.print(panel)
     
     @restore_output
-    def on_call_function_result(self, event):
+    def on_function_call_completed(self, event):
         """函数调用结果事件处理"""
-        data = event.data
-        funcname = data.get('funcname')
-        success = data.get('success', False)
-        result = data.get('result')
-        error = data.get('error')
+        funcname = event.typed_event.funcname
+        success = event.typed_event.success
+        result = event.typed_event.result
+        error = event.typed_event.error
         
         if success:
             title = Text(f"✅ {T('Function call result {}')}".format(funcname), style="bold green")

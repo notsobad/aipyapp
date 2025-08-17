@@ -7,7 +7,7 @@ from datetime import datetime
 
 from loguru import logger
 
-from .response import Response
+from .response import Response, TaskCompleted, TaskCannotContinue
 from .blocks import CodeBlock
 from ..llm.base import ChatMessage
 from .toolcalls import ToolCall, ToolCallResult
@@ -174,7 +174,7 @@ class RoundEndEvent(BaseEvent):
 class TaskStatusEvent(BaseEvent):
     """Event fired when task status changes"""
     name: Literal["task_status"] = "task_status"
-    status: Dict[str, Any] = Field(..., title="Status", description="Current task status information")
+    status: TaskCompleted | TaskCannotContinue = Field(..., title="Status", description="Current task status information")
 
 # ==================== LLM Interaction Events ====================
 
