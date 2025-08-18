@@ -5,7 +5,7 @@ import os
 import json
 import uuid
 import time
-from typing import Any, List, Optional
+from typing import Any, List, Optional, Tuple
 from pathlib import Path
 from dataclasses import dataclass
 from datetime import datetime
@@ -386,20 +386,8 @@ class Task(Stoppable):
         data['summary'] = summarys
         return data
 
-    def _get_system_prompt(self):
-        params = {}
-        if self.mcp:
-            params['mcp_tools'] = self.mcp.get_tools_prompt()
-        params['util_functions'] = self.runtime.get_builtin_functions()
-        params['tool_functions'] = self.runtime.get_plugin_functions()
-        params['role'] = self.role
-        return self.prompts.get_default_prompt(**params)
-
-    def run(self, instruction: str, title: str | None = None):
-        """
-        执行自动处理循环，直到 LLM 不再返回代码消息
-        instruction: 用户输入的字符串（可包含@file等多模态标记）
-        """
+    def _prepare_user_prompt(self, instruction: str, first_run: bool=False) -> LLMContext:
+        """处理多模态内容并验证模型能力"""
         mmc = MMContent(instruction, base_path=self.context.cwd)
         try:
             content = mmc.content
@@ -408,27 +396,44 @@ class Task(Stoppable):
 
         if not self.task_context.client.has_capability(content):
             raise TaskInputError(T("Current model does not support this content"))
+        
+        if isinstance(content, str):
+            if first_run:
+                content = self.prompts.get_task_prompt(content, gui=self.gui)
+            else:
+                content = self.prompts.get_chat_prompt(content, self.instruction)
+        return content
 
-        user_prompt = content
+    def _prepare_system_prompt(self) -> str:
+        params = {}
+        if self.context.mcp:
+            params['mcp_tools'] = self.context.mcp.get_tools_prompt()
+        params['util_functions'] = self.runtime.get_builtin_functions()
+        params['tool_functions'] = self.runtime.get_plugin_functions()
+        params['role'] = self.role
+        system_prompt = self.prompts.get_default_prompt(**params)
+        return system_prompt
+
+    def run(self, instruction: str, title: str | None = None):
+        """
+        执行自动处理循环，直到 LLM 不再返回代码消息
+        instruction: 用户输入的字符串（可包含@file等多模态标记）
+        """
+        first_run = not self.steps
         title = title or instruction
-        if not self.start_time:
+        user_prompt = self._prepare_user_prompt(instruction, first_run)
+        system_prompt = self._prepare_system_prompt() if first_run else None
+ 
+        if first_run:
             self.start_time = time.time()
             self.instruction = instruction
-            
-            # 开始事件记录
             self.event_recorder.start_recording()
-            if isinstance(content, str):
-                user_prompt = self.prompts.get_task_prompt(content, gui=self.gui)
-            system_prompt = self._get_system_prompt()
             self.emit('task_started', instruction=instruction, task_id=self.task_id, title=title)
         else:
-            system_prompt = None
-            if isinstance(content, str):
-                user_prompt = self.prompts.get_chat_prompt(content, self.instruction)
-            # 记录轮次开始事件
             self.emit('step_started', instruction=instruction, step=len(self.steps) + 1, title=title)
 
-        self.cwd.mkdir(exist_ok=True)
+        # We MUST create the task directory here because it could be a resumed task.
+        self.cwd.mkdir(exist_ok=True, parents=True)
         os.chdir(self.cwd)
 
         self.saved = False
