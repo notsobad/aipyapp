@@ -125,7 +125,7 @@ class StreamProcessor:
             return
         
         # 过滤掉特殊注释行
-        lines2 = [line for line in lines if not line.startswith('<!-- Block-') and not line.startswith('<!-- Cmd-')]
+        lines2 = [line for line in lines if not (line.startswith('<!-- Block-') or line.startswith('<!-- ToolCall:'))]
         if lines2:
             self.task.emit('stream', llm=self.name, lines=lines2, reason=reason)
 
