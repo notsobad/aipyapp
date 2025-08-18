@@ -113,6 +113,14 @@ class Traverser:
             result.append(item)
         return result
 
+    @property
+    def last(self) -> Optional[ItemType]:
+        """获取最后一个元素"""
+        items = list(self._iterate())
+        if items:
+            return items[-1]
+        return None
+
     def skip(self, count: int):
         """跳过前N个元素，返回新的遍历器"""
         items = list(self._iterate())[count:]

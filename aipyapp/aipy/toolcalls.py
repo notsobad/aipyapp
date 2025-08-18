@@ -189,6 +189,7 @@ class ToolCallProcessor:
                 "deps": original_block.deps.copy() if original_block.deps else {}
             }
         )
+        context.step.blocks.add_block(new_block)
         return EditToolResult(block_name=block_name, new_block=new_block)
     
     def run_code_block(self, context: 'TaskContext', block_name: str) -> ExecToolResult:

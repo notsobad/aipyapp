@@ -5,7 +5,7 @@ import os
 import json
 import uuid
 import time
-from typing import Any, List
+from typing import Any, List, Optional
 from pathlib import Path
 from dataclasses import dataclass
 from datetime import datetime
@@ -70,6 +70,11 @@ class TaskContext:
     display: Any
     tool_call_processor: ToolCallProcessor
     traverser: Traverser
+
+    @property
+    def step(self) -> Optional['Step']:
+        """Current step"""
+        return self.traverser.last
 
     def get_block(self, name: str):
         return self.traverser.find_first(lambda step: step.blocks.get(name))
@@ -144,9 +149,6 @@ class Step(BaseModel):
             
             if response.tool_calls:
                 results = self.context.tool_call_processor.process(self.context, response.tool_calls)
-                for result in results:
-                    if isinstance(result.result, EditToolResult) and result.result.new_block:
-                        self.blocks.add_block(result.result.new_block, validate=False)
 
         return Round(response=response, toolcall_results=results)
         
@@ -314,23 +316,6 @@ class Task(Stoppable):
         ret = self.client.use(name)
         return ret
         
-    def save(self, path):
-        self.display.save(path, clear=False, code_format=CONSOLE_WHITE_HTML)
-
-    def save_html(self, path, task):
-        if 'chats' in task and isinstance(task['chats'], list) and len(task['chats']) > 0:
-            if task['chats'][0]['role'] == 'system':
-                task['chats'].pop(0)
-
-        task_json = json.dumps(task, ensure_ascii=False, default=str)
-        html_content = CONSOLE_CODE_HTML.replace('{{code}}', task_json)
-        try:
-            with open(path, 'w', encoding='utf-8') as f:
-                f.write(html_content)
-        except Exception as e:
-            self.log.exception('Error saving html')
-            self.emit('exception', msg='save_html', exception=e)
-        
     def _auto_save(self):
         """自动保存任务状态"""
         # 如果任务目录不存在，则不保存
@@ -346,7 +331,7 @@ class Task(Stoppable):
             
             # 保存 HTML 控制台
             filename = self.cwd / "console.html"
-            self.save(filename)
+            self.display.save(filename, clear=False, code_format=CONSOLE_WHITE_HTML)
             
             self.saved = True
             self.log.info('Task auto saved')
