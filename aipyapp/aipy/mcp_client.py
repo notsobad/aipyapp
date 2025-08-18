@@ -166,23 +166,10 @@ class LazyMCPClient:
                 logger.error(f"Network error connecting to server '{server_key}': {e}")
                 raise ConnectionError(f"Network error for server '{server_key}': {e}")
             except Exception as e:
-                # 捕获所有其他异常，包括 SSE 相关错误
-                error_msg = str(e)
-                if any(
-                    keyword in error_msg.lower()
-                    for keyword in ['read', 'sse', 'stream', 'http', 'connection']
-                ):
-                    logger.error(
-                        f"SSE/HTTP error connecting to server '{server_key}': {e}"
-                    )
-                    raise ConnectionError(
-                        f"SSE/HTTP error for server '{server_key}': {e}"
-                    )
-                else:
-                    logger.error(
-                        f"Unexpected error connecting to server '{server_key}': {e}"
-                    )
-                    raise
+                logger.error(
+                    f"Unexpected error connecting to server '{server_key}': {e}"
+                )
+                raise
             finally:
                 self._current_prefix = None
 
@@ -247,6 +234,7 @@ class LazyMCPClient:
                         )
                     except Exception as e:
                         logger.error(f"Unexpected error connecting '{server_key}': {e}")
+                        print("Connect error, skipping server:", server_key)
 
         tools = []
         if self._group is not None:
