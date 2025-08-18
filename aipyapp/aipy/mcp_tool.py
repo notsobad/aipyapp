@@ -128,16 +128,33 @@ class MCPToolManager:
 
         all_tools = []
 
-        # 一次性获取所有需要加载的服务器的工具
-        servers_to_load = [
-            (server_name, server_config)
-            for server_name, server_config in mcp_servers.items()
-            if server_name not in self._tools_dict
-        ]
+        # 分别检查缓存和需要重新加载的服务器
+        servers_to_load = []
+        servers_from_cache = []
 
+        for server_name, server_config in mcp_servers.items():
+            if server_name in self._tools_dict:
+                # 已经在内存中，直接使用
+                continue
+
+            key = f"mcp_tool:{server_name}:{cache.cache_key(server_config)}"
+            cached_tools = cache.get_cache(key)
+
+            if cached_tools is not None:
+                # 从缓存中恢复
+                self._tools_dict[server_name] = cached_tools
+                servers_from_cache.append(server_name)
+            else:
+                # 需要重新加载
+                servers_to_load.append((server_name, server_config))
+
+        if servers_from_cache:
+            print(f"+ Loading MCP server {', '.join(servers_from_cache)} from cache...")
+
+        # 只有真正需要重新加载的服务器才去连接
         if servers_to_load:
             try:
-                print(f"+ Loading MCP tools from {len(servers_to_load)} servers...")
+                print(f"+ Loading MCP server {', '.join([i[0] for i in servers_to_load])}...")
                 # 使用全局 LazyMCPClient 一次性获取所有工具
                 all_discovered_tools = self._lazy_client.list_tools(
                     discover_all=True
@@ -146,14 +163,7 @@ class MCPToolManager:
                 # 按服务器名称分组工具
                 for server_name, server_config in servers_to_load:
                     try:
-                        key = f"mcp_tool:{server_name}:{cache.cache_key(server_config)}"
-                        tools = cache.get_cache(key)
-                        if tools is not None:
-                            # 如果缓存中有工具列表，直接使用
-                            self._tools_dict[server_name] = tools
-                            continue
-
-                        print(f"  Processing tools for {server_name}")
+                        #print(f"  Processing tools for {server_name}")
                         # 过滤出属于当前服务器的工具
                         server_tools = []
                         for tool in all_discovered_tools:
@@ -168,6 +178,8 @@ class MCPToolManager:
                                 )
                                 server_tools.append(clean_tool)
 
+                        # 保存到缓存和内存
+                        key = f"mcp_tool:{server_name}:{cache.cache_key(server_config)}"
                         if server_tools:
                             cache.set_cache(key, server_tools, ttl=60 * 60 * 24 * 2)
 

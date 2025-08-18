@@ -75,9 +75,9 @@ class LazyMCPClient:
             # 使用 StringIO 而不是 devnull，避免文件关闭问题
             import io
 
-            dummy_out = io.StringIO()
+            #dummy_out = io.StringIO()
             dummy_err = io.StringIO()
-            sys.stdout = dummy_out
+            #sys.stdout = dummy_out
             sys.stderr = dummy_err
             yield
         except Exception as e:
