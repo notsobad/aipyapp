@@ -59,7 +59,6 @@ class LazyMCPClient:
         finally:
             logger.debug("Event loop stopped")
 
-    # ---------- 工具方法 ----------
     def _now(self) -> float:
         return time.time()
 
@@ -219,7 +218,6 @@ class LazyMCPClient:
             return sk.strip(), tn.strip()
         return None, tool_name
 
-    # ---------- 对外同步API ----------
     def list_tools(self, discover_all: bool = False) -> list:
         """
         返回当前已连接服务器的工具列表；
