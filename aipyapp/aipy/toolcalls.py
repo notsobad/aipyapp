@@ -44,7 +44,7 @@ class EditToolArgs(BaseModel):
 class EditToolResult(ToolResult):
     """Edit tool result"""
     block_name: str = Field(title="Code block name edited", min_length=1, strip_whitespace=True)
-    new_block: CodeBlock | None = Field(title="New code block", default=None)
+    new_version: int = Field(title="New version number", gt=1)
 
 class MCPToolArgs(BaseModel):
     """MCP tool arguments"""
@@ -120,12 +120,8 @@ class ToolCallProcessor:
             result = self.call_tool(context, tool_call)
             results.append(result)
             
-            if name == ToolName.EDIT:
-                if result.result.error:
-                    failed_blocks.add(tool_call.arguments.name)
-                else:
-                    block = result.result.new_block
-                    self.new_blocks[block.name] = block
+            if name == ToolName.EDIT and result.result.error:
+                failed_blocks.add(tool_call.arguments.name)
         
         return results
 
@@ -189,8 +185,9 @@ class ToolCallProcessor:
                 "deps": original_block.deps.copy() if original_block.deps else {}
             }
         )
+        self.new_blocks[block_name] = new_block
         context.step.blocks.add_block(new_block)
-        return EditToolResult(block_name=block_name, new_block=new_block)
+        return EditToolResult(block_name=block_name, new_version=new_block.version)
     
     def run_code_block(self, context: 'TaskContext', block_name: str) -> ExecToolResult:
         """执行代码块"""
