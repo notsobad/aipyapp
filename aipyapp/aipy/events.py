@@ -147,30 +147,30 @@ class TypedEventBus:
 
 # ==================== Task Lifecycle Events ====================
 
-class TaskStartEvent(BaseEvent):
+class TaskStartedEvent(BaseEvent):
     """Event fired when a task starts"""
-    name: Literal["task_start"] = "task_start"
+    name: Literal["task_started"] = "task_started"
     instruction: str = Field(..., title="Instruction", description="User instruction for the task")
     task_id: str = Field(..., title="Task ID", description="Unique identifier for the task")
     title: Optional[str] = Field(None, title="Title", description="Optional title for the task")
 
-class TaskEndEvent(BaseEvent):
+class TaskCompletedEvent(BaseEvent):
     """Event fired when a task ends"""
-    name: Literal["task_end"] = "task_end"
+    name: Literal["task_completed"] = "task_completed"
     path: Optional[str] = Field(None, title="Path", description="Path where task results are saved")
 
-class RoundStartEvent(BaseEvent):
+class StepStartedEvent(BaseEvent):
     """Event fired when a conversation round starts"""
-    name: Literal["round_start"] = "round_start"
+    name: Literal["step_started"] = "step_started"
     instruction: str = Field(..., title="Instruction", description="User instruction for this round")
-    step: int = Field(..., title="Step", description="Round step number")
-    title: Optional[str] = Field(None, title="Title", description="Optional title for this round")
+    step: int = Field(..., title="Step", description="Step number")
+    title: Optional[str] = Field(None, title="Title", description="Optional title for this step")
 
-class RoundEndEvent(BaseEvent):
+class StepCompletedEvent(BaseEvent):
     """Event fired when a conversation round ends"""
-    name: Literal["round_end"] = "round_end"
-    summary: Dict[str, Any] = Field(..., title="Summary", description="Round execution summary")
-    response: Optional[str] = Field(None, title="Response", description="Final response content")
+    name: Literal["step_completed"] = "step_completed"
+    summary: Dict[str, Any] = Field(..., title="Summary", description="Step execution summary")
+    response: Optional[Response] = Field(None, title="Response", description="Final response content")
 
 class TaskStatusEvent(BaseEvent):
     """Event fired when task status changes"""
@@ -190,14 +190,14 @@ class ResponseCompletedEvent(BaseEvent):
     llm: str = Field(..., title="LLM", description="Name of the LLM that responded")
     msg: ChatMessage = Field(..., title="Message", description="LLM Response message object")
 
-class StreamStartEvent(BaseEvent):
+class StreamStartedEvent(BaseEvent):
     """Event fired when LLM streaming starts"""
-    name: Literal["stream_start"] = "stream_start"
+    name: Literal["stream_started"] = "stream_started"
     llm: Optional[str] = Field(None, title="LLM", description="Name of the streaming LLM")
 
-class StreamEndEvent(BaseEvent):
+class StreamCompletedEvent(BaseEvent):
     """Event fired when LLM streaming ends"""
-    name: Literal["stream_end"] = "stream_end"
+    name: Literal["stream_completed"] = "stream_completed"
     llm: Optional[str] = Field(None, title="LLM", description="Name of the streaming LLM")
 
 class StreamEvent(BaseEvent):

@@ -1,21 +1,21 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+from __future__ import annotations
 import json
 import time
 from pathlib import Path
-from typing import Dict, Any, Optional, Union, TYPE_CHECKING, Literal
+from typing import Dict, Any, Optional, Union, TYPE_CHECKING, Literal, List
 from collections import OrderedDict
 
 from pydantic import BaseModel, Field
 from loguru import logger
 
-from .blocks import CodeBlocks
 from .event_recorder import EventRecords
 
 
 if TYPE_CHECKING:
-    from .task import Task
+    from .task import Task, Step
 
 # 任务版本常量
 TASK_VERSION = 20250806
@@ -46,7 +46,6 @@ class TaskState(BaseModel):
     start_time: Optional[float] = None
     done_time: Optional[float] = None
 
-    blocks: CodeBlocks
     records: EventRecords | None = None
     steps: Any
     context_manager: Any
@@ -79,9 +78,8 @@ class TaskState(BaseModel):
             instruction=task.instruction,
             start_time=task.start_time,
             done_time=task.done_time,
-            blocks=task.code_blocks,
             records=task.event_recorder.records if task.event_recorder is not None else None,
-            steps=task.step_manager.get_state(),
+            steps=task.steps,
             context_manager=task.context_manager.get_state(),
         )
         return instance

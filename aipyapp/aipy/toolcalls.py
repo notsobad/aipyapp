@@ -9,6 +9,7 @@ from typing import Union, List, Dict, Any, Optional
 from loguru import logger
 from pydantic import BaseModel, model_validator, Field
 
+from .blocks import CodeBlock
 from .types import Error
 
 class ToolName(str, Enum):
@@ -43,8 +44,7 @@ class EditToolArgs(BaseModel):
 class EditToolResult(ToolResult):
     """Edit tool result"""
     block_name: str = Field(title="Code block name edited", min_length=1, strip_whitespace=True)
-    success: bool = Field(title="Edit success", default=False)
-    new_version: Optional[int] = Field(None, title="New version number of the code block")
+    new_block: CodeBlock | None = Field(title="New code block", default=None)
 
 class MCPToolArgs(BaseModel):
     """MCP tool arguments"""
@@ -83,11 +83,11 @@ class ToolCallResult(BaseModel):
 class ToolCallProcessor:
     """工具调用处理器 - 高级接口"""
     
-    def __init__(self, task):
-        self.task = task
+    def __init__(self):
         self.log = logger.bind(src='ToolCallProcessor')
+        self.new_blocks: Dict[str, CodeBlock] = {}
     
-    def process(self, tool_calls: List[ToolCall]) -> List[ToolCallResult]:
+    def process(self, context: 'TaskContext', tool_calls: List[ToolCall]) -> List[ToolCallResult]:
         """
         处理工具调用列表
         
@@ -117,16 +117,19 @@ class ToolCallProcessor:
                     continue
             
             # 执行工具调用
-            result = self.call_tool(tool_call)
+            result = self.call_tool(context, tool_call)
             results.append(result)
             
-            # 如果是编辑失败，记录失败的代码块
-            if name == ToolName.EDIT and result.result.error:
-                failed_blocks.add(tool_call.arguments.name)
+            if name == ToolName.EDIT:
+                if result.result.error:
+                    failed_blocks.add(tool_call.arguments.name)
+                else:
+                    block = result.result.new_block
+                    self.new_blocks[block.name] = block
         
         return results
 
-    def call_tool(self, tool_call: ToolCall) -> ToolCallResult:
+    def call_tool(self, context: 'TaskContext', tool_call: ToolCall) -> ToolCallResult:
         """
         执行工具调用
         
@@ -136,13 +139,13 @@ class ToolCallProcessor:
         Returns:
             ToolResult: 执行结果
         """
-        self.task.emit('tool_call_started', tool_call=tool_call)
+        context.event_bus.emit('tool_call_started', tool_call=tool_call)
         if tool_call.name == ToolName.EXEC:
-            result = self._call_exec(tool_call)
+            result = self._call_exec(context, tool_call)
         elif tool_call.name == ToolName.EDIT:
-            result = self._call_edit(tool_call)
+            result = self._call_edit(context, tool_call)
         elif tool_call.name == ToolName.MCP:
-            result = self._call_mcp(tool_call)
+            result = self._call_mcp(context, tool_call)
         else:
             result = ToolResult(error=Error('Unknown tool'))
 
@@ -150,43 +153,59 @@ class ToolCallProcessor:
             tool_name=tool_call.name,
             result=result
         )
-        self.task.emit('tool_call_completed', result=toolcall_result)
+        context.event_bus.emit('tool_call_completed', result=toolcall_result)
         return toolcall_result
            
-    def _call_edit(self, tool_call: ToolCall) -> EditToolResult:
+    def _call_edit(self, context: 'TaskContext', tool_call: ToolCall) -> EditToolResult:
         """执行 Edit 工具"""
-        task = self.task
         args = tool_call.arguments
+        block_name = args.name
+
+        original_block = self.new_blocks.get(block_name) or context.get_block(block_name)
+        if not original_block:
+            return EditToolResult(block_name=block_name, error=Error.new("Code block not found"))
         
-        error = task.code_blocks.edit_block(args.name, args.old, args.new, args.replace_all)
-        if not error:
-            success = True
-            new_version = task.code_blocks.get(args.name).version
-        else:
-            success = False
-            new_version = None
-        result = EditToolResult(
-            block_name=args.name,
-            success=success,
-            new_version=new_version
+        old_str = args.old
+        new_str = args.new
+        replace_all = args.replace_all
+
+        # 检查是否找到匹配的字符串
+        if old_str not in original_block.code:
+            return EditToolResult(block_name=block_name, error=Error.new(f"No match found for {old_str[:50]}..."))
+        
+        # 检查匹配次数
+        match_count = original_block.code.count(old_str)
+        if match_count > 1 and not replace_all:
+            return EditToolResult(block_name=block_name, error=Error.new(f"Multiple matches found for {old_str[:50]}...", suggestion="set replace_all: true or provide more specific context"))
+        
+        # 执行替换生成新代码
+        new_code = original_block.code.replace(old_str, new_str, -1 if replace_all else 1)
+        
+        # 创建新的代码块（版本号+1）
+        new_block = original_block.model_copy(
+            update={
+                "version": original_block.version + 1,
+                "code": new_code,
+                "deps": original_block.deps.copy() if original_block.deps else {}
+            }
         )
-        return result
+        return EditToolResult(block_name=block_name, new_block=new_block)
     
-    def run_code_block(self, block_name: str) -> ExecToolResult:
+    def run_code_block(self, context: 'TaskContext', block_name: str) -> ExecToolResult:
         """执行代码块"""
         tool_call = ToolCall(
             name=ToolName.EXEC,
             arguments=ExecToolArgs(name=block_name)
         )
-        return self.call_tool(tool_call)
+        return self.call_tool(context, tool_call)
     
-    def _call_exec(self, tool_call: ToolCall) -> ExecToolResult:
+    def _call_exec(self, context: 'TaskContext', tool_call: ToolCall) -> ExecToolResult:
         """执行 Exec 工具"""
         args = tool_call.arguments
         block_name = args.name
         
         # 获取代码块
-        block = self.task.code_blocks.get(block_name)
+        block = self.new_blocks.get(block_name) or context.get_block(block_name)
         if not block:
             return ExecToolResult(
                 block_name=block_name,
@@ -195,7 +214,7 @@ class ToolCallProcessor:
         
         # 执行代码块
         try:
-            result = self.task.runner(block)
+            result = context.runner(block)
             return ExecToolResult(
                 block_name=block_name,
                 result=result
@@ -207,9 +226,9 @@ class ToolCallProcessor:
                 error=Error.new("Execution failed with exception", exception=str(e))
             )
     
-    def _call_mcp(self, tool_call: ToolCall) -> MCPToolResult:
+    def _call_mcp(self, context: 'TaskContext', tool_call: ToolCall) -> MCPToolResult:
         """执行 MCP 工具"""
-        result = self.task.mcp.call_tool(tool_call.name, tool_call.arguments)
+        result = context.mcp.call_tool(tool_call.name, tool_call.arguments)
         return MCPToolResult(
             result=result
         )

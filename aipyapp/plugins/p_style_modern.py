@@ -41,7 +41,7 @@ class DisplayModern(RichDisplayPlugin):
         self.execution_status = {}
         self.live_display = None
         
-    def on_task_start(self, event):
+    def on_task_started(self, event):
         """任务开始事件处理"""
         instruction = event.typed_event.instruction
         title = event.typed_event.title or instruction
@@ -53,8 +53,8 @@ class DisplayModern(RichDisplayPlugin):
         self.console.print(panel)
         self.console.print()
         
-    def on_round_start(self, event):
-        """回合开始事件处理"""
+    def on_step_started(self, event):
+        """步骤开始事件处理"""
         instruction = event.typed_event.instruction
         title = event.typed_event.title or instruction
         
@@ -70,14 +70,14 @@ class DisplayModern(RichDisplayPlugin):
         llm = event.typed_event.llm
         self.console.print(f"📤 {T('Sending message to {}')}...".format(llm), style="dim cyan")
         
-    def on_stream_start(self, event):
+    def on_stream_started(self, event):
         """流式开始事件处理"""
         if not self.quiet:
             self.live_display = LiveDisplay()
             self.live_display.__enter__()
             self.console.print(f"📥 {T('Streaming started')}...", style="dim cyan")
     
-    def on_stream_end(self, event):
+    def on_stream_completed(self, event):
         """流式结束事件处理"""
         if self.live_display:
             self.live_display.__exit__(None, None, None)
@@ -247,8 +247,8 @@ class DisplayModern(RichDisplayPlugin):
         panel = Panel(content, title=title, border_style="green")
         self.console.print(panel)
         
-    def on_round_end(self, event):
-        """回合结束事件处理"""
+    def on_step_completed(self, event):
+        """步骤结束事件处理"""
         summary = event.typed_event.summary
         response = event.typed_event.response
         
@@ -269,7 +269,7 @@ class DisplayModern(RichDisplayPlugin):
             self.console.print()
             self._parse_and_display_content(response, "Final Response")
             
-    def on_task_end(self, event):
+    def on_task_completed(self, event):
         """任务结束事件处理"""
         path = event.typed_event.path or ''
         title = Text("✅ 任务完成", style="bold green")

@@ -83,7 +83,7 @@ class CodeBlocks(Trackable, BaseModel):
     def __iter__(self):
         return iter(self.blocks.values())
     
-    def _add_block(self, block: CodeBlock, validate: bool = True):
+    def add_block(self, block: CodeBlock, validate: bool = True):
         """添加代码块"""
         if validate:
             old_block = self.blocks.get(block.name)
@@ -98,7 +98,7 @@ class CodeBlocks(Trackable, BaseModel):
     def add_blocks(self, code_blocks: List[CodeBlock]):
         """添加代码块"""
         for block in code_blocks:
-            self._add_block(block)
+            self.add_block(block)
         self._log.info(f"Added {len(code_blocks)} blocks")
 
     def get(self, block_name: str) -> Optional[CodeBlock]:
@@ -106,47 +106,6 @@ class CodeBlocks(Trackable, BaseModel):
         if not block:
             self._log.error("Block not found", block_name=block_name)
         return block
-
-    def edit_block(self, block_name: str, old_str: str, new_str: str, replace_all: bool = False) -> Optional[Error]:
-        """
-        编辑指定代码块，创建新版本而不修改原代码块
-        
-        Args:
-            block_name: 代码块名称
-            old_str: 要替换的字符串
-            new_str: 新字符串
-            replace_all: 是否替换所有匹配项
-            
-        Returns:
-            Error: 错误信息
-        """
-        if block_name not in self.blocks:
-            return Error.new("Block not found")
-            
-        original_block = self.blocks[block_name]
-        
-        # 检查是否找到匹配的字符串
-        if old_str not in original_block.code:
-            return Error.new(f"No match found for {old_str[:50]}...")
-        
-        # 检查匹配次数
-        match_count = original_block.code.count(old_str)
-        if match_count > 1 and not replace_all:
-            return Error.new(f"Multiple matches found for {old_str[:50]}...", suggestion="set replace_all: true or provide more specific context")
-        
-        # 执行替换生成新代码
-        new_code = original_block.code.replace(old_str, new_str, -1 if replace_all else 1)
-        
-        # 创建新的代码块（版本号+1）
-        new_block = original_block.model_copy(
-            update={
-                "version": original_block.version + 1,
-                "code": new_code,
-                "deps": original_block.deps.copy() if original_block.deps else {}
-            }
-        )
-        self._add_block(new_block, validate=False)
-        return None
 
     def get_state(self) -> dict:
         """Get state data for persistence"""

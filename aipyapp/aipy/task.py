@@ -27,13 +27,15 @@ from .multimodal import MMContent, LLMContext
 from .context_manager import ContextManager, ContextConfig
 from .event_recorder import EventRecorder
 from .task_state import TaskState
-from .toolcalls import ToolCallProcessor, ToolCallResult
+from .toolcalls import ToolCallProcessor, ToolCallResult, EditToolResult
 from .response import Response
 from .events import BaseEvent
 from .llm import ChatHistory, Client
 from .role import Role
 from .prompts import Prompts
+from .types import Traverser
 
+MAX_ROUNDS = 16
 CONSOLE_WHITE_HTML = read_text(__respkg__, "console_white.html")
 CONSOLE_CODE_HTML = read_text(__respkg__, "console_code.html")
 
@@ -67,32 +69,108 @@ class TaskContext:
     role: Role
     display: Any
     tool_call_processor: ToolCallProcessor
+    traverser: Traverser
+
+    def get_block(self, name: str):
+        return self.traverser.find_first(lambda step: step.blocks.get(name))
 
 class Round(BaseModel):
     response: Response = Field(default_factory=Response)
     toolcall_results: List[ToolCallResult] = Field(default_factory=list)
 
+    def should_continue(self):
+        """ Should continue? 
+        1. Parse error
+        2. have toolcall results
+        """
+        return self.response.errors or self.toolcall_results
+
+    def get_response_prompt(self, prompts: Prompts):
+        if self.response.errors:
+            return prompts.get_parse_error_prompt(self.response.errors)
+        if self.toolcall_results:
+            return prompts.get_toolcall_results_prompt(self.toolcall_results)
+        return None
+
 class Step(BaseModel):
     instruction: str
-    title: str
+    start_time: float = Field(default_factory=time.time)
+    end_time: float | None = None
+    result: Response | None = None
     chats: ChatHistory = Field(default_factory=ChatHistory)
     events: list[BaseEvent.get_subclasses_union] = Field(default_factory=list)
-    response: Response = Field(default_factory=Response)
+    rounds: List[Round] = Field(default_factory=list)
     blocks: CodeBlocks = Field(default_factory=CodeBlocks)
 
     def __init__(self, context: TaskContext, **kwargs):
         super().__init__(**kwargs)
         self._context = context
+        self._log = logger.bind(src='Step')
 
     def model_post_init(self, __context):
         if __context and 'context' in __context:
             self._context = __context
 
+    def __len__(self):
+        return len(self.rounds)
+    
     @property
     def context(self):
         return self._context
 
+    @property
+    def log(self):
+        return self._log
+    
+    def request(self, context: LLMContext, *, system_prompt=None):
+        event_bus = self.context.event_bus
+        client = self.context.client
+        event_bus.emit('request_started', llm=client.name)
+        msg = client(context, system_prompt=system_prompt)
+        event_bus.emit('response_completed', llm=client.name, msg=msg)
+        return msg.content if msg else None
 
+    def process(self, markdown):
+        event_bus = self.context.event_bus
+        response = Response.from_markdown(markdown, parse_mcp=self.context.mcp)
+        event_bus.emit('parse_reply_completed', response=response)
+        results = []
+        if not response.errors:
+            if response.task_status:
+                event_bus.emit('task_status', status=response.task_status)
+
+            if response.code_blocks:
+                self.blocks.add_blocks(response.code_blocks)
+            
+            if response.tool_calls:
+                results = self.context.tool_call_processor.process(self.context, response.tool_calls)
+                for result in results:
+                    if isinstance(result.result, EditToolResult) and result.result.new_block:
+                        self.blocks.add_block(result.result.new_block, validate=False)
+
+        return Round(response=response, toolcall_results=results)
+        
+    def run(self, user_prompt: LLMContext, system_prompt: str | None = None, max_rounds: int | None = None) -> Response | None:
+        rounds = 1
+        max_rounds = max_rounds or MAX_ROUNDS
+        prompt = user_prompt
+        while rounds <= max_rounds:
+            markdown = self.request(prompt, system_prompt=system_prompt)
+            if not markdown:
+                self.log.error('No response from LLM')
+                break
+
+            round = self.process(markdown)
+            self.rounds.append(round)
+            if not round.should_continue():
+                self.result = round.response
+                break
+
+            rounds += 1
+            prompt = round.get_response_prompt(self.context.prompts)
+
+        self.end_time = time.time()
+        return self.result
 
 class Task(Stoppable):
     MAX_ROUNDS = 16
@@ -106,6 +184,8 @@ class Task(Stoppable):
         self.context = context
         self.settings = context.settings
         self.prompts = context.prompts
+
+        self.steps: List[Step] = []
 
         self.start_time = None
         self.done_time = None
@@ -127,18 +207,9 @@ class Task(Stoppable):
         self.context_manager = ContextManager(ContextConfig.from_dict(context_settings))
         
         # 创建Client时传入context_manager
-        self.client = context.client_manager.Client(self, self.context_manager)
         self.role = context.role_manager.current_role
-        self.code_blocks = CodeBlocks()
         self.runtime = CliPythonRuntime(self)
-        self.runner = BlockExecutor()
-        self.runner.set_python_runtime(self.runtime)
-        self.tool_call_processor = ToolCallProcessor(self)
-
-        # 注册所有可追踪对象到步骤管理器
         self.step_manager = StepManager()
-        self.step_manager.register_trackable('messages', self.context_manager)
-        self.step_manager.register_trackable('blocks', self.code_blocks)
 
         # 初始化事件记录器
         enable_replay = self.settings.get('enable_replay_recording', True)
@@ -157,17 +228,20 @@ class Task(Stoppable):
         return self._task_context
     
     def create_task_context(self, context):
+        runner = BlockExecutor()
+        runner.set_python_runtime(self.runtime)
         return TaskContext(
             settings=context.settings,
             prompts=context.prompts,
             cwd=self.cwd,
             event_bus=self._event_bus,
             mcp=context.mcp,
-            runner=BlockExecutor(),
+            runner=runner,
             client=context.client_manager.Client(self, self.context_manager),
             role=context.role_manager.current_role,
             display=self.display,
-            tool_call_processor=ToolCallProcessor(self)
+            tool_call_processor=ToolCallProcessor(),
+            traverser=Traverser(self.steps)
         )
     
     def emit(self, event_name: str, **kwargs):
@@ -203,8 +277,8 @@ class Task(Stoppable):
 
     def get_status(self):
         return {
-            'llm': self.client.name,
-            'blocks': len(self.code_blocks),
+            'llm': self.task_context.client.name,
+            'blocks': sum(len(step.blocks) for step in self.steps),
             'steps': len(self.step_manager),
         }
 
@@ -303,30 +377,10 @@ class Task(Stoppable):
             self.log.warning('Task directory not found')
 
         self.log.info('Task done', path=newname)
-        self.emit('task_end', path=newname)
+        self.emit('task_completed', path=newname)
         #self.context.diagnose.report_code_error(self.runner.history)
         if self.settings.get('share_result'):
             self.sync_to_cloud()
-        
-    def process_reply(self, markdown):
-        response = Response.from_markdown(markdown, parse_mcp=self.mcp)
-        self.emit('parse_reply_completed', response=response)
-        if response.errors:
-            prompt = self.prompts.get_parse_error_prompt(response.errors)
-            return self.chat(prompt)
-        
-        if response.task_status:
-            self.emit('task_status', status=response.task_status)
-        
-        if response.code_blocks:
-            self.code_blocks.add_blocks(response.code_blocks)
-        
-        if response.tool_calls:
-            results = self.tool_call_processor.process(response.tool_calls)
-            msg = self.prompts.get_toolcall_results_prompt(results)
-            return self.chat(msg)
-        
-        return None
         
     def run_code_block(self, block):
         """运行代码块"""
@@ -346,12 +400,6 @@ class Task(Stoppable):
         summarys = "{rounds} | {time:.3f}s/{elapsed_time:.3f}s | Tokens: {input_tokens}/{output_tokens}/{total_tokens}".format(**summary)
         data['summary'] = summarys
         return data
-
-    def chat(self, context: LLMContext, *, system_prompt=None):
-        self.emit('request_started', llm=self.client.name)
-        msg = self.client(context, system_prompt=system_prompt)
-        self.emit('response_completed', llm=self.client.name, msg=msg)
-        return msg.content if msg else None
 
     def _get_system_prompt(self):
         params = {}
@@ -373,7 +421,7 @@ class Task(Stoppable):
         except Exception as e:
             raise TaskInputError(T("Invalid input"), e) from e
 
-        if not self.client.has_capability(content):
+        if not self.task_context.client.has_capability(content):
             raise TaskInputError(T("Current model does not support this content"))
 
         user_prompt = content
@@ -387,46 +435,26 @@ class Task(Stoppable):
             if isinstance(content, str):
                 user_prompt = self.prompts.get_task_prompt(content, gui=self.gui)
             system_prompt = self._get_system_prompt()
-            self.emit('task_start', instruction=instruction, task_id=self.task_id, title=title)
+            self.emit('task_started', instruction=instruction, task_id=self.task_id, title=title)
         else:
             system_prompt = None
             if isinstance(content, str):
                 user_prompt = self.prompts.get_chat_prompt(content, self.instruction)
             # 记录轮次开始事件
-            self.emit('round_start', instruction=instruction, step=len(self.step_manager) + 1, title=title)
+            self.emit('step_started', instruction=instruction, step=len(self.steps) + 1, title=title)
 
         self.cwd.mkdir(exist_ok=True)
         os.chdir(self.cwd)
 
-        rounds = 1
-        max_rounds = self.max_rounds
         self.saved = False
-        step = Step(instruction=instruction, title=title, context=self.task_context)
+        step = Step(instruction=instruction, title=title, context=self.task_context, max_rounds=self.max_rounds)
+        self.steps.append(step)
+        response = step.run(user_prompt, system_prompt=system_prompt)
 
-        response = self.chat(user_prompt, system_prompt=system_prompt)
-        if not response:
-            self.log.error('No response from LLM')
-            # 使用新的步骤管理器记录失败的步骤
-            self.step_manager.create_checkpoint(instruction, 0, '')
-            return
-        
-        while rounds <= max_rounds:
-            prev_response = response
-            response = self.process_reply(response)
-            rounds += 1
-            if self.is_stopped():
-                self.log.info('Task stopped')
-                break
-            if not response:
-                response = prev_response
-                break
-
-        # 使用新的步骤管理器记录步骤
-        self.step_manager.create_checkpoint(instruction, rounds, response)
         summary = self._get_summary()
-        self.emit('round_end', summary=summary, response=response)
+        self.emit('step_completed', summary=summary, response=response)
         self._auto_save()
-        self.log.info('Round done', rounds=rounds)
+        self.log.info('Step done', rounds=len(step))
 
     def sync_to_cloud(self):
         """ Sync result

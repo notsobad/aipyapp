@@ -98,14 +98,14 @@ class StreamProcessor:
     
     def __enter__(self):
         """支持上下文管理器协议"""
-        self.task.emit('stream_start', llm=self.name)
+        self.task.emit('stream_started', llm=self.name)
         return self
     
     def __exit__(self, exc_type, exc_val, exc_tb):
         """支持上下文管理器协议"""
         if self.lr.buffer:
             self.process_chunk('\n')        
-        self.task.emit('stream_end', llm=self.name)
+        self.task.emit('stream_completed', llm=self.name)
     
     def process_chunk(self, content, *, reason=False):
         """处理流式数据块并发送事件"""

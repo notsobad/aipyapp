@@ -54,7 +54,7 @@ class DisplayClassic(RichDisplayPlugin):
         tree.add(exception)
         self.console.print(tree)
 
-    def on_task_start(self, event):
+    def on_task_started(self, event):
         """任务开始事件处理"""
         instruction = event.typed_event.instruction
         title = event.typed_event.title
@@ -70,8 +70,8 @@ class DisplayClassic(RichDisplayPlugin):
         title = self._get_title(T("Sending message to {}"), llm)
         self.console.print(title)
 
-    def on_round_start(self, event):
-        """回合开始事件处理"""
+    def on_step_started(self, event):
+        """步骤开始事件处理"""
         instruction = event.typed_event.instruction
         title = event.typed_event.title
         if not title:
@@ -81,7 +81,7 @@ class DisplayClassic(RichDisplayPlugin):
         tree.add(title)
         self.console.print(tree)
 
-    def on_stream_start(self, event):
+    def on_stream_started(self, event):
         """流式开始事件处理"""
         if not self.quiet:
             self.live_display = LiveDisplay()
@@ -89,7 +89,7 @@ class DisplayClassic(RichDisplayPlugin):
             title = self._get_title(T("Streaming started"), prefix="")
             self.console.print(title)
     
-    def on_stream_end(self, event):
+    def on_stream_completed(self, event):
         """流式结束事件处理"""
         if self.live_display:
             self.live_display.__exit__(None, None, None)
@@ -308,7 +308,7 @@ class DisplayClassic(RichDisplayPlugin):
         tree.add(Syntax(json_result, "json", word_wrap=True))
         self.console.print(tree)
 
-    def on_round_end(self, event):
+    def on_step_completed(self, event):
         """任务总结事件处理"""
         summary = event.typed_event.summary
         usages = summary.get('usages', [])
@@ -349,7 +349,7 @@ class DisplayClassic(RichDisplayPlugin):
         else:
             self.console.print(f"🔴 {T('Upload failed (status code: {})', status_code)}", style="error")
 
-    def on_task_end(self, event):
+    def on_task_completed(self, event):
         """任务结束事件处理"""
         path = event.typed_event.path or ''
         title = self._get_title(T("Task completed"))
