@@ -278,7 +278,6 @@ class LazyMCPClient:
         支持三种调用方式：
         1. call_tool("search_web", {}, "Search")  # 推荐：明确指定服务器
         2. call_tool("Search:search_web", {})     # 兼容：使用 serverKey:toolName 格式
-        3. call_tool("search_web", {})            # 通用：尝试所有服务器直到找到工具
         """
         return self._run_async(self._call_tool_async(tool_name, arguments, server_name))
 
@@ -326,28 +325,10 @@ class LazyMCPClient:
                 logger.error(f"MCP error for '{server_key}:{bare_tool}': {e}")
                 return None, {"error": "MCP protocol error", "details": str(e)}
             except Exception as e:
-                # 检查是否是网络相关异常
-                error_msg = str(e)
-                if any(
-                    keyword in error_msg.lower()
-                    for keyword in [
-                        'read',
-                        'sse',
-                        'stream',
-                        'http',
-                        'connection',
-                        'network',
-                    ]
-                ):
-                    logger.error(
-                        f"Network error calling '{server_key}:{bare_tool}': {e}"
-                    )
-                    return None, {"error": "Network error", "details": str(e)}
-                else:
-                    logger.error(
-                        f"Unexpected error calling '{server_key}:{bare_tool}': {e}"
-                    )
-                    return None, {"error": "Unexpected error", "details": str(e)}
+                logger.error(
+                    f"Unexpected error calling '{server_key}:{bare_tool}': {e}"
+                )
+                return None, {"error": "Unexpected error", "details": str(e)}
 
         if server_key:
             res, err = await try_call_on(server_key, bare_tool)
@@ -374,28 +355,10 @@ class LazyMCPClient:
                     }
             return self._to_obj(res) if res else {"error": "Unknown error"}
 
-        # 尝试所有服务器
-        last_error = None
-        for sk in self._servers.keys():
-            try:
-                res, err = await try_call_on(sk, bare_tool)
-                if err is None and res is not None:
-                    return self._to_obj(res)
-                if err:
-                    last_error = err
-                    err_str = str(err).lower()
-                    if "timeout" in err_str or "connection" in err_str:
-                        await self._disconnect(sk)
-            except Exception as e:
-                last_error = {"error": str(e)}
-                await self._disconnect(sk)
-                logger.debug(f"Skip server '{sk}' due to error: {e}")
-
         return {
             "error": f"Tool '{bare_tool}' not found on any server",
             "tool_name": tool_name,
             "arguments": arguments,
-            "last_error": last_error,
         }
 
     def close(self):
