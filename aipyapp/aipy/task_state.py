@@ -5,13 +5,10 @@ from __future__ import annotations
 import json
 import time
 from pathlib import Path
-from typing import Dict, Any, Optional, Union, TYPE_CHECKING, Literal, List
-from collections import OrderedDict
+from typing import Dict, Any, Optional, Union, TYPE_CHECKING
 
 from pydantic import BaseModel, Field
 from loguru import logger
-
-from .event_recorder import EventRecords
 
 
 if TYPE_CHECKING:
@@ -46,7 +43,6 @@ class TaskState(BaseModel):
     start_time: Optional[float] = None
     done_time: Optional[float] = None
 
-    records: EventRecords | None = None
     steps: Any
     context_manager: Any
 
@@ -78,7 +74,6 @@ class TaskState(BaseModel):
             instruction=task.instruction,
             start_time=task.start_time,
             done_time=task.done_time,
-            records=task.event_recorder.records if task.event_recorder is not None else None,
             steps=task.steps,
             context_manager=task.context_manager.get_state(),
         )
@@ -99,9 +94,6 @@ class TaskState(BaseModel):
         task.step_manager.restore_state(self.steps)
         task.context_manager.restore_state(self.context_manager)
         task.code_blocks.restore_state(self.blocks)
-        
-        if task.event_recorder:
-            task.event_recorder.records = self.records
         
         self.log.info('Restored state to task', task_id=self.task_id)
     

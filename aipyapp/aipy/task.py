@@ -25,7 +25,6 @@ from .events import TypedEventBus
 from .step_manager import StepManager
 from .multimodal import MMContent, LLMContext
 from .context_manager import ContextManager, ContextConfig
-from .event_recorder import EventRecorder
 from .task_state import TaskState
 from .toolcalls import ToolCallProcessor, ToolCallResult, EditToolResult
 from .response import Response
@@ -70,11 +69,7 @@ class TaskContext:
     display: Any
     tool_call_processor: ToolCallProcessor
     traverser: Traverser
-
-    @property
-    def step(self) -> Optional['Step']:
-        """Current step"""
-        return self.traverser.last
+    step: Optional['Step'] = None
 
     def get_block(self, name: str):
         return self.traverser.find_first(lambda step: step.blocks.get(name))
@@ -188,6 +183,7 @@ class Task(Stoppable):
         self.prompts = context.prompts
 
         self.steps: List[Step] = []
+        self._current_step: Step | None = None
 
         self.start_time = None
         self.done_time = None
@@ -213,15 +209,6 @@ class Task(Stoppable):
         self.runtime = CliPythonRuntime(self)
         self.step_manager = StepManager()
 
-        # 初始化事件记录器
-        enable_replay = self.settings.get('enable_replay_recording', True)
-        if enable_replay:
-            self.event_recorder = EventRecorder(enabled=True)
-            # 注册事件记录器到步骤管理器
-            self.step_manager.register_trackable('events', self.event_recorder)
-        else:
-            self.event_recorder = None
-
         self.init_plugins()
         self._task_context = self.create_task_context(context)
 
@@ -243,7 +230,8 @@ class Task(Stoppable):
             role=context.role_manager.current_role,
             display=self.display,
             tool_call_processor=ToolCallProcessor(),
-            traverser=Traverser(self.steps)
+            traverser=Traverser(self.steps),
+            step=self._current_step,
         )
     
     def emit(self, event_name: str, **kwargs):
@@ -252,8 +240,8 @@ class Task(Stoppable):
         event = self._event_bus.emit(event_name, **kwargs)
         
         # 记录强类型事件对象到事件记录器
-        if self.event_recorder is not None:
-            self.event_recorder.record_event(event)
+        if self._current_step:
+            self._current_step.events.append(event)
         
         return event
 
@@ -427,7 +415,6 @@ class Task(Stoppable):
         if first_run:
             self.start_time = time.time()
             self.instruction = instruction
-            self.event_recorder.start_recording()
             self.emit('task_started', instruction=instruction, task_id=self.task_id, title=title)
         else:
             self.emit('step_started', instruction=instruction, step=len(self.steps) + 1, title=title)
@@ -438,6 +425,7 @@ class Task(Stoppable):
 
         self.saved = False
         step = Step(instruction=instruction, title=title, context=self.task_context, max_rounds=self.max_rounds)
+        self._current_step = step
         self.steps.append(step)
         response = step.run(user_prompt, system_prompt=system_prompt)
 
