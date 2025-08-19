@@ -20,19 +20,18 @@ from .. import T, __respkg__, Stoppable, TaskPlugin
 from ..exec import BlockExecutor
 from .runtime import CliPythonRuntime
 from .utils import get_safe_filename, validate_file
-from .blocks import CodeBlocks
+from .blocks import CodeBlock, CodeBlocks
 from .events import TypedEventBus
 from ..display import DisplayPlugin
 from .multimodal import MMContent, LLMContext
 from .context_manager import ContextManager, ContextConfig
-from .task_state import TaskState
 from .toolcalls import ToolCallProcessor, ToolCallResult, EditToolResult
 from .response import Response
 from .events import BaseEvent
 from .llm import ChatHistory, Client, ClientManager
 from .role import Role
 from .prompts import Prompts
-from .types import Traverser
+from .types import Traverser, DataMixin
 
 TASK_VERSION = 20250818
 MAX_ROUNDS = 16
@@ -119,7 +118,17 @@ class TaskContext:
         result = self.runner(block)
         self.emit('exec_completed', result=result, block=block)
         return result
-          
+
+    def get_system_prompt(self) -> str:
+        params = {}
+        if self.mcp:
+            params['mcp_tools'] = self.mcp.get_tools_prompt()
+        params['util_functions'] = self.runtime.get_builtin_functions()
+        params['tool_functions'] = self.runtime.get_plugin_functions()
+        params['role'] = self.role
+        system_prompt = self.prompts.get_default_prompt(**params)
+        return system_prompt
+             
 class Round(BaseModel):
     response: Response = Field(default_factory=Response)
     toolcall_results: List[ToolCallResult] = Field(default_factory=list)
@@ -138,7 +147,7 @@ class Round(BaseModel):
             return prompts.get_toolcall_results_prompt(self.toolcall_results)
         return None
 
-class Step(BaseModel):
+class StepData(BaseModel):
     instruction: str
     title: str | None = None
     start_time: float = Field(default_factory=time.time)
@@ -149,36 +158,23 @@ class Step(BaseModel):
     rounds: List[Round] = Field(default_factory=list)
     blocks: CodeBlocks = Field(default_factory=CodeBlocks)
 
-    def __init__(self, context: TaskContext | None = None, **kwargs):
-        super().__init__(**kwargs)
-        self._context = context
+    def add_blocks(self, blocks: List[CodeBlock]):
+        self.blocks.add_blocks(blocks)
+
+    def add_round(self, round: Round):
+        self.rounds.append(round)
+
+class Step(DataMixin):
+    __expose__ = {'events', 'blocks', 'result', 'chats', 'instruction', 'start_time', 'rounds'}
+
+    def __init__(self, context: TaskContext, data: StepData):
+        self.context = context
         self._log = logger.bind(src='Step')
-
-    def model_post_init(self, __context):
-        # Pydantic v2 钩子方法，用于模型验证后的初始化
-        # 对于从文件加载的情况，_context 在 Task.from_file 中手动设置
-        pass
-    
-    def _attach_context(self, context: 'TaskContext') -> None:
-        """内部方法：附加运行时上下文到 Step 对象
-        
-        这个方法专门用于反序列化后的上下文设置，
-        避免在外部直接访问内部属性。
-        """
-        self._context = context
-        # 可以在这里设置其他依赖于上下文的属性
-        # 如果有嵌套对象需要上下文，也在这里处理
-
-    def __len__(self):
-        return len(self.rounds)
+        self._data = data
     
     @property
-    def context(self):
-        return self._context
-
-    @property
-    def log(self):
-        return self._log
+    def data(self):
+        return self._data
     
     def request(self, context: LLMContext, *, system_prompt=None):
         client = self.context.client
@@ -196,7 +192,7 @@ class Step(BaseModel):
                 self.context.emit('task_status', status=response.task_status)
 
             if response.code_blocks:
-                self.blocks.add_blocks(response.code_blocks)
+                self._data.add_blocks(response.code_blocks)
             
             if response.tool_calls:
                 results = self.context.tool_call_processor.process(self.context, response.tool_calls)
@@ -214,16 +210,16 @@ class Step(BaseModel):
                 break
 
             round = self.process(markdown)
-            self.rounds.append(round)
+            self._data.add_round(round)
             if not round.should_continue():
-                self.result = round.response
+                self._data.result = round.response
                 break
 
             rounds += 1
             prompt = round.get_response_prompt(self.context.prompts)
 
-        self.end_time = time.time()
-        return self.result
+        self._data.end_time = time.time()
+        return self._data.result
 
     def get_summary(self, detail=False):
         data = {}
@@ -237,53 +233,39 @@ class Step(BaseModel):
         data['summary'] = summarys
         return data
     
-class Task(Stoppable, BaseModel):
+class TaskData(BaseModel):
+    id: str = Field(default_factory=lambda: uuid.uuid4().hex)
     version: int = Field(default=TASK_VERSION, frozen=True)
-    task_id: str = Field(default_factory=lambda: uuid.uuid4().hex)
-    steps: List[Step] = Field(default_factory=list)
-    
-    def __init__(self, context=None, **kwargs):
-        super().__init__(**kwargs)
-        if context is not None:
-            # 正常的构造函数调用（如 new_task）
-            self._workdir = context.cwd
-            self._cwd = self._workdir / self.task_id
-            self._log = logger.bind(src='task', id=self.task_id)
-            self._main_context = context
-            self._task_context = self.create_task_context(context)
-        else:
-            # 从文件加载时，这些将在 from_file 中手动设置
-            self._workdir = None
-            self._cwd = None 
-            self._log = None
-            self._main_context = None
-            self._task_context = None
+    steps: List[StepData] = Field(default_factory=list)
 
-    def model_post_init(self, __context):
-        # Pydantic v2 的钩子方法，用于模型验证后的初始化
-        # 对于从文件加载的情况，上下文在 from_file 中手动设置
-        pass
-    
-    def _attach_context(self, context: 'MainContext') -> None:
-        """内部方法：附加运行时上下文到 Task 及其所有 Step 对象
-        
-        这个方法负责设置整个 Task 树的运行时上下文，
-        包括所有嵌套的 Step 对象。
-        """
-        # 设置 Task 自身的上下文
-        self._main_context = context
+    def add_step(self, step: StepData):
+        self.steps.append(step)
+
+class Task(Stoppable):
+    def __init__(self, context: 'MainContext', data: TaskData | None = None):
+        super().__init__()
+        self._id = uuid.uuid4().hex
+        self._steps: List[Step] = []
         self._workdir = context.cwd
         self._cwd = self._workdir / self.task_id
         self._log = logger.bind(src='task', id=self.task_id)
+        self._main_context = context
         self._task_context = self.create_task_context(context)
-        
-        # 递归设置所有 Step 的上下文
-        for step in self.steps:
-            step._attach_context(self._task_context)
+
+        if data:
+            # Rebuild steps from data
+            self._log.info(f'Rebuilding steps from task {data.id}', steps=len(data.steps))
+            for step_data in data.steps:
+                step = Step(self._task_context, step_data)
+                self._steps.append(step)
 
     @property
     def log(self):
         return self._log
+    
+    @property
+    def task_id(self):
+        return self._id
     
     @property
     def task_context(self):
@@ -292,6 +274,10 @@ class Task(Stoppable, BaseModel):
     @property
     def main_context(self):
         return self._main_context
+    
+    @property
+    def steps(self):
+        return self._steps
     
     def create_task_context(self, context):
         if context.display_manager:
@@ -318,15 +304,15 @@ class Task(Stoppable, BaseModel):
             role=context.role_manager.current_role,
             display=display,
             tool_call_processor=ToolCallProcessor(),
-            traverser=Traverser(self.steps),
+            traverser=Traverser(self._steps),
             client_manager=context.client_manager,
         )
 
     def get_status(self):
         return {
             'llm': self.task_context.client.name,
-            'blocks': sum(len(step.blocks) for step in self.steps),
-            'steps': len(self.steps),
+            'blocks': sum(len(step.blocks) for step in self._steps),
+            'steps': len(self._steps),
         }
 
     @classmethod
@@ -339,21 +325,16 @@ class Task(Stoppable, BaseModel):
             with open(path, 'r', encoding='utf-8') as f:
                 try:
                     json_content = f.read()
-                    # 直接验证并创建实例（__init__ 会被调用，但 context=None）
-                    instance = cls.model_validate_json(json_content)
-                    
-                    # 使用内部方法附加运行时上下文到整个对象树
-                    instance._attach_context(context)
-                    
+                    task_data = TaskData.model_validate_json(json_content)
                 except ValidationError as e:
                     raise TaskError(f'Invalid task state: {e.errors()}') from e
-                logger.info('Loaded task state from file', path=str(path), task_id=instance.task_id)
+                task = cls(context, task_data)
+                logger.info('Loaded task state from file', path=str(path), task_id=task.task_id)
+                return task
         except json.JSONDecodeError as e:
             raise TaskError(f'Invalid JSON file: {e}') from e
         except Exception as e:
             raise TaskError(f'Failed to load task state: {e}') from e
-    
-        return instance
     
     def to_file(self, path: Union[str, Path]) -> None:
         """保存任务状态到文件"""
@@ -361,7 +342,9 @@ class Task(Stoppable, BaseModel):
         path.parent.mkdir(parents=True, exist_ok=True)
         try:
             with open(path, 'w', encoding='utf-8') as f:
-                f.write(self.model_dump_json(indent=2, exclude_none=True))
+                steps_data = [step.data for step in self._steps]
+                data = TaskData(steps=steps_data, id=self.task_id)
+                f.write(data.model_dump_json(indent=2, exclude_none=True))
             self.log.info('Saved task state to file', path=str(path))
         except Exception as e:
             self.log.exception('Failed to save task state', path=str(path))
@@ -390,7 +373,7 @@ class Task(Stoppable, BaseModel):
             self.task_context.emit('exception', msg='save_task', exception=e)
 
     def done(self):
-        if not self.steps:
+        if not self._steps:
             self.log.warning('Task not started, skipping save')
             return
         
@@ -401,7 +384,7 @@ class Task(Stoppable, BaseModel):
                 self.log.warning('Task not saved, trying to save')
                 self._auto_save()
 
-            newname = get_safe_filename(self.steps[0].instruction, extension=None)
+            newname = get_safe_filename(self._steps[0].instruction, extension=None)
             if newname:
                 try:
                     os.rename(curname, newname)
@@ -435,38 +418,29 @@ class Task(Stoppable, BaseModel):
                 content = self.task_context.prompts.get_chat_prompt(content, self.instruction)
         return content
 
-    def _prepare_system_prompt(self) -> str:
-        params = {}
-        if self.task_context.mcp:
-            params['mcp_tools'] = self.task_context.mcp.get_tools_prompt()
-        params['util_functions'] = self.task_context.runtime.get_builtin_functions()
-        params['tool_functions'] = self.task_context.runtime.get_plugin_functions()
-        params['role'] = self.task_context.role
-        system_prompt = self.task_context.prompts.get_default_prompt(**params)
-        return system_prompt
-
     def run(self, instruction: str, title: str | None = None):
         """
         执行自动处理循环，直到 LLM 不再返回代码消息
         instruction: 用户输入的字符串（可包含@file等多模态标记）
         """
-        first_run = not self.steps
+        first_run = not self._steps
         user_prompt = self._prepare_user_prompt(instruction, first_run)
-        system_prompt = self._prepare_system_prompt() if first_run else None
+        system_prompt = self.task_context.get_system_prompt() if first_run else None
 
         # We MUST create the task directory here because it could be a resumed task.
         self._cwd.mkdir(exist_ok=True, parents=True)
         os.chdir(self._cwd)
         self._saved = False
 
-        step = Step(instruction=instruction, title=title, context=self.task_context)
-        self.steps.append(step)
-        self.task_context.emit('step_started', instruction=instruction, step=len(self.steps) + 1, title=title)
+        step_data = StepData(instruction=instruction, title=title)
+        step = Step(self.task_context, step_data)
+        self._steps.append(step)
+        self.task_context.emit('step_started', instruction=instruction, step=len(self._steps) + 1, title=title)
         response = step.run(user_prompt, system_prompt=system_prompt)
         self.task_context.emit('step_completed', summary=step.get_summary(), response=response)
 
         self._auto_save()
-        self.log.info('Step done', rounds=len(step))
+        self.log.info('Step done', rounds=len(step.rounds))
 
     def sync_to_cloud(self):
         """ Sync result

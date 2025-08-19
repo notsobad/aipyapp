@@ -44,7 +44,7 @@ class EditToolArgs(BaseModel):
 class EditToolResult(ToolResult):
     """Edit tool result"""
     block_name: str = Field(title="Code block name edited", min_length=1, strip_whitespace=True)
-    new_version: int = Field(title="New version number", gt=1)
+    new_version: int | None = Field(title="New version number", gt=1, default=None)
 
 class MCPToolArgs(BaseModel):
     """MCP tool arguments"""
@@ -112,7 +112,10 @@ class ToolCallProcessor:
                     )
                     results.append(ToolCallResult(
                         tool_name=name,
-                        error=error
+                        result=ExecToolResult(
+                            block_name=block_name,
+                            error=error
+                        )
                     ))
                     continue
             

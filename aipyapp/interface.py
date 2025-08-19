@@ -43,8 +43,7 @@ class ConsoleInterface(ABC):
         pass
 
 class Stoppable():
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    def __init__(self):
         self._stop_event = threading.Event()
 
     def on_stop(self):

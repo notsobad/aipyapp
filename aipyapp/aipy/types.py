@@ -130,3 +130,14 @@ class Traverser:
         """过滤，返回新的遍历器"""
         filtered_items = [item for item in self._iterate() if condition(item)]
         return Traverser(filtered_items, reverse=False)  # 已经处理过顺序
+    
+class DataMixin:
+    __expose__: set = set()
+
+    def __getattr__(self, name):
+        if name in self.__expose__:
+            return getattr(self._data, name)
+        raise AttributeError(name)
+
+    def __dir__(self):
+        return list(super().__dir__()) + list(self.__expose__)

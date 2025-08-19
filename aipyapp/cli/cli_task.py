@@ -164,7 +164,7 @@ class InteractiveConsole():
             self.console.print(f"[AI] {T('Enter Ctrl+d or /done to end current task')}", style="dim color(240)")
             self.run_task(task, instruction, title=title)
         else:
-            self.console.print(f"[AI] {T('Resuming task')}: {task.instruction[:32]}", style="dim color(240)")
+            self.console.print(f"[AI] {T('Resuming task')}: {task.task_id}", style="dim color(240)")
             
         while True:
             try:
