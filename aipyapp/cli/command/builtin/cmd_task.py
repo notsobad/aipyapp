@@ -1,15 +1,11 @@
 import time
 import os
 
-from rich.panel import Panel
-
-from aipyapp import T, EventBus
-from aipyapp.aipy.events import EventFactory, TypedEventBus
-from aipyapp.aipy.task_state import TaskState
+from aipyapp.aipy.events import TypedEventBus
+from aipyapp import T
 from ..base import ParserCommand
 from ..common import TaskModeResult
 from .utils import record2table
-
 
 class TaskCommand(ParserCommand):
     name = 'task'
@@ -90,100 +86,31 @@ class TaskCommand(ParserCommand):
         task = ctx.tm.get_task_by_id(args.tid)
         return TaskModeResult(task=task)
 
-    def _load_task_state(self, path):
-        """加载任务状态"""
-        return TaskState.from_file(path)
-    
     def cmd_resume(self, args, ctx):
-        """从 task.json 文件加载任务"""
-        task_state = self._load_task_state(args.path)
-        
-        # 将任务添加到任务管理器中
-        task = ctx.tm.load_task(task_state)
+        task = ctx.tm.load_task(args.path)
         return TaskModeResult(task=task)
 
     def cmd_replay(self, args, ctx):
-        """重放任务"""
-        task_state = self._load_task_state(args.path)
-        
-        # 显示重放信息
-        instruction = task_state.instruction
-        task_id = task_state.task_id
-        records = task_state.records or []
-        events_count = len(records.events)
-        
-        panel = Panel(
-            f"🎬 Task Replay\n\n"
-            f"Task ID: {task_id}\n"
-            f"Instruction: {instruction}\n"
-            f"Events: {events_count}\n"
-            f"Speed: {args.speed}x",
-            title="Replay Mode",
-            border_style="cyan"
-        )
-        ctx.console.print(panel)
-        
-        if records:
-            self._replay_events(ctx, records, args.speed)
+        task = ctx.tm.load_task(args.path)
+        if not task.steps:
+            ctx.console.print(T("No steps to replay"))
+            return
 
-    def _replay_events(self, ctx, records, speed):
-        """简化的事件重放 - 直接按时间间隔触发事件"""
         display = ctx.tm.display_manager.create_display_plugin()
         event_bus = TypedEventBus()
         event_bus.add_listener(display)
-
-        for i, event in enumerate(records.events):
-            # 检查是否是 round_start 事件，需要用户确认
-            if event.name == 'round_start':
-                if not self._confirm_round_start(ctx,event):
-                    print("\n🛑 重放已取消")
-                    return
-            
-            # 计算等待时间
-            if i > 0:
-                prev_event = records.events[i - 1]
-                wait_time = (event.timestamp - prev_event.timestamp) / speed
-                if wait_time > 0:
-                    time.sleep(wait_time)
-            
-            event_bus.emit_event(event)
-
-    def _confirm_round_start(self, ctx, event):
-        """在 round_start 事件时提示用户确认是否继续"""
-        console = ctx.console
         
-        # 获取 step 信息
-        round_num = event.round
-        instruction = event.instruction
-        
-        # 显示提示面板
-        panel = Panel(
-            f"📋 即将重放 Step {round_num}\n\n"
-            f"指令: {instruction}\n\n"
-            f"⚠️  继续重放此步骤吗？",
-            title="🔄 Step 重放确认",
-            border_style="yellow"
-        )
-        console.print(panel)
-        
-        # 等待用户输入
-        try:
-            while True:
-                choice = console.input("\n请选择 [y/n]: ").lower().strip()
-                if choice in ['y', 'yes', '是']:
-                    console.print("✅ 继续重放...")
-                    return True
-                elif choice in ['n', 'no', '否']:
-                    return False
-                else:
-                    console.print("❓ 请输入 'y' 继续或 'n' 取消")
-        except KeyboardInterrupt:
-            console.print("\n\n❌ 用户中断，取消重放")
-            return False
-        except EOFError:
-            # 处理非交互式环境（如自动化测试）
-            console.print("\n⚠️  检测到非交互式环境，自动继续重放")
-            return True
+        for step in task.steps:
+            prev_event = None
+            for i, event in enumerate(step.events):
+                # 计算等待时间
+                if i > 0:
+                    wait_time = (event.timestamp - prev_event.timestamp) 
+                    if wait_time > 0:
+                        time.sleep(wait_time)
+                
+                event_bus.emit_event(event)
+                prev_event = event
 
     def cmd(self, args, ctx):
         self.cmd_list(args, ctx)

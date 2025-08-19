@@ -5,7 +5,7 @@ import os
 from pathlib import Path
 from collections import deque, namedtuple
 from dataclasses import dataclass
-from typing import Optional, Any
+from typing import Optional, Any, Union
 
 from loguru import logger
 
@@ -19,8 +19,8 @@ from .role import RoleManager
 from .mcp_tool import MCPToolManager
 
 @dataclass
-class TaskContext:
-    """任务上下文，包含创建任务所需的所有信息"""
+class MainContext:
+    """主上下文，包含创建任务所需的所有信息"""
     settings: Any
     cwd: Path
     plugin_manager: PluginManager
@@ -50,7 +50,7 @@ class TaskManager:
         self._init_managers()
         
         # 创建任务上下文
-        self.task_context = self._create_task_context()
+        self.main_context = self._create_main_context()
 
     def _init_workenv(self):
         """初始化工作环境"""
@@ -110,9 +110,9 @@ class TaskManager:
         }
         return status
 
-    def _create_task_context(self) -> TaskContext:
+    def _create_main_context(self) -> MainContext:
         """创建任务上下文"""
-        return TaskContext(
+        return MainContext(
             settings=self.settings,
             cwd=self.cwd,
             plugin_manager=self.plugin_manager,
@@ -177,15 +177,14 @@ class TaskManager:
     def new_task(self):
         """创建新任务"""
         # 创建新任务
-        task = Task(self.task_context)
+        task = Task(self.main_context)
         self.tasks.append(task)
         self.log.info('New task created', task_id=task.task_id)
         return task
     
-    def load_task(self, task_state):
+    def load_task(self, path: Union[str, Path]):
         """从任务状态加载任务"""
-        task = Task(self.task_context)
-        task.restore_state(task_state)
+        task = Task.from_file(path, context=self.main_context)
         self.tasks.append(task)
         self.log.info('Task loaded', task_id=task.task_id)
         return task

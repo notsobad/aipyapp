@@ -135,7 +135,7 @@ class ToolCallProcessor:
         Returns:
             ToolResult: 执行结果
         """
-        context.event_bus.emit('tool_call_started', tool_call=tool_call)
+        context.emit('tool_call_started', tool_call=tool_call)
         if tool_call.name == ToolName.EXEC:
             result = self._call_exec(context, tool_call)
         elif tool_call.name == ToolName.EDIT:
@@ -149,7 +149,7 @@ class ToolCallProcessor:
             tool_name=tool_call.name,
             result=result
         )
-        context.event_bus.emit('tool_call_completed', result=toolcall_result)
+        context.emit('tool_call_completed', result=toolcall_result)
         return toolcall_result
            
     def _call_edit(self, context: 'TaskContext', tool_call: ToolCall) -> EditToolResult:

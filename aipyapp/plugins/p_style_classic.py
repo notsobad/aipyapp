@@ -144,8 +144,10 @@ class DisplayClassic(RichDisplayPlugin):
             tree.add(T("Confidence level: {}", status.confidence))
         else:
             tree.add(status.status)
-            tree.add(T("Reason: {}", status.reason))
-            tree.add(T("Suggestion: {}", status.suggestion))
+            if status.reason:
+                tree.add(T("Reason: {}", status.reason))
+            if status.suggestion:
+                tree.add(T("Suggestion: {}", status.suggestion))
         self.console.print(tree)
 
     def on_parse_reply_completed(self, event):

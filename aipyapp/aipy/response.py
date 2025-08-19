@@ -51,8 +51,8 @@ class TaskCannotContinue(BaseModel):
     """任务无法继续"""
     completed: Literal[False] = Field(description="Task cannot continue")
     status: Literal['refused', 'need_info', 'failed'] = Field(description="Status of the task")
-    reason: str = Field(description="Reason for the task status")
-    suggestion: str = Field(description="Suggestion to resolve the issue")
+    reason: str | None = Field(default=None, description="Reason for the task status")
+    suggestion: str | None = Field(default=None, description="Suggestion to resolve the issue")
 
 class FrontMatter(BaseModel):
     """Front Matter 数据"""

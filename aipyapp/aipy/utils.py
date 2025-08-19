@@ -4,6 +4,8 @@
 import os
 import re
 import sys
+from pathlib import Path
+from typing import Union
 from functools import wraps
 from importlib.resources import read_text
 
@@ -57,3 +59,16 @@ def get_safe_filename(input_str, extension=".html", max_length=16):
         counter += 1
 
     return filename
+
+def validate_file(path: Union[str, Path]) -> None:
+    """验证文件格式和存在性"""
+    path = Path(path)
+    
+    if not path.exists():
+        raise FileNotFoundError(f"Task file not found: {path}")
+    
+    if not path.name.endswith('.json'):
+        raise ValueError("Task file must be a .json file")
+    
+    if not path.is_file():
+        raise ValueError(f"Path is not a file: {path}")

@@ -82,8 +82,8 @@ class LineReceiver(list):
 class StreamProcessor:
     """流式数据处理器，负责处理 LLM 流式响应并发送事件"""
     
-    def __init__(self, task, name):
-        self.task = task
+    def __init__(self, task_context, name):
+        self.task_context = task_context
         self.name = name
         self.lr = LineReceiver()
         self.lr_reason = LineReceiver()
@@ -98,14 +98,14 @@ class StreamProcessor:
     
     def __enter__(self):
         """支持上下文管理器协议"""
-        self.task.emit('stream_started', llm=self.name)
+        self.task_context.emit('stream_started', llm=self.name)
         return self
     
     def __exit__(self, exc_type, exc_val, exc_tb):
         """支持上下文管理器协议"""
         if self.lr.buffer:
             self.process_chunk('\n')        
-        self.task.emit('stream_completed', llm=self.name)
+        self.task_context.emit('stream_completed', llm=self.name)
     
     def process_chunk(self, content, *, reason=False):
         """处理流式数据块并发送事件"""
@@ -116,7 +116,7 @@ class StreamProcessor:
         if not reason and self.lr.empty() and not self.lr_reason.empty():
             line = self.lr_reason.done()
             if line:
-                self.task.emit('stream', llm=self.name, lines=[line, "\n\n----\n\n"], reason=True)
+                self.task_context.emit('stream', llm=self.name, lines=[line, "\n\n----\n\n"], reason=True)
 
         # 处理当前数据块
         lr = self.lr_reason if reason else self.lr
@@ -127,7 +127,7 @@ class StreamProcessor:
         # 过滤掉特殊注释行
         lines2 = [line for line in lines if not (line.startswith('<!-- Block-') or line.startswith('<!-- ToolCall:'))]
         if lines2:
-            self.task.emit('stream', llm=self.name, lines=lines2, reason=reason)
+            self.task_context.emit('stream', llm=self.name, lines=lines2, reason=reason)
 
 
 class ClientManager(object):
@@ -206,8 +206,8 @@ class ClientManager(object):
     def get_client(self, name):
         return self.clients.get(name)
     
-    def Client(self, task, context_manager):
-        return Client(self, task, context_manager)
+    def Client(self, task_context):
+        return Client(self, task_context)
     
     def to_records(self):
         LLMRecord = namedtuple('LLMRecord', ['Name', 'Model', 'Max_Tokens', 'Base_URL'])
@@ -220,13 +220,13 @@ class ClientManager(object):
         return self.model_registry.get_model_info(model)
     
 class Client:
-    def __init__(self, manager: ClientManager, task, context_manager):
+    def __init__(self, manager: ClientManager, task_context: 'TaskContext'):
         self.manager = manager
         self.current = manager.current
-        self.task = task
+        self.task_context = task_context
         
         # 接收外部传入的上下文管理器
-        self.context_manager = context_manager
+        self.context_manager = task_context.context_manager
         
         self.log = logger.bind(src='client', name=self.current.name)
 
@@ -275,7 +275,7 @@ class Client:
     
     def __call__(self, content: LLMContext, *, system_prompt=None):
         client = self.current
-        stream_processor = StreamProcessor(self.task, client.name)
+        stream_processor = StreamProcessor(self.task_context, client.name)
         
         # 直接传递 ContextManager，它已经实现了所需的接口
         msg = client(self.context_manager, content, system_prompt=system_prompt, stream_processor=stream_processor)

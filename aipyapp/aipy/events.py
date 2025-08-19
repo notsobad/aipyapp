@@ -3,7 +3,7 @@
 
 from typing import Any, Dict, List, Optional, Literal, Union
 from pydantic import BaseModel, Field, ConfigDict
-from datetime import datetime
+import time
 
 from loguru import logger
 
@@ -20,12 +20,12 @@ class BaseEvent(BaseModel):
     """Base event class for all events"""
     name: str = Field(..., title="Event Name", description="Unique identifier for the event type")
     timestamp: float = Field(
-        default_factory=lambda: datetime.now().timestamp(),
+        default_factory=lambda: time.time(),
         title="Timestamp", 
         description="Unix timestamp when the event occurred"
     )
     
-    model_config = ConfigDict(extra='allow', arbitrary_types_allowed=True)
+    model_config = ConfigDict(extra='allow', arbitrary_types_allowed=True, discriminator='name')
 
     @classmethod
     def get_subclasses_union(cls):
