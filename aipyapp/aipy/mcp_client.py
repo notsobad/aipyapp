@@ -4,7 +4,7 @@ import sys
 import time
 import threading
 from datetime import timedelta
-from typing import Dict, Optional, Tuple, Any
+from typing import Dict, Optional, Tuple, Any, AsyncGenerator, Callable
 
 from loguru import logger
 from mcp.client.session_group import (
@@ -269,6 +269,35 @@ class LazyMCPClient:
         """
         return self._run_async(self._call_tool_async(tool_name, arguments, server_name))
 
+    def call_tool_stream(
+        self, 
+        tool_name: str, 
+        arguments: dict, 
+        server_name: Optional[str] = None,
+        on_start: Optional[Callable] = None,
+        on_data: Optional[Callable[[str], None]] = None,
+        on_end: Optional[Callable] = None,
+    ):
+        """
+        流式调用工具，支持实时输出
+        
+        Args:
+            tool_name: 工具名称
+            arguments: 工具参数
+            server_name: 服务器名称（可选）
+            on_start: 流开始回调
+            on_data: 数据到达回调，接收字符串参数
+            on_end: 流结束回调
+            
+        Returns:
+            最终的完整结果
+        """
+        return self._run_async(
+            self._call_tool_stream_async(
+                tool_name, arguments, server_name, on_start, on_data, on_end
+            )
+        )
+
     async def _call_tool_async(
         self, tool_name: str, arguments: dict, server_name: Optional[str] = None
     ):
@@ -348,6 +377,176 @@ class LazyMCPClient:
             "tool_name": tool_name,
             "arguments": arguments,
         }
+
+    async def _call_tool_stream_async(
+        self, 
+        tool_name: str, 
+        arguments: dict, 
+        server_name: Optional[str] = None,
+        on_start: Optional[Callable] = None,
+        on_data: Optional[Callable[[str], None]] = None,
+        on_end: Optional[Callable] = None,
+    ):
+        """
+        异步流式调用工具
+        
+        注意：这是一个兼容性实现，如果 MCP 服务器不支持真正的流式响应，
+        我们会模拟流式输出以提供一致的用户体验。
+        """
+        await self._ensure_group()
+        await self._reap_idle()
+        group = self._group
+        assert group is not None
+
+        # 优先使用 server_name 参数，其次解析 tool_name 中的服务器名
+        if server_name:
+            server_key = server_name
+            bare_tool = tool_name
+        else:
+            server_key, bare_tool = self._parse_server_and_tool(tool_name)
+
+        async def try_call_stream_on(server_key: str, bare_tool: str):
+            try:
+                await self._connect_if_needed(server_key)
+                self._last_used_ts[server_key] = self._now()
+                qualified = self._qualified(server_key, bare_tool)
+                if qualified not in group.tools:
+                    return None, {"error": f"Tool '{qualified}' not found"}
+
+                logger.debug(
+                    f"Calling tool '{qualified}' with streaming args: {arguments}"
+                )
+                
+                if on_start:
+                    on_start()
+
+                # 调用 MCP 工具
+                result = await asyncio.wait_for(
+                    group.call_tool(qualified, arguments),
+                    timeout=120.0,  # 2分钟工具调用超时
+                )
+                
+                # 处理响应并模拟流式输出
+                if result and on_data:
+                    # 提取文本内容
+                    text_content = self._extract_text_content(result)
+                    
+                    if text_content:
+                        # 将长文本分块进行流式输出，提供更好的用户体验
+                        chunk_size = 100  # 每块100个字符
+                        for i in range(0, len(text_content), chunk_size):
+                            chunk = text_content[i:i + chunk_size]
+                            on_data(chunk)
+                            # 短暂延迟以模拟流式效果
+                            await asyncio.sleep(0.01)
+                
+                if on_end:
+                    on_end()
+                    
+                logger.debug(f"Tool '{qualified}' completed successfully")
+                return result, None
+                    
+            except asyncio.TimeoutError as e:
+                logger.error(
+                    f"Tool call timeout for '{server_key}:{bare_tool}' (120s)"
+                )
+                return None, {"error": "Tool call timeout", "details": str(e)}
+            except ConnectionError as e:
+                logger.error(f"Connection error for '{server_key}': {e}")
+                return None, {"error": "Connection error", "details": str(e)}
+            except (OSError, IOError) as e:
+                # 网络I/O错误
+                logger.error(f"I/O error for '{server_key}:{bare_tool}': {e}")
+                return None, {"error": "I/O error", "details": str(e)}
+            except McpError as e:
+                logger.error(f"MCP error for '{server_key}:{bare_tool}': {e}")
+                return None, {"error": "MCP protocol error", "details": str(e)}
+            except Exception as e:
+                logger.error(
+                    f"Unexpected error calling '{server_key}:{bare_tool}': {e}"
+                )
+                return None, {"error": "Unexpected error", "details": str(e)}
+
+        if server_key:
+            res, err = await try_call_stream_on(server_key, bare_tool)
+            if err:
+                logger.warning(
+                    f"First attempt failed, reconnecting to '{server_key}'..."
+                )
+                await self._disconnect(server_key)
+                try:
+                    res2, err2 = await try_call_stream_on(server_key, bare_tool)
+                    if err2:
+                        logger.error(f"Retry failed for '{server_key}': {err2}")
+                        return err2
+                    return self._to_obj(res2)
+                except Exception as e:
+                    logger.exception(
+                        f"Call failed after reconnect on '{server_key}': {e}"
+                    )
+                    return {
+                        "error": "Failed after reconnect",
+                        "tool_name": tool_name,
+                        "arguments": arguments,
+                        "details": str(e),
+                    }
+            return self._to_obj(res) if res else {"error": "Unknown error"}
+
+        return {
+            "error": f"Tool '{bare_tool}' not found on any server",
+            "tool_name": tool_name,
+            "arguments": arguments,
+        }
+
+    def _extract_text_content(self, result: Any) -> str:
+        """
+        从 MCP 响应中提取文本内容
+        """
+        if result is None:
+            return ""
+            
+        # 如果结果有 content 属性
+        if hasattr(result, 'content'):
+            if isinstance(result.content, list):
+                text_parts = []
+                for item in result.content:
+                    if hasattr(item, 'text'):
+                        # TextContent
+                        text_parts.append(item.text)
+                    elif hasattr(item, 'uri'):
+                        # ResourceLink 或 EmbeddedResource
+                        text_parts.append(f"[Resource: {item.uri}]")
+                    else:
+                        # 其他类型
+                        text_parts.append(str(item))
+                return ''.join(text_parts)
+            else:
+                return str(result.content)
+        
+        # 如果结果本身就是字符串
+        if isinstance(result, str):
+            return result
+            
+        # 如果结果是字典且包含文本信息
+        if isinstance(result, dict):
+            if 'content' in result:
+                if isinstance(result['content'], list):
+                    text_parts = []
+                    for item in result['content']:
+                        if isinstance(item, dict) and 'text' in item:
+                            text_parts.append(item['text'])
+                        else:
+                            text_parts.append(str(item))
+                    return ''.join(text_parts)
+                else:
+                    return str(result['content'])
+            elif 'text' in result:
+                return result['text']
+            elif 'message' in result:
+                return result['message']
+        
+        # 默认转换为字符串
+        return str(result)
 
     def close(self):
         async def _shutdown():

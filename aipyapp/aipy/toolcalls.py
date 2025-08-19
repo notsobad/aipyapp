@@ -125,12 +125,14 @@ class ToolCallProcessor:
         
         return results
 
-    def call_tool(self, context: 'TaskContext', tool_call: ToolCall) -> ToolCallResult:
+    def call_tool(self, context: 'TaskContext', tool_call: ToolCall, stream: bool = False) -> ToolCallResult:
         """
-        执行工具调用
+        Call a tool
         
         Args:
-            tool_call: ToolCall 对象
+            context: Task execution context
+            tool_call: Tool call specification
+            stream: Whether to use streaming output (if available)
             
         Returns:
             ToolResult: 执行结果
@@ -141,9 +143,13 @@ class ToolCallProcessor:
         elif tool_call.name == ToolName.EDIT:
             result = self._call_edit(context, tool_call)
         elif tool_call.name == ToolName.MCP:
-            result = self._call_mcp(context, tool_call)
+            if stream:
+                result = self._call_mcp_stream(context, tool_call)
+            else:
+                result = self._call_mcp(context, tool_call)
         else:
-            result = ToolResult(error=Error('Unknown tool'))
+            # 未知工具，返回 MCP 结果带错误
+            result = MCPToolResult(result={"error": "Unknown tool"})
 
         toolcall_result = ToolCallResult(
             tool_name=tool_call.name,
@@ -227,6 +233,34 @@ class ToolCallProcessor:
     def _call_mcp(self, context: 'TaskContext', tool_call: ToolCall) -> MCPToolResult:
         """执行 MCP 工具"""
         result = context.mcp.call_tool(tool_call.name, tool_call.arguments)
+        return MCPToolResult(
+            result=result
+        )
+
+    def _call_mcp_stream(self, context: 'TaskContext', tool_call: ToolCall) -> MCPToolResult:
+        """执行 MCP 工具（流式版本）"""
+        
+        def on_start():
+            """流开始回调"""
+            context.event_bus.emit('stream_started', llm='mcp')
+        
+        def on_data(chunk: str):
+            """数据到达回调"""
+            # 将文本分行处理以提供更好的流式体验
+            lines = chunk.split('\n') if chunk else []
+            context.event_bus.emit('stream', llm='mcp', lines=lines, reason=False)
+        
+        def on_end():
+            """流结束回调"""
+            context.event_bus.emit('stream_completed', llm='mcp')
+        
+        result = context.mcp.call_tool_stream(
+            tool_call.name, 
+            tool_call.arguments,
+            on_start=on_start,
+            on_data=on_data,
+            on_end=on_end
+        )
         return MCPToolResult(
             result=result
         )
