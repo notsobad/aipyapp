@@ -116,8 +116,8 @@ def init_settings(conf, args):
         if llm_config.need_config():
             settings['llm_need_config'] = True
             if not args.gui:
-                from .aipy.wizard import show_provider_config
-                show_provider_config(llm_config)
+                from .aipy.wizard import config_llm
+                config_llm(llm_config)
                 if llm_config.need_config():
                     print(f"❌ {T('LLM configuration required')}")
                     sys.exit(1)
