@@ -9,27 +9,14 @@ from typing import Optional, Any, Union
 
 from loguru import logger
 
+from ..llm import ClientManager
 from .task import Task
 from .plugins import PluginManager
 from .prompts import Prompts
 from .diagnose import Diagnose
-from .llm import ClientManager
 from .config import PLUGINS_DIR, ROLES_DIR, get_mcp_config_file, get_tt_api_key
 from .role import RoleManager
 from .mcp_tool import MCPToolManager
-
-@dataclass
-class MainContext:
-    """主上下文，包含创建任务所需的所有信息"""
-    settings: Any
-    cwd: Path
-    plugin_manager: PluginManager
-    display_manager: Any
-    client_manager: ClientManager
-    role_manager: RoleManager
-    diagnose: Diagnose
-    mcp: Optional[MCPToolManager]
-    prompts: Prompts
 
 class TaskManager:
     MAX_TASKS = 16
@@ -49,9 +36,6 @@ class TaskManager:
         # 初始化各种管理器
         self._init_managers()
         
-        # 创建任务上下文
-        self.main_context = self._create_main_context()
-
     def _init_workenv(self):
         """初始化工作环境"""
         # 环境变量
@@ -69,6 +53,7 @@ class TaskManager:
 
     def _init_managers(self):
         """初始化各种管理器"""
+        settings = self.settings
         # 插件管理器
         plugin_manager = PluginManager()
         plugin_manager.add_plugin_directory(PLUGINS_DIR)
@@ -80,20 +65,20 @@ class TaskManager:
                 self.display_manager.register_plugin(plugin)
 
         # 诊断器
-        self.diagnose = Diagnose.create(self.settings)
+        self.diagnose = Diagnose.create(settings)
         
         # 客户端管理器
-        self.client_manager = ClientManager(self.settings)
+        self.client_manager = ClientManager(settings.llm, max_tokens=settings.get('max_tokens'))
         
         # 角色管理器
-        api_conf = self.settings.get('api', {})
+        api_conf = settings.get('api', {})
         self.role_manager = RoleManager(ROLES_DIR, api_conf)
         self.role_manager.load_roles()
-        self.role_manager.use(self.settings.get('role', 'aipy'))
+        self.role_manager.use(settings.get('role', 'aipy'))
         
         # MCP 工具管理器
-        mcp_config_file = get_mcp_config_file(self.settings.get('_config_dir'))
-        self.mcp = MCPToolManager(mcp_config_file, get_tt_api_key(self.settings))
+        mcp_config_file = get_mcp_config_file(settings.get('_config_dir'))
+        self.mcp = MCPToolManager(mcp_config_file, get_tt_api_key(settings))
         
         # 提示管理器
         self.prompts = Prompts()
@@ -109,20 +94,6 @@ class TaskManager:
             'mcp_enabled': self.mcp.is_mcp_enabled,
         }
         return status
-
-    def _create_main_context(self) -> MainContext:
-        """创建任务上下文"""
-        return MainContext(
-            settings=self.settings,
-            cwd=self.cwd,
-            plugin_manager=self.plugin_manager,
-            display_manager=self.display_manager,
-            client_manager=self.client_manager,
-            role_manager=self.role_manager,
-            diagnose=self.diagnose,
-            mcp=self.mcp,
-            prompts=self.prompts
-        )
 
     @property
     def workdir(self):
@@ -177,14 +148,14 @@ class TaskManager:
     def new_task(self):
         """创建新任务"""
         # 创建新任务
-        task = Task(self.main_context)
+        task = Task(self)
         self.tasks.append(task)
         self.log.info('New task created', task_id=task.task_id)
         return task
     
     def load_task(self, path: Union[str, Path]):
         """从任务状态加载任务"""
-        task = Task.from_file(path, context=self.main_context)
+        task = Task.from_file(path, manager=self)
         self.tasks.append(task)
         self.log.info('Task loaded', task_id=task.task_id)
         return task

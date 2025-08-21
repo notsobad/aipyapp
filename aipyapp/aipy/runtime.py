@@ -25,13 +25,14 @@ def restore_output(func):
     return wrapper
 
 class CliPythonRuntime(PythonRuntime):
-    def __init__(self, task_context):
-        super().__init__(task_context.role.envs)
-        self.gui = task_context.gui
-        self.task = task_context
-        self.display = task_context.display
-        self._auto_install = task_context.settings.get('auto_install')
-        self._auto_getenv = task_context.settings.get('auto_getenv')
+    def __init__(self, task):
+        super().__init__()
+        self.task = task
+        self.gui = task.gui
+        self.envs = task.role.envs
+        self.display = task.display
+        self._auto_install = task.settings.get('auto_install')
+        self._auto_getenv = task.settings.get('auto_getenv')
         self.function_manager = FunctionManager()
 
     def register_plugin(self, plugin: TaskPlugin):

@@ -28,7 +28,7 @@ class PluginCommand(ParserCommand):
         """列出可用的插件"""
         rows = []
         if ctx.task:
-            plugins = ctx.task.plugins
+            plugins = ctx.task.task_context.plugins
             title = T('Enabled Plugins')
         else:
             plugins = None
@@ -50,7 +50,7 @@ class PluginCommand(ParserCommand):
         if not task:
             ctx.console.print(T('Task mode only'), style='yellow')
             return
-        plugin = task.plugins.get(args.name)
+        plugin = task.task_context.plugins.get(args.name)
         if not plugin:
             ctx.console.print(f"[red]{T('Plugin not enabled')}: {args.name}[/red]")
             return

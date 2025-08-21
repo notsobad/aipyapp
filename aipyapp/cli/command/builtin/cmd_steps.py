@@ -1,10 +1,11 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-from .utils import record2table
+from datetime import datetime
+
+from .utils import row2table
 from ..base import CommandMode, ParserCommand
 from aipyapp import T
-from rich.tree import Tree
 
 class StepsCommand(ParserCommand):
     """Steps command"""
@@ -20,42 +21,26 @@ class StepsCommand(ParserCommand):
         
     def get_arg_values(self, name, subcommand=None):
         if name == 'index':
-            ctx = self.manager.context
-            return [(str(step.Index), step.Instruction[:32]) for step in ctx.task.list_steps()]
+            task = self.manager.context.task
+            return [(str(index), step.title or step.instruction[:32]) for index, step in enumerate(task.steps)]
         return None
     
     def cmd(self, args, ctx):
         return self.cmd_list(args, ctx)
     
     def cmd_list(self, args, ctx):
-        task = ctx.task
-        steps = task.list_steps()
-        
+        steps = ctx.task.steps
         if not steps:
             ctx.console.print(T("No task steps found"))
             return
         
-        # 创建根树节点
-        tree = Tree(f"[bold blue]{T('Task Steps')}[/bold blue]")
-        
-        for i, step in enumerate(steps, 1):
-            # 获取字段值
-            fields = step._fields if hasattr(step, '_fields') else step.keys()
-            
-            # 为每个步骤创建子节点
-            step_node = tree.add(f"[bold cyan]Step {i}[/bold cyan]")
-            
-            for field in fields:
-                value = getattr(step, field) if hasattr(step, field) else step[field]
-                
-                if field == 'Instruction':
-                    # 长文本字段作为单个节点，保持原有格式
-                    step_node.add(f"[yellow]{T(field)}:[/yellow]\n[dim]{value}[/dim]")
-                else:
-                    # 短字段直接添加到步骤节点
-                    step_node.add(f"[yellow]{T(field)}:[/yellow] [green]{value}[/green]")
-        
-        ctx.console.print(tree)
+        rows = []
+        for i, step in enumerate(steps):
+            start_time_s = datetime.fromtimestamp(step.start_time).strftime('%m-%d %H:%M')
+            end_time_s = datetime.fromtimestamp(step.end_time).strftime('%m-%d %H:%M') if step.end_time else ''
+            rows.append([i, step.title or step.instruction[:32], len(step.rounds), len(step.blocks), start_time_s, end_time_s])
+        table = row2table(rows, title=T('Task Steps'), headers=[T('Index'), T('Title'), T('Rounds'), T('Blocks'), T('Start Time'), T('End Time')])
+        ctx.console.print(table)
     
     def cmd_clear(self, args, ctx):
         task = ctx.task

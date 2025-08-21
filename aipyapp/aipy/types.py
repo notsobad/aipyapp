@@ -57,7 +57,7 @@ class Traverser:
         self.items = items
         self.reverse = reverse
 
-    def _iterate(self):
+    def iterate(self):
         """根据设置返回相应的迭代器"""
         if self.reverse:
             if hasattr(self.items, '__reversed__') or hasattr(self.items, '__getitem__'):
@@ -70,7 +70,7 @@ class Traverser:
 
     def find_first(self, selector: Callable[[ItemType], Optional[T]]) -> Optional[T]:
         """查找第一个匹配的项"""
-        for item in self._iterate():
+        for item in self.iterate():
             result = selector(item)
             if result is not None:
                 return result
@@ -79,14 +79,14 @@ class Traverser:
     def find_all(self, selector: Callable[[ItemType], list[T]]) -> list[T]:
         """查找所有匹配的项"""
         results = []
-        for item in self._iterate():
+        for item in self.iterate():
             items = selector(item)
             results.extend(items)
         return results
 
     def find_by_condition(self, condition: Callable[[ItemType], bool]) -> Optional[ItemType]:
         """查找第一个满足条件的项"""
-        for item in self._iterate():
+        for item in self.iterate():
             if condition(item):
                 return item
         return None
@@ -96,7 +96,7 @@ class Traverser:
                     mapper: Callable[[ItemType], T]) -> list[T]:
         """过滤并映射"""
         results = []
-        for item in self._iterate():
+        for item in self.iterate():
             if condition(item):
                 results.append(mapper(item))
         return results
@@ -108,7 +108,7 @@ class Traverser:
     def take(self, count: int) -> list[ItemType]:
         """取前N个元素"""
         result = []
-        for i, item in enumerate(self._iterate()):
+        for i, item in enumerate(self.iterate()):
             if i >= count:
                 break
             result.append(item)
@@ -117,19 +117,19 @@ class Traverser:
     @property
     def last(self) -> Optional[ItemType]:
         """获取最后一个元素"""
-        items = list(self._iterate())
+        items = list(self.iterate())
         if items:
             return items[-1]
         return None
 
     def skip(self, count: int):
         """跳过前N个元素，返回新的遍历器"""
-        items = list(self._iterate())[count:]
+        items = list(self.iterate())[count:]
         return Traverser(items, reverse=False)  # 已经处理过顺序
 
     def where(self, condition: Callable[[ItemType], bool]):
         """过滤，返回新的遍历器"""
-        filtered_items = [item for item in self._iterate() if condition(item)]
+        filtered_items = [item for item in self.iterate() if condition(item)]
         return Traverser(filtered_items, reverse=False)  # 已经处理过顺序
     
 class DataMixin:

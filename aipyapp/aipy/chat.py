@@ -15,6 +15,12 @@ class ChatMessage(InstanceTrackerMixin, BaseModel):
     def __hash__(self):
         return hash(self.id)
     
+    def model_post_init(self, __context):
+        if __context and 'message_storage' in __context:
+            message_storage = __context['message_storage']
+            self.message = message_storage.get(self.id)
+            #print(f'Recover message {self.id} from storage: {self.message is not None}')
+
     @property
     def role(self):
         return self.message.role if self.message is not None else None
@@ -57,13 +63,9 @@ class MessageStorage(BaseModel):
             self.messages[id] = message
         return ChatMessage(id=id, message=message)
 
-    def get(self, id: str) -> Optional[ChatMessage]:
-        message = self.messages.get(id)
-        if message is None:
-            return None
-        return ChatMessage(id=id, message=message)
-    
-    
+    def get(self, id: str) -> Optional[Union[AIMessage, UserMessage, SystemMessage]]:
+        return self.messages.get(id)
+
 class ChatMessages(BaseModel):
     messages: list[ChatMessage] = Field(default_factory=list)
     summary: Counter = Field(default_factory=Counter)

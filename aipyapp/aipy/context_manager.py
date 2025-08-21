@@ -12,7 +12,6 @@ from pydantic import BaseModel, Field
 
 from ..llm import MessageRole, UserMessage
 from .chat import ChatMessage, MessageStorage
-from .types import DataMixin
 
 class ContextStrategy(Enum):
     """上下文管理策略"""
@@ -242,31 +241,38 @@ class ContextData(BaseModel):
     def __len__(self):
         return len(self.messages)
     
-class ContextManager(DataMixin):
+class ContextManager:
     """上下文管理器"""
-    __expose__ = {'messages', 'total_tokens'}
     
-    def __init__(self, task_data: 'TaskData', config: Optional[ContextConfig] = None):
-        self.config = config or ContextConfig()
-        self.message_store = task_data.context
-        self.compressor = MessageCompressor(self.message_store, self.config)
+    def __init__(self, message_store: MessageStorage, data: ContextData, config: dict | None = None):
+        self.config = ContextConfig.from_dict(config or {})
+        self.message_store = message_store
+        self.compressor = MessageCompressor(message_store, self.config)
         self.log = logger.bind(src='context_manager')
         
-        self._data = task_data.context
+        self.data = data
         self._last_compression_time = 0
         
+    @property
+    def total_tokens(self):
+        return self.data.total_tokens
+    
+    @property
+    def messages(self):
+        return self.data.messages
+    
     def add_message(self, message: ChatMessage):
         """添加消息到上下文"""
         # 添加到缓存
-        self.messages.append(message)
+        self.data.messages.append(message)
         total_tokens = 0
         if message.role == MessageRole.ASSISTANT:
             total_tokens = message.usage.get('total_tokens', 0)
 
         if total_tokens == 0:
             total_tokens = self.compressor.estimate_message_tokens(message.content)
-        self._data.total_tokens = total_tokens
-        self.log.info(f"Added message: {message.role}, tokens: {self._data.total_tokens}, id: {message.id}")
+        self.data.total_tokens = total_tokens
+        self.log.info(f"Added message: {message.role}, tokens: {self.data.total_tokens}, id: {message.id}")
     
     def get_messages(self, force_compress: bool = False) -> List[ChatMessage]:
         """获取压缩后的消息列表"""
@@ -277,31 +283,31 @@ class ContextManager(DataMixin):
             should_compress = (
                 force_compress or
                 self.total_tokens > self.config.max_tokens or
-                len(self.messages) > self.config.max_rounds * 2 or
+                len(self.data.messages) > self.config.max_rounds * 2 or
                 (current_time - self._last_compression_time) > 300  # 5分钟强制压缩
             )
             
             if should_compress:
                 self.compress()
         
-        return [msg.message.dict() for msg in self.messages]
+        return [msg.message.dict() for msg in self.data.messages]
     
     def compress(self):
         """压缩消息"""
-        if not self.messages:
+        if not self.data.messages:
             return
         
-        original_count = len(self.messages)
+        original_count = len(self.data.messages)
         original_tokens = self.total_tokens
         
         # 执行压缩
         compressed_messages, compressed_tokens = self.compressor.compress_messages(
-            self.messages, self.total_tokens
+            self.data.messages, self.data.total_tokens
         )
         
         # 更新缓存
-        self._data.messages = compressed_messages
-        self._data.total_tokens = compressed_tokens
+        self.data.messages = compressed_messages
+        self.data.total_tokens = compressed_tokens
         self._last_compression_time = time.time()
         
         self.log.info(
@@ -312,14 +318,14 @@ class ContextManager(DataMixin):
     def get_stats(self) -> Dict[str, Any]:
         """获取上下文统计信息"""
         return {
-            'message_count': len(self.messages),
-            'total_tokens': self.total_tokens,
+            'message_count': len(self.data.messages),
+            'total_tokens': self.data.total_tokens,
             'last_compression': self._last_compression_time
         }
     
     def clear(self):
         """清理消息缓存，只保留最初的两条消息和最后一条消息"""
-        messages = self.messages
+        messages = self.data.messages
         if not messages or len(messages) <= 2:
             return
             
@@ -332,13 +338,13 @@ class ContextManager(DataMixin):
             del messages[2:]
         
         self._last_compression_time = 0
-        self._data.total_tokens = sum(self.compressor.estimate_message_tokens(msg.content) for msg in messages)
-        self.log.info(f"Context cleaned: {len(self.messages)} messages, {self._data.total_tokens} tokens")
+        self.data.total_tokens = sum(self.compressor.estimate_message_tokens(msg.content) for msg in messages)
+        self.log.info(f"Context cleaned: {len(self.data.messages)} messages, {self.data.total_tokens} tokens")
 
     def rebuild(self, messages: List[ChatMessage]):
         """重建消息缓存"""
-        self._data.messages.clear()
-        self._data.total_tokens = 0
+        self.data.messages.clear()
+        self.data.total_tokens = 0
         
         for message in messages:
             self.add_message(message)

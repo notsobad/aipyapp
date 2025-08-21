@@ -353,10 +353,11 @@ class DisplayClassic(RichDisplayPlugin):
 
     def on_task_completed(self, event):
         """任务结束事件处理"""
-        path = event.typed_event.path or ''
+        path = event.typed_event.path
         title = self._get_title(T("Task completed"))
         tree = Tree(title)
-        tree.add(path)
+        if path:
+            tree.add(f"{T('Path')}: {path}")
         self.console.print(tree)
 
     def on_runtime_message(self, event):

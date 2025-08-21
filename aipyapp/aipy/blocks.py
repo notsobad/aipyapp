@@ -6,10 +6,7 @@ from collections import OrderedDict
 from typing import Optional, Dict, Any, List
 
 from loguru import logger
-from pydantic import BaseModel, Field, PrivateAttr
-
-from .types import Error, Errors
-from ..interface import Trackable
+from pydantic import BaseModel, Field
 
 class CodeBlock(BaseModel):
     """Code block"""
@@ -63,7 +60,7 @@ class CodeBlock(BaseModel):
     def __str__(self):
         return f"<CodeBlock name={self.name}, version={self.version}, lang={self.lang}, path={self.path}>"
 
-class CodeBlocks(Trackable, BaseModel):
+class CodeBlocks(BaseModel):
     """代码块集合"""
     history: List[CodeBlock] = Field(default_factory=list)
     blocks: Dict[str, CodeBlock] = Field(default_factory=OrderedDict, exclude=True)
@@ -107,47 +104,6 @@ class CodeBlocks(Trackable, BaseModel):
             self._log.error("Block not found", block_name=block_name)
         return block
 
-    def get_state(self) -> dict:
-        """Get state data for persistence"""
-        return self.model_dump(include={'history'})
-    
-    def restore_state(self, state: dict):
-        """Restore state from code block data"""
-        try:
-            history = state['history']
-        except Exception as e:
-            self._log.error(f"Failed to restore state: {e}")
-            return
-        
-        if history:
-            self.history = self.model_validate(history)
-            for block in self.history:
-                self.blocks[block.name] = block
-
     def clear(self):
         self.history.clear()
         self.blocks.clear()
-    
-    # Trackable接口实现
-    def get_checkpoint(self) -> int:
-        """获取当前检查点状态 - 返回history长度"""
-        return len(self.history)
-    
-    def restore_to_checkpoint(self, checkpoint: Optional[int]):
-        """恢复到指定检查点"""
-        if checkpoint is None:
-            # 恢复到初始状态
-            self.clear()
-        else:
-            # 恢复到指定长度
-            if checkpoint < len(self.history):
-                # 获取要删除的代码块
-                deleted_blocks = self.history[checkpoint:]
-                
-                # 从 blocks 字典中删除对应的代码块
-                for block in deleted_blocks:
-                    if block.name in self.blocks:
-                        del self.blocks[block.name]
-                
-                # 截断 history 到指定长度
-                self.history = self.history[:checkpoint]

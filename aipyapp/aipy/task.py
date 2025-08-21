@@ -1,16 +1,15 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+from __future__ import annotations
+
 import os
 import json
 import uuid
-import time
-from typing import Any, List, Optional, Tuple, Union
+from typing import List, Union, TYPE_CHECKING
 from pathlib import Path
-from dataclasses import dataclass
 from collections import namedtuple
 from importlib.resources import read_text
-from collections import Counter
 
 import requests
 from pydantic import BaseModel, Field, ValidationError
@@ -18,25 +17,24 @@ from loguru import logger
 
 from .. import T, __respkg__, Stoppable, TaskPlugin
 from ..exec import BlockExecutor
-from ..llm import SystemMessage, ErrorMessage
+from ..llm import SystemMessage
 from .runtime import CliPythonRuntime
 from .utils import get_safe_filename, validate_file
-from .blocks import CodeBlock, CodeBlocks
 from .events import TypedEventBus
-from ..display import DisplayPlugin
 from .multimodal import MMContent   
-from .context_manager import ContextManager, ContextConfig, ContextData
-from .toolcalls import ToolCallProcessor, ToolCallResult, EditToolResult
-from .response import Response
-from .events import BaseEvent
-from .llm import ClientManager
-from .chat import ChatMessages, MessageStorage, ChatMessage, UserMessage
-from .role import Role
-from .prompts import Prompts
-from .types import Traverser, DataMixin
+from .context_manager import ContextManager, ContextData
+from .toolcalls import ToolCallProcessor
+from .chat import MessageStorage, ChatMessage, UserMessage
+from .step import Step, StepData
+from .blocks import CodeBlocks
+from .client import Client
 
-TASK_VERSION = 20250818
+if TYPE_CHECKING:
+    from .taskmgr import TaskManager
+
 MAX_ROUNDS = 16
+TASK_VERSION = 20250818
+
 CONSOLE_WHITE_HTML = read_text(__respkg__, "console_white.html")
 CONSOLE_CODE_HTML = read_text(__respkg__, "console_code.html")
 
@@ -58,63 +56,76 @@ class TastStateError(TaskError):
         self.data = kwargs
         super().__init__(self.message)
 
-@dataclass
-class TaskContext:
-    settings: dict
-    prompts: Prompts
-    plugins: List[TaskPlugin]
-    event_bus: TypedEventBus
-    mcp: Any
-    runner: BlockExecutor
-    role: Role
-    display: DisplayPlugin | None
-    tool_call_processor: ToolCallProcessor
-    traverser: Traverser
-    client_manager: ClientManager
-    context_config: ContextConfig
-    context_manager: ContextManager
-    message_storage: MessageStorage
+class TaskData(BaseModel):
+    id: str = Field(default_factory=lambda: uuid.uuid4().hex)
+    version: int = Field(default=TASK_VERSION, frozen=True)
+    steps: List[StepData] = Field(default_factory=list)
+    blocks: CodeBlocks = Field(default_factory=CodeBlocks)
+    context: ContextData = Field(default_factory=ContextData)
+    message_storage: MessageStorage = Field(default_factory=MessageStorage)
+    
+    def add_step(self, step: StepData):
+        self.steps.append(step)
 
-    def __post_init__(self):
-        self._log = logger.bind(src='TaskContext')
-        # 创建上下文管理器（从Client移到Task）
-        self.runtime = CliPythonRuntime(self)
-        self.runner.set_python_runtime(self.runtime)
-        self.client = self.client_manager.Client(self)
-        
-        for plugin in self.plugins:
-            self.event_bus.add_listener(plugin)
-            self.runtime.register_plugin(plugin)
-            
-        # 注册显示效果插件
-        if self.display:
+class Task(Stoppable):
+    def __init__(self, manager: TaskManager, data: TaskData | None = None):
+        super().__init__()
+        data = data or TaskData()
+        self.task_id = data.id
+        self.manager = manager
+        self.settings = manager.settings
+        self.log = logger.bind(src='task', id=self.task_id)
+
+        # Basic properties
+        self.workdir = manager.cwd
+        self.event_bus = TypedEventBus()
+        self.cwd = self.workdir / self.task_id
+        self.gui = manager.settings.gui
+        self._saved = False
+        self.max_rounds = manager.settings.get('max_rounds', MAX_ROUNDS)
+        self.role = manager.role_manager.current_role
+
+        # TaskData Objects
+        self.steps: List[Step] = [Step(self, step_data) for step_data in data.steps]
+        self.blocks = data.blocks
+        self.message_storage = data.message_storage
+        self.context = data.context
+        self.context_manager = ContextManager(self.message_storage, self.context, manager.settings.get('context_manager'))
+
+        # Display
+        if manager.display_manager:
+            self.display = manager.display_manager.create_display_plugin()
             self.event_bus.add_listener(self.display)
+        else:
+            self.display = None
 
-        self.context_manager.add_message(self.get_system_message())
+        # Objects for steps
+        self.mcp = manager.mcp
+        self.prompts = manager.prompts
+        self.client_manager = manager.client_manager
+        self.runtime = CliPythonRuntime(self)
+        self.runner = BlockExecutor()
+        self.runner.set_python_runtime(self.runtime)
+        self.client = Client(self)
+        self.tool_call_processor = ToolCallProcessor()
 
-    @property
-    def step(self):
-        return self.traverser.last
-    
-    @property
-    def gui(self):
-        return self.settings.gui
-    
-    @property
-    def max_rounds(self):
-        return self.settings.get('max_rounds', MAX_ROUNDS)
-    
-    def get_block(self, name: str):
-        return self.traverser.find_first(lambda step: step.blocks.get(name))
+        # Plugins
+        plugins: dict[str, TaskPlugin] = {}
+        for plugin_name, plugin_data in self.role.plugins.items():
+            plugin = manager.plugin_manager.create_task_plugin(plugin_name, plugin_data)
+            if not plugin:
+                self.log.warning(f"Create task plugin {plugin_name} failed")
+                continue
+            self.runtime.register_plugin(plugin)
+            self.event_bus.add_listener(plugin)
+            plugins[plugin_name] = plugin
+        self.plugins = plugins
 
     def emit(self, event_name: str, **kwargs):
-        """重写broadcast方法以记录事件"""
-        # 调用父类的broadcast方法获取强类型事件
         event = self.event_bus.emit(event_name, **kwargs)
-        
-        # 记录强类型事件对象到事件记录器
-        if self.step is not None:
-            self.step.events.append(event)
+        if self.steps:
+            #TODO: fix this
+            self.steps[-1]['events'].append(event)
         return event
 
     def run_code_block(self, block):
@@ -134,187 +145,7 @@ class TaskContext:
         system_prompt = self.prompts.get_default_prompt(**params)
         msg = SystemMessage(content=system_prompt)
         return self.message_storage.store(msg)
-             
-class Round(BaseModel):
-    request: ChatMessage = Field(default_factory=ChatMessage)
-    response: Response = Field(default_factory=Response)
-    toolcall_results: List[ToolCallResult] | None = None
-
-class StepData(BaseModel):
-    instruction: str
-    title: str | None = None
-    start_time: float = Field(default_factory=time.time)
-    end_time: float | None = None
-    rounds: List[Round] = Field(default_factory=list)
-    blocks: CodeBlocks = Field(default_factory=CodeBlocks)
-    events: List[BaseEvent.get_subclasses_union()] = Field(default_factory=list)
     
-    @property
-    def result(self):
-        if not self.rounds:
-            return None
-        return self.rounds[-1].response
-    
-    def add_blocks(self, blocks: List[CodeBlock]):
-        self.blocks.add_blocks(blocks)
-
-    def add_round(self, round: Round):
-        self.rounds.append(round)
-
-class Step(DataMixin):
-    __expose__ = {'events', 'blocks', 'result', 'instruction', 'start_time', 'rounds'}
-
-    def __init__(self, task_context: TaskContext, data: StepData):
-        self._task_context = task_context
-        self._log = logger.bind(src='Step')
-        self._data = data
-        self._summary = Counter()
-    
-    @property
-    def data(self):
-        return self._data
-    
-    def request(self, user_message: ChatMessage):
-        client = self._task_context.client
-        self._task_context.emit('request_started', llm=client.name)
-        msg = client(user_message)
-        self._task_context.emit('response_completed', llm=client.name, msg=msg)
-        return msg
-
-    def process(self, response: Response) -> list[ToolCallResult] | None:
-        toolcall_results = None
-        if response.task_status:
-            self._task_context.emit('task_status', status=response.task_status)
-
-        if response.code_blocks:
-            self._data.add_blocks(response.code_blocks)
-        
-        if response.tool_calls:
-            toolcall_results = self._task_context.tool_call_processor.process(self._task_context, response.tool_calls)
-        return toolcall_results
-    
-    def run(self, user_message: UserMessage) -> Response | None:
-        max_rounds = self._task_context.max_rounds
-        message_storage = self._task_context.message_storage
-        while len(self._data.rounds) < max_rounds:
-            user_message = message_storage.store(user_message)
-            msg = self.request(user_message)
-
-            if isinstance(msg.message, ErrorMessage):
-                response = Response(message=msg)
-                self.log.error('LLM request error', error=msg.content)
-            else:
-                self._summary.update(msg.usage)
-                response = Response.from_message(msg, parse_mcp=self._task_context.mcp)
-            
-            self._task_context.emit('parse_reply_completed', response=response)
-            round = Round(request=user_message, response=response)
-            self._data.add_round(round)
-
-            if not response.should_continue():
-                break
-
-            if response.errors:
-                prompt = self._task_context.prompts.get_parse_error_prompt(response.errors)
-            else:
-                toolcall_results = self.process(response)
-                prompt = self._task_context.prompts.get_toolcall_results_prompt(toolcall_results)
-                round.toolcall_results = toolcall_results
-            user_message = UserMessage(content=prompt)
-
-        self._data.end_time = time.time()
-        return self._data.result
-
-    def get_summary(self):
-        summary = dict(self._summary)
-        summary['elapsed_time'] = int(time.time() - self.start_time)
-        summary['rounds'] = len(self.rounds)
-        summarys = "{rounds} | {time}s/{elapsed_time}s | Tokens: {input_tokens}/{output_tokens}/{total_tokens}".format(**summary)
-        return {'summary': summarys}
-    
-class TaskData(BaseModel):
-    id: str = Field(default_factory=lambda: uuid.uuid4().hex)
-    version: int = Field(default=TASK_VERSION, frozen=True)
-    steps: List[StepData] = Field(default_factory=list)
-    context: ContextData = Field(default_factory=ContextData)
-    messages: MessageStorage = Field(default_factory=MessageStorage)
-    
-    def add_step(self, step: StepData):
-        self.steps.append(step)
-
-class Task(Stoppable):
-    def __init__(self, context: 'MainContext', data: TaskData | None = None):
-        super().__init__()
-        self._id = uuid.uuid4().hex
-        self._data = data or TaskData()
-        self._steps: List[Step] = []
-        self._workdir = context.cwd
-        self._cwd = self._workdir / self.task_id
-        self._log = logger.bind(src='task', id=self.task_id)
-        self._main_context = context
-        self._task_context = self.create_task_context(context)
-
-        if data:
-            # Rebuild steps from data
-            self._log.info(f'Rebuilding steps from task {data.id}', steps=len(data.steps))
-            for step_data in data.steps:
-                step = Step(self._task_context, step_data)
-                self._steps.append(step)
-
-    @property
-    def log(self):
-        return self._log
-    
-    @property
-    def task_id(self):
-        return self._id
-    
-    @property
-    def task_context(self):
-        return self._task_context
-    
-    @property
-    def main_context(self):
-        return self._main_context
-    
-    @property
-    def steps(self):
-        return self._steps
-    
-    def create_task_context(self, context):
-        if context.display_manager:
-            display = context.display_manager.create_display_plugin()
-        else:
-            display = None
-
-        role = context.role_manager.current_role
-        plugins: List[TaskPlugin] = []
-        for plugin_name, plugin_data in role.plugins.items():
-            plugin = context.plugin_manager.create_task_plugin(plugin_name, plugin_data)
-            if not plugin:
-                self.log.warning(f"Create task plugin {plugin_name} failed")
-                continue
-            plugins.append(plugin)
-
-        context_config = ContextConfig.from_dict(context.settings.get('context_manager', {}))
-
-        return TaskContext(
-            settings=context.settings,
-            prompts=context.prompts,
-            plugins=plugins,
-            event_bus=TypedEventBus(),
-            mcp=context.mcp,
-            runner=BlockExecutor(),
-            role=context.role_manager.current_role,
-            display=display,
-            tool_call_processor=ToolCallProcessor(),
-            traverser=Traverser(self._steps),
-            client_manager=context.client_manager,
-            context_config=context_config,
-            context_manager=ContextManager(self._data, context_config),
-            message_storage=self._data.messages,
-        )
-
     def new_step(self, instruction: str, title: str | None = None):
         step_data = StepData(instruction=instruction, title=title)
         step = Step(self.task_context, step_data)
@@ -322,31 +153,68 @@ class Task(Stoppable):
         self._data.steps.append(step_data)
         return step
     
+    def delete_step(self, index: int) -> bool:
+        """删除指定索引的步骤
+        Args:
+            index: 步骤索引
+        Returns:
+            bool: 是否删除成功
+
+        TODO: Update context
+        """
+        if index < 0 or index >= len(self._steps):
+            return False
+        self._steps.pop(index)
+        self._data.steps.pop(index)
+        return True
+
+    def clear_steps(self):
+        """清空所有步骤
+
+        TODO: Update context
+        """
+        self._steps.clear()
+        self._data.steps.clear()
+        return True
+    
     def get_status(self):
         return {
-            'llm': self.task_context.client.name,
-            'blocks': sum(len(step.blocks) for step in self._steps),
-            'steps': len(self._steps),
+            'llm': self.client.name,
+            'blocks': len(self.blocks),
+            'steps': len(self.steps),
         }
 
+    def get_task_data(self):
+        return TaskData(
+            id=self.task_id,
+            steps=[step.data for step in self.steps],
+            blocks=self.blocks,
+            context=self.context,
+            message_storage=self.message_storage
+        )
+    
     @classmethod
-    def from_file(cls, path: Union[str, Path], context: 'MainContext') -> 'Task':
+    def from_file(cls, path: Union[str, Path], manager: TaskManager) -> 'Task':
         """从文件创建 TaskState 对象"""
         path = Path(path)
         validate_file(path)
         
         try:
             with open(path, 'r', encoding='utf-8') as f:
+                data = json.loads(f.read())
                 try:
-                    json_content = f.read()
-                    task_data = TaskData.model_validate_json(json_content)
-                except ValidationError as e:
-                    raise TaskError(f'Invalid task state: {e.errors()}') from e
-                task = cls(context, task_data)
+                    model_context = {'message_storage': MessageStorage.model_validate(data['message_storage'])}
+                except:
+                    model_context = None
+
+                task_data = TaskData.model_validate(data, context=model_context)
+                task = cls(manager, task_data)
                 logger.info('Loaded task state from file', path=str(path), task_id=task.task_id)
                 return task
         except json.JSONDecodeError as e:
             raise TaskError(f'Invalid JSON file: {e}') from e
+        except ValidationError as e:
+            raise TaskError(f'Invalid task state: {e.errors()}') from e
         except Exception as e:
             raise TaskError(f'Failed to load task state: {e}') from e
     
@@ -356,7 +224,8 @@ class Task(Stoppable):
         path.parent.mkdir(parents=True, exist_ok=True)
         try:
             with open(path, 'w', encoding='utf-8') as f:
-                f.write(self._data.model_dump_json(indent=2, exclude_none=True))
+                data = self.get_task_data()
+                f.write(data.model_dump_json(indent=2, exclude_none=True))
             self.log.info('Saved task state to file', path=str(path))
         except Exception as e:
             self.log.exception('Failed to save task state', path=str(path))
@@ -365,7 +234,7 @@ class Task(Stoppable):
     def _auto_save(self):
         """自动保存任务状态"""
         # 如果任务目录不存在，则不保存
-        cwd = self._cwd
+        cwd = self.cwd
         if not cwd.exists():
             self.log.warning('Task directory not found, skipping save')
             return
@@ -373,7 +242,7 @@ class Task(Stoppable):
         try:
             self.to_file(cwd / "task.json")
             
-            display = self.task_context.display
+            display = self.display
             if display:
                 filename = cwd / "console.html"
                 display.save(filename, clear=False, code_format=CONSOLE_WHITE_HTML)
@@ -382,21 +251,21 @@ class Task(Stoppable):
             self.log.info('Task auto saved')
         except Exception as e:
             self.log.exception('Error saving task')
-            self.task_context.emit('exception', msg='save_task', exception=e)
+            self.emit('exception', msg='save_task', exception=e)
 
     def done(self):
-        if not self._steps:
+        if not self.steps:
             self.log.warning('Task not started, skipping save')
             return
         
-        os.chdir(self._workdir)  # Change back to the original working directory
+        os.chdir(self.workdir)  # Change back to the original working directory
         curname = self.task_id
         if os.path.exists(curname):
             if not self._saved:
                 self.log.warning('Task not saved, trying to save')
                 self._auto_save()
 
-            newname = get_safe_filename(self._steps[0].instruction, extension=None)
+            newname = get_safe_filename(self.steps[0]['instruction'], extension=None)
             if newname:
                 try:
                     os.rename(curname, newname)
@@ -407,14 +276,14 @@ class Task(Stoppable):
             self.log.warning('Task directory not found')
 
         self.log.info('Task done', path=newname)
-        self.task_context.emit('task_completed', path=newname)
+        self.emit('task_completed', path=newname)
         #self.context.diagnose.report_code_error(self.runner.history)
-        if self.task_context.settings.get('share_result'):
+        if self.settings.get('share_result'):
             self.sync_to_cloud()
 
-    def _prepare_user_prompt(self, instruction: str, first_run: bool=False) -> UserMessage:
+    def prepare_user_prompt(self, instruction: str, first_run: bool=False) -> UserMessage:
         """处理多模态内容并验证模型能力"""
-        mmc = MMContent(instruction, base_path=self._workdir)
+        mmc = MMContent(instruction, base_path=self.workdir)
         try:
             message = mmc.message
         except Exception as e:
@@ -423,11 +292,11 @@ class Task(Stoppable):
         content = message.content
         if isinstance(content, str):
             if first_run:
-                content = self.task_context.prompts.get_task_prompt(content, gui=self.task_context.gui)
+                content = self.prompts.get_task_prompt(content, gui=self.gui)
             else:
-                content = self.task_context.prompts.get_chat_prompt(content, self.instruction)
+                content = self.prompts.get_chat_prompt(content, self.instruction)
             message.content = content
-        elif not self.task_context.client.has_capability(message):
+        elif not self.client.has_capability(message):
             raise TaskInputError(T("Current model does not support this content"))
 
         return message
@@ -437,30 +306,33 @@ class Task(Stoppable):
         执行自动处理循环，直到 LLM 不再返回代码消息
         instruction: 用户输入的字符串（可包含@file等多模态标记）
         """
-        first_run = not self._steps
-        user_message = self._prepare_user_prompt(instruction, first_run)
+        first_run = not self.steps
+        user_message = self.prepare_user_prompt(instruction, first_run)
+        if first_run:
+            self.context_manager.add_message(self.get_system_message())
 
         # We MUST create the task directory here because it could be a resumed task.
-        self._cwd.mkdir(exist_ok=True, parents=True)
-        os.chdir(self._cwd)
+        self.cwd.mkdir(exist_ok=True, parents=True)
+        os.chdir(self.cwd)
         self._saved = False
 
-        step = self.new_step(instruction, title)
-        self.task_context.emit('step_started', instruction=instruction, step=len(self._steps) + 1, title=title)
+        step = Step(self, StepData(instruction=instruction, title=title))
+        self.steps.append(step)
+        self.emit('step_started', instruction=instruction, step=len(self.steps) + 1, title=title)
         response = step.run(user_message)
-        self.task_context.emit('step_completed', summary=step.get_summary(), response=response)
+        self.emit('step_completed', summary=step.get_summary(), response=response)
 
         self._auto_save()
-        self.log.info('Step done', rounds=len(step.rounds))
+        self.log.info('Step done', rounds=len(step['rounds']))
 
     def sync_to_cloud(self):
         """ Sync result
         """
         url = T("https://store.aipy.app/api/work")
 
-        trustoken_apikey = self.task_context.settings.get('llm', {}).get('Trustoken', {}).get('api_key')
+        trustoken_apikey = self.settings.get('llm', {}).get('Trustoken', {}).get('api_key')
         if not trustoken_apikey:
-            trustoken_apikey = self.task_context.settings.get('llm', {}).get('trustoken', {}).get('api_key')
+            trustoken_apikey = self.settings.get('llm', {}).get('trustoken', {}).get('api_key')
         if not trustoken_apikey:
             return False
         self.log.info('Uploading result to cloud')
@@ -474,13 +346,13 @@ class Task(Stoppable):
                     'apikey': trustoken_apikey,
                     'author': os.getlogin(),
                     'instruction': self.instruction,
-                    'llm': self.task_context.context_manager.json(),
-                    'runner': self.task_context.runner.history,
+                    'llm': self.context_manager.json(),
+                    'runner': self.runner.history,
                 }, ensure_ascii=False, default=str),
                 parse_constant=str)
             response = requests.post(url, json=data, verify=True,  timeout=30)
         except Exception as e:
-            self.task_context.emit('exception', msg='sync_to_cloud', exception=e)
+            self.emit('exception', msg='sync_to_cloud', exception=e)
             return False
 
         url = None
@@ -489,21 +361,8 @@ class Task(Stoppable):
             data = response.json()
             url = data.get('url', '')
 
-        self.task_context.emit('upload_result', status_code=status_code, url=url)
+        self.emit('upload_result', status_code=status_code, url=url)
         return True
-
-    def delete_step(self, index: int):
-        """删除指定索引的步骤 - 使用新的步骤管理器"""
-        return self.step_manager.delete_step(index)
-
-    def clear_steps(self):
-        """清空所有步骤 - 使用新的步骤管理器"""
-        self.step_manager.clear_all()
-        return True
-
-    def list_steps(self):
-        """列出所有步骤 - 使用新的步骤管理器"""
-        return self.step_manager.list_steps()
 
     def list_code_blocks(self):
         """列出所有代码块"""
@@ -530,9 +389,3 @@ class Task(Stoppable):
             ))
         
         return rows
-
-    def get_code_block(self, index):
-        """获取指定索引的代码块"""
-        if index < 0 or index >= len(self.code_blocks.history):
-            return None
-        return self.code_blocks.history[index]
