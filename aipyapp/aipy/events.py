@@ -9,9 +9,8 @@ from loguru import logger
 
 from .response import Response, TaskCompleted, TaskCannotContinue
 from .blocks import CodeBlock
-from ..llm.base import ChatMessage
+from .chat import ChatMessage
 from .toolcalls import ToolCall, ToolCallResult
-from .types import Errors
 
 # ==================== Strongly-Typed Event System ====================
 

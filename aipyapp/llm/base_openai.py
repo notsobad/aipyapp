@@ -1,14 +1,13 @@
 #! /usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+from typing import Any, Dict
 from collections import Counter
 
 import httpx
 import openai
-from loguru import logger
 
-from .. import T
-from . import BaseClient, ChatMessage
+from .base import BaseClient, MessageRole, AIMessage
 
 # https://platform.openai.com/docs/api-reference/chat/create
 # https://api-docs.deepseek.com/api/create-chat-completion
@@ -33,10 +32,7 @@ class OpenAIBaseClient(BaseClient):
             )
         )
     
-    def add_system_prompt(self, history, system_prompt):
-        history.add("system", system_prompt)
-
-    def _parse_usage(self, usage):
+    def _parse_usage(self, usage) -> Counter:
         try:
             reasoning_tokens = int(usage.completion_tokens_details.reasoning_tokens)
         except Exception:
@@ -47,7 +43,7 @@ class OpenAIBaseClient(BaseClient):
                 'output_tokens': usage.completion_tokens + reasoning_tokens})
         return usage
     
-    def _parse_stream_response(self, response, stream_processor):
+    def _parse_stream_response(self, response, stream_processor) -> AIMessage:
         usage = Counter()
         with stream_processor as lm:
             for chunk in response:
@@ -67,19 +63,19 @@ class OpenAIBaseClient(BaseClient):
                     if content:
                         lm.process_chunk(content, reason=reason)
 
-        return ChatMessage(role="assistant", content=lm.content, reason=lm.reason, usage=usage)
+        return AIMessage(role=MessageRole.ASSISTANT, content=lm.content, reason=lm.reason, usage=usage)
 
-    def _parse_response(self, response):
+    def _parse_response(self, response) -> AIMessage:
         message = response.choices[0].message
         reason = getattr(message, "reasoning_content", None)
-        return ChatMessage(
+        return AIMessage(
             role=message.role,
             content=message.content,
             reason=reason,
             usage=self._parse_usage(response.usage)
         )
 
-    def get_completion(self, messages):
+    def get_completion(self, messages: list[Dict[str, Any]]) -> AIMessage:
         if not self._client:
             self._client = self._get_client()
 

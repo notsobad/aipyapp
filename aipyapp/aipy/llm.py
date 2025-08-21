@@ -3,51 +3,13 @@
 from collections import Counter, defaultdict, namedtuple
 
 from loguru import logger
-from pydantic import BaseModel, Field
+
 
 from .. import T, __respath__
-from ..llm import CLIENTS, ModelRegistry, ModelCapability, ChatMessage
-from .multimodal import LLMContext
+from ..llm import CLIENTS, ModelRegistry, ModelCapability, AIMessage, ErrorMessage
+from .chat import ChatMessage, UserMessage
 
-class ChatHistory(BaseModel):
-    messages: list[ChatMessage] = Field(default_factory=list)
 
-    def __len__(self):
-        return len(self.messages)
-    
-    def clear(self):
-        self.messages.clear()
-
-    def delete_range(self, start_index, end_index):
-        """删除指定范围的消息"""
-        if start_index < 0 or end_index > len(self.messages) or start_index >= end_index:
-            return
-        
-        # 删除指定范围的消息
-        self.messages = self.messages[:start_index] + self.messages[end_index:]
-        
-        
-    def add(self, role, content):
-        self.add_message(ChatMessage(role=role, content=content))
-
-    def add_message(self, message: ChatMessage):
-        self.messages.append(message)
-        
-    def get_usage(self):
-        return iter(row.usage for row in self.messages if row.role == "assistant")
-    
-    def get_summary(self):
-        summary = {'time': 0, 'input_tokens': 0, 'output_tokens': 0, 'total_tokens': 0}
-        total_tokens = Counter()
-        for msg in self.messages:
-            total_tokens += msg.usage
-        summary.update(dict(total_tokens))
-        summary['rounds'] = sum(1 for row in self.messages if row.role == "assistant")
-        return summary
-
-    def get_messages(self):
-        return [{"role": msg.role, "content": msg.content} for msg in self.messages]
-    
 class LineReceiver(list):
     def __init__(self):
         super().__init__()
@@ -227,12 +189,8 @@ class Client:
         
         # 接收外部传入的上下文管理器
         self.context_manager = task_context.context_manager
-        
+        self.storage = task_context.message_storage
         self.log = logger.bind(src='client', name=self.current.name)
-
-    def add_message(self, message):
-        """添加消息"""
-        self.context_manager.add_message(message)
 
     @property
     def name(self):
@@ -246,9 +204,9 @@ class Client:
             return True
         return False
     
-    def has_capability(self, content: LLMContext) -> bool:
+    def has_capability(self, message: ChatMessage) -> bool:
         # 判断 content 需要什么能力
-        if isinstance(content, str):
+        if isinstance(message.content, str):
             return True
         
         #TODO: 不应该硬编码字符串
@@ -263,21 +221,25 @@ class Client:
             return False
                 
         capabilities = set()
-        for item in content:
-            if item['type'] == 'image_url':
+        for item in message.content:
+            if item.type == 'image_url':
                 capabilities.add(ModelCapability.IMAGE_INPUT)
-            if item['type'] == 'file':
+            if item.type == 'file':
                 capabilities.add(ModelCapability.FILE_INPUT)
-            if item['type'] == 'text':
+            if item.type == 'text':
                 capabilities.add(ModelCapability.TEXT)
         
         return any(capability in model_info.capabilities for capability in capabilities)
     
-    def __call__(self, content: LLMContext, *, system_prompt=None):
+    def __call__(self, user_message: ChatMessage) -> ChatMessage:
         client = self.current
         stream_processor = StreamProcessor(self.task_context, client.name)
         
-        # 直接传递 ContextManager，它已经实现了所需的接口
-        msg = client(self.context_manager, content, system_prompt=system_prompt, stream_processor=stream_processor)
+        messages = self.context_manager.get_messages()
+        messages.append(user_message.dict())
+        msg = client(messages, stream_processor=stream_processor)
+        msg = self.storage.store(msg)
+        if isinstance(msg.message, AIMessage):
+            self.context_manager.add_message(user_message)
+            self.context_manager.add_message(msg)
         return msg
-    

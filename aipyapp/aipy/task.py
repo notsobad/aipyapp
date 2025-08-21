@@ -8,9 +8,9 @@ import time
 from typing import Any, List, Optional, Tuple, Union
 from pathlib import Path
 from dataclasses import dataclass
-from datetime import datetime
 from collections import namedtuple
 from importlib.resources import read_text
+from collections import Counter
 
 import requests
 from pydantic import BaseModel, Field, ValidationError
@@ -18,17 +18,19 @@ from loguru import logger
 
 from .. import T, __respkg__, Stoppable, TaskPlugin
 from ..exec import BlockExecutor
+from ..llm import SystemMessage, ErrorMessage
 from .runtime import CliPythonRuntime
 from .utils import get_safe_filename, validate_file
 from .blocks import CodeBlock, CodeBlocks
 from .events import TypedEventBus
 from ..display import DisplayPlugin
-from .multimodal import MMContent, LLMContext
-from .context_manager import ContextManager, ContextConfig
+from .multimodal import MMContent   
+from .context_manager import ContextManager, ContextConfig, ContextData
 from .toolcalls import ToolCallProcessor, ToolCallResult, EditToolResult
 from .response import Response
 from .events import BaseEvent
-from .llm import ChatHistory, Client, ClientManager
+from .llm import ClientManager
+from .chat import ChatMessages, MessageStorage, ChatMessage, UserMessage
 from .role import Role
 from .prompts import Prompts
 from .types import Traverser, DataMixin
@@ -69,16 +71,17 @@ class TaskContext:
     tool_call_processor: ToolCallProcessor
     traverser: Traverser
     client_manager: ClientManager
+    context_config: ContextConfig
+    context_manager: ContextManager
+    message_storage: MessageStorage
 
     def __post_init__(self):
         self._log = logger.bind(src='TaskContext')
         # 创建上下文管理器（从Client移到Task）
         self.runtime = CliPythonRuntime(self)
         self.runner.set_python_runtime(self.runtime)
-        context_settings = self.settings.get('context_manager', {})
-        self.context_manager = ContextManager(ContextConfig.from_dict(context_settings))
         self.client = self.client_manager.Client(self)
-    
+        
         for plugin in self.plugins:
             self.event_bus.add_listener(plugin)
             self.runtime.register_plugin(plugin)
@@ -86,6 +89,8 @@ class TaskContext:
         # 注册显示效果插件
         if self.display:
             self.event_bus.add_listener(self.display)
+
+        self.context_manager.add_message(self.get_system_message())
 
     @property
     def step(self):
@@ -119,7 +124,7 @@ class TaskContext:
         self.emit('exec_completed', result=result, block=block)
         return result
 
-    def get_system_prompt(self) -> str:
+    def get_system_message(self) -> ChatMessage:
         params = {}
         if self.mcp:
             params['mcp_tools'] = self.mcp.get_tools_prompt()
@@ -127,37 +132,29 @@ class TaskContext:
         params['tool_functions'] = self.runtime.get_plugin_functions()
         params['role'] = self.role
         system_prompt = self.prompts.get_default_prompt(**params)
-        return system_prompt
+        msg = SystemMessage(content=system_prompt)
+        return self.message_storage.store(msg)
              
 class Round(BaseModel):
+    request: ChatMessage = Field(default_factory=ChatMessage)
     response: Response = Field(default_factory=Response)
-    toolcall_results: List[ToolCallResult] = Field(default_factory=list)
-
-    def should_continue(self):
-        """ Should continue? 
-        1. Parse error
-        2. have toolcall results
-        """
-        return self.response.errors or self.toolcall_results
-
-    def get_response_prompt(self, prompts: Prompts):
-        if self.response.errors:
-            return prompts.get_parse_error_prompt(self.response.errors)
-        if self.toolcall_results:
-            return prompts.get_toolcall_results_prompt(self.toolcall_results)
-        return None
+    toolcall_results: List[ToolCallResult] | None = None
 
 class StepData(BaseModel):
     instruction: str
     title: str | None = None
     start_time: float = Field(default_factory=time.time)
     end_time: float | None = None
-    result: Response | None = None
-    chats: ChatHistory = Field(default_factory=ChatHistory)
-    events: List[BaseEvent.get_subclasses_union()] = Field(default_factory=list)
     rounds: List[Round] = Field(default_factory=list)
     blocks: CodeBlocks = Field(default_factory=CodeBlocks)
-
+    events: List[BaseEvent.get_subclasses_union()] = Field(default_factory=list)
+    
+    @property
+    def result(self):
+        if not self.rounds:
+            return None
+        return self.rounds[-1].response
+    
     def add_blocks(self, blocks: List[CodeBlock]):
         self.blocks.add_blocks(blocks)
 
@@ -165,79 +162,83 @@ class StepData(BaseModel):
         self.rounds.append(round)
 
 class Step(DataMixin):
-    __expose__ = {'events', 'blocks', 'result', 'chats', 'instruction', 'start_time', 'rounds'}
+    __expose__ = {'events', 'blocks', 'result', 'instruction', 'start_time', 'rounds'}
 
-    def __init__(self, context: TaskContext, data: StepData):
-        self.context = context
+    def __init__(self, task_context: TaskContext, data: StepData):
+        self._task_context = task_context
         self._log = logger.bind(src='Step')
         self._data = data
+        self._summary = Counter()
     
     @property
     def data(self):
         return self._data
     
-    def request(self, context: LLMContext, *, system_prompt=None):
-        client = self.context.client
-        self.context.emit('request_started', llm=client.name)
-        msg = client(context, system_prompt=system_prompt)
-        self.context.emit('response_completed', llm=client.name, msg=msg)
-        return msg.content if msg else None
+    def request(self, user_message: ChatMessage):
+        client = self._task_context.client
+        self._task_context.emit('request_started', llm=client.name)
+        msg = client(user_message)
+        self._task_context.emit('response_completed', llm=client.name, msg=msg)
+        return msg
 
-    def process(self, markdown):
-        response = Response.from_markdown(markdown, parse_mcp=self.context.mcp)
-        self.context.emit('parse_reply_completed', response=response)
-        results = []
-        if not response.errors:
-            if response.task_status:
-                self.context.emit('task_status', status=response.task_status)
+    def process(self, response: Response) -> list[ToolCallResult] | None:
+        toolcall_results = None
+        if response.task_status:
+            self._task_context.emit('task_status', status=response.task_status)
 
-            if response.code_blocks:
-                self._data.add_blocks(response.code_blocks)
-            
-            if response.tool_calls:
-                results = self.context.tool_call_processor.process(self.context, response.tool_calls)
-
-        return Round(response=response, toolcall_results=results)
+        if response.code_blocks:
+            self._data.add_blocks(response.code_blocks)
         
-    def run(self, user_prompt: LLMContext, system_prompt: str | None = None) -> Response | None:
-        rounds = 1
-        max_rounds = self.context.max_rounds
-        prompt = user_prompt
-        while rounds <= max_rounds:
-            markdown = self.request(prompt, system_prompt=system_prompt)
-            if not markdown:
-                self.log.error('No response from LLM')
-                break
+        if response.tool_calls:
+            toolcall_results = self._task_context.tool_call_processor.process(self._task_context, response.tool_calls)
+        return toolcall_results
+    
+    def run(self, user_message: UserMessage) -> Response | None:
+        max_rounds = self._task_context.max_rounds
+        message_storage = self._task_context.message_storage
+        while len(self._data.rounds) < max_rounds:
+            user_message = message_storage.store(user_message)
+            msg = self.request(user_message)
 
-            round = self.process(markdown)
+            if isinstance(msg.message, ErrorMessage):
+                response = Response(message=msg)
+                self.log.error('LLM request error', error=msg.content)
+            else:
+                self._summary.update(msg.usage)
+                response = Response.from_message(msg, parse_mcp=self._task_context.mcp)
+            
+            self._task_context.emit('parse_reply_completed', response=response)
+            round = Round(request=user_message, response=response)
             self._data.add_round(round)
-            if not round.should_continue():
-                self._data.result = round.response
+
+            if not response.should_continue():
                 break
 
-            rounds += 1
-            prompt = round.get_response_prompt(self.context.prompts)
+            if response.errors:
+                prompt = self._task_context.prompts.get_parse_error_prompt(response.errors)
+            else:
+                toolcall_results = self.process(response)
+                prompt = self._task_context.prompts.get_toolcall_results_prompt(toolcall_results)
+                round.toolcall_results = toolcall_results
+            user_message = UserMessage(content=prompt)
 
         self._data.end_time = time.time()
         return self._data.result
 
-    def get_summary(self, detail=False):
-        data = {}
-        context_manager = self.context.context_manager
-        if detail:
-            data['usages'] = context_manager.get_usage()
-
-        summary = context_manager.get_summary()
-        summary['elapsed_time'] = time.time() - self.start_time
-        summarys = "{rounds} | {time:.3f}s/{elapsed_time:.3f}s | Tokens: {input_tokens}/{output_tokens}/{total_tokens}".format(**summary)
-        data['summary'] = summarys
-        return data
+    def get_summary(self):
+        summary = dict(self._summary)
+        summary['elapsed_time'] = int(time.time() - self.start_time)
+        summary['rounds'] = len(self.rounds)
+        summarys = "{rounds} | {time}s/{elapsed_time}s | Tokens: {input_tokens}/{output_tokens}/{total_tokens}".format(**summary)
+        return {'summary': summarys}
     
 class TaskData(BaseModel):
     id: str = Field(default_factory=lambda: uuid.uuid4().hex)
     version: int = Field(default=TASK_VERSION, frozen=True)
     steps: List[StepData] = Field(default_factory=list)
-
+    context: ContextData = Field(default_factory=ContextData)
+    messages: MessageStorage = Field(default_factory=MessageStorage)
+    
     def add_step(self, step: StepData):
         self.steps.append(step)
 
@@ -245,6 +246,7 @@ class Task(Stoppable):
     def __init__(self, context: 'MainContext', data: TaskData | None = None):
         super().__init__()
         self._id = uuid.uuid4().hex
+        self._data = data or TaskData()
         self._steps: List[Step] = []
         self._workdir = context.cwd
         self._cwd = self._workdir / self.task_id
@@ -294,6 +296,8 @@ class Task(Stoppable):
                 continue
             plugins.append(plugin)
 
+        context_config = ContextConfig.from_dict(context.settings.get('context_manager', {}))
+
         return TaskContext(
             settings=context.settings,
             prompts=context.prompts,
@@ -306,8 +310,18 @@ class Task(Stoppable):
             tool_call_processor=ToolCallProcessor(),
             traverser=Traverser(self._steps),
             client_manager=context.client_manager,
+            context_config=context_config,
+            context_manager=ContextManager(self._data, context_config),
+            message_storage=self._data.messages,
         )
 
+    def new_step(self, instruction: str, title: str | None = None):
+        step_data = StepData(instruction=instruction, title=title)
+        step = Step(self.task_context, step_data)
+        self._steps.append(step)
+        self._data.steps.append(step_data)
+        return step
+    
     def get_status(self):
         return {
             'llm': self.task_context.client.name,
@@ -342,9 +356,7 @@ class Task(Stoppable):
         path.parent.mkdir(parents=True, exist_ok=True)
         try:
             with open(path, 'w', encoding='utf-8') as f:
-                steps_data = [step.data for step in self._steps]
-                data = TaskData(steps=steps_data, id=self.task_id)
-                f.write(data.model_dump_json(indent=2, exclude_none=True))
+                f.write(self._data.model_dump_json(indent=2, exclude_none=True))
             self.log.info('Saved task state to file', path=str(path))
         except Exception as e:
             self.log.exception('Failed to save task state', path=str(path))
@@ -400,23 +412,25 @@ class Task(Stoppable):
         if self.task_context.settings.get('share_result'):
             self.sync_to_cloud()
 
-    def _prepare_user_prompt(self, instruction: str, first_run: bool=False) -> LLMContext:
+    def _prepare_user_prompt(self, instruction: str, first_run: bool=False) -> UserMessage:
         """处理多模态内容并验证模型能力"""
         mmc = MMContent(instruction, base_path=self._workdir)
         try:
-            content = mmc.content
+            message = mmc.message
         except Exception as e:
             raise TaskInputError(T("Invalid input"), e) from e
 
-        if not self.task_context.client.has_capability(content):
-            raise TaskInputError(T("Current model does not support this content"))
-        
+        content = message.content
         if isinstance(content, str):
             if first_run:
                 content = self.task_context.prompts.get_task_prompt(content, gui=self.task_context.gui)
             else:
                 content = self.task_context.prompts.get_chat_prompt(content, self.instruction)
-        return content
+            message.content = content
+        elif not self.task_context.client.has_capability(message):
+            raise TaskInputError(T("Current model does not support this content"))
+
+        return message
 
     def run(self, instruction: str, title: str | None = None):
         """
@@ -424,19 +438,16 @@ class Task(Stoppable):
         instruction: 用户输入的字符串（可包含@file等多模态标记）
         """
         first_run = not self._steps
-        user_prompt = self._prepare_user_prompt(instruction, first_run)
-        system_prompt = self.task_context.get_system_prompt() if first_run else None
+        user_message = self._prepare_user_prompt(instruction, first_run)
 
         # We MUST create the task directory here because it could be a resumed task.
         self._cwd.mkdir(exist_ok=True, parents=True)
         os.chdir(self._cwd)
         self._saved = False
 
-        step_data = StepData(instruction=instruction, title=title)
-        step = Step(self.task_context, step_data)
-        self._steps.append(step)
+        step = self.new_step(instruction, title)
         self.task_context.emit('step_started', instruction=instruction, step=len(self._steps) + 1, title=title)
-        response = step.run(user_prompt, system_prompt=system_prompt)
+        response = step.run(user_message)
         self.task_context.emit('step_completed', summary=step.get_summary(), response=response)
 
         self._auto_save()

@@ -4,7 +4,7 @@
 import json
 import requests
 
-from . import BaseClient, ChatMessage
+from .base import BaseClient, AIMessage
 
 # https://github.com/ollama/ollama/blob/main/docs/api.md
 class OllamaClient(BaseClient):
@@ -33,12 +33,12 @@ class OllamaClient(BaseClient):
                     content = msg['message']['content']
                     lm.process_chunk(content)
 
-        return ChatMessage(role="assistant", content=lm.content, usage=usage)
+        return AIMessage(content=lm.content, usage=usage)
 
     def _parse_response(self, response):
         response = response.json()
         msg = response["message"]
-        return ChatMessage(role=msg['role'], content=msg['content'], usage=self._parse_usage(response))
+        return AIMessage(role=msg['role'], content=msg['content'], usage=self._parse_usage(response))
     
     def get_completion(self, messages):
         response = self._session.post(

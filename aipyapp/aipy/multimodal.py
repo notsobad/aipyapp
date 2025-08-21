@@ -4,15 +4,15 @@
 from base64 import b64encode
 import re
 from pathlib import Path
-from typing import Union, List, Dict, Any, Protocol
+from typing import Union, List, Dict, Any, Protocol, Literal
 import mimetypes
 from abc import ABC, abstractmethod
 
 from loguru import logger
 from charset_normalizer import from_bytes
+from pydantic import BaseModel, Field
 
-MessageList = List[Dict[str, Any]]
-LLMContext = Union[str, MessageList]
+from ..llm import UserMessage
 
 class MMContentError(Exception):
     """Multimodal content processing base exception"""
@@ -29,11 +29,10 @@ class ParseError(MMContentError):
     """Content parsing failed exception"""
     pass
 
-class ContentItem:
+class ContentItem(BaseModel):
     """Content item data class"""
-    def __init__(self, item_type: str, **kwargs):
-        self.type = item_type
-        self.data = kwargs
+    type: str
+    data: Dict[str, Any] = Field(default_factory=dict)
     
     def __getitem__(self, key):
         if key == 'type':
@@ -124,7 +123,7 @@ class ContentParser:
             if part.startswith('@'):
                 item = self._parse_file_reference(part)
             else:
-                item = ContentItem('text', text=part)
+                item = ContentItem(type='text', data={'text': part})
             
             items.append(item)
         
@@ -137,10 +136,10 @@ class ContentParser:
         
         # Check if file exists
         if not Path(resolved_path).exists():
-            return ContentItem('text', text=file_ref)
+            return ContentItem(type='text', data={'text': file_ref})
         
         file_type = self.file_detector.detect_file_type(resolved_path)
-        return ContentItem(file_type, path=resolved_path)
+        return ContentItem(type=file_type, data={'path': resolved_path})
 
 class ContentProcessor(ABC):
     """Content processor abstract base class"""
@@ -240,7 +239,7 @@ class ContentFormatter:
     def __init__(self):
         self.factory = ContentProcessorFactory()
     
-    def format(self, items: List[ContentItem]) -> LLMContext:
+    def format(self, items: List[ContentItem]) -> UserMessage:
         """Format content item list"""
         results = []
         has_image = False
@@ -256,9 +255,9 @@ class ContentFormatter:
         # If there is no image, merge all text
         if not has_image:
             texts = [r['text'] for r in results if r['type'] == 'text']
-            return '\n'.join(texts)
+            return UserMessage(content='\n'.join(texts))
         
-        return results
+        return UserMessage(content=results)
 
 class MMContent:
     """
@@ -283,6 +282,6 @@ class MMContent:
         return any(item.type in ('image', 'file', 'document') for item in self.items)
     
     @property
-    def content(self) -> LLMContext:
+    def message(self) -> UserMessage:
         """Return formatted content"""
         return self.formatter.format(self.items)

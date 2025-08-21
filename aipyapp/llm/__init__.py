@@ -3,14 +3,14 @@
 
 
 from .. import T
-from .base import ChatMessage, BaseClient
+from .base import Message, MessageRole, UserMessage, SystemMessage, AIMessage, ErrorMessage
 from .base_openai import OpenAIBaseClient
 from .client_claude import ClaudeClient
 from .client_ollama import OllamaClient
 from .client_oauth2 import OAuth2Client
 from .models import ModelRegistry, ModelCapability
 
-__all__ = ['ChatMessage', 'CLIENTS', 'ModelRegistry', 'ModelCapability']
+__all__ = ['Message', 'MessageRole', 'CLIENTS', 'ModelRegistry', 'ModelCapability', 'UserMessage', 'SystemMessage', 'AIMessage', 'ErrorMessage']
 
 class OpenAIClient(OpenAIBaseClient): 
     MODEL = 'gpt-4o'

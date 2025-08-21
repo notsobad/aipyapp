@@ -2,7 +2,8 @@
 # -*- coding: utf-8 -*-
 
 from __future__ import annotations
-from typing import Any, Dict, List, Callable, Optional, TypeVar, Iterable
+from typing import Any, Dict, List, Callable, Optional, TypeVar, Iterable, ClassVar
+import weakref
 
 from pydantic import BaseModel, Field
 
@@ -141,3 +142,21 @@ class DataMixin:
 
     def __dir__(self):
         return list(super().__dir__()) + list(self.__expose__)
+
+class InstanceTrackerMixin:
+    # 每个子类会自动拥有自己的 WeakSet
+    __instances__: ClassVar[weakref.WeakSet] = weakref.WeakSet()
+
+    def model_post_init(self, __context):
+        # 只把该具体子类的实例加入自己的池子
+        cls = type(self)
+        # 每个子类应当有自己独立的 WeakSet，而不是共用父类的
+        if "__instances__" not in cls.__dict__:
+            cls.__instances__ = weakref.WeakSet()
+        cls.__instances__.add(self)
+
+    @classmethod
+    def all_instances(cls):
+        if "__instances__" not in cls.__dict__:
+            return []
+        return list(cls.__instances__)

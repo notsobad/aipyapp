@@ -16,6 +16,7 @@ from .types import Errors
 from .blocks import CodeBlock
 from .toolcalls import ToolCall
 from .libmcp import extract_call_tool_str, extra_call_tool_blocks
+from .chat import ChatMessage
 
 FRONT_MATTER_PATTERN = r"^\s*---\s*\n(.*?)\n---\s*"
 
@@ -60,14 +61,19 @@ class FrontMatter(BaseModel):
 
 class Response(BaseModel):
     """响应对象 - 封装解析结果"""
+    message: ChatMessage = Field(default_factory=ChatMessage)
+    content_pos: int | None = Field(default=None, description="Content position")
     task_status: TaskCompleted | TaskCannotContinue | None = Field(default=None, description="Task status")
-    code_blocks: List[CodeBlock] = Field(default_factory=list)
-    tool_calls: List[ToolCall] = Field(default_factory=list)
-    errors: Errors = Field(default_factory=Errors)
+    code_blocks: List[CodeBlock] | None = Field(default=None, description="Code blocks")
+    tool_calls: List[ToolCall] | None = Field(default=None, description="Tool calls")
+    errors: Errors | None = Field(default=None, description="Errors")
     
     @property
     def log(self):
         return self._log
+    
+    def should_continue(self) -> bool:
+        return self.errors or self.tool_calls
     
     def model_post_init(self, __context: Any):
         self._log = logger.bind(src='Response')
@@ -75,8 +81,16 @@ class Response(BaseModel):
     def __bool__(self):
         return bool(self.code_blocks) or bool(self.tool_calls)
     
+    def _add_tool_calls(self, tool_calls: List[ToolCall]):
+        if not tool_calls:
+            return
+        if self.tool_calls:
+            self.tool_calls.extend(tool_calls)
+        else:
+            self.tool_calls = tool_calls
+
     @classmethod
-    def from_markdown(cls, markdown: str, parse_mcp: bool = False) -> 'Response':
+    def from_message(cls, message: ChatMessage, parse_mcp: bool = False) -> 'Response':
         """
         内部解析方法
         
@@ -84,24 +98,30 @@ class Response(BaseModel):
             markdown_text: 要解析的 Markdown 文本
             parse_mcp: 是否解析 MCP 调用
         """
-        self = cls()
-        _, content = self._parse_front_matter(markdown)
-        markdown = content
+        self = cls(message=message)
+        markdown = message.content
+        errors = Errors()
+        self._parse_front_matter(markdown)
+        if self.content_pos:
+            markdown = markdown[self.content_pos:]
 
-        self.errors.extend(self._parse_code_blocks(markdown))
+        errors.extend(self._parse_code_blocks(markdown))
         
         # 解析工具调用
-        self.errors.extend(self._parse_tool_calls(markdown))
+        errors.extend(self._parse_tool_calls(markdown))
         
         # 解析 MCP 调用（如果需要）
         if parse_mcp:
-            self.errors.extend(self._parse_mcp_calls(markdown))
+            errors.extend(self._parse_mcp_calls(markdown))
         
+        if errors:
+            self.errors = errors
         return self
     
     def _parse_code_blocks(self, markdown: str) -> Errors:
         """解析代码块"""
         errors = Errors()
+        code_blocks = []
         for match in BLOCK_PATTERN.finditer(markdown):
             start_json, _, lang, content, end_json = match.groups()
             
@@ -152,7 +172,7 @@ class Response(BaseModel):
                     code=content,
                     path=start_meta.get("path")
                 )
-                self.code_blocks.append(code_block)
+                code_blocks.append(code_block)
             except ValidationError as e:
                 errors.add(
                     "Failed to create CodeBlock",
@@ -160,18 +180,21 @@ class Response(BaseModel):
                     error_type=ParseErrorType.PYDANTIC_VALIDATION_ERROR,
                 )
 
+        if code_blocks:
+            self.code_blocks = code_blocks
         return errors
     
     def _parse_tool_calls(self, markdown: str) -> Errors:
         """解析工具调用"""
         errors = Errors()
+        tool_calls = []
         for match in TOOLCALL_PATTERN.finditer(markdown):
             json_str = match.group(1)
             
             # 直接使用 Pydantic 解析，让它处理所有验证
             try:
                 tool_call = ToolCall.model_validate_json(json_str)
-                self.tool_calls.append(tool_call)
+                tool_calls.append(tool_call)
             except json.JSONDecodeError as e:
                 errors.add(
                     "Invalid JSON in ToolCall",
@@ -186,11 +209,13 @@ class Response(BaseModel):
                     exception=str(e),
                     error_type=ParseErrorType.PYDANTIC_VALIDATION_ERROR,
                 )
+        self._add_tool_calls(tool_calls)
         return errors
     
     def _parse_mcp_calls(self, markdown: str) -> Errors:
         """解析 MCP 调用"""
         errors = Errors()
+        tool_calls = []
         mcp_calls = extra_call_tool_blocks(self.code_blocks)
         if not mcp_calls:
             mcp_calls = extract_call_tool_str(markdown)
@@ -201,7 +226,7 @@ class Response(BaseModel):
         for call in mcp_calls:
             try:
                 mcp_call = ToolCall.model_validate(call)
-                self.tool_calls.append(mcp_call)
+                tool_calls.append(mcp_call)
             except ValidationError as e:
                 errors.add(
                     "Invalid MCPToolCall data",
@@ -209,9 +234,10 @@ class Response(BaseModel):
                     exception=str(e),
                     error_type=ParseErrorType.PYDANTIC_VALIDATION_ERROR,
                 )
+        self._add_tool_calls(tool_calls)
         return errors
     
-    def _parse_front_matter(self, md_text: str) -> Tuple[Errors, str]:
+    def _parse_front_matter(self, md_text: str) -> Errors:
         """
         解析 Markdown 字符串，提取 YAML front matter 和正文内容。
 
@@ -238,9 +264,7 @@ class Response(BaseModel):
                     yaml_str=yaml_str,
                     error_type=ParseErrorType.INVALID_FORMAT,
                 )
-            content = md_text[match.end():]
-        else:
-            content = md_text
+            self.content_pos = match.end()
 
         if yaml_dict:
             try:
@@ -255,4 +279,4 @@ class Response(BaseModel):
                     error_type=ParseErrorType.PYDANTIC_VALIDATION_ERROR,
                 )
 
-        return errors, content
+        return errors
