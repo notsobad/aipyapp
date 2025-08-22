@@ -53,9 +53,11 @@ class ClaudeClient(BaseClient):
     def add_system_prompt(self, history, system_prompt):
         self._system_prompt = system_prompt
 
-    def get_completion(self, messages):
+    def get_completion(self, messages, **kwargs):
         if not self._client:
             self._client = self._get_client()
+
+        extra_headers = kwargs.get('extra_headers')
 
         message = self._client.messages.create(
             model = self._model,
@@ -64,6 +66,7 @@ class ClaudeClient(BaseClient):
             system=self._system_prompt,
             max_tokens = self.max_tokens,
             temperature = self._temperature,
+            extra_headers=extra_headers,
             **self._params
         )
         return message

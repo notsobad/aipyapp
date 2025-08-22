@@ -10,6 +10,8 @@ from loguru import logger
 from .. import T
 from . import BaseClient, ChatMessage
 
+openai.debug = True
+
 # https://platform.openai.com/docs/api-reference/chat/create
 # https://api-docs.deepseek.com/api/create-chat-completion
 class OpenAIBaseClient(BaseClient):
@@ -79,9 +81,11 @@ class OpenAIBaseClient(BaseClient):
             usage=self._parse_usage(response.usage)
         )
 
-    def get_completion(self, messages):
+    def get_completion(self, messages, **kwargs):
         if not self._client:
             self._client = self._get_client()
+
+        extra_headers = kwargs.get('extra_headers')
 
         response = self._client.chat.completions.create(
             model = self._model,
@@ -89,6 +93,7 @@ class OpenAIBaseClient(BaseClient):
             stream=self._stream,
             max_tokens = self.max_tokens,
             temperature = self._temperature,
+            extra_headers=extra_headers,
             **self._params
         )
         return response

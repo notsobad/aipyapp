@@ -61,8 +61,8 @@ class OAuth2Client(OpenAIBaseClient):
 
         return self._access_token
         
-    def get_completion(self, messages):
-        response = super().get_completion(messages)
+    def get_completion(self, messages, **kwargs):
+        response = super().get_completion(messages, **kwargs)
         self._client = None
 
         return response

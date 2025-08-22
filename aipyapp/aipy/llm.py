@@ -238,6 +238,6 @@ class Client:
         stream_processor = StreamProcessor(self.task, client.name)
         
         # 直接传递 ContextManager，它已经实现了所需的接口
-        msg = client(self.context_manager, content, system_prompt=system_prompt, stream_processor=stream_processor)
+        msg = client(self.context_manager, content, system_prompt=system_prompt, stream_processor=stream_processor, extra_headers={'Aipy-Task-ID': self.task.task_id})
         return msg
     

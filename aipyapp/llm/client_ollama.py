@@ -40,14 +40,15 @@ class OllamaClient(BaseClient):
         msg = response["message"]
         return ChatMessage(role=msg['role'], content=msg['content'], usage=self._parse_usage(response))
     
-    def get_completion(self, messages):
+    def get_completion(self, messages, **kwargs):
+        options = {"num_predict": self.max_tokens, "temperature": self._temperature}
         response = self._session.post(
             f"{self._base_url}/api/chat",
             json={
                 "model": self._model,
                 "messages": messages,
                 "stream": self._stream,
-                "options": {"num_predict": self.max_tokens, "temperature": self._temperature}
+                "options": options
             },
             timeout=self._timeout,
             **self._params
