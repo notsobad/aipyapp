@@ -1,5 +1,4 @@
 import time
-import os
 
 from rich.panel import Panel
 
@@ -8,6 +7,8 @@ from aipyapp.aipy.event_serializer import EventSerializer
 from aipyapp.aipy.task_state import TaskState
 from ..base import ParserCommand
 from ..common import TaskModeResult
+from ..completer.base import CompleterBase
+from ..completer.argparse_completer import EnhancedArgparseCompleter
 from .utils import record2table
 
 
@@ -25,67 +26,22 @@ class TaskCommand(ParserCommand):
         parser.add_argument('path', type=str, help=T('Path to task.json file'))
         parser.add_argument('--speed', type=float, default=1.0, help=T('Replay speed multiplier (default: 1.0)'))
 
+    def _create_completer(self) -> CompleterBase:
+        """创建任务命令的自定义补齐器"""
+        return EnhancedArgparseCompleter(self)
+
     def cmd_list(self, args, ctx):
         rows = ctx.tm.list_tasks()
         table = record2table(rows)
         ctx.console.print(table)
 
-    def get_arg_values(self, name, subcommand=None):
+    def get_arg_values(self, name, subcommand=None, partial=None):
+        """为 tid 参数提供补齐值，path 参数由 PathCompleter 处理"""
         if name == 'tid':
-            tasks = self.manager.tm.get_tasks()
+            tasks = self.manager.context.tm.get_tasks()
             return [(task.task_id, task.instruction[:32]) for task in tasks]
-        elif name == 'path':
-            return self._get_path_completions()
         return None
 
-    def _get_path_completions(self, partial_path=''):
-        """获取文件路径补齐选项 - 简化版本
-        
-        核心思想：
-        1. 使用 glob 进行路径匹配，简单可靠
-        2. 始终返回完整路径，避免复杂的路径拼接
-        3. 优先显示 .json 文件和目录
-        """
-        import glob
-        from pathlib import Path
-        
-        # 如果没有输入，列出当前目录
-        if not partial_path:
-            pattern = '*'
-        else:
-            # 如果以 / 结尾，列出该目录下的所有内容
-            if partial_path.endswith(os.sep):
-                pattern = partial_path + '*'
-            else:
-                # 否则进行前缀匹配
-                pattern = partial_path + '*'
-        
-        # 使用 glob 获取匹配项
-        matches = glob.glob(pattern)
-        
-        # 分类整理结果
-        json_files = []
-        directories = []
-        other_files = []
-        
-        for match in matches:
-            # 跳过隐藏文件
-            if os.path.basename(match).startswith('.'):
-                continue
-            
-            # 根据类型分类
-            if os.path.isdir(match):
-                # 目录不再自动添加 / 后缀
-                # 这样用户输入 / 时会触发新的补齐
-                directories.append((match, "📁 Directory"))
-            elif match.endswith('.json'):
-                json_files.append((match, "📄 JSON"))
-            else:
-                other_files.append((match, "📄 File"))
-        
-        # 按优先级排序：JSON 文件 > 目录 > 其他文件
-        return json_files + directories + other_files
-    
     def cmd_use(self, args, ctx):
         task = ctx.tm.get_task_by_id(args.tid)
         return TaskModeResult(task=task)

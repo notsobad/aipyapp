@@ -5,14 +5,18 @@ import shlex
 from typing import List, Optional, Dict, Set, Callable, Tuple, Protocol
 from prompt_toolkit.completion import Completion
 
+from loguru import logger
+
 from .base import CompleterBase, CompleterContext, create_completion
+from .specialized import PathCompleter
+
 
 class HasParser(Protocol):
     @property
     def parser(self) -> argparse.ArgumentParser:
         ...
 
-    def get_arg_values(self, name: str, subcommand: Optional[str]) -> Optional[List[Tuple[str, str]]]:
+    def get_arg_values(self, name: str, subcommand: Optional[str]=None, partial: Optional[str]=None) -> Optional[List[Tuple[str, str]]]:
         ... 
 
 class ArgumentInfo:
@@ -88,6 +92,7 @@ class ArgparseCompleter(CompleterBase):
     def __init__(self, command: HasParser, parser: argparse.ArgumentParser=None):
         self.command = command
         self.parser = parser or command.parser
+        self.log = logger.bind(src='ArgparseCompleter', name=self.command.name)
         self._analyze_parser()
     
     def _analyze_parser(self):
@@ -258,7 +263,7 @@ class ArgparseCompleter(CompleterBase):
 
         get_arg_values = getattr(self.command, 'get_arg_values', None)
         if get_arg_values and callable(get_arg_values):
-            values = get_arg_values(option_info.dest, None)
+            values = get_arg_values(option_info.dest, partial=partial)
             if values:
                 for name, desc in values:
                     if name.startswith(partial):
@@ -285,7 +290,7 @@ class ArgparseCompleter(CompleterBase):
 
         get_arg_values = getattr(self.command, 'get_arg_values', None)
         if get_arg_values and callable(get_arg_values):
-            values = get_arg_values(arg_info.dest, None)
+            values = get_arg_values(arg_info.dest, partial=partial)
             
             if values:
                 for name, desc in values:
@@ -354,3 +359,87 @@ class ArgparseCompleter(CompleterBase):
             current_word=current_word,
             word_before_cursor=text_after_subcommand
         )
+
+class EnhancedArgparseCompleter(ArgparseCompleter):
+    """增强的 Argparse 补齐器，为路径参数使用专门的 PathCompleter"""
+    
+    def _analyze_parser(self):
+        """重写解析器分析，确保子解析器也使用增强版本"""
+        super()._analyze_parser()
+        
+        # 重新创建子解析器，使用增强版本
+        enhanced_subparsers = {}
+        for name, subparser_completer in self.subparsers.items():
+            # 使用增强版本替换默认的 ArgparseCompleter
+            enhanced_subparsers[name] = EnhancedArgparseCompleter(self.command, subparser_completer.parser)
+        self.subparsers = enhanced_subparsers
+    
+    def get_completions(self, context: CompleterContext) -> List[Completion]:
+        """重写补齐方法，特殊处理路径参数的补齐逻辑"""
+        
+        # 解析当前输入状态
+        parsed = self._parse_input(context)
+        
+        # 如果有子命令且已选择，委托给子命令补齐器
+        if parsed.subcommand and parsed.subcommand in self.subparsers:
+            subcommand_completer = self.subparsers[parsed.subcommand]
+            subcontext = self._create_subcommand_context(context, parsed.subcommand)
+            return subcommand_completer.get_completions(subcontext)
+        
+        # 特殊处理：如果当前单词看起来像路径，或者是空位置且需要path参数，强制进行路径补齐
+        has_path_param = self.positionals and self.positionals[0].dest == 'path'
+        looks_like_path = context.current_word and ('/' in context.current_word or context.current_word.endswith('.json'))
+        is_empty_path_position = context.is_empty_position and len(parsed.positionals) == 0
+        
+        if has_path_param and (looks_like_path or is_empty_path_position):
+            # 直接调用路径补齐
+            return self._complete_path_argument(self.positionals[0], context)
+        
+        # 其他情况使用默认逻辑
+        return super().get_completions(context)
+    
+    def _complete_path_argument(self, arg_info: ArgumentInfo, context: CompleterContext) -> List[Completion]:
+        """专门的路径参数补齐方法"""
+        path_completer = PathCompleter(
+            glob_pattern="*",
+            show_hidden=False
+        )
+        completions = path_completer.get_completions(context)
+        
+        # 过滤和排序：JSON 文件优先
+        json_files = []
+        directories = []
+        other_files = []
+        
+        for completion in completions:
+            if completion.text.endswith('.json'):
+                json_completion = Completion(
+                    text=completion.text,
+                    start_position=completion.start_position,
+                    display=completion.display,
+                    display_meta="📄 JSON"
+                )
+                json_files.append(json_completion)
+            elif hasattr(completion, 'display_meta') and completion.display_meta == "目录":
+                dir_completion = Completion(
+                    text=completion.text,
+                    start_position=completion.start_position,
+                    display=completion.display,
+                    display_meta="📁 Directory"
+                )
+                directories.append(dir_completion)
+            else:
+                # 其他所有文件都保留，包括目录（如果display_meta不是"目录"）
+                other_files.append(completion)
+        
+        return json_files + directories + other_files
+    
+    def _complete_positional(self, arg_info: ArgumentInfo, context: CompleterContext) -> List[Completion]:
+        """重写位置参数补齐，为路径类型使用 PathCompleter"""
+        
+        # 如果是路径参数，使用专门的路径补齐方法
+        if arg_info.dest == 'path':
+            return self._complete_path_argument(arg_info, context)
+        
+        # 其他参数使用默认逻辑
+        return super()._complete_positional(arg_info, context)
