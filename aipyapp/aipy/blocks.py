@@ -67,6 +67,8 @@ class CodeBlocks(BaseModel):
 
     def model_post_init(self, __context: Any):
         self._log = logger.bind(src='CodeBlocks')
+        for block in self.history:
+            self.blocks[block.name] = block
 
     def __len__(self):
         return len(self.blocks)

@@ -342,29 +342,3 @@ class Task(Stoppable):
 
         self.emit('upload_result', status_code=status_code, url=url)
         return True
-
-    def list_code_blocks(self):
-        """列出所有代码块"""
-        BlockRecord = namedtuple('BlockRecord', ['Index', 'Name', 'Version', 'Language', 'Path', 'Size'])
-        
-        rows = []
-        for index, block in enumerate(self.code_blocks.history):
-            # 计算代码大小
-            code_size = len(block.code) if block.code else 0
-            size_str = f"{code_size} chars"
-            
-            # 处理路径显示
-            path_str = block.path if block.path else '-'
-            if path_str != '-' and len(path_str) > 40:
-                path_str = '...' + path_str[-37:]
-            
-            rows.append(BlockRecord(
-                Index=index,
-                Name=block.name,
-                Version=f"v{block.version}",
-                Language=block.lang,
-                Path=path_str,
-                Size=size_str
-            ))
-        
-        return rows
