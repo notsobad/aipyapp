@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import time
+from abc import ABC, abstractmethod
 from collections import Counter
 from dataclasses import dataclass
 from typing import List, Dict, Any, Optional, Union, Tuple
@@ -13,96 +14,107 @@ from pydantic import BaseModel, Field
 from ..llm import MessageRole, UserMessage
 from .chat import ChatMessage, MessageStorage
 
-class ContextStrategy(Enum):
+class ContextStrategy(str, Enum):
     """上下文管理策略"""
     SLIDING_WINDOW = "sliding_window"      # 滑动窗口
     IMPORTANCE_FILTER = "importance_filter"  # 重要性过滤
     SUMMARY_COMPRESSION = "summary_compression"  # 摘要压缩
     HYBRID = "hybrid"                      # 混合策略
 
-@dataclass
-class ContextConfig:
+class ITokenEstimator(ABC):
+    """Token估算器接口"""
+    
+    @abstractmethod
+    def estimate(self, content: str | List[Dict[str, Any]]) -> int:
+        """估算内容的token数量"""
+        pass
+
+
+class DefaultTokenEstimator(ITokenEstimator):
+    """默认Token估算器实现"""
+    
+    def estimate(self, content: str | List[Dict[str, Any]]) -> int:
+        if isinstance(content, str):
+            return len(content) // 4
+        elif isinstance(content, list):
+            total_length = 0
+            for item in content:
+                if item.get('type') == 'text':
+                    total_length += len(item.get('text', ''))
+            return total_length // 4
+        return 0
+
+class ContextConfig(BaseModel):
     """上下文管理配置"""
-    max_tokens: int = 100000               # 最大token数
-    max_rounds: int = 10                   # 最大对话轮数
-    auto_compress: bool = True             # 是否自动压缩
-    strategy: ContextStrategy = ContextStrategy.HYBRID
-    compression_ratio: float = 0.3         # 压缩比例
-    importance_threshold: float = 0.5      # 重要性阈值
-    summary_max_length: int = 200          # 摘要最大长度
-    preserve_system: bool = True           # 是否保留系统消息
-    preserve_recent: int = 3               # 保留最近几轮对话
+    max_tokens: int = Field(default=100000, description="最大token数")
+    max_rounds: int = Field(default=10, description="最大对话轮数")
+    auto_compress: bool = Field(default=True, description="是否自动压缩")
+    strategy: ContextStrategy = Field(default=ContextStrategy.HYBRID, description="压缩策略")
+    compression_ratio: float = Field(default=0.3, ge=0.0, le=1.0, description="压缩比例")
+    importance_threshold: float = Field(default=0.5, ge=0.0, le=1.0, description="重要性阈值")
+    summary_max_length: int = Field(default=200, gt=0, description="摘要最大长度")
+    preserve_system: bool = Field(default=True, description="是否保留系统消息")
+    preserve_recent: int = Field(default=3, gt=0, description="保留最近几轮对话")
 
-    def set_strategy(self, strategy: str) -> Union[ContextStrategy, None]:
-        try:
-            strategy = ContextStrategy(strategy)
-            self.strategy = strategy
-        except ValueError:
-            strategy = None
-        return strategy
-
-    @classmethod
-    def from_dict(cls, data: dict) -> 'ContextConfig':
-        obj = cls(**data)
-        obj.set_strategy(data.get('strategy', 'hybrid'))
-        return obj
-    
-    def to_dict(self) -> dict:
-        return self.__dict__
-
-class MessageCompressor:
-    """消息压缩器"""
-    
-    def __init__(self, message_store: MessageStorage, config: ContextConfig):
-        self.config = config
+class IContextStrategy(ABC):
+    """上下文压缩策略接口"""
+    def __init__(self, message_store: MessageStorage, config: ContextConfig, 
+                 estimator: ITokenEstimator):
         self.message_store = message_store
-        self.log = logger.bind(src='message_compressor')
+        self.config = config
+        self.estimator = estimator
+        self.log = logger.bind(src=self.__class__.__name__)
+
+    @abstractmethod
+    def compress(self, context_data: 'ContextData') -> None:
+        """压缩上下文数据（原地修改）"""
+        pass
+
+class SlidingWindowStrategy(IContextStrategy):
+    """滑动窗口压缩策略"""
     
-    def compress_messages(self, messages: List[ChatMessage], current_tokens: int) -> Tuple[List[ChatMessage], int]:
-        """压缩消息列表"""
-        if current_tokens <= self.config.max_tokens:
-            return messages, current_tokens
-        
-        strategy = self.config.strategy
-        if strategy == ContextStrategy.SLIDING_WINDOW:
-            return self._sliding_window_compress(messages, current_tokens)
-        elif strategy == ContextStrategy.IMPORTANCE_FILTER:
-            return self._importance_filter_compress(messages, current_tokens)
-        elif strategy == ContextStrategy.SUMMARY_COMPRESSION:
-            return self._summary_compression_compress(messages, current_tokens)
-        elif strategy == ContextStrategy.HYBRID:
-            return self._hybrid_compress(messages, current_tokens)
-        else:
-            return messages, current_tokens
-    
-    def _sliding_window_compress(self, messages: List[ChatMessage], current_tokens: int) -> Tuple[List[ChatMessage], int]:
-        """滑动窗口压缩"""
+    def compress(self, context_data: 'ContextData') -> None:
+        if context_data.total_tokens <= self.config.max_tokens:
+            return
+            
+        original_count = len(context_data.messages)
         preserved_messages = []
         preserved_tokens = 0
         
         # 保留系统消息
-        system_messages = [msg for msg in messages if msg.role == MessageRole.SYSTEM]
+        system_messages = [msg for msg in context_data.messages if msg.role == MessageRole.SYSTEM]
         for msg in system_messages:
             preserved_messages.append(msg)
-            preserved_tokens += self.estimate_message_tokens(msg.content)
+            preserved_tokens += self.estimator.estimate(msg.content)
         
         # 保留最近的对话
-        recent_messages = [msg for msg in messages if msg.role != MessageRole.SYSTEM]
-        max_recent = self.config.preserve_recent * 2  # 用户+助手消息
+        recent_messages = [msg for msg in context_data.messages if msg.role != MessageRole.SYSTEM]
+        max_recent = self.config.preserve_recent * 2
         
         for msg in recent_messages[-max_recent:]:
-            msg_tokens = self.estimate_message_tokens(msg.content)
+            msg_tokens = self.estimator.estimate(msg.content)
             if preserved_tokens + msg_tokens <= self.config.max_tokens:
                 preserved_messages.append(msg)
                 preserved_tokens += msg_tokens
             else:
                 break
         
-        self.log.info(f"Sliding window compression: {len(messages)} -> {len(preserved_messages)} messages")
-        return preserved_messages, preserved_tokens
+        # 更新上下文数据
+        context_data.messages = preserved_messages
+        context_data.total_tokens = preserved_tokens
+        
+        self.log.info(f"Sliding window compression: {original_count} -> {len(preserved_messages)} messages, {preserved_tokens} tokens")
+
+class ImportanceFilterStrategy(IContextStrategy):
+    """重要性过滤压缩策略"""
     
-    def _importance_filter_compress(self, messages: List[ChatMessage], current_tokens: int) -> Tuple[List[ChatMessage], int]:
-        """重要性过滤压缩"""
+    def compress(self, context_data: 'ContextData') -> None:
+        if context_data.total_tokens <= self.config.max_tokens:
+            return
+            
+        original_count = len(context_data.messages)
+        messages = context_data.messages
+        
         # 计算消息重要性分数
         scored_messages = []
         for i, msg in enumerate(messages):
@@ -116,7 +128,7 @@ class MessageCompressor:
         preserved_tokens = 0
         
         for score, msg in scored_messages:
-            msg_tokens = self.estimate_message_tokens(msg.content)
+            msg_tokens = self.estimator.estimate(msg.content)
             if preserved_tokens + msg_tokens <= self.config.max_tokens:
                 preserved_messages.append(msg)
                 preserved_tokens += msg_tokens
@@ -126,60 +138,11 @@ class MessageCompressor:
         # 按原始顺序重新排序
         preserved_messages.sort(key=lambda x: messages.index(x))
         
-        self.log.info(f"Importance filter compression: {len(messages)} -> {len(preserved_messages)} messages")
-        return preserved_messages, preserved_tokens
-    
-    def _summary_compression_compress(self, messages: List[ChatMessage], current_tokens: int) -> Tuple[List[ChatMessage], int]:
-        """摘要压缩"""
-        preserved_messages: List[ChatMessage] = []
-        preserved_tokens = 0
+        # 更新上下文数据
+        context_data.messages = preserved_messages
+        context_data.total_tokens = preserved_tokens
         
-        # 保留系统消息
-        system_messages = [msg for msg in messages if msg.role == MessageRole.SYSTEM]
-        for msg in system_messages:
-            preserved_messages.append(msg)
-            preserved_tokens += self.estimate_message_tokens(msg.content)
-        
-        # 保留最近的对话
-        recent_messages: List[ChatMessage] = [msg for msg in messages if msg.role != MessageRole.SYSTEM]
-        max_recent = self.config.preserve_recent * 2
-        
-        # 分割消息
-        if len(recent_messages) > max_recent:
-            old_messages = recent_messages[:-max_recent]
-            new_messages = recent_messages[-max_recent:]
-            
-            # 创建摘要消息
-            summary_content = self._create_summary(old_messages)
-            summary_msg = UserMessage(
-                content=f"对话历史摘要：{summary_content}"
-            )
-            
-            preserved_messages.append(self.message_store.store(summary_msg))
-            preserved_tokens += self.estimate_message_tokens(summary_msg.content)
-        
-        # 添加新消息
-        for msg in recent_messages[-max_recent:]:
-            msg_tokens = self.estimate_message_tokens(msg.content)
-            if preserved_tokens + msg_tokens <= self.config.max_tokens:
-                preserved_messages.append(msg)
-                preserved_tokens += msg_tokens
-            else:
-                break
-        
-        self.log.info(f"Summary compression: {len(messages)} -> {len(preserved_messages)} messages")
-        return preserved_messages, preserved_tokens
-    
-    def _hybrid_compress(self, messages: List[ChatMessage], current_tokens: int) -> Tuple[List[ChatMessage], int]:
-        """混合压缩策略"""
-        # 首先尝试滑动窗口
-        compressed_messages, compressed_tokens = self._sliding_window_compress(messages, current_tokens)
-        
-        # 如果仍然超出限制，使用摘要压缩
-        if compressed_tokens > self.config.max_tokens:
-            compressed_messages, compressed_tokens = self._summary_compression_compress(messages, current_tokens)
-        
-        return compressed_messages, compressed_tokens
+        self.log.info(f"Importance filter compression: {original_count} -> {len(preserved_messages)} messages, {preserved_tokens} tokens")
     
     def _calculate_importance_score(self, message: ChatMessage, index: int, total: int) -> float:
         """计算消息重要性分数"""
@@ -188,11 +151,11 @@ class MessageCompressor:
         # 基于角色评分
         role = message.role
         if role == MessageRole.SYSTEM:
-            score += 1.0  # 系统消息最重要
+            score += 1.0
         elif role == MessageRole.USER:
-            score += 0.8  # 用户消息次重要
+            score += 0.8
         elif role == MessageRole.ASSISTANT:
-            score += 0.6  # 助手消息一般重要
+            score += 0.6
         
         # 基于位置评分（越新越重要）
         recency = (index + 1) / total
@@ -201,10 +164,57 @@ class MessageCompressor:
         # 基于内容长度评分
         content = message.content
         if isinstance(content, str):
-            length_score = min(len(content) / 1000, 1.0)  # 标准化到0-1
+            length_score = min(len(content) / 1000, 1.0)
             score += length_score * 0.2
         
         return score
+
+class SummaryCompressionStrategy(IContextStrategy):
+    """摘要压缩策略"""
+    
+    def compress(self, context_data: 'ContextData') -> None:
+        if context_data.total_tokens <= self.config.max_tokens:
+            return
+            
+        original_count = len(context_data.messages)
+        preserved_messages: List[ChatMessage] = []
+        preserved_tokens = 0
+        
+        # 保留系统消息
+        system_messages = [msg for msg in context_data.messages if msg.role == MessageRole.SYSTEM]
+        for msg in system_messages:
+            preserved_messages.append(msg)
+            preserved_tokens += self.estimator.estimate(msg.content)
+        
+        # 保留最近的对话
+        recent_messages: List[ChatMessage] = [msg for msg in context_data.messages if msg.role != MessageRole.SYSTEM]
+        max_recent = self.config.preserve_recent * 2
+        
+        # 分割消息
+        if len(recent_messages) > max_recent:
+            old_messages = recent_messages[:-max_recent]
+            
+            # 创建摘要消息
+            summary_content = self._create_summary(old_messages)
+            summary_msg = UserMessage(content=f"对话历史摘要：{summary_content}")
+            
+            preserved_messages.append(self.message_store.store(summary_msg))
+            preserved_tokens += self.estimator.estimate(summary_msg.content)
+        
+        # 添加新消息
+        for msg in recent_messages[-max_recent:]:
+            msg_tokens = self.estimator.estimate(msg.content)
+            if preserved_tokens + msg_tokens <= self.config.max_tokens:
+                preserved_messages.append(msg)
+                preserved_tokens += msg_tokens
+            else:
+                break
+        
+        # 更新上下文数据
+        context_data.messages = preserved_messages
+        context_data.total_tokens = preserved_tokens
+        
+        self.log.info(f"Summary compression: {original_count} -> {len(preserved_messages)} messages, {preserved_tokens} tokens")
     
     def _create_summary(self, messages: List[ChatMessage]) -> str:
         """创建消息摘要"""
@@ -215,24 +225,88 @@ class MessageCompressor:
             content = msg.content
             
             if isinstance(content, str):
-                # 截取前100个字符作为摘要
                 content_preview = content[:100] + ('...' if len(content) > 100 else '')
                 summary_parts.append(f"{role}: {content_preview}")
         
         summary = " | ".join(summary_parts)
         return summary[:self.config.summary_max_length]
+
+class HybridStrategy(IContextStrategy):
+    """混合压缩策略"""
+    
+    def __init__(self, message_store: MessageStorage, config: ContextConfig, 
+                 estimator: ITokenEstimator):
+        super().__init__(message_store, config, estimator)
+        self.sliding_window = SlidingWindowStrategy(message_store, config, estimator)
+        self.summary_compression = SummaryCompressionStrategy(message_store, config, estimator)
+    
+    def compress(self, context_data: 'ContextData') -> None:
+        if context_data.total_tokens <= self.config.max_tokens:
+            return
+            
+        # 首先尝试滑动窗口
+        self.sliding_window.compress(context_data)
+        
+        # 如果仍然超出限制，使用摘要压缩
+        if context_data.total_tokens > self.config.max_tokens:
+            self.summary_compression.compress(context_data)
+
+class ContextStrategyFactory:
+    """上下文策略工厂类"""
+    
+    _strategies: Dict[ContextStrategy, type] = {
+        ContextStrategy.SLIDING_WINDOW: SlidingWindowStrategy,
+        ContextStrategy.IMPORTANCE_FILTER: ImportanceFilterStrategy,
+        ContextStrategy.SUMMARY_COMPRESSION: SummaryCompressionStrategy,
+        ContextStrategy.HYBRID: HybridStrategy,
+    }
+    
+    @classmethod
+    def create(cls, strategy_type: ContextStrategy, message_store: MessageStorage,
+               config: ContextConfig, estimator: ITokenEstimator) -> IContextStrategy:
+        """创建指定类型的压缩策略"""
+        if strategy_type not in cls._strategies:
+            raise ValueError(f"Unsupported strategy type: {strategy_type}")
+        
+        strategy_class = cls._strategies[strategy_type]
+        return strategy_class(message_store, config, estimator)
+    
+    @classmethod
+    def register_strategy(cls, strategy_type: ContextStrategy, strategy_class: type):
+        """注册新的策略类型"""
+        if not issubclass(strategy_class, IContextStrategy):
+            raise TypeError("Strategy class must implement IContextStrategy interface")
+        cls._strategies[strategy_type] = strategy_class
+
+class MessageCompressor:
+    """消息压缩器 - 重构为使用策略模式"""
+    
+    def __init__(self, message_store: MessageStorage, config: ContextConfig, 
+                 estimator: ITokenEstimator = None):
+        self.config = config
+        self.message_store = message_store
+        self.estimator = estimator or DefaultTokenEstimator()
+        self.strategy = ContextStrategyFactory.create(config.strategy, message_store, config, self.estimator)
+        self.log = logger.bind(src='message_compressor')
+    
+    def compress_context(self, context_data: 'ContextData') -> None:
+        """压缩上下文数据"""
+        self.strategy.compress(context_data)
+    
+    def update_strategy(self, new_strategy: ContextStrategy):
+        """更新压缩策略"""
+        self.strategy = ContextStrategyFactory.create(new_strategy, self.message_store, self.config, self.estimator)
+        self.log.info(f"Strategy updated to: {new_strategy.value}")
+    
+    def update_config(self, new_config: ContextConfig):
+        """更新配置并重新创建策略"""
+        self.config = new_config
+        self.strategy = ContextStrategyFactory.create(new_config.strategy, self.message_store, new_config, self.estimator)
+        self.log.info(f"Config updated: {new_config.strategy.value}")
     
     def estimate_message_tokens(self, content: str | List[Dict[str, Any]]) -> int:
         """估算消息的token数量"""
-        if isinstance(content, str):
-            total_length = len(content) // 4  # 简单估算
-        elif isinstance(content, list):
-            # 多模态内容
-            total_length = 0
-            for item in content:
-                if item.get('type') == 'text':
-                    total_length += len(item.get('text', ''))
-        return total_length // 4
+        return self.estimator.estimate(content)
 
 class ContextData(BaseModel):
     messages: List[ChatMessage] = Field(default_factory=list)
@@ -244,8 +318,15 @@ class ContextData(BaseModel):
 class ContextManager:
     """上下文管理器"""
     
-    def __init__(self, message_store: MessageStorage, data: ContextData, config: dict | None = None):
-        self.config = ContextConfig.from_dict(config or {})
+    def __init__(self, message_store: MessageStorage, data: ContextData, 
+                 config: Union[dict, ContextConfig, None] = None):
+        if isinstance(config, dict):
+            self.config = ContextConfig(**config)
+        elif isinstance(config, ContextConfig):
+            self.config = config
+        else:
+            self.config = ContextConfig()
+        
         self.message_store = message_store
         self.compressor = MessageCompressor(message_store, self.config)
         self.log = logger.bind(src='context_manager')
@@ -290,7 +371,7 @@ class ContextManager:
             if should_compress:
                 self.compress()
         
-        return [msg.message.dict() for msg in self.data.messages]
+        return self.messages.copy()
     
     def compress(self):
         """压缩消息"""
@@ -301,18 +382,13 @@ class ContextManager:
         original_tokens = self.total_tokens
         
         # 执行压缩
-        compressed_messages, compressed_tokens = self.compressor.compress_messages(
-            self.data.messages, self.data.total_tokens
-        )
+        self.compressor.compress_context(self.data)
         
-        # 更新缓存
-        self.data.messages = compressed_messages
-        self.data.total_tokens = compressed_tokens
         self._last_compression_time = time.time()
         
         self.log.info(
-            f"Context compressed: {original_count}->{len(compressed_messages)} messages, "
-            f"{original_tokens}->{compressed_tokens} tokens"
+            f"Context compressed: {original_count}->{len(self.data.messages)} messages, "
+            f"{original_tokens}->{self.data.total_tokens} tokens"
         )
     
     def get_stats(self) -> Dict[str, Any]:
@@ -352,6 +428,6 @@ class ContextManager:
     def update_config(self, config: ContextConfig):
         """更新配置"""
         self.config = config
-        self.compressor = MessageCompressor(config)
+        self.compressor.update_config(config)
         self.log.info(f"Context config updated: {config.strategy.value}")
     

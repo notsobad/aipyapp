@@ -147,8 +147,8 @@ class Client:
         stream_processor = StreamProcessor(self.task, client.name)
         
         messages = self.context_manager.get_messages()
-        messages.append(user_message.dict())
-        msg = client(messages, stream_processor=stream_processor)
+        messages.append(user_message)
+        msg = client([msg.dict() for msg in messages], stream_processor=stream_processor)
         msg = self.storage.store(msg)
         if isinstance(msg.message, AIMessage):
             self.context_manager.add_message(user_message)
