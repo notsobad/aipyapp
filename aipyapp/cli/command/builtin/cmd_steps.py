@@ -22,7 +22,7 @@ class StepsCommand(ParserCommand):
     def get_arg_values(self, name, subcommand=None):
         if name == 'index':
             task = self.manager.context.task
-            return [(str(index), step.title or step.instruction[:32]) for index, step in enumerate(task.steps)]
+            return [(str(index), step['title'] or step['instruction'][:32]) for index, step in enumerate(task.steps)]
         return None
     
     def cmd(self, args, ctx):
@@ -36,10 +36,10 @@ class StepsCommand(ParserCommand):
         
         rows = []
         for i, step in enumerate(steps):
-            start_time_s = datetime.fromtimestamp(step.start_time).strftime('%m-%d %H:%M')
-            end_time_s = datetime.fromtimestamp(step.end_time).strftime('%m-%d %H:%M') if step.end_time else ''
-            rows.append([i, step.title or step.instruction[:32], len(step.rounds), len(step.blocks), start_time_s, end_time_s])
-        table = row2table(rows, title=T('Task Steps'), headers=[T('Index'), T('Title'), T('Rounds'), T('Blocks'), T('Start Time'), T('End Time')])
+            start_time_s = datetime.fromtimestamp(step['start_time']).strftime('%m-%d %H:%M')
+            end_time_s = datetime.fromtimestamp(step['end_time']).strftime('%m-%d %H:%M') if step['end_time'] else ''
+            rows.append([i, step['title'] or step['instruction'][:32], len(step['rounds']), start_time_s, end_time_s])
+        table = row2table(rows, title=T('Task Steps'), headers=[T('Index'), T('Title'), T('Rounds'), T('Start Time'), T('End Time')])
         ctx.console.print(table)
     
     def cmd_clear(self, args, ctx):

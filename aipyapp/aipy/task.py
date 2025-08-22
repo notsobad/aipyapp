@@ -146,35 +146,14 @@ class Task(Stoppable):
         msg = SystemMessage(content=system_prompt)
         return self.message_storage.store(msg)
     
-    def new_step(self, instruction: str, title: str | None = None):
-        step_data = StepData(instruction=instruction, title=title)
-        step = Step(self.task_context, step_data)
-        self._steps.append(step)
-        self._data.steps.append(step_data)
-        return step
-    
     def delete_step(self, index: int) -> bool:
-        """删除指定索引的步骤
-        Args:
-            index: 步骤索引
-        Returns:
-            bool: 是否删除成功
-
-        TODO: Update context
-        """
-        if index < 0 or index >= len(self._steps):
+        if index < 0 or index >= len(self.steps):
             return False
-        self._steps.pop(index)
-        self._data.steps.pop(index)
+        self.steps.pop(index)
         return True
 
     def clear_steps(self):
-        """清空所有步骤
-
-        TODO: Update context
-        """
-        self._steps.clear()
-        self._data.steps.clear()
+        self.steps.clear()
         return True
     
     def get_status(self):
