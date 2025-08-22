@@ -25,7 +25,7 @@ class ITokenEstimator(ABC):
     """Token估算器接口"""
     
     @abstractmethod
-    def estimate(self, content: str | List[Dict[str, Any]]) -> int:
+    def estimate(self, message: ChatMessage) -> int:
         """估算内容的token数量"""
         pass
 
@@ -33,7 +33,8 @@ class ITokenEstimator(ABC):
 class DefaultTokenEstimator(ITokenEstimator):
     """默认Token估算器实现"""
     
-    def estimate(self, content: str | List[Dict[str, Any]]) -> int:
+    def estimate(self, message: ChatMessage) -> int:
+        content = message.content
         if isinstance(content, str):
             return len(content) // 4
         elif isinstance(content, list):
@@ -85,14 +86,14 @@ class SlidingWindowStrategy(IContextStrategy):
         system_messages = [msg for msg in context_data.messages if msg.role == MessageRole.SYSTEM]
         for msg in system_messages:
             preserved_messages.append(msg)
-            preserved_tokens += self.estimator.estimate(msg.content)
+            preserved_tokens += self.estimator.estimate(msg)
         
         # 保留最近的对话
         recent_messages = [msg for msg in context_data.messages if msg.role != MessageRole.SYSTEM]
         max_recent = self.config.preserve_recent * 2
         
         for msg in recent_messages[-max_recent:]:
-            msg_tokens = self.estimator.estimate(msg.content)
+            msg_tokens = self.estimator.estimate(msg)
             if preserved_tokens + msg_tokens <= self.config.max_tokens:
                 preserved_messages.append(msg)
                 preserved_tokens += msg_tokens
@@ -128,7 +129,7 @@ class ImportanceFilterStrategy(IContextStrategy):
         preserved_tokens = 0
         
         for score, msg in scored_messages:
-            msg_tokens = self.estimator.estimate(msg.content)
+            msg_tokens = self.estimator.estimate(msg)
             if preserved_tokens + msg_tokens <= self.config.max_tokens:
                 preserved_messages.append(msg)
                 preserved_tokens += msg_tokens
@@ -184,7 +185,7 @@ class SummaryCompressionStrategy(IContextStrategy):
         system_messages = [msg for msg in context_data.messages if msg.role == MessageRole.SYSTEM]
         for msg in system_messages:
             preserved_messages.append(msg)
-            preserved_tokens += self.estimator.estimate(msg.content)
+            preserved_tokens += self.estimator.estimate(msg)
         
         # 保留最近的对话
         recent_messages: List[ChatMessage] = [msg for msg in context_data.messages if msg.role != MessageRole.SYSTEM]
@@ -203,7 +204,7 @@ class SummaryCompressionStrategy(IContextStrategy):
         
         # 添加新消息
         for msg in recent_messages[-max_recent:]:
-            msg_tokens = self.estimator.estimate(msg.content)
+            msg_tokens = self.estimator.estimate(msg)
             if preserved_tokens + msg_tokens <= self.config.max_tokens:
                 preserved_messages.append(msg)
                 preserved_tokens += msg_tokens
@@ -304,9 +305,15 @@ class MessageCompressor:
         self.strategy = ContextStrategyFactory.create(new_config.strategy, self.message_store, new_config, self.estimator)
         self.log.info(f"Config updated: {new_config.strategy.value}")
     
-    def estimate_message_tokens(self, content: str | List[Dict[str, Any]]) -> int:
+    def estimate_message_tokens(self, message: ChatMessage) -> int:
         """估算消息的token数量"""
-        return self.estimator.estimate(content)
+        total_tokens = 0
+        if message.role == MessageRole.ASSISTANT:
+            total_tokens = message.usage.get('total_tokens', 0)
+
+        if total_tokens == 0:
+            total_tokens = self.estimator.estimate(message)
+        return total_tokens
 
 class ContextData(BaseModel):
     messages: List[ChatMessage] = Field(default_factory=list)
@@ -346,13 +353,7 @@ class ContextManager:
         """添加消息到上下文"""
         # 添加到缓存
         self.data.messages.append(message)
-        total_tokens = 0
-        if message.role == MessageRole.ASSISTANT:
-            total_tokens = message.usage.get('total_tokens', 0)
-
-        if total_tokens == 0:
-            total_tokens = self.compressor.estimate_message_tokens(message.content)
-        self.data.total_tokens = total_tokens
+        self.data.total_tokens = self.compressor.estimate_message_tokens(message)
         self.log.info(f"Added message: {message.role}, tokens: {self.data.total_tokens}, id: {message.id}")
     
     def get_messages(self, force_compress: bool = False) -> List[ChatMessage]:
@@ -414,7 +415,7 @@ class ContextManager:
             del messages[2:]
         
         self._last_compression_time = 0
-        self.data.total_tokens = sum(self.compressor.estimate_message_tokens(msg.content) for msg in messages)
+        self.data.total_tokens = sum(self.compressor.estimate_message_tokens(msg) for msg in messages)
         self.log.info(f"Context cleaned: {len(self.data.messages)} messages, {self.data.total_tokens} tokens")
 
     def rebuild(self, messages: List[ChatMessage]):
