@@ -3,8 +3,6 @@
 <output_format>
 The output must be in structured Markdown format and adhere to the following rules:
 
-{% include "task_status_header.j2" %}
-
 <code_block_markup>
 1. Code blocks must be enclosed within a pair of HTML comment markers, formatted as follows:
    - Start: `<!-- Block-Start: {"name": "code block name", "version": numeric version like 1/2/3, "path": "optional file path for the code block"} -->`
@@ -91,6 +89,7 @@ Example 4 - Editing with replace_all:
 <!-- Cmd-Edit: {"name": "fetch_data", "old": "resp", "new": "response", "replace_all": true} -->
 </good_example>
 
+{% include "task_status_header.j2" %}
 </output_format>
 
 <execution_results>
