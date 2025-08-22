@@ -128,13 +128,6 @@ class Task(Stoppable):
             self.steps[-1]['events'].append(event)
         return event
 
-    def run_code_block(self, block):
-        """运行代码块"""
-        self.emit('exec_started', block=block)
-        result = self.runner(block)
-        self.emit('exec_completed', result=result, block=block)
-        return result
-
     def get_system_message(self) -> ChatMessage:
         params = {}
         if self.mcp:

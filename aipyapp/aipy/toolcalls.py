@@ -10,7 +10,6 @@ from typing import Union, List, Dict, Any, Optional, TYPE_CHECKING
 from loguru import logger
 from pydantic import BaseModel, model_validator, Field
 
-from .blocks import CodeBlock
 from .types import Error
 
 if TYPE_CHECKING:
@@ -193,14 +192,6 @@ class ToolCallProcessor:
         )
         task.blocks.add_block(new_block, validate=False)
         return EditToolResult(block_name=block_name, new_version=new_block.version)
-    
-    def run_code_block(self, task: 'Task', block_name: str) -> ExecToolResult:
-        """执行代码块"""
-        tool_call = ToolCall(
-            name=ToolName.EXEC,
-            arguments=ExecToolArgs(name=block_name)
-        )
-        return self.call_tool(task, tool_call)
     
     def _call_exec(self, task: 'Task', tool_call: ToolCall) -> ExecToolResult:
         """执行 Exec 工具"""

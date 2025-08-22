@@ -21,14 +21,15 @@ class PluginCommand(ParserCommand):
     def get_arg_values(self, name, subcommand=None):
         if name == 'name':
             ctx = self.manager.context
-            return [(plugin.name, plugin.description) for plugin in ctx.tm.plugin_manager]
+            plugins = ctx.task.plugins.values() if ctx.task else ctx.tm.plugin_manager
+            return [(plugin.name, plugin.description) for plugin in plugins]
         return None
 
     def cmd_list(self, args, ctx):
         """列出可用的插件"""
         rows = []
         if ctx.task:
-            plugins = ctx.task.task_context.plugins
+            plugins = ctx.task.plugins
             title = T('Enabled Plugins')
         else:
             plugins = None
@@ -50,7 +51,7 @@ class PluginCommand(ParserCommand):
         if not task:
             ctx.console.print(T('Task mode only'), style='yellow')
             return
-        plugin = task.task_context.plugins.get(args.name)
+        plugin = task.plugins.get(args.name)
         if not plugin:
             ctx.console.print(f"[red]{T('Plugin not enabled')}: {args.name}[/red]")
             return

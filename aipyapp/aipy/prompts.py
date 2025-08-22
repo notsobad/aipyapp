@@ -54,6 +54,8 @@ class Prompts:
             template_dir = __respath__ / 'prompts'
         self.template_dir = os.path.abspath(template_dir)
         self.env = Environment(
+            trim_blocks=True,
+            lstrip_blocks=True,
             loader=FileSystemLoader(self.template_dir),
             #autoescape=select_autoescape(['j2'])
         )
