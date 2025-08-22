@@ -12,7 +12,7 @@ class LLMCommand(ParserCommand):
         use_parser.add_argument('provider', type=str, help=T('Provider name'))
         subparsers.add_parser('list', help=T('List LLM providers'))
 
-    def get_arg_values(self, name, subcommand=None):
+    def get_arg_values(self, name, subcommand=None, partial=None):
         if name == 'provider':
             ctx = self.manager.context
             return [(client.name, str(client)) for client in ctx.tm.client_manager.clients.values()]

@@ -25,7 +25,7 @@ class RoleCommand(ParserCommand):
         use_parser = subparsers.add_parser('use', help=T('Use a role'))
         use_parser.add_argument('role', type=str, help=T('Role name'))
 
-    def get_arg_values(self, name, subcommand=None):
+    def get_arg_values(self, name, subcommand=None, partial=None):
         if name == 'role':
             ctx = self.manager.context
             return [(name, role.short) for name, role in ctx.tm.role_manager.roles.items()]

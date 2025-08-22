@@ -18,7 +18,7 @@ class CustomCommand(ParserCommand):
         show_parser = subparsers.add_parser('show', help=T('Show custom command details'))
         show_parser.add_argument('name', type=str, help=T('Custom command name'))
         
-    def get_arg_values(self, name, subcommand=None):
+    def get_arg_values(self, name, subcommand=None, partial=None):
         if name == 'name':
             custom_commands = self.manager.user_commands
             return [(cmd.name, cmd.description) for cmd in custom_commands.values()]

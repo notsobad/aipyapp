@@ -18,7 +18,7 @@ class PluginCommand(ParserCommand):
             return False
         return True
 
-    def get_arg_values(self, name, subcommand=None):
+    def get_arg_values(self, name, subcommand=None, partial=None):
         if name == 'name':
             ctx = self.manager.context
             return [(plugin.name, plugin.description) for plugin in ctx.tm.plugin_manager]

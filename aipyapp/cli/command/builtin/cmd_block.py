@@ -14,7 +14,7 @@ class BlockCommand(ParserCommand):
     description = T("Manage code blocks")
     modes = [CommandMode.TASK]
     
-    def get_arg_values(self, name, subcommand=None) -> Optional[List[Tuple[str, str]]]:
+    def get_arg_values(self, name, subcommand=None, partial=None) -> Optional[List[Tuple[str, str]]]:
         if name == 'index':
             ctx = self.manager.context
             return [(str(block.Index), f"{block.Name} ({block.Language})") for block in ctx.task.list_code_blocks()]
