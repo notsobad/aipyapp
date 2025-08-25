@@ -22,7 +22,7 @@ from .runtime import CliPythonRuntime
 from .utils import get_safe_filename, validate_file
 from .events import TypedEventBus
 from .multimodal import MMContent   
-from .context_manager import ContextManager, ContextData
+from .context import ContextManager, ContextData
 from .toolcalls import ToolCallProcessor
 from .chat import MessageStorage, ChatMessage, UserMessage
 from .step import Step, StepData
