@@ -124,7 +124,7 @@ class TaskState:
         # 加载基本字段
         basic_fields = {'version', 'task_id', 'instruction', 'start_time', 'done_time'}
         self.version = data.get('version', TASK_VERSION)
-        #self.task_id = data.get('task_id')
+        self.task_id = data.get('task_id')
         self.instruction = data.get('instruction')
         self.start_time = data.get('start_time')
         self.done_time = data.get('done_time')
