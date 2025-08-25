@@ -27,7 +27,9 @@ def check_commands(commands):
         path = shutil.which(cmd)
         if not path:
             result[cmd] = None
-            continue
+        else:
+            result[cmd] = path
+        continue
 
         try:
             proc = subprocess.run(
