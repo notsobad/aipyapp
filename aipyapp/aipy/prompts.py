@@ -34,7 +34,8 @@ def check_commands(commands):
                 [cmd] + version_args,
                 capture_output=True,
                 text=True,
-                timeout=5
+                timeout=5,
+                encoding='utf-8'
             )
             # 合并 stdout 和 stderr，然后提取类似 1.2.3 或 v1.2.3 的版本
             output = (proc.stdout or '') + (proc.stderr or '')
