@@ -4,7 +4,7 @@ from collections import defaultdict, namedtuple
 
 from loguru import logger
 
-from .. import T, __respath__
+from .. import T, __respath__, __version__
 from ..llm import CLIENTS, ModelRegistry, ModelCapability
 from .multimodal import LLMContext
 
@@ -184,6 +184,7 @@ class Client:
         self.manager = manager
         self.current = manager.current
         self.task = task
+        self.extra_headers = {'Aipy-Task-ID': f'{task.task_id}/{__version__}'}
         
         # 接收外部传入的上下文管理器
         self.context_manager = context_manager
@@ -238,6 +239,6 @@ class Client:
         stream_processor = StreamProcessor(self.task, client.name)
         
         # 直接传递 ContextManager，它已经实现了所需的接口
-        msg = client(self.context_manager, content, system_prompt=system_prompt, stream_processor=stream_processor, extra_headers={'Aipy-Task-ID': self.task.task_id})
+        msg = client(self.context_manager, content, system_prompt=system_prompt, stream_processor=stream_processor, extra_headers=self.extra_headers)
         return msg
     

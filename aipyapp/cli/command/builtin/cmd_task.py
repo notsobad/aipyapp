@@ -32,8 +32,9 @@ class TaskCommand(ParserCommand):
 
     def cmd_list(self, args, ctx):
         rows = ctx.tm.list_tasks()
-        table = record2table(rows)
-        ctx.console.print(table)
+        if rows:
+            table = record2table(rows)
+            ctx.console.print(table)
 
     def get_arg_values(self, name, subcommand=None, partial=None):
         """为 tid 参数提供补齐值，path 参数由 PathCompleter 处理"""

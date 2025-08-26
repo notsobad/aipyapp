@@ -33,11 +33,10 @@ Rules:
 
 Only these code block types (languages) can be executed:
 - `python` (always executable)
-- `html`, `bash`, `powershell`, `applescript`, `javascript` (must specify `path`)
+- `html`, `bash`, `applescript`, `javascript` (must specify `path`)
 
 Platform restrictions:
 - `bash`: Linux or macOS only
-- `powershell`: Windows only
 - `applescript`: macOS only
 </exec_command>
 
@@ -110,7 +109,7 @@ json_string is the execution result of the code block, which is a JSON object wi
 - `errstr`: Exception message.
 - `__state__`: Content of a __state__ variable (only for python code blocks)
 - `traceback`: Exception stack trace. (only for python code blocks)
-- `returncode`: The return code of the code block. (only for bash, powershell, applescript, javascript code blocks)
+- `returncode`: The return code of the code block. (only for bash, applescript, javascript code blocks)
 
 **Edit Operation Results:**
 ```

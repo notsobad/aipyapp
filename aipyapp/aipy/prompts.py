@@ -65,7 +65,7 @@ class Prompts:
         commands_to_check = {
             "node": ["--version"],
             "bash": ["--version"],
-            "powershell": ["-Command", "$PSVersionTable.PSVersion.ToString()"],
+            #"powershell": ["-Command", "$PSVersionTable.PSVersion.ToString()"],
             "osascript": ["-e", 'return "AppleScript OK"']
         }
         self.env.globals['commands'] = check_commands(commands_to_check)

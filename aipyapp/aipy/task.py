@@ -64,6 +64,7 @@ class Task(Stoppable, EventBus):
         self.done_time = None
         self.instruction = None
         self.saved = None
+        self.title = None
         
         #TODO: 移除 gui 参数
         self.gui = self.settings.gui
@@ -165,7 +166,7 @@ class Task(Stoppable, EventBus):
             task_id=self.task_id,
             start_time=start_time,
             done_time=done_time,
-            instruction=self.title[:32] if self.title else '-'
+            instruction=self.title[:32] if self.title else self.instruction[:32]
         )
     
     def use(self, name):
@@ -457,7 +458,7 @@ class Task(Stoppable, EventBus):
         if not self.start_time:
             self.start_time = time.time()
             self.instruction = instruction
-            self.title = title or instruction
+            self.title = title
             # 开始事件记录
             self.event_recorder.start_recording()
             if isinstance(content, str):
@@ -466,7 +467,6 @@ class Task(Stoppable, EventBus):
             self.emit('task_start', instruction=instruction, task_id=self.task_id, title=title)
         else:
             system_prompt = None
-            title = title or instruction
             if isinstance(content, str):
                 user_prompt = self.prompts.get_chat_prompt(content, self.instruction)
             # 记录轮次开始事件
