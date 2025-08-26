@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 from loguru import logger
 
+from .. import __version__
 from ..llm import ModelCapability, AIMessage
 from .chat import ChatMessage
 
@@ -97,7 +98,8 @@ class Client:
         self.manager = task.client_manager
         self.current = self.manager.current
         self.task = task
-        
+        self.extra_headers = {'Aipy-Task-ID': f'{task.task_id}/{__version__}'}
+
         # 接收外部传入的上下文管理器
         self.context_manager = task.context_manager
         self.storage = task.message_storage
@@ -148,7 +150,7 @@ class Client:
         
         messages = self.context_manager.get_messages()
         messages.append(user_message)
-        msg = client([msg.dict() for msg in messages], stream_processor=stream_processor)
+        msg = client([msg.dict() for msg in messages], stream_processor=stream_processor, extra_headers=self.extra_headers)
         msg = self.storage.store(msg)
         if isinstance(msg.message, AIMessage):
             self.context_manager.add_message(user_message)

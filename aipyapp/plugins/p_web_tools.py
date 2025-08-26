@@ -8,15 +8,15 @@ from urllib.parse import urlparse
 from aipyapp import TaskPlugin
 
 class WebToolsPlugin(TaskPlugin):
-    """网络工具插件 - 提供网页抓取、URL分析等功能"""
+    """Web Tools - Provides web page scraping, URL analysis, and HTTP request capabilities."""
     
     name = "web_tools"
     version = "1.0.0"
-    description = "提供网页抓取、URL分析、HTTP请求等网络工具功能"
+    description = "Web Tools - Provides web page scraping, URL analysis, and HTTP request capabilities."
     author = "AiPy Team"
     
     def init(self):
-        """初始化网络工具配置"""
+        """Initialize network tool configuration."""
         self.timeout = self.config.get('timeout', 30)
         self.user_agent = self.config.get('user_agent', 'AiPy WebTools/1.0')
         self.max_content_length = self.config.get('max_content_length', 1024 * 1024)  # 1MB
@@ -25,22 +25,22 @@ class WebToolsPlugin(TaskPlugin):
             **self.config.get('default_headers', {})
         }
         
-        self.logger.info(f"初始化网络工具，超时: {self.timeout}s")
+        self.logger.info(f"Initialized network tool, timeout: {self.timeout}s")
     
     def fn_fetch_webpage(self, url: str, extract_text: bool = True) -> Dict[str, Any]:
         """
-        抓取网页内容
+        Fetch webpage content.
         
         Args:
-            url: 目标URL
-            extract_text: 是否只提取文本内容
+            url: Target URL.
+            extract_text: Whether to extract only text content.
             
         Returns:
-            包含网页信息的字典
+            Dictionary containing webpage information.
         
         Examples:
             >>> fn_fetch_webpage("https://www.baidu.com")
-            {'success': True, 'url': 'https://www.baidu.com', 'status_code': 200, 'headers': {'Content-Type': 'text/html; charset=utf-8'}, 'content_type': 'text/html; charset=utf-8', 'encoding': 'utf-8', 'text': '百度一下，你就知道', 'title': '百度一下，你就知道'}
+            {'success': True, 'url': 'https://www.baidu.com', 'status_code': 200, 'headers': {'Content-Type': 'text/html; charset=utf-8'}, 'content_type': 'text/html; charset=utf-8', 'encoding': 'utf-8', 'text': 'Baidu', 'title': 'Baidu'}
             >>> fn_fetch_webpage("https://www.baidu.com", extract_text=False)
             {'success': True, 'url': 'https://www.baidu.com', 'status_code': 200, 'headers': {'Content-Type': 'text/html; charset=utf-8'}, 'content_type': 'text/html; charset=utf-8', 'encoding': 'utf-8', 'content': '<!DOCTYPE html>...'}    
         """
@@ -48,23 +48,23 @@ class WebToolsPlugin(TaskPlugin):
     
     def fn_http_request(self, url: str, method: str = "GET", headers: Optional[Dict[str, str]] = None, params: Optional[Dict[str, Any]] = None, json_data: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """
-        发送HTTP请求
+        Send HTTP request.
         
         Args:
-            url: 请求URL
-            method: HTTP方法 (GET/POST/PUT/DELETE等)
-            headers: 请求头
-            params: URL参数
-            json_data: JSON请求体
+            url: Request URL.
+            method: HTTP method (GET/POST/PUT/DELETE, etc.).
+            headers: Request headers.
+            params: URL parameters.
+            json_data: JSON request body.
                 
         Returns:
-            包含网页信息的字典，其中content为响应内容，success为是否成功，status_code为状态码
+            Dictionary containing webpage information, where content is the response content, success is whether it is successful, and status_code is the status code.
 
         Examples:
             >>> fn_http_request("https://www.baidu.com")
-            {'success': True, 'status_code': 200, 'headers': {'Content-Type': 'text/html; charset=utf-8'}, 'content': '百度一下，你就知道', 'elapsed': '0.000000s'}
+            {'success': True, 'status_code': 200, 'headers': {'Content-Type': 'text/html; charset=utf-8'}, 'content': 'Baidu', 'elapsed': '0.000000s'}
             >>> fn_http_request("https://www.baidu.com", method="POST", json_data={"name": "John", "age": 30})
-            {'success': True, 'status_code': 200, 'headers': {'Content-Type': 'text/html; charset=utf-8'}, 'content': '百度一下，你就知道', 'elapsed': '0.000000s'}
+            {'success': True, 'status_code': 200, 'headers': {'Content-Type': 'text/html; charset=utf-8'}, 'content': 'Baidu', 'elapsed': '0.000000s'}
             >>> fn_http_request("https://www.baidu.com")
             {'sucess': False, 'error': '400 Client Error: Bad Request for url'}
         """
@@ -72,30 +72,30 @@ class WebToolsPlugin(TaskPlugin):
         
     def fn_analyze_url(self, url: str) -> Dict[str, str]:
         """
-        分析URL的各个组成部分
+        Analyze the various components of the URL.
         
         Args:
-            url: 待分析的URL
+            url: URL to be analyzed.
             
         Returns:
-            URL组成信息字典
+            Dictionary containing URL component information.
         """
         return self._analyze_url(url)
     
     def fn_check_url_status(self, url: str) -> Dict[str, Any]:
         """
-        检查URL状态
+        Check URL status.
         
         Args:
-            url: 目标URL
+            url: Target URL.
             
         Returns:
-            URL状态信息字典
+            Dictionary containing URL status information.
         """
         return self._check_url_status(url)
     
     def _fetch_webpage(self, url: str, extract_text: bool) -> Dict[str, Any]:
-        """抓取网页内容"""
+        """Fetch webpage content."""
         try:
             response = requests.get(
                 url, 
@@ -104,12 +104,12 @@ class WebToolsPlugin(TaskPlugin):
                 stream=True
             )
             
-            # 检查内容长度
+            # Check content length.
             content_length = response.headers.get('content-length')
             if content_length and int(content_length) > self.max_content_length:
                 return {
                     "success": False,
-                    "error": f"内容太大 ({content_length} bytes)，超过限制 ({self.max_content_length} bytes)"
+                    "error": f"Content too large ({content_length} bytes), exceeds limit ({self.max_content_length} bytes)"
                 }
             
             response.raise_for_status()
@@ -128,7 +128,7 @@ class WebToolsPlugin(TaskPlugin):
                     from bs4 import BeautifulSoup
                     soup = BeautifulSoup(response.content, 'html.parser')
                     
-                    # 移除script和style标签
+                    # Remove script and style tags.
                     for script in soup(["script", "style"]):
                         script.decompose()
                     
@@ -144,7 +144,7 @@ class WebToolsPlugin(TaskPlugin):
             return result
             
         except Exception as e:
-            self.logger.error(f"抓取网页失败 {url}: {e}")
+            self.logger.error(f"Failed to fetch webpage {url}: {e}")
             return {
                 "success": False,
                 "url": url,
@@ -152,7 +152,7 @@ class WebToolsPlugin(TaskPlugin):
             }
     
     def _analyze_url(self, url: str) -> Dict[str, str]:
-        """分析URL结构"""
+        """Analyze URL structure."""
         try:
             parsed = urlparse(url)
             return {
@@ -171,7 +171,7 @@ class WebToolsPlugin(TaskPlugin):
             return {"error": str(e)}
     
     def _http_request(self, url: str, method: str, headers: Optional[Dict], params: Optional[Dict], json_data: Optional[Dict]) -> Dict[str, Any]:
-        """发送HTTP请求"""
+        """Send HTTP request."""
         try:
             request_headers = self.headers.copy()
             if headers:
@@ -197,14 +197,14 @@ class WebToolsPlugin(TaskPlugin):
             }
             
         except Exception as e:
-            self.logger.error(f"HTTP请求失败 {method} {url}: {e}")
+            self.logger.error(f"HTTP request failed {method} {url}: {e}")
             return {
                 "success": False,
                 "error": str(e)
             }
     
     def _check_url_status(self, url: str) -> Dict[str, Any]:
-        """检查URL状态"""
+        """Check URL status."""
         try:
             response = requests.head(url, headers=self.headers, timeout=self.timeout)
             return {

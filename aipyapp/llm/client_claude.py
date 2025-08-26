@@ -57,9 +57,11 @@ class ClaudeClient(BaseClient):
             messages = messages[1:]
         return messages
 
-    def get_completion(self, messages: list[Dict[str, Any]]) -> AIMessage:
+    def get_completion(self, messages: list[Dict[str, Any]], **kwargs) -> AIMessage:
         if not self._client:
             self._client = self._get_client()
+
+        extra_headers = kwargs.get('extra_headers')
 
         message = self._client.messages.create(
             model = self._model,
@@ -68,6 +70,7 @@ class ClaudeClient(BaseClient):
             system=self._system_prompt,
             max_tokens = self.max_tokens,
             temperature = self._temperature,
+            extra_headers = extra_headers,
             **self._params
         )
         return message

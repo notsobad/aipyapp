@@ -40,7 +40,9 @@ class OllamaClient(BaseClient):
         msg = response["message"]
         return AIMessage(role=msg['role'], content=msg['content'], usage=self._parse_usage(response))
     
-    def get_completion(self, messages):
+    def get_completion(self, messages, **kwargs):
+        extra_headers = kwargs.get('extra_headers')
+
         response = self._session.post(
             f"{self._base_url}/api/chat",
             json={
@@ -50,6 +52,7 @@ class OllamaClient(BaseClient):
                 "options": {"num_predict": self.max_tokens, "temperature": self._temperature}
             },
             timeout=self._timeout,
+            headers=extra_headers,
             **self._params
         )
         response.raise_for_status()

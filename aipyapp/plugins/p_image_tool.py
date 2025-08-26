@@ -11,10 +11,10 @@ from openai import OpenAI
 from aipyapp import TaskPlugin, PluginInitError
 
 class ImageToolPlugin(TaskPlugin):
-    """图片识别工具插件"""
+    """Image Tool - Provides image recognition and analysis capabilities."""
     name = "image_tool"
     version = "1.0.0"
-    description = "使用大模型识别和分析图片内容"
+    description = "Image Tool - Provides image recognition and analysis capabilities."
     author = "AiPy Team"
     
     def init(self):
@@ -24,68 +24,68 @@ class ImageToolPlugin(TaskPlugin):
         model = self.config.get('model', 'gpt-4-vision-preview')
         
         if not api_key:
-            raise PluginInitError("未配置OpenAI API Key")
+            raise PluginInitError("API Key not configured for OpenAI.")
         
         self.client = OpenAI(
             api_key=api_key,
             base_url=base_url
         )
         self.model = model
-        self.logger.info(f"初始化OpenAI客户端，模型: {model}")
+        self.logger.info(f"Initialized OpenAI client with model: {model}")
     
     def fn_recognize_image(self,
         image_source: str,
-        prompt: str = "请描述这张图片的内容。",
+        prompt: str = "Please describe the content of this image in detail, including the main objects, scenes, colors, and composition.",
         return_json: bool = False
     ) -> Union[str, dict]:
         """
-        使用大模型识别图片内容，可接受本地路径或图片URL
+        Use the LLM to recognize image content.
         
         Args:
-            image_source: 本地图片路径或远程图片URL
-            prompt: 分析提示词
-            return_json: 是否返回完整JSON响应
+            image_source: Local image path or remote image URL.
+            prompt: Analysis prompt.
+            return_json: Whether to return a complete JSON response.
             
         Returns:
-            字符串描述或JSON响应
+            String description or JSON response.
         """
         return self._recognize_image(image_source, prompt, return_json)
     
     def fn_analyze_image(self, image_source: str, analysis_type: str = "general") -> str:
         """
-        深度分析图片内容
+        Deeply analyze image content.
         
         Args:
-            image_source: 本地图片路径或远程图片URL
-            analysis_type: 分析类型 (general/technical/artistic/text)
+            image_source: Local image path or remote image URL.
+            analysis_type: Analysis type (general/technical/artistic/text).
             
         Returns:
-            分析结果
+            Analysis result.
         """
         prompts = {
-            "general": "请详细描述这张图片的内容，包括主要对象、场景、颜色、构图等。",
-            "technical": "请从技术角度分析这张图片，包括拍摄参数、后期处理、技术特点等。",
-            "artistic": "请从艺术角度欣赏这张图片，分析其构图、色彩搭配、艺术风格等。",
-            "text": "请识别并提取图片中的所有文字内容，保持原有格式。"
+            "general": "Please describe the content of this image in detail, including the main objects, scenes, colors, and composition.",
+            "technical": "Please analyze this image from a technical perspective, including shooting parameters, post-processing, technical features, etc.",
+            "artistic": "Please analyze this image from an artistic perspective, including its composition, color matching, artistic style, etc.",
+            "text": "Please identify and extract all text content from the image, preserving the original format."
         }
         
         prompt = prompts.get(analysis_type, prompts["general"])
         return self._recognize_image(image_source, prompt, False)
     
     def _recognize_image(self, image_source: str, prompt: str, return_json: bool) -> Union[str, dict]:
-        """内部图片识别实现"""
+        """Internal image recognition implementation."""
         try:
-            # 判断是本地文件还是远程URL
+            # Check if it's a local file or remote URL.
             if image_source.startswith("http://") or image_source.startswith("https://"):
                 image_url = {"type": "image_url", "image_url": {"url": image_source}}
             else:
-                # 本地文件处理
+                # Local file processing.
                 if not os.path.exists(image_source):
-                    raise FileNotFoundError(f"文件不存在: {image_source}")
+                    raise FileNotFoundError(f"File not found: {image_source}")
 
                 mime_type, _ = mimetypes.guess_type(image_source)
                 if mime_type is None:
-                    mime_type = "image/jpeg"  # 默认MIME类型
+                    mime_type = "image/jpeg"  # Default MIME type.
 
                 with open(image_source, "rb") as f:
                     image_bytes = f.read()
@@ -93,7 +93,7 @@ class ImageToolPlugin(TaskPlugin):
                 data_url = f"data:{mime_type};base64,{base64_image}"
                 image_url = {"type": "image_url", "image_url": {"url": data_url}}
 
-            # 调用OpenAI Chat接口
+            # Call OpenAI Chat interface.
             response = self.client.chat.completions.create(
                 model=self.model,
                 messages=[
@@ -108,12 +108,12 @@ class ImageToolPlugin(TaskPlugin):
                 max_tokens=self.config.get('max_tokens', 1000),
             )
 
-            # 返回值处理
+            # Return value processing.
             if return_json:
                 return response.model_dump()
             else:
                 return response.choices[0].message.content
                 
         except Exception as e:
-            self.logger.error(f"图片识别失败: {e}")
+            self.logger.error(f"Image recognition failed: {e}")
             raise

@@ -111,7 +111,7 @@ class BaseClient(ABC):
         return self._client
     
     @abstractmethod
-    def get_completion(self, messages: list[Dict[str, Any]]) -> AIMessage:
+    def get_completion(self, messages: list[Dict[str, Any]], **kwargs) -> AIMessage:
         pass
         
     def _prepare_messages(self, messages: list[Dict[str, Any]]) -> list[Dict[str, Any]]:
@@ -129,11 +129,11 @@ class BaseClient(ABC):
     def _parse_response(self, response) -> AIMessage:
         pass
     
-    def __call__(self, messages: list[Dict[str, Any]], stream_processor=None) -> AIMessage | ErrorMessage:
+    def __call__(self, messages: list[Dict[str, Any]], stream_processor=None, **kwargs) -> AIMessage | ErrorMessage:
         messages = self._prepare_messages(messages)
         start = time.time()
         try:
-            response = self.get_completion(messages)
+            response = self.get_completion(messages, **kwargs)
         except Exception as e:
             self.log.error(f"❌ [bold red]{self.name} API {T('Call failed')}: [yellow]{str(e)}")
             return ErrorMessage(content=str(e))
