@@ -11,6 +11,7 @@ from loguru import logger
 from pydantic import BaseModel, model_validator, Field
 
 from .types import Error
+from ..exec import ExecResult, ProcessResult, PythonResult
 
 if TYPE_CHECKING:
     from .task import Task
@@ -24,7 +25,6 @@ class ToolName(str, Enum):
 class ToolResult(BaseModel):
     """Tool result"""
     error: Error | None = Field(title="Tool error", default=None)
-    result: Dict[str, Any] | None = Field(title="Tool result", default=None)
 
     def to_json(self):
         return self.model_dump_json(exclude_none=True, exclude_unset=True)
@@ -36,6 +36,7 @@ class ExecToolArgs(BaseModel):
 class ExecToolResult(ToolResult):
     """Exec tool result"""
     block_name: str = Field(title="Code block name executed", min_length=1, strip_whitespace=True)
+    result: ExecResult | ProcessResult | PythonResult | None = Field(title="Execution result", default=None)
 
 class EditToolArgs(BaseModel):
     """Edit tool arguments"""

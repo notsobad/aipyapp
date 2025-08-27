@@ -8,6 +8,7 @@ from loguru import logger
 from .python import PythonRuntime, PythonExecutor
 from .html import HtmlExecutor
 from .prun import BashExecutor, PowerShellExecutor, AppleScriptExecutor, NodeExecutor
+from .types import ExecResult
 
 EXECUTORS = {executor.name: executor for executor in [
     PythonExecutor,
@@ -52,15 +53,15 @@ class BlockExecutor:
         self.log.info(f'Registered executor for {lang}: {executor}')
         return executor
 
-    def __call__(self, block):
+    def __call__(self, block) -> ExecResult:
         self.log.info(f'Exec: {block}')
         executor = self.get_executor(block)
         if executor:
             try:
                 result = executor(block)
             except Exception as e:
-                result = {'errstr': str(e), 'traceback': traceback.format_exc()}
+                result = ExecResult(errstr=str(e), traceback=traceback.format_exc())
         else:
-            result = {'stderr': f'Exec: Ignore unsupported block: {block}'}
+            result = ExecResult(errstr=f'Exec: Ignore unsupported block: {block}')
 
         return result

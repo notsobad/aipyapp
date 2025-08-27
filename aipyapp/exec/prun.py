@@ -9,6 +9,8 @@ from typing import Any, Dict, Optional
 
 from loguru import logger
 
+from .types import ProcessResult
+
 class SubprocessExecutor:
     """使用 subprocess 执行代码块"""
     name = None
@@ -29,11 +31,11 @@ class SubprocessExecutor:
             cmd = None
         return cmd
     
-    def __call__(self, block) -> Dict[str, Any]:
+    def __call__(self, block) -> ProcessResult:
         """执行代码块"""
         cmd = self.get_cmd(block)
         if not cmd:
-            return {'errstr': 'No file to execute'}
+            return ProcessResult(errstr='No file to execute')
 
         self.log.info(f"Exec: {cmd}")
 
@@ -50,15 +52,15 @@ class SubprocessExecutor:
             stdout = cp.stdout.strip() if cp.stdout else None
             stderr = cp.stderr.strip() if cp.stderr else None
 
-            result = {
-                'stdout': stdout,
-                'stderr': stderr,
-                'returncode': cp.returncode
-            }
+            result = ProcessResult(
+                stdout=stdout,
+                stderr=stderr,
+                returncode=cp.returncode
+            )
         except subprocess.TimeoutExpired:
-            result = {'errstr': f'Execution timed out after {self.timeout} seconds'}
+            result = ProcessResult(errstr=f'Execution timed out after {self.timeout} seconds')
         except Exception as e:
-            result = {'errstr': str(e), 'traceback': str(traceback.format_exc())}
+            result = ProcessResult(errstr=str(e), traceback=str(traceback.format_exc()))
 
         return result
     
