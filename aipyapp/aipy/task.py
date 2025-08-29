@@ -105,6 +105,15 @@ class Task(Stoppable, EventBus):
 
         self.init_plugins()
     
+    @classmethod
+    def from_state(cls, context: 'TaskContext', task_state: TaskState):
+        """从任务状态恢复任务"""
+        task = cls(context)
+        task.restore_state(task_state)
+        task.cwd = context.cwd / task.task_id
+        task.log = logger.bind(src='task', id=task.task_id)
+        return task
+
     def emit(self, event_name: str, **kwargs):
         """重写broadcast方法以记录事件"""
         # 记录事件到事件记录器
