@@ -318,9 +318,10 @@ class DisplayClassic(RichDisplayPlugin):
         result = data.get('result')
         block = data.get('block')
         title = self._get_title(T("MCP tool call result {}"), block.name)
-        self.console.print(title)
+        tree = Tree(title)
         json_result = json.dumps(result, ensure_ascii=False, indent=2, default=str)
-        self.console.print_json(json_result, style="dim")
+        tree.add(Syntax(json_result, "json", word_wrap=True))
+        self.console.print(tree)
 
     def on_round_end(self, event):
         """任务总结事件处理"""
@@ -366,11 +367,14 @@ class DisplayClassic(RichDisplayPlugin):
 
     def on_task_end(self, event):
         """任务结束事件处理"""
-        path = event.data.get('path', '')
-        title = self._get_title(T("Task completed"))
-        tree = Tree(title)
-        tree.add(path)
-        self.console.print(tree)
+        path = event.data.get('path')
+        title = self._get_title(T("Task completed"), style="success")
+        if path:
+            tree = Tree(title)
+            tree.add(path)
+            self.console.print(tree)
+        else:
+            self.console.print(title)
 
     def on_runtime_message(self, event):
         """Runtime消息事件处理"""

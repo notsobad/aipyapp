@@ -24,7 +24,7 @@ class TaskCommand(ParserCommand):
         parser.add_argument('path', type=str, help=T('Path to task.json file'))
         parser = subparsers.add_parser('replay', help=T('Replay task from task.json file'))
         parser.add_argument('path', type=str, help=T('Path to task.json file'))
-        parser.add_argument('--speed', type=float, default=1.0, help=T('Replay speed multiplier (default: 1.0)'))
+        parser.add_argument('--speed', type=float, default=1.0, help=T('Replay speed multiplier'))
 
     def _create_completer(self) -> CompleterBase:
         """创建任务命令的自定义补齐器"""

@@ -28,7 +28,7 @@ class ObjectModuleFinder(importlib.abc.MetaPathFinder):
         self.logger = logger.bind(src='ObjectModuleFinder')
 
     def find_spec(self, fullname, path, target=None):
-        self.logger.info(f"find_spec: {fullname}, {path}, {target}")
+        #self.logger.info(f"find_spec: {fullname}, {path}, {target}")
         if fullname == self.package:
             spec = importlib.util.spec_from_loader(fullname, loader=None)
             spec.submodule_search_locations = []
