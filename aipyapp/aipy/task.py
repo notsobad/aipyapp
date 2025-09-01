@@ -121,6 +121,10 @@ class Task(Stoppable):
             plugins[plugin_name] = plugin
         self.plugins = plugins
 
+    @property
+    def instruction(self):
+        return self.steps[0]['instruction'] if self.steps else None
+
     def emit(self, event_name: str, **kwargs):
         event = self.event_bus.emit(event_name, **kwargs)
         if self.steps:
@@ -237,7 +241,7 @@ class Task(Stoppable):
                 self.log.warning('Task not saved, trying to save')
                 self._auto_save()
 
-            newname = get_safe_filename(self.steps[0]['instruction'], extension=None)
+            newname = get_safe_filename(self.instruction, extension=None)
             if newname:
                 try:
                     os.rename(curname, newname)
