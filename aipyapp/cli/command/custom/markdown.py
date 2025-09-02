@@ -60,7 +60,16 @@ class CodeExecutor:
     
     def __init__(self, render_ctx: RenderContext):
         self.render_ctx = render_ctx
-    
+        self.python_exec_globals = {
+                'ctx': self.render_ctx.ctx,
+                'args': self.render_ctx.args,
+                'subcommand': self.render_ctx.subcommand,
+                'tm': getattr(self.render_ctx.ctx, 'tm', None),
+                'console': self.render_ctx.ctx.console,
+                'print': self.render_ctx.ctx.console.print,
+                '__name__': '__main__'
+            }
+        
     def execute_code_block(self, code_block: CodeBlock) -> Optional[str]:
         """Execute a code block and return output"""
         if code_block.language == 'python':
@@ -75,18 +84,8 @@ class CodeExecutor:
         stderr_buffer = io.StringIO()
         
         try:
-            exec_globals = {
-                'ctx': self.render_ctx.ctx,
-                'args': self.render_ctx.args,
-                'subcommand': self.render_ctx.subcommand,
-                'tm': getattr(self.render_ctx.ctx, 'tm', None),
-                'console': self.render_ctx.ctx.console,
-                'print': self.render_ctx.ctx.console.print,
-                '__name__': '__main__'
-            }
-            
             with redirect_stdout(stdout_buffer), redirect_stderr(stderr_buffer):
-                exec(code, exec_globals)
+                exec(code, self.python_exec_globals)
             
             stdout_content = stdout_buffer.getvalue()
             stderr_content = stderr_buffer.getvalue()

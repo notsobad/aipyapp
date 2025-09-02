@@ -106,7 +106,7 @@ class CustomCommandManager:
             
             return MarkdownCommand(config, body, md_file, command_dir)
         except Exception as e:
-            self.log.error(f"Error loading command from {md_file}: {e}")
+            self.log.exception(f"Error loading command from {md_file}: {e}")
             return None
     
     def _parse_frontmatter(self, content: str) -> Tuple[Optional[Dict[str, Any]], str]:
