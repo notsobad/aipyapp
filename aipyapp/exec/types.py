@@ -23,12 +23,6 @@ class PythonResult(ExecResult):
     """Result of the execution of a Python block."""
     states: Dict[str, Any] | None = Field(default=None, description='States of the execution')
 
-    @model_validator(mode="after")
-    def check_not_all_none(self):
-        if all(not getattr(self, field) for field in self.__class__.model_fields):
-            object.__setattr__(self, 'errstr', 'Strange error: all fields are None')
-        return self
-    
     def has_error(self) -> bool:
         if super().has_error():
             return True

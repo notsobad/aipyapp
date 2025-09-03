@@ -5,12 +5,12 @@ from typing import Optional, List, Union, Dict
 
 from pydantic import BaseModel, Field
 
-from ..llm import Message, MessageRole, AIMessage, UserMessage, SystemMessage
+from ..llm import MessageRole, AIMessage, UserMessage, SystemMessage, ErrorMessage
 from .types import InstanceTrackerMixin
 
 class ChatMessage(InstanceTrackerMixin, BaseModel):
     id: str
-    message: Union[AIMessage, UserMessage, SystemMessage] = Field(exclude=True, default=None)
+    message: Union[AIMessage, UserMessage, SystemMessage, ErrorMessage] = Field(exclude=True, default=None)
 
     def __hash__(self):
         return hash(self.id)
@@ -41,7 +41,7 @@ class ChatMessage(InstanceTrackerMixin, BaseModel):
         return self.message.dict() if self.message is not None else {}
     
 class MessageStorage(BaseModel):
-    messages: Dict[str, Union[AIMessage, UserMessage, SystemMessage]] = Field(default_factory=dict)
+    messages: Dict[str, Union[AIMessage, UserMessage, SystemMessage, ErrorMessage]] = Field(default_factory=dict)
 
     def __len__(self):
         return len(self.messages)
@@ -49,13 +49,13 @@ class MessageStorage(BaseModel):
     def __contains__(self, id: str) -> bool:
         return id in self.messages
     
-    def _compute_id(self, message: Union[AIMessage, UserMessage, SystemMessage]) -> str:
+    def _compute_id(self, message: Union[AIMessage, UserMessage, SystemMessage, ErrorMessage]) -> str:
         """Compute short hash of message role + content using Base64-encoded 8-byte SHA-1"""
         content_str = f"{message.role}:{message.content}"
         hash_bytes = hashlib.sha1(content_str.encode('utf-8')).digest()[:8]
         return base64.urlsafe_b64encode(hash_bytes).decode().rstrip('=')
     
-    def store(self, message: Union[AIMessage, UserMessage, SystemMessage]) -> ChatMessage:
+    def store(self, message: Union[AIMessage, UserMessage, SystemMessage, ErrorMessage]) -> ChatMessage:
         id = self._compute_id(message)
         try:
             message = self.messages[id]
@@ -63,7 +63,7 @@ class MessageStorage(BaseModel):
             self.messages[id] = message
         return ChatMessage(id=id, message=message)
 
-    def get(self, id: str) -> Optional[Union[AIMessage, UserMessage, SystemMessage]]:
+    def get(self, id: str) -> Optional[Union[AIMessage, UserMessage, SystemMessage, ErrorMessage]]:
         return self.messages.get(id)
 
 class ChatMessages(BaseModel):

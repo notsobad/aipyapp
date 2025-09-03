@@ -135,7 +135,7 @@ class BaseClient(ABC):
         try:
             response = self.get_completion(messages, **kwargs)
         except Exception as e:
-            self.log.error(f"❌ [bold red]{self.name} API {T('Call failed')}: [yellow]{str(e)}")
+            self.log.exception(f"{self.name} API Call failed", e=e)
             return ErrorMessage(content=str(e))
 
         if self._stream:
