@@ -325,7 +325,7 @@ class MarkdownCommand(ParserCommand):
     def _render_template(self, render_ctx: RenderContext) -> str:
         """Render the command template with arguments"""
         # Build template variables
-        template_vars = {}
+        template_vars = {"args": render_ctx.args}
         
         # Add argument values
         for key, value in vars(render_ctx.args).items():

@@ -22,6 +22,7 @@ arguments:
    - 分析本次对话中完成的主要任务
    - 提取关键步骤和执行逻辑
    - 识别任务中使用的工具和方法
+   - 识别任务中的变量，例如可变名称和数量，使生成的命令更通用。
 
 2. **生成可复用的用户命令**：
    - 文件名称：`{{ cmd_name }}.md`
@@ -39,10 +40,12 @@ arguments:
    - modes: 支持的模式（task 或 main），生成命令时固定使用 `main`
    - arguments: 必要的参数配置，会变成用户输入命令参数，经过argparse解析后成为args全局变量(argparse.Namespace类型)
 
+   **注意**: 必需严格符合 YAML 语法，特别是 `help` 和 `description` 字段的字符串。
+   
 2. **命令内容主体**：
    - 清晰的任务描述
    - 步骤说明或指令
-   - 包含可执行的 Python/Shell 代码块。注意：必需使用 ````lang 而不是 ```lang 格式。
+   - 包含可执行的 Python/Shell 代码块。注意：**必需**使用 ````lang 而不是 ```lang 格式。
    - 期望的输出格式说明
    - 可以使用 Jinja2 格式引用 arguments 定义的参数，例如：{% raw %}`{{ url }}`{% endraw %}
 
@@ -56,9 +59,10 @@ arguments:
 
 ## 输出格式
 
-请以 Markdown 代码块的形式输出完整的命令文件内容，用户可以直接保存为 `.md` 文件使用。
+请以 Markdown 代码块的形式输出完整的命令文件内容，并使用Block-Start和Block-End标记包裹代码块，通过path属性指定输出文件。
 
 示例格式：
+<!-- Block-Start: {"name": "get_website_title", "path": "{{ ctx.settings.config_dir }}/commands/get_website_title.md"} -->
 ```markdown
 ---
 name: get_website_title
@@ -80,6 +84,35 @@ arguments:
 
 ## 执行任务
 
+````python
+import requests
+from bs4 import BeautifulSoup
+
+def get_google_title(url: str = "https://www.google.com") -> str:
+    headers = {
+        "User-Agent": (
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) "
+            "Chrome/124.0.0.0 Safari/537.36"
+        ),
+        # 你也可以改成其他语言，如 "zh-CN,zh;q=0.9"
+        "Accept-Language": "en-US,en;q=0.9",
+    }
+    try:
+        resp = requests.get(url, headers=headers, timeout=10)
+        resp.raise_for_status()
+    except requests.RequestException as e:
+        raise SystemExit(f"Request failed: {e}")
+
+    soup = BeautifulSoup(resp.text, "html.parser")
+    title_tag = soup.find("title")
+    return title_tag.get_text(strip=True) if title_tag else "(no title found)"
+
+if __name__ == "__main__":
+    print(get_google_title({{ url }}))
+
+````
+
 ## 任务说明
 
 基于上述获取的信息，请：
@@ -91,5 +124,4 @@ arguments:
 获取Google网站标题:
 `/get_website_title --url="https://www.google.com"`
 ```
-
-请根据当前对话的任务内容，生成一个能够复现相同功能的用户命令。使用 Markdown 代码块并通过path属性保存文件。
+<!-- Block-End: {"name": "get_website_title"} -->
