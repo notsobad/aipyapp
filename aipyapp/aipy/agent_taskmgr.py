@@ -161,7 +161,26 @@ class AgentTaskManager(TaskManager):
             }
         
         return result
-    
+
+    async def get_task_captured_data(self, task_id: str) -> Dict[str, Any]:
+        """获取任务捕获数据"""
+        if task_id not in self.agent_tasks:
+            raise ValueError(f"Task {task_id} not found")
+        
+        agent_task = self.agent_tasks[task_id]
+        result = agent_task.to_dict()
+        
+        # 添加详细的执行结果
+        captured_data = agent_task.display.get_captured_data()
+        result['output'] = {
+            'messages': captured_data['messages'],
+            'results': captured_data['results'],
+            'errors': captured_data['errors'],
+            'metadata': captured_data['metadata']
+        }
+        
+        return result
+
     async def list_tasks(self) -> Dict[str, Any]:
         """列出所有任务"""
         tasks = {}
