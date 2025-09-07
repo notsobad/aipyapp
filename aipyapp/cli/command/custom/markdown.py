@@ -125,7 +125,7 @@ class CodeExecutor:
 class ContentParser:
     """Unified content parser for extracting code blocks"""
     
-    EXECUTABLE_PATTERN = re.compile(r'````(python|bash|shell|exec)\n(.*?)````', re.DOTALL | re.IGNORECASE)
+    EXECUTABLE_PATTERN = re.compile(r'(`{3,})(python|bash|shell|exec)\n(.*?)(\1)', re.DOTALL | re.IGNORECASE)
     
     def parse_content(self, content: str) -> ParsedContent:
         """Parse content into markdown parts and code blocks"""
@@ -142,8 +142,8 @@ class ContentParser:
             
             # Add code block
             code_block = CodeBlock(
-                language=match.group(1).lower(),
-                code=match.group(2).strip(),
+                language=match.group(2).lower(),
+                code=match.group(3).strip(),
                 start_pos=match.start(),
                 end_pos=match.end()
             )
