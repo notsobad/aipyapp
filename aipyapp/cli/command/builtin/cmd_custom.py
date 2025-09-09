@@ -28,9 +28,9 @@ class CustomCommand(ParserCommand):
         """List all custom commands"""
         custom_commands = self.manager.user_commands
         if not custom_commands:
-            print(f"[yellow]{T('No custom commands found')}[/yellow]")
+            ctx.console.print(f"[yellow]{T('No custom commands found')}[/yellow]")
             dirs_str = ', '.join(str(d) for d in self.manager.config.custom_command_dirs)
-            print(f"{T('Custom commands directories')}: {dirs_str}")
+            ctx.console.print(f"{T('Custom commands directories')}: {dirs_str}")
             return
         
         rows = []

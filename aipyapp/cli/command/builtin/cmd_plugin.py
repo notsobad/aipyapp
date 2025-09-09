@@ -25,20 +25,20 @@ class PluginCommand(ParserCommand):
         return None
 
     def cmd_list(self, args, ctx):
-        """列出可用的插件"""
-        rows = []
+        """列出插件"""
         if ctx.task:
-            plugins = ctx.task.plugins
+            plugins = ctx.task.plugins.values()
             title = T('Enabled Plugins')
         else:
-            plugins = None
+            plugins = ctx.tm.plugin_manager.get_task_plugins()
             title = T('Available Plugins')
-        for plugin in ctx.tm.plugin_manager:
-            if plugins and plugin.name not in plugins:
-                continue
+
+        rows = []
+        for plugin in plugins:
             rows.append([plugin.name, plugin.description, plugin.get_type().name, plugin.version, plugin.author])
-        table = row2table(rows, headers=[T('Name'), T('Description'), T('Type'), T('Version'), T('Author')], title=title)
-        ctx.console.print(table)
+        if rows:
+            table = row2table(rows, headers=[T('Name'), T('Description'), T('Type'), T('Version'), T('Author')], title=title)
+            ctx.console.print(table)
 
     def _get_first_line(self, doc: str) -> str:
         """Get the first non-empty line of the docstring"""
