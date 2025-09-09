@@ -3,15 +3,15 @@ name: usercmd
 description: 总结当前任务执行经验并生成可复用的用户命令
 modes: [task]
 arguments:
+  - name: --cmd-name
+    type: str
+    required: true
+    help: 生成的命令名称
   - name: --task-name
     type: str
     required: false
     default: "当前任务"
     help: 任务名称，用于命令描述
-  - name: --cmd-name
-    type: str
-    required: true
-    help: 生成的命令名称
 ---
 
 # 生成任务命令
@@ -26,7 +26,7 @@ arguments:
 
 2. **生成可复用的用户命令**：
    - 文件名称：`{{ cmd_name }}.md`
-   - 文件目录： `{{ ctx.settings.config_dir }}/commands`
+   - 文件目录： `{{ ctx.settings.config_dir }}/commands/`
    - 任务描述：{{ task_name }}
    - 命令应该能够完成类似的任务
 
@@ -35,7 +35,7 @@ arguments:
 请生成一个完整的 Markdown 格式的用户自定义命令文件，包含：
 
 1. **YAML frontmatter 配置**：
-   - name: 命令名称
+   - name: {{ cmd_name }}
    - description: 命令描述
    - modes: 支持的模式（task 或 main），生成命令时固定使用 `main`
    - arguments: 必要的参数配置，会变成用户输入命令参数，经过argparse解析后成为args全局变量(argparse.Namespace类型)
@@ -84,7 +84,7 @@ arguments:
 
 ## 执行任务
 
-使用4个反引号嵌入执行代码块，此处省略。
+使用````lang嵌入执行代码块，此处省略。
 
 ## 任务说明
 
