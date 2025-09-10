@@ -154,6 +154,21 @@ async def get_task_result(task_id: str):
         logger.error(f"Failed to get task result: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.get("/tasks/{task_id}/captured", response_model=TaskResultResponse)
+async def get_task_captured_data(task_id: str):
+    """获取任务捕获数据"""
+    if not agent_manager:
+        raise HTTPException(status_code=500, detail="Agent manager not initialized")
+    
+    try:
+        result = await agent_manager.get_task_captured_data(task_id)
+        return TaskResultResponse(**result)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        logger.error(f"Failed to get task captured data: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.get("/tasks")
 async def list_tasks():
     """列出所有任务"""
