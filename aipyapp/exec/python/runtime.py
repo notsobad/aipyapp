@@ -8,8 +8,8 @@ from typing import Any
 from loguru import logger
 
 class PythonRuntime(ABC):
-    def __init__(self, envs=None):
-        self.envs = envs or {}
+    def __init__(self):
+        self.envs = {}
         self.packages = set()
         self.session = {}
         self.block_states = {}

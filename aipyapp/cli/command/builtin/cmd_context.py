@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 from rich.table import Table
+from rich.tree import Tree
 
 from ..base import CommandMode, ParserCommand
 from aipyapp import T
@@ -27,31 +28,27 @@ class ContextCommand(ParserCommand):
         
     def cmd_show(self, args, ctx):
         """显示当前上下文"""
-        messages = ctx.task.client.context_manager.get_messages()
+        messages = ctx.task.context.messages
         console = ctx.console
         
         if not messages:
             console.print(T("No conversation history"), style="yellow")
             return
         
-        table = Table(title=T("Conversation context"))
-        table.add_column(T("Role"), style="cyan")
-        table.add_column(T("Content"), style="white")
+        tree = Tree(T("Conversation context"))
         
         for msg in messages:
-            content = msg.get('content', '')
-            if isinstance(content, str) and len(content) > 100:
-                content = content[:100] + "..."
-            table.add_row(msg.get('role', ''), content)
+            node = tree.add(msg.role)
+            node.add(msg.content)
         
-        console.print(table)
+        console.print(tree)
     
     def cmd_clear(self, args, ctx):
         """清空上下文"""
         task = ctx.task
         console = ctx.console
         
-        task.client.context_manager.clear()
+        task.context.clear()
         console.print(T("Context cleared"), style="green")
     
     def cmd_stats(self, args, ctx):
@@ -59,7 +56,7 @@ class ContextCommand(ParserCommand):
         task = ctx.task
         console = ctx.console
         
-        stats = task.client.context_manager.get_stats()
+        stats = task.context.get_stats()
         
         if not stats:
             console.print(T("Context manager not enabled"), style="yellow")
@@ -83,7 +80,7 @@ class ContextCommand(ParserCommand):
 
         task = ctx.task
         console = ctx.console
-        config = task.client.context_manager.config
+        config = task.context.config
         
         table = Table(title=T("Context config"))
         table.add_column(T("Config item"), style="cyan")
@@ -106,7 +103,7 @@ class ContextCommand(ParserCommand):
         task = ctx.task
         console = ctx.console
         
-        current_config = task.client.context_manager.config
+        current_config = task.context.config
         
         # 更新配置
         if args.strategy:
@@ -120,5 +117,5 @@ class ContextCommand(ParserCommand):
             current_config.max_rounds = args.max_rounds
         
         # 应用新配置
-        task.client.context_manager.update_config(current_config)
+        task.context.update_config(current_config)
         console.print(T("Config updated"), style="green") 

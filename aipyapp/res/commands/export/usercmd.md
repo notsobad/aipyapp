@@ -3,15 +3,15 @@ name: usercmd
 description: 总结当前任务执行经验并生成可复用的用户命令
 modes: [task]
 arguments:
-  - name: --cmd-name
-    type: str
-    required: true
-    help: 生成的命令名称
   - name: --task-name
     type: str
     required: false
     default: "当前任务"
     help: 任务名称，用于命令描述
+  - name: --cmd-name
+    type: str
+    required: true
+    help: 生成的命令名称
 ---
 
 # 生成任务命令
@@ -26,7 +26,7 @@ arguments:
 
 2. **生成可复用的用户命令**：
    - 文件名称：`{{ cmd_name }}.md`
-   - 文件目录： `{{ ctx.settings.config_dir }}/commands/`
+   - 文件目录： `{{ ctx.settings.config_dir }}/commands`
    - 任务描述：{{ task_name }}
    - 命令应该能够完成类似的任务
 
@@ -35,13 +35,11 @@ arguments:
 请生成一个完整的 Markdown 格式的用户自定义命令文件，包含：
 
 1. **YAML frontmatter 配置**：
-   - name: {{ cmd_name }}
+   - name: 命令名称
    - description: 命令描述
    - modes: 支持的模式（task 或 main），生成命令时固定使用 `main`
    - arguments: 必要的参数配置，会变成用户输入命令参数，经过argparse解析后成为args全局变量(argparse.Namespace类型)
 
-   **注意**: 必需严格符合 YAML 语法，特别是 `help` 和 `description` 字段的字符串。
-   
 2. **命令内容主体**：
    - 清晰的任务描述
    - 步骤说明或指令
@@ -84,7 +82,34 @@ arguments:
 
 ## 执行任务
 
-使用````lang嵌入执行代码块，此处省略。
+````python
+import requests
+from bs4 import BeautifulSoup
+
+def get_google_title(url: str = "https://www.google.com") -> str:
+    headers = {
+        "User-Agent": (
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) "
+            "Chrome/124.0.0.0 Safari/537.36"
+        ),
+        # 你也可以改成其他语言，如 "zh-CN,zh;q=0.9"
+        "Accept-Language": "en-US,en;q=0.9",
+    }
+    try:
+        resp = requests.get(url, headers=headers, timeout=10)
+        resp.raise_for_status()
+    except requests.RequestException as e:
+        raise SystemExit(f"Request failed: {e}")
+
+    soup = BeautifulSoup(resp.text, "html.parser")
+    title_tag = soup.find("title")
+    return title_tag.get_text(strip=True) if title_tag else "(no title found)"
+
+if __name__ == "__main__":
+    print(get_google_title({{ url }}))
+
+````
 
 ## 任务说明
 

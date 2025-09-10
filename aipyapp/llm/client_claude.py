@@ -1,9 +1,10 @@
 #! /usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+from typing import Any, Dict
 from collections import Counter
 
-from . import BaseClient, ChatMessage
+from .base import BaseClient, MessageRole, AIMessage
 
 # https://docs.anthropic.com/en/api/messages
 class ClaudeClient(BaseClient):
@@ -43,17 +44,20 @@ class ClaudeClient(BaseClient):
                     usage['output_tokens'] += getattr(event.usage, 'output_tokens', 0)
 
         usage['total_tokens'] = usage['input_tokens'] + usage['output_tokens']
-        return ChatMessage(role="assistant", content=lm.content, usage=usage)
+        return AIMessage(content=lm.content, usage=usage)
 
     def _parse_response(self, response):
         content = response.content[0].text
         role = response.role
-        return ChatMessage(role=role, content=content, usage=self._parse_usage(response))
+        return AIMessage(role=role, content=content, usage=self._parse_usage(response))
     
-    def add_system_prompt(self, history, system_prompt):
-        self._system_prompt = system_prompt
+    def _prepare_messages(self, messages):
+        if messages[0]['role'] == MessageRole.SYSTEM:
+            self._system_prompt = messages[0]['content']
+            messages = messages[1:]
+        return messages
 
-    def get_completion(self, messages, **kwargs):
+    def get_completion(self, messages: list[Dict[str, Any]], **kwargs) -> AIMessage:
         if not self._client:
             self._client = self._get_client()
 
@@ -66,7 +70,7 @@ class ClaudeClient(BaseClient):
             system=self._system_prompt,
             max_tokens = self.max_tokens,
             temperature = self._temperature,
-            extra_headers=extra_headers,
+            extra_headers = extra_headers,
             **self._params
         )
         return message

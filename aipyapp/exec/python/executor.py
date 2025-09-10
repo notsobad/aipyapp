@@ -8,6 +8,7 @@ from io import StringIO
 
 from loguru import logger
 
+from ..types import PythonResult
 from .mod_obj import ObjectImporter
 from .mod_dict import DictModuleImporter
 
@@ -60,13 +61,13 @@ class PythonExecutor():
     def globals(self):
         return self._globals
     
-    def __call__(self, block):
-        result = {}
+    def __call__(self, block) -> PythonResult:
+        result = PythonResult()
         try:
             co = compile(block.code, block.abs_path or block.name, 'exec')
         except SyntaxError as e:
-            result['errstr'] = f"Syntax error: {str(e)}"
-            result['traceback'] = traceback.format_exc()
+            result.errstr = f"Syntax error: {str(e)}"
+            result.traceback = traceback.format_exc()
             return result
 
         runtime = self.runtime
@@ -83,20 +84,20 @@ class PythonExecutor():
         except (SystemExit, Exception) as e:
             self.runtime.set_state(success=False, error=str(e))
             self.log.error(f"Error in code block {block.name}: {str(e)}")
-            result['errstr'] = str(e)
-            result['traceback'] = traceback.format_exc()
+            result.errstr = str(e)
+            result.traceback = traceback.format_exc()
         finally:
             sys.stdout = old_stdout
             sys.stderr = old_stderr
 
         s = captured_stdout.getvalue().strip()
-        if s: result['stdout'] = s if is_json_serializable(s) else '<filtered: cannot json-serialize>'
+        if s: result.stdout = s if is_json_serializable(s) else '<filtered: cannot json-serialize>'
         s = captured_stderr.getvalue().strip()
-        if s: result['stderr'] = s if is_json_serializable(s) else '<filtered: cannot json-serialize>'        
+        if s: result.stderr = s if is_json_serializable(s) else '<filtered: cannot json-serialize>'        
 
         vars = runtime.current_state
         if vars:
-            result['__state__'] = self.filter_result(vars)
+            result.states = self.filter_result(vars)
 
         return result
 

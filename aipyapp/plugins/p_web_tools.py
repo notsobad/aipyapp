@@ -8,24 +8,24 @@ from urllib.parse import urlparse
 from aipyapp import TaskPlugin
 
 class WebToolsPlugin(TaskPlugin):
-    """Web Tools - Provides web page fetching, URL analysis, and HTTP request functions."""
+    """Web Tools - Provides web page scraping, URL analysis, and HTTP request capabilities."""
     
     name = "web_tools"
     version = "1.0.0"
-    description = "Provides web page fetching, URL analysis, and HTTP request functions."
+    description = "Web Tools - Provides web page scraping, URL analysis, and HTTP request capabilities."
     author = "AiPy Team"
     
     def init(self):
-        """Initialize web tool configuration."""
+        """Initialize network tool configuration."""
         self.timeout = self.config.get('timeout', 30)
         self.user_agent = self.config.get('user_agent', 'AiPy WebTools/1.0')
-        self.max_content_length = self.config.get('max_content_length', 1024 * 1024)  # 1MB.
+        self.max_content_length = self.config.get('max_content_length', 1024 * 1024)  # 1MB
         self.headers = {
             'User-Agent': self.user_agent,
             **self.config.get('default_headers', {})
         }
         
-        self.logger.info(f"Initialized web tool, timeout: {self.timeout}s.")
+        self.logger.info(f"Initialized network tool, timeout: {self.timeout}s")
     
     def fn_fetch_webpage(self, url: str, extract_text: bool = True) -> Dict[str, Any]:
         """
@@ -33,7 +33,7 @@ class WebToolsPlugin(TaskPlugin):
         
         Args:
             url: Target URL.
-            extract_text: Whether to only extract text content.
+            extract_text: Whether to extract only text content.
             
         Returns:
             Dictionary containing webpage information.
@@ -52,13 +52,13 @@ class WebToolsPlugin(TaskPlugin):
         
         Args:
             url: Request URL.
-            method: HTTP method (GET/POST/PUT/DELETE, etc).
+            method: HTTP method (GET/POST/PUT/DELETE, etc.).
             headers: Request headers.
             params: URL parameters.
             json_data: JSON request body.
                 
         Returns:
-            Dictionary containing webpage information.
+            Dictionary containing webpage information, where content is the response content, success is whether it is successful, and status_code is the status code.
 
         Examples:
             >>> fn_http_request("https://www.baidu.com")
@@ -72,13 +72,13 @@ class WebToolsPlugin(TaskPlugin):
         
     def fn_analyze_url(self, url: str) -> Dict[str, str]:
         """
-        Analyze the components of the URL.
+        Analyze the various components of the URL.
         
         Args:
             url: URL to be analyzed.
             
         Returns:
-            Dictionary containing URL information.
+            Dictionary containing URL component information.
         """
         return self._analyze_url(url)
     
@@ -144,7 +144,7 @@ class WebToolsPlugin(TaskPlugin):
             return result
             
         except Exception as e:
-            self.logger.error(f"Fetch webpage failed {url}: {e}")
+            self.logger.error(f"Failed to fetch webpage {url}: {e}")
             return {
                 "success": False,
                 "url": url,

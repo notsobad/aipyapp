@@ -4,176 +4,284 @@
 from base64 import b64encode
 import re
 from pathlib import Path
-from typing import Union, List, Dict, Any
+from typing import Union, List, Dict, Any, Protocol, Literal
 import mimetypes
+from abc import ABC, abstractmethod
 
 from loguru import logger
 from charset_normalizer import from_bytes
+from pydantic import BaseModel, Field
 
-MessageList = List[Dict[str, Any]]
-LLMContext = Union[str, MessageList]
+from ..llm import UserMessage
 
 class MMContentError(Exception):
-    """多模态内容处理的基础异常类"""
+    """Multimodal content processing base exception"""
     pass
 
 class FileReadError(MMContentError):
-    """文件读取失败异常"""
+    """File read failed exception"""
     def __init__(self, file_path: str, original_error: Exception):
         self.file_path = file_path
         self.original_error = original_error
-        super().__init__(f"无法读取文件 {file_path}: {original_error}")
+        super().__init__(f"Failed to read file {file_path}: {original_error}")
 
-def is_text_file(path, blocksize=4096):
-    try:
-        with open(path, 'rb') as f:
-            chunk = f.read(blocksize)
-        result = from_bytes(chunk)
-        if not result:
+class ParseError(MMContentError):
+    """Content parsing failed exception"""
+    pass
+
+class ContentItem(BaseModel):
+    """Content item data class"""
+    type: str
+    data: Dict[str, Any] = Field(default_factory=dict)
+    
+    def __getitem__(self, key):
+        if key == 'type':
+            return self.type
+        return self.data.get(key)
+    
+    def get(self, key, default=None):
+        if key == 'type':
+            return self.type
+        return self.data.get(key, default)
+
+class FileTypeDetector:
+    """File type detector"""
+    
+    IMAGE_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp'}
+    
+    @staticmethod
+    def is_text_file(path: str, blocksize: int = 4096) -> bool:
+        """Check if the file is a text file"""
+        try:
+            with open(path, 'rb') as f:
+                chunk = f.read(blocksize)
+            result = from_bytes(chunk)
+            if not result:
+                return False
+            best = result.best()
+            if best is None:
+                return False
+            # If encoding exists and chaos is low, it is considered text
+            return best.encoding and best.chaos < 0.1
+        except Exception:
+            logger.exception('Failed to check if file is text')
             return False
-        best = result.best()
-        if best is None:
-            return False
-        # encoding 存在且 chaos 很低，认为是文本
-        if best.encoding and best.chaos < 0.1:
-            return True
-        return False
-    except Exception:
-        logger.exception('Failed to check if file is text')
-        return False
+    
+    @classmethod
+    def detect_file_type(cls, file_path: str) -> str:
+        """Detect file type"""
+        ext = Path(file_path).suffix.lower()
+        
+        if ext in cls.IMAGE_EXTENSIONS:
+            return 'image'
+        
+        if cls.is_text_file(file_path):
+            return 'document'
+        
+        return 'file'
 
-class MMContent:
-    """
-    多模态内容类，支持文本、图片、文件的统一处理。
-    """
-    def __init__(self, string: str, base_path: Path = None):
-        self.string = string
-        self.items = self._from_string(string, base_path)
-        self.log = logger.bind(type='multimodal')
+class PathResolver:
+    """Path resolver"""
+    
+    def __init__(self, base_path: Path = None):
+        self.base_path = base_path
+    
+    def resolve_path(self, file_path: str) -> str:
+        """Resolve file path"""
+        # Remove quotes from file path
+        if (file_path.startswith('"') and file_path.endswith('"')) or \
+           (file_path.startswith("'") and file_path.endswith("'")):
+            file_path = file_path[1:-1]
+        
+        # Handle relative paths
+        if self.base_path:
+            p = Path(file_path)
+            if not p.is_absolute():
+                file_path = str(self.base_path / p)
+        
+        return file_path
 
-    def _from_string(self, text: str, base_path: Path = None) -> list:
-        """
-        从输入字符串解析多模态内容，支持@file.pdf、@image.jpg等文件引用，返回MMContent对象
-        支持带引号的文件路径，如 @"path with spaces.txt"
-        """
-        # 匹配 @文件路径，支持带引号的路径
-        parts = re.split(r'(@(?:"[^"]*"|\'[^\']*\'|[^\s]+))', text)
+class ContentParser:
+    """Content parser - responsible for parsing @file syntax"""
+    
+    FILE_PATTERN = re.compile(r'(@(?:"[^"]*"|\'[^\']*\'|[^\s]+))')
+    
+    def __init__(self, base_path: Path = None):
+        self.path_resolver = PathResolver(base_path)
+        self.file_detector = FileTypeDetector()
+    
+    def parse(self, text: str) -> List[ContentItem]:
+        """Parse input text, return content item list"""
+        parts = self.FILE_PATTERN.split(text)
         items = []
+        
         for part in parts:
             part = part.strip()
             if not part:
                 continue
+                
             if part.startswith('@'):
-                file_path = part[1:]
-                # 去除文件路径的引号
-                if (file_path.startswith('"') and file_path.endswith('"')) or \
-                   (file_path.startswith("'") and file_path.endswith("'")):
-                    file_path = file_path[1:-1]
-                ext = Path(file_path).suffix.lower()
-                file_type = 'image' if ext in {'.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp'} else None
-                if base_path:
-                    p = Path(file_path)
-                    if not p.is_absolute():
-                        file_path = str(base_path / p)
-                
-                # 检查文件是否存在，如果不存在则作为普通文本处理
-                if not Path(file_path).exists():
-                    items.append({'type': 'text', 'text': part})
-                    continue
-                
-                if not file_type:
-                    # 判断文本/二进制
-                    if is_text_file(file_path):
-                        file_type = 'document'
-                    else:
-                        file_type = 'file'
-                items.append({'type': file_type, 'path': file_path})
+                item = self._parse_file_reference(part)
             else:
-                items.append({'type': 'text', 'text': part})
+                item = ContentItem(type='text', data={'text': part})
+            
+            items.append(item)
+        
         return items
+    
+    def _parse_file_reference(self, file_ref: str) -> ContentItem:
+        """Parse file reference"""
+        file_path = file_ref[1:]  # Remove @ symbol
+        resolved_path = self.path_resolver.resolve_path(file_path)
+        
+        # Check if file exists
+        if not Path(resolved_path).exists():
+            return ContentItem(type='text', data={'text': file_ref})
+        
+        file_type = self.file_detector.detect_file_type(resolved_path)
+        return ContentItem(type=file_type, data={'path': resolved_path})
 
-    @property
-    def is_multimodal(self) -> bool:
-        return any(item['type'] in ('image', 'file', 'document') for item in self.items)
+class ContentProcessor(ABC):
+    """Content processor abstract base class"""
+    
+    @abstractmethod
+    def process(self, item: ContentItem) -> Dict[str, Any]:
+        """Process content item"""
+        pass
+
+class TextProcessor(ContentProcessor):
+    """Text processor"""
+    
+    def process(self, item: ContentItem) -> Dict[str, Any]:
+        return {"type": "text", "text": item['text']}
+
+class ImageProcessor(ContentProcessor):
+    """Image processor"""
+    
+    def process(self, item: ContentItem) -> Dict[str, Any]:
+        url = item['path']
+        
+        # Use network URL directly
+        if self._is_network_url(url):
+            return {"type": "image_url", "image_url": {"url": url}}
+        
+        # Convert local image to data URL
+        mime = self._get_mime_type(url, 'image/jpeg')
+        b64_data = self._read_file_as_base64(url)
+        data_url = f"data:{mime};base64,{b64_data}"
+        return {"type": "image_url", "image_url": {"url": data_url}}
     
     def _is_network_url(self, url: str) -> bool:
-        """判断是否为网络URL"""
+        """Check if it is a network URL"""
         return url.startswith(('http://', 'https://', 'data:'))
     
     def _get_mime_type(self, file_path: str, default_mime: str) -> str:
-        """获取文件的MIME类型"""
+        """Get file MIME type"""
         mime, _ = mimetypes.guess_type(file_path)
         return mime or default_mime
     
-    def _read_file(self, file_path: str, base64: bool = False) -> str:
-        """读取文件内容，支持 base64 编码"""
+    def _read_file_as_base64(self, file_path: str) -> str:
+        """Read file and encode to base64"""
         try:
             with open(file_path, 'rb') as f:
                 data = f.read()
-            if base64:
-                data = b64encode(data)
+            return b64encode(data).decode('utf-8')
+        except Exception as e:
+            raise FileReadError(file_path, e)
+
+class DocumentProcessor(ContentProcessor):
+    """Document processor"""
+    
+    def process(self, item: ContentItem) -> Dict[str, Any]:
+        path = str(item['path'])
+        content = self._read_file_as_text(path)
+        text = f"<attachment filename=\"{path}\">{content}</attachment>"
+        return {"type": "text", "text": text}
+    
+    def _read_file_as_text(self, file_path: str) -> str:
+        """Read file content as text"""
+        try:
+            with open(file_path, 'rb') as f:
+                data = f.read()
             return data.decode('utf-8')
         except Exception as e:
             raise FileReadError(file_path, e)
 
-    def _process_image_item(self, item: Dict[str, Any]) -> Dict[str, Any]:
-        """处理图片项"""
-        url = item['path']
-        
-        # 网络URL直接使用
-        if self._is_network_url(url):
-            return {"type": "image_url", "image_url": {"url": url}}
-        
-        # 本地图片转换为data URL
-        mime = self._get_mime_type(url, 'image/jpeg')
-        b64_data = self._read_file(url, base64=True)
-        data_url = f"data:{mime};base64,{b64_data}"
-        return {"type": "image_url", "image_url": {"url": data_url}}
+class FileProcessor(ContentProcessor):
+    """File processor (binary file)"""
     
-    def _process_file_item(self, item: Dict[str, Any]) -> Dict[str, Any]:
-        """处理文件项（仅二进制文件）"""
+    def process(self, item: ContentItem) -> Dict[str, Any]:
         return {"type": "text", "text": f"file: {item['path']}"}
 
-    def _process_document_item(self, item: Dict[str, Any]) -> Dict[str, Any]:
-        """处理文本文件项（document）"""
-        path = str(item['path'])
-        content = self._read_file(path, base64=False)
-        text = f"<attachment filename=\"{path}\">{content}</attachment>"
-        return {"type": "text", "text": text}
-
-    def _process_text_item(self, item: Dict[str, Any]) -> Dict[str, Any]:
-        """处理文本项"""
-        return {"type": "text", "text": item['text']}
+class ContentProcessorFactory:
+    """Content processor factory"""
     
-    @property
-    def content(self) -> LLMContext:
-        """返回多模态内容的结构化列表
+    _processors = {
+        'text': TextProcessor(),
+        'image': ImageProcessor(),
+        'document': DocumentProcessor(),
+        'file': FileProcessor(),
+    }
+    
+    @classmethod
+    def get_processor(cls, content_type: str) -> ContentProcessor:
+        """Get processor for corresponding type"""
+        return cls._processors.get(content_type, cls._processors['text'])
+    
+    @classmethod
+    def register_processor(cls, content_type: str, processor: ContentProcessor):
+        """Register new processor"""
+        cls._processors[content_type] = processor
 
-        转换为 LLM API 可接受的 context 格式：
-        - 只有一个纯文本时，直接返回字符串
-        - 图片：image_url，自动转data url
-        - 文本文件（document）：转为text类型，内容包裹在<document>标签
-        - 文件（如PDF等二进制）：file类型
-        - 文本文件（document）：转为text类型，内容包裹在<document>标签
-        - 文件（如PDF等二进制）：file类型
-        """
+class ContentFormatter:
+    """Content formatter - responsible for formatting processed content into LLM-acceptable format"""
+    
+    def __init__(self):
+        self.factory = ContentProcessorFactory()
+    
+    def format(self, items: List[ContentItem]) -> UserMessage:
+        """Format content item list"""
         results = []
         has_image = False
-        for item in self.items:
-            if item['type'] == 'text':
-                result = self._process_text_item(item)
-            elif item['type'] == 'image':
-                has_image = True
-                result = self._process_image_item(item)
-            elif item['type'] == 'document':
-                result = self._process_document_item(item)
-            else:
-                # TODO: 处理其他类型
-                result = self._process_file_item(item)
+        
+        for item in items:
+            processor = self.factory.get_processor(item.type)
+            result = processor.process(item)
             results.append(result)
-
+            
+            if item.type == 'image':
+                has_image = True
+        
+        # If there is no image, merge all text
         if not has_image:
             texts = [r['text'] for r in results if r['type'] == 'text']
-            return '\n'.join(texts)
-        return results
+            return UserMessage(content='\n'.join(texts))
+        
+        return UserMessage(content=results)
+
+class MMContent:
+    """
+    Multimodal content class, supporting unified processing of text, images, and files.
+    After refactoring, the composition pattern is used, and the responsibilities are separated more clearly.
+    """
     
+    def __init__(self, string: str, base_path: Path = None):
+        self.string = string
+        self.log = logger.bind(type='MultiModal')
+        
+        # Use the various components of the composition
+        self.parser = ContentParser(base_path)
+        self.formatter = ContentFormatter()
+        
+        # Parse content
+        self.items = self.parser.parse(string)
+    
+    @property
+    def is_multimodal(self) -> bool:
+        """Check if it contains multimodal content"""
+        return any(item.type in ('image', 'file', 'document') for item in self.items)
+    
+    @property
+    def message(self) -> UserMessage:
+        """Return formatted content"""
+        return self.formatter.format(self.items)

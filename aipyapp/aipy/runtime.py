@@ -26,9 +26,10 @@ def restore_output(func):
 
 class CliPythonRuntime(PythonRuntime):
     def __init__(self, task):
-        super().__init__(task.role.envs)
-        self.gui = task.gui
+        super().__init__()
         self.task = task
+        self.gui = task.gui
+        self.envs = task.role.envs
         self.display = task.display
         self._auto_install = task.settings.get('auto_install')
         self._auto_getenv = task.settings.get('auto_getenv')
@@ -144,13 +145,13 @@ class CliPythonRuntime(PythonRuntime):
             >>> utils.call_function('get_env', name='PATH')
             None
         """
-        self.task.emit('call_function', funcname=name, kwargs=kwargs)
+        self.task.emit('function_call_started', funcname=name, kwargs=kwargs)
         try:
             result = self.function_manager.call(name, **kwargs)
-            self.task.emit('call_function_result', funcname=name, kwargs=kwargs, result=result, success=True)
+            self.task.emit('function_call_completed', funcname=name, kwargs=kwargs, result=result, success=True)
             return result
         except Exception as e:
-            self.task.emit('call_function_result', funcname=name, kwargs=kwargs, result=None, success=False, error=str(e), exception=e)
+            self.task.emit('function_call_completed', funcname=name, kwargs=kwargs, result=None, success=False, error=str(e), exception=e)
             raise
     
     def get_builtin_functions(self) -> Dict[str, Dict[str, str]]:

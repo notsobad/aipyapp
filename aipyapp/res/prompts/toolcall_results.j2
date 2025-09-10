@@ -1,0 +1,16 @@
+{# 混合结果反馈模版（包含代码执行和编辑结果）
+参数:
+- results 字典，包含执行和编辑操作的结果 
+#}
+<tool_call_results>
+These are the results of the tool calls in the previous message, processed in order:
+
+{% for toolcall_result in results %}
+{% set tool_name = toolcall_result.tool_name.value %}
+{% set result = toolcall_result.result %}
+<tool_call_result tool_name="{{ tool_name }}">
+{{ result.to_json() }}
+</tool_call_result>
+{% endfor %}
+
+</tool_call_results>

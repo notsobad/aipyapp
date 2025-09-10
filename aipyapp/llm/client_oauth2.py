@@ -4,6 +4,7 @@
 import time
 import httpx
 from typing import Optional, Dict
+
 from .base_openai import OpenAIBaseClient
 
 class OAuth2Client(OpenAIBaseClient):

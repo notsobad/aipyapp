@@ -10,10 +10,12 @@ import shutil
 import subprocess
 import re
 from datetime import datetime
+from typing import List
 
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
 from .. import __respath__
+from .toolcalls import ToolCallResult
 
 def check_commands(commands):
     """
@@ -55,6 +57,8 @@ class Prompts:
             template_dir = __respath__ / 'prompts'
         self.template_dir = os.path.abspath(template_dir)
         self.env = Environment(
+            trim_blocks=True,
+            lstrip_blocks=True,
             loader=FileSystemLoader(self.template_dir),
             #autoescape=select_autoescape(['j2'])
         )
@@ -121,21 +125,13 @@ class Prompts:
         """
         return self.get_prompt('results', results=results)
 
-    def get_edit_results_prompt(self, results: dict) -> str:
-        """
-        获取编辑结果提示
-        :param results: 编辑结果字典
-        :return: 渲染后的字符串
-        """
-        return self.get_prompt('edit_results', results=results)
-
-    def get_mixed_results_prompt(self, results: dict) -> str:
+    def get_toolcall_results_prompt(self, results: List[ToolCallResult]) -> str:
         """
         获取混合结果提示（包含执行和编辑结果）
         :param results: 混合结果字典
         :return: 渲染后的字符串
         """
-        return self.get_prompt('mixed_results', results=results)
+        return self.get_prompt('toolcall_results', results=results)
     
     def get_mcp_result_prompt(self, result: dict) -> str:
         """

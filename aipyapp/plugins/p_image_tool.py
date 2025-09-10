@@ -11,14 +11,14 @@ from openai import OpenAI
 from aipyapp import TaskPlugin, PluginInitError
 
 class ImageToolPlugin(TaskPlugin):
-    """Image Recognition and Analysis Tool"""
+    """Image Tool - Provides image recognition and analysis capabilities."""
     name = "image_tool"
     version = "1.0.0"
-    description = "Use LLMs to recognize and analyze image content."
+    description = "Image Tool - Provides image recognition and analysis capabilities."
     author = "AiPy Team"
     
     def init(self):
-        """Initialize the OpenAI client."""
+        """初始化OpenAI客户端"""
         api_key = self.config.get('api_key')
         base_url = self.config.get('base_url')
         model = self.config.get('model', 'gpt-4-vision-preview')
@@ -35,7 +35,7 @@ class ImageToolPlugin(TaskPlugin):
     
     def fn_recognize_image(self,
         image_source: str,
-        prompt: str = "Please describe the content of this image.",
+        prompt: str = "Please describe the content of this image in detail, including the main objects, scenes, colors, and composition.",
         return_json: bool = False
     ) -> Union[str, dict]:
         """
@@ -60,12 +60,12 @@ class ImageToolPlugin(TaskPlugin):
             analysis_type: Analysis type (general/technical/artistic/text).
             
         Returns:
-            Analysis results.
+            Analysis result.
         """
         prompts = {
             "general": "Please describe the content of this image in detail, including the main objects, scenes, colors, and composition.",
-            "technical": "Please analyze this image from a technical perspective, including the shooting parameters, post-processing, and technical characteristics.",
-            "artistic": "Please appreciate this image from an artistic perspective, analyzing its composition, color coordination, and artistic style.",
+            "technical": "Please analyze this image from a technical perspective, including shooting parameters, post-processing, technical features, etc.",
+            "artistic": "Please analyze this image from an artistic perspective, including its composition, color matching, artistic style, etc.",
             "text": "Please identify and extract all text content from the image, preserving the original format."
         }
         
@@ -73,15 +73,15 @@ class ImageToolPlugin(TaskPlugin):
         return self._recognize_image(image_source, prompt, False)
     
     def _recognize_image(self, image_source: str, prompt: str, return_json: bool) -> Union[str, dict]:
-        """Implementation of internal image recognition."""
+        """Internal image recognition implementation."""
         try:
-            # Determine whether it is a local file or remote URL.
+            # Check if it's a local file or remote URL.
             if image_source.startswith("http://") or image_source.startswith("https://"):
                 image_url = {"type": "image_url", "image_url": {"url": image_source}}
             else:
                 # Local file processing.
                 if not os.path.exists(image_source):
-                    raise FileNotFoundError(f"File does not exist: {image_source}")
+                    raise FileNotFoundError(f"File not found: {image_source}")
 
                 mime_type, _ = mimetypes.guess_type(image_source)
                 if mime_type is None:
@@ -93,7 +93,7 @@ class ImageToolPlugin(TaskPlugin):
                 data_url = f"data:{mime_type};base64,{base64_image}"
                 image_url = {"type": "image_url", "image_url": {"url": data_url}}
 
-            # Call the OpenAI Chat interface.
+            # Call OpenAI Chat interface.
             response = self.client.chat.completions.create(
                 model=self.model,
                 messages=[

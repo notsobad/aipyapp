@@ -21,7 +21,8 @@ class PluginCommand(ParserCommand):
     def get_arg_values(self, name, subcommand=None, partial=None):
         if name == 'name':
             ctx = self.manager.context
-            return [(plugin.name, plugin.description) for plugin in ctx.tm.plugin_manager]
+            plugins = ctx.task.plugins.values() if ctx.task else ctx.tm.plugin_manager
+            return [(plugin.name, plugin.description) for plugin in plugins]
         return None
 
     def cmd_list(self, args, ctx):

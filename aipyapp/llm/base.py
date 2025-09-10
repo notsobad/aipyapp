@@ -2,41 +2,66 @@
 # -*- coding: utf-8 -*-
 
 import time
+from enum import Enum
 from collections import Counter
 from abc import ABC, abstractmethod
-from dataclasses import dataclass, field
-from typing import Union, List, Dict, Any
+from typing import Union, List, Dict, Any, Literal
 
 from loguru import logger
+from pydantic import BaseModel, Field
 
 from .. import T
 
-@dataclass
-class ChatMessage:
-    role: str
-    content: Union[str, List[Dict[str, Any]]]
-    reason: str = None
-    usage: Counter = field(default_factory=Counter)
+class TextItem(BaseModel):
+    type: Literal['text'] = 'text'
+    text: str
+
+class ImageUrl(BaseModel):
+    url: str
+
+class ImageItem(BaseModel):
+    type: Literal['image-url'] = 'image-url'
+    image_url: ImageUrl
+
+class MessageRole(str, Enum):
+    SYSTEM = "system"
+    USER = "user"
+    ASSISTANT = "assistant"
+    ERROR = "error"
+
+class Message(BaseModel):
+    role: MessageRole
+    content: str
+
+    def dict(self):
+        return {'role': self.role.value, 'content': self.content}
     
-    def to_dict(self) -> Dict[str, Any]:
-        """转换为字典用于序列化"""
-        return {
-            '__type__': 'ChatMessage',
-            'role': self.role,
-            'content': self.content,
-            'reason': self.reason,
-            'usage': dict(self.usage) if self.usage else {}
-        }
+class UserMessage(Message):
+    role: Literal[MessageRole.USER] = MessageRole.USER
+    content: Union[str, List[Union[TextItem, ImageItem]]]
+
+    @property
+    def content_str(self):
+        if isinstance(self.content, str):
+            return self.content
+        contents = []
+        for item in self.content:
+            if item.type == 'text':
+                contents.append(item.text)
+            elif item.type == 'image-url':
+                contents.append(item.image_url.url)
+        return '\n'.join(contents)
     
-    @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> 'ChatMessage':
-        """从字典恢复对象"""
-        return cls(
-            role=data.get('role', 'assistant'),
-            content=data.get('content', ''),
-            reason=data.get('reason', ''),
-            usage=Counter(data.get('usage', {}))
-        )
+class SystemMessage(Message):
+    role: Literal[MessageRole.SYSTEM] = MessageRole.SYSTEM
+
+class AIMessage(Message):
+    role: Literal[MessageRole.ASSISTANT] = MessageRole.ASSISTANT
+    reason: str | None = None
+    usage: Counter = Field(default_factory=Counter)
+    
+class ErrorMessage(Message):
+    role: Literal[MessageRole.ERROR] = MessageRole.ERROR
 
 class BaseClient(ABC):
     MODEL = None
@@ -86,43 +111,38 @@ class BaseClient(ABC):
         return self._client
     
     @abstractmethod
-    def get_completion(self, messages):
+    def get_completion(self, messages: list[Dict[str, Any]], **kwargs) -> AIMessage:
         pass
         
-    def add_system_prompt(self, history, system_prompt):
-        history.add("system", system_prompt)
-
+    def _prepare_messages(self, messages: list[Dict[str, Any]]) -> list[Dict[str, Any]]:
+        return messages
+    
     @abstractmethod
-    def _parse_usage(self, response):
+    def _parse_usage(self, response) -> Counter:
         pass
 
     @abstractmethod
-    def _parse_stream_response(self, response, stream_processor):
+    def _parse_stream_response(self, response, stream_processor) -> AIMessage:
         pass
 
     @abstractmethod
-    def _parse_response(self, response):
+    def _parse_response(self, response) -> AIMessage:
         pass
     
-    def __call__(self, history, prompt, system_prompt=None, stream_processor=None, **kwargs):
-        # We shall only send system prompt once
-        if not history and system_prompt:
-            self.add_system_prompt(history, system_prompt)
-        history.add("user", prompt)
-
+    def __call__(self, messages: list[Dict[str, Any]], stream_processor=None, **kwargs) -> AIMessage | ErrorMessage:
+        messages = self._prepare_messages(messages)
         start = time.time()
         try:
-            response = self.get_completion(history.get_messages(), **kwargs)
+            response = self.get_completion(messages, **kwargs)
         except Exception as e:
-            self.log.error(f"❌ [bold red]{self.name} API {T('Call failed')}: [yellow]{str(e)}")
-            return ChatMessage(role='error', content=str(e))
+            self.log.exception(f"{self.name} API Call failed", e=e)
+            return ErrorMessage(content=str(e))
 
         if self._stream:
             msg = self._parse_stream_response(response, stream_processor)
         else:
             msg = self._parse_response(response)
 
-        msg.usage['time'] = round(time.time() - start, 3)
-        history.add_message(msg)
+        msg.usage['time'] = int(time.time() - start)
         return msg
     
