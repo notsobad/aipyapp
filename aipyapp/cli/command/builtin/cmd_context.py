@@ -28,7 +28,7 @@ class ContextCommand(ParserCommand):
         
     def cmd_show(self, args, ctx):
         """显示当前上下文"""
-        messages = ctx.task.context.messages
+        messages = ctx.task.context_manager.messages
         console = ctx.console
         
         if not messages:
@@ -48,7 +48,7 @@ class ContextCommand(ParserCommand):
         task = ctx.task
         console = ctx.console
         
-        task.context.clear()
+        task.context_manager.clear()
         console.print(T("Context cleared"), style="green")
     
     def cmd_stats(self, args, ctx):
@@ -56,7 +56,7 @@ class ContextCommand(ParserCommand):
         task = ctx.task
         console = ctx.console
         
-        stats = task.context.get_stats()
+        stats = task.context_manager.get_stats()
         
         if not stats:
             console.print(T("Context manager not enabled"), style="yellow")
@@ -80,7 +80,7 @@ class ContextCommand(ParserCommand):
 
         task = ctx.task
         console = ctx.console
-        config = task.context.config
+        config = task.context_manager.config
         
         table = Table(title=T("Context config"))
         table.add_column(T("Config item"), style="cyan")
@@ -103,7 +103,7 @@ class ContextCommand(ParserCommand):
         task = ctx.task
         console = ctx.console
         
-        current_config = task.context.config
+        current_config = task.context_manager.config
         
         # 更新配置
         if args.strategy:
@@ -117,5 +117,5 @@ class ContextCommand(ParserCommand):
             current_config.max_rounds = args.max_rounds
         
         # 应用新配置
-        task.context.update_config(current_config)
+        task.context_manager.update_config(current_config)
         console.print(T("Config updated"), style="green") 
