@@ -33,6 +33,7 @@ def parse_args():
     modes.add_argument('-i', '--ipython', default=False, action='store_true', help="IPython mode")
     modes.add_argument('-g', '--gui', default=False, action='store_true', help="GUI mode")
     modes.add_argument('-e', '--exec', default=None, help="CMD mode - execute an instruction")
+    modes.add_argument('-r', '--run', default=None, help="CMD mode - run a JSON file")
     modes.add_argument('-a', '--agent', default=False, action='store_true', help='Agent mode - HTTP API server for n8n integration')
     parser.add_argument('--port', type=int, default=8848, help="Port for agent mode HTTP server (default: 8848)")
     parser.add_argument('--host', default='127.0.0.1', help="Host for agent mode HTTP server (default: 127.0.0.1)")
@@ -144,6 +145,8 @@ def get_aipy_main(args, settings):
     else:
         if args.exec:
             settings['exec_cmd'] = args.exec
+        if args.run:
+            settings['run_json'] = args.run
         from .cli.cli_task import main as aipy_main
     return aipy_main
 
