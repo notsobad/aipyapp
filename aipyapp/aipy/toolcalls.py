@@ -53,6 +53,9 @@ class EditToolResult(ToolResult):
 
 class MCPToolArgs(BaseModel):
     """MCP tool arguments"""
+    action: str
+    name: str
+    arguments: Optional[Dict[str, Any]] = {}
     model_config = {
         'extra': 'allow'
     }
@@ -239,7 +242,11 @@ class ToolCallProcessor:
     
     def _call_mcp(self, task: 'Task', tool_call: ToolCall) -> MCPToolResult:
         """执行 MCP 工具"""
-        result = task.mcp.call_tool(tool_call.name, tool_call.arguments)
+        mcp_args = tool_call.arguments
+        # 使用属性访问，而不是将 Pydantic 模型当作字典
+        name = getattr(mcp_args, 'name', None)
+        arguments = getattr(mcp_args, 'arguments', {}) or {}
+        result = task.mcp.call_tool(name, arguments)
         return MCPToolResult(
             result=result
         )
