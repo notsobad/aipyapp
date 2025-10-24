@@ -56,7 +56,7 @@ def extract_call_tool_str(text) -> list[dict]:
         text (str): The input text that may contain MCP call_tool JSON.
 
     Returns:
-        str: The JSON str if found and valid, otherwise empty str.
+        list[dict]: List of parsed JSON dicts if found and valid, otherwise empty list.
     """
 
     # 使用预编译的正则模式
@@ -70,6 +70,8 @@ def extract_call_tool_str(text) -> list[dict]:
     candidates.extend(standalone_jsons)
 
     tools = []
+    seen_jsons = set()  # 用于去重
+
     # Try to parse each candidate
     for candidate in candidates:
         candidate = candidate.strip()
@@ -83,7 +85,12 @@ def extract_call_tool_str(text) -> list[dict]:
             if "arguments" in data and not isinstance(data["arguments"], dict):
                 continue
 
-            # return json string. not dict
+            # 使用标准化的JSON字符串进行去重
+            json_str = json.dumps(data, sort_keys=True, ensure_ascii=False)
+            if json_str in seen_jsons:
+                continue
+
+            seen_jsons.add(json_str)
             tools.append(data)
         except json.JSONDecodeError:
             continue

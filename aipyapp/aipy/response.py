@@ -7,6 +7,7 @@ import re
 import json
 from typing import List, Dict, Any, Tuple, Literal
 from enum import Enum
+from uuid import uuid4
 
 import yaml
 from loguru import logger
@@ -223,9 +224,25 @@ class Response(BaseModel):
         if not mcp_calls:
             return errors
         
-        for call in mcp_calls:
+        for idx, call in enumerate(mcp_calls, start=1):
             try:
-                mcp_call = ToolCall.model_validate(call)
+                # 将原始 MCP 调用包装为符合 ToolCall 模型的结构
+                # 期望形如：
+                # {
+                #   "id": "<unique>",
+                #   "name": "MCP",
+                #   "arguments": {
+                #       "action": "call_tool",
+                #       "name": "server.tool",
+                #       "arguments": {...}
+                #   }
+                # }
+                wrapped = {
+                    "id": f"mcp-{idx}-{uuid4().hex[:8]}",
+                    "name": "MCP",
+                    "arguments": call,
+                }
+                mcp_call = ToolCall.model_validate(wrapped)
                 tool_calls.append(mcp_call)
             except ValidationError as e:
                 errors.add(
