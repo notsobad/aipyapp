@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import os
 import re
 import sys
+import errno
 from pathlib import Path
 from typing import Union
 from functools import wraps
@@ -61,7 +61,7 @@ def safe_rename(path: Path, input_str: str, max_length=16) -> Path:
             except FileExistsError:
                 pass
             except OSError as e:
-                if e.errno in (os.errno.EEXIST, os.errno.ENOTEMPTY):
+                if e.errno in (errno.EEXIST, errno.ENOTEMPTY):
                     pass
                 else:
                     raise
