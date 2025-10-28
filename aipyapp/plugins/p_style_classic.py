@@ -362,11 +362,11 @@ class DisplayClassic(RichDisplayPlugin):
         
         title = self._get_title(T("Context cleanup completed"), style="dim cyan")
         tree = Tree(title)
-        tree.add(T("🧹 Cleaned {} messages", cleaned_messages))
-        tree.add(T("📝 {} messages remaining", remaining_messages))
-        tree.add(T("🔥 Saved {} tokens", tokens_saved))
-        tree.add(T("📊 {} tokens remaining", tokens_remaining))
-        tree.add(T("📉 Context optimized for better performance"))
+        tree.add(f'🧹 {T("Cleaned {} messages", cleaned_messages)}')
+        tree.add(f'📝 {T("{} messages remaining", remaining_messages)}')
+        tree.add(f'🔥 {T("Saved {} tokens", tokens_saved)}')
+        tree.add(f'📊 {T("{} tokens remaining", tokens_remaining)}')
+        tree.add(f'📉 {T("Context optimized for better performance")}')
         self.console.print(tree)
 
     def on_upload_result(self, event):

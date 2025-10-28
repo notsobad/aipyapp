@@ -471,7 +471,7 @@ Note: Click the "**Help**" link in the menu bar to contact the **AIPy** official
 "Completed receiving message","完成接收消息","メッセージの受信が完了しました"
 "Message parse result","消息解析结果","メッセージの解析結果"
 "Execution result","执行结果","実行結果"
-"MCP tool call result {}","MCP工具调用结果 {}","MCPツールの呼び出し結果 {}"
+"tool call result {}","工具调用结果 {}","ツールの呼び出し結果 {}"
 "Task mode only","仅在任务模式下可用","タスクモードのみ"
 "Plugin name","插件名称","プラグイン名"
 "Plugin details","插件详情","プラグインの詳細"
@@ -515,3 +515,34 @@ Note: Click the "**Help**" link in the menu bar to contact the **AIPy** official
 "After","清理后","実行後"
 "Cleared","已清理","クリア済み"
 "No messages to clear","没有可清理的消息","クリアするメッセージがありません"
+Start calling tool {},开始调用工具 {},ツール {} の呼び出しを開始します
+Exec,执行,実行
+Tool Calls,工具调用,ツール呼び出し
+Blocks,代码块,ブロック
+SubTask,子任务,サブタスク
+Path,路径,パス
+Task completed,任务已完成,タスクが完了しました
+SubTask completed,子任务已完成,サブタスクが完了しました
+Exception occurred,发生异常,例外が発生しました
+Custom command name,自定义命令名称,カスタムコマンド名
+Show custom command details,显示自定义命令详情,カスタムコマンドの詳細を表示
+Reload custom commands from disk,从磁盘重新加载自定义命令,ディスクからカスタムコマンドを再読み込み
+List all custom commands,列出所有自定义命令,すべてのカスタムコマンドを一覧表示
+MCP server operations,MCP 服务器操作,MCP サーバー操作
+Replay speed multiplier,回放速度倍数,再生速度倍率
+Name of the code block,代码块名称,コードブロックの名前
+Run code block,运行代码块,コードブロックを実行
+Index of the step to show (default: last step),要显示的步骤索引（默认：最后一步）,表示するステップのインデックス（デフォルト：最後のステップ）
+Show rounds in a step,显示步骤中的回合,ステップ内のラウンドを表示
+Delete task steps,删除任务步骤,タスクステップを削除
+Index of the step to clear (default: last step),要清除的步骤索引（默认：最后一步）,クリアするステップのインデックス（デフォルト：最後のステップ）
+Clear step context,清除步骤上下文,ステップコンテキストをクリア
+Provider name,提供者名称,プロバイダー名
+Manage custom commands,管理自定义命令,カスタムコマンドを管理
+Cleaned {} messages,已清理 {} 条消息,{} 件のメッセージをクリーンしました
+{} messages remaining,剩余 {} 条消息,残り {} 件のメッセージ
+Saved {} tokens,已保存 {} 个令牌,{} トークンを保存しました
+{} tokens remaining,剩余 {} 个令牌,残り {} トークン
+Context optimized for better performance,上下文已优化以提高性能,コンテキストはパフォーマンス向上のために最適化されました
+Context cleanup completed,上下文清理完成,コンテキストのクリーンアップが完了しました
+errors,错误,エラー

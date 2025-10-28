@@ -180,6 +180,9 @@ class Task(Stoppable):
         
         # Phase 8: Initialize steps last (depend on almost everything)
         self.steps: List[Step] = [Step(self, step_data) for step_data in data.steps]
+
+        # Subtasks list (runtime only, not serialized)
+        self.subtasks: List['Task'] = []
     
     def _initialize_plugins(self, manager: TaskManager):
         """Separate method to initialize plugins, improving clarity and testability"""
@@ -343,15 +346,20 @@ class Task(Stoppable):
         if not self.steps or not self.cwd.exists():
             self.log.warning('Task not started, skipping save')
             return
-        
+
         if not self._saved:
             self.log.warning('Task not saved, trying to save')
             self._auto_save()
 
-        try:
-            newname = safe_rename(self.cwd, self.instruction)
-        except Exception:
-            self.log.exception('Failed to rename task directory', path=str(self.cwd))
+        # 只有主任务才重命名目录，子任务保持 task_id 目录名
+        if not self.parent:
+            try:
+                newname = safe_rename(self.cwd, self.instruction)
+            except Exception:
+                self.log.exception('Failed to rename task directory', path=str(self.cwd))
+                newname = self.cwd
+        else:
+            # 子任务保持目录名不变（以便通过 task_id 定位）
             newname = self.cwd
 
         self.log.info('Task done', path=newname)
@@ -434,11 +442,49 @@ class Task(Stoppable):
     def run_subtask(self, instruction: str, title: str | None = None, cli=False) -> Response:
         """运行子任务"""
         subtask = Task(self.manager, parent=self)
+
+        # 记录子任务到父任务的 subtasks 列表
+        self.subtasks.append(subtask)
+
         response = subtask.run(instruction, title)
         subtask.done()
         if cli:
             self.context_manager.add_chat(UserMessage(content=instruction), response.message)
         return response
+
+    def get_subtasks(self, reload: bool = False) -> List['Task']:
+        """获取子任务列表
+
+        Args:
+            reload: 是否强制从磁盘重新加载（用于历史任务）
+
+        Returns:
+            子任务列表
+        """
+        # 如果已有子任务且不需要重新加载，直接返回
+        if not reload and self.subtasks:
+            return self.subtasks
+
+        # 从磁盘加载子任务（用于历史任务或重新加载）
+        subtasks = []
+        if self.cwd.exists():
+            for item in self.cwd.iterdir():
+                if item.is_dir():
+                    task_json = item / "task.json"
+                    if task_json.exists():
+                        try:
+                            # 加载子任务
+                            subtask = Task.from_file(task_json, self.manager)
+                            # 验证：目录名应该等于 task_id（子任务目录不重命名）
+                            if item.name == subtask.task_id:
+                                subtasks.append(subtask)
+                        except Exception as e:
+                            self.log.warning(f"Failed to load subtask from {task_json}: {e}")
+                            continue
+
+        # 缓存加载的子任务
+        self.subtasks = subtasks
+        return subtasks
 
     def sync_to_cloud(self):
         """ Sync result
