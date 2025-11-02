@@ -5,18 +5,26 @@ import importlib.util
 
 from loguru import logger
 
+class DynamicModule(types.ModuleType):
+    """动态模块，属性访问时总是从原对象获取最新值"""
+    def __init__(self, fullname, obj):
+        super().__init__(fullname)
+        object.__setattr__(self, '_obj', obj)
+
+    def __getattr__(self, name):
+        # 避免无限递归，直接访问私有属性
+        if name.startswith('_'):
+            return object.__getattribute__(self, name)
+        obj = object.__getattribute__(self, '_obj')
+        return getattr(obj, name)
+
 class ObjectModuleLoader(importlib.abc.Loader):
     def __init__(self, fullname, obj):
         self.fullname = fullname
         self.obj = obj
 
     def create_module(self, spec):
-        mod = types.ModuleType(self.fullname)
-        # 注入所有非魔法属性，包括方法
-        for attr in dir(self.obj):
-            if not attr.startswith("__"):
-                setattr(mod, attr, getattr(self.obj, attr))
-        return mod
+        return DynamicModule(self.fullname, self.obj)
 
     def exec_module(self, module):
         pass
