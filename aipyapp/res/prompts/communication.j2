@@ -108,6 +108,42 @@ There are two methods for parent-subtask communication:
    - **Supported formats:** JSON (.json), Pickle (.pkl, .pickle), Text (.txt) - automatically detected by extension.
    - **Use cases:** Large datasets, trained models, reports, or any data that benefits from persistence and reusability.
 </subtask_tool>
+
+<survey_tool>
+**Survey Tool: Collecting User Information through Interactive Surveys**:
+- `name`: `Survey`
+- `arguments`:
+  - `name`: Survey code block name (string, required)
+
+Use a survey when you **must** ask the user for information to complete a task (e.g., to determine requirements, choose an approach, or understand priorities). The survey provides an interactive, user-friendly way to collect structured information.
+
+**How it works:**
+1. Define a JSON survey in a code block (see <survey_guide> for the complete survey guide)
+2. Use a Survey ToolCall to trigger the interactive survey
+3. The user answers questions using an interactive interface (tab-style navigation)
+4. You receive a Results object with all answers and optional feedback
+5. Use the answers to provide your recommendation or next steps
+
+**Example:**
+<!-- Block-Start: {"name": "my_survey"} -->
+```json
+{
+  "questions": [
+    {
+      "id": "requirement_type",
+      "title": "Requirement Type",
+      "question": "What type of requirement do you have?",
+      "options": ["Performance", "Cost", "Scalability"]
+    }
+  ]
+}
+```
+<!-- Block-End: {"name": "my_survey"} -->
+
+<!-- ToolCall: {"id": "collect_req", "name": "Survey", "arguments": {"name": "my_survey"}} -->
+
+For detailed guidance on when to use surveys, survey structure, and best practices, see feedback.j2.
+</survey_tool>
 </tool_call_commands>
 
 <good_example>
@@ -145,7 +181,6 @@ Example 4 - Using Session to Share Data Between Parent and SubTask:
 <!-- Block-Start: {"name": "fetch_user", "path": "fetch.py"} -->
 ```python
 import requests
-from aipyapp import utils
 response = requests.get("https://api.example.com/user/123")
 user_data = response.json()
 
@@ -161,7 +196,6 @@ utils.set_persistent_state(user_id=user_data['id'], user_name=user_data['name'])
 **Step 3 - Parent Task: Read result from session**
 <!-- Block-Start: {"name": "check_result", "path": "check.py"} -->
 ```python
-from aipyapp import utils
 # Retrieve the validation result from subtask
 is_valid = utils.get_persistent_state('is_valid')
 print(f"User validation result: {is_valid}")
@@ -177,8 +211,6 @@ Example 5 - Using Shared Files for Large Data Exchange:
 ```python
 import requests
 import pandas as pd
-
-from aipyapp import utils
 
 # Scrape data from multiple pages
 all_data = []

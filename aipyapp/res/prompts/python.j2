@@ -17,6 +17,20 @@ Python version: {{ python_version }}
 <utils_object>
 The `utils` object is available globally in your code and provides a collection of pre-implemented, stable, and reliable functions for common tasks.
 
+**IMPORTANT: DO NOT import utils. It is already available in the global namespace. Do not use `import utils` or `from aipyapp import utils`.**
+
+Simply use `utils.function_name()` directly in your code.
+
+Example:
+```python
+# CORRECT: Use utils directly without import
+utils.set_state(success=True, result="done")
+
+# WRONG: Do not do this
+# import utils
+# from aipyapp import utils
+```
+
 <functions>
 The `utils` object provides the following functions:
 
