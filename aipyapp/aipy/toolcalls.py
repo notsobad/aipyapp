@@ -8,7 +8,8 @@ from enum import Enum
 from typing import Union, List, Dict, Any, Optional, TYPE_CHECKING
 
 from loguru import logger
-from pydantic import BaseModel, model_validator, Field
+from pydantic import BaseModel, model_validator, Field, ValidationError
+from promptabs import SurveyRunner
 
 from .types import Error
 from ..exec import ExecResult, ProcessResult, PythonResult
@@ -22,6 +23,7 @@ class ToolName(str, Enum):
     EXEC = "Exec"
     MCP = "MCP"
     SUBTASK = "SubTask"
+    SURVEY = "Survey"
 
 class ToolResult(BaseModel):
     """Tool result"""
@@ -73,11 +75,21 @@ class SubTaskResult(ToolResult):
     """SubTask tool result"""
     result: Optional[str] = Field(default=None, title="SubTask result content")
 
+class SurveyToolArgs(BaseModel):
+    """Survey tool arguments"""
+    name: str = Field(title="Survey code block name", min_length=1, strip_whitespace=True)
+
+class SurveyToolResult(ToolResult):
+    """Survey tool result"""
+    block_name: str = Field(title="Survey code block name", min_length=1, strip_whitespace=True)
+    answers: Dict[str, Any] = Field(title="Survey answers", default_factory=dict)
+    feedback: Optional[str] = Field(default=None, title="User feedback")
+
 class ToolCall(BaseModel):
     """Tool call"""
     id: str = Field(title='Unique ID for this ToolCall')
     name: ToolName
-    arguments: Union[ExecToolArgs, EditToolArgs, MCPToolArgs, SubTaskArgs]
+    arguments: Union[ExecToolArgs, EditToolArgs, MCPToolArgs, SubTaskArgs, SurveyToolArgs]
 
     @model_validator(mode='before')
     @classmethod
@@ -97,7 +109,7 @@ class ToolCallResult(BaseModel):
     """Tool call result"""
     id: str = Field(title='Unique ID for this ToolCall')
     name: ToolName
-    result: Union[ExecToolResult, EditToolResult, MCPToolResult, SubTaskResult] = Field(title="Tool result")
+    result: Union[ExecToolResult, EditToolResult, MCPToolResult, SubTaskResult, SurveyToolResult] = Field(title="Tool result")
 
 class ToolCallProcessor:
     """工具调用处理器 - 高级接口"""
@@ -150,10 +162,10 @@ class ToolCallProcessor:
     def call_tool(self, task: 'Task', tool_call: ToolCall) -> ToolCallResult:
         """
         执行工具调用
-        
+
         Args:
             tool_call: ToolCall 对象
-            
+
         Returns:
             ToolResult: 执行结果
         """
@@ -166,6 +178,8 @@ class ToolCallProcessor:
             result = self._call_mcp(task, tool_call)
         elif tool_call.name == ToolName.SUBTASK:
             result = self._call_subtask(task, tool_call)
+        elif tool_call.name == ToolName.SURVEY:
+            result = self._call_survey(task, tool_call)
         else:
             result = ToolResult(error=Error('Unknown tool'))
 
@@ -267,4 +281,47 @@ class ToolCallProcessor:
             return SubTaskResult(
                 result=f"SubTask execution failed: {str(e)}",
                 error=Error.new("SubTask execution failed", exception=str(e))
+            )
+
+    def _call_survey(self, task: 'Task', tool_call: ToolCall) -> SurveyToolResult:
+        """执行 Survey 工具"""
+        args = tool_call.arguments
+        block_name = args.name
+
+        # 获取 survey 代码块
+        block = task.blocks.get(block_name)
+        if not block:
+            return SurveyToolResult(
+                block_name=block_name,
+                error=Error.new("Survey code block not found")
+            )
+
+        try:
+            # 创建并运行问卷
+            runner = SurveyRunner.from_json_string(block.code)
+            results = runner.run()
+
+            return SurveyToolResult(
+                block_name=block_name,
+                answers=results.answers,
+                feedback=results.feedback
+            )
+
+        except json.JSONDecodeError as e:
+            self.log.exception(f"Failed to parse survey JSON: {e}")
+            return SurveyToolResult(
+                block_name=block_name,
+                error=Error.new("Failed to parse survey JSON", details=str(e))
+            )
+        except ValidationError as e:
+            self.log.exception(f"Survey validation error: {e}")
+            return SurveyToolResult(
+                block_name=block_name,
+                error=Error.new("Survey validation error", details=e.errors())
+            )
+        except Exception as e:
+            self.log.exception(f"Survey execution failed: {e}")
+            return SurveyToolResult(
+                block_name=block_name,
+                error=Error.new("Survey execution failed", exception=str(e))
             )
