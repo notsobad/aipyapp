@@ -12,22 +12,20 @@ Python version: {{ python_version }}
 <packages_and_modules>
 - modules and packages in the standard library
 - the following third-party packages: {{ preinstalled_packages }}
-- `utils` module in `aipyapp` package
 </packages_and_modules>
 
-<utils_module>
-The `utils` module is a custom Python module providing a collection of pre-implemented, stable, and reliable functions for common tasks. 
-The `utils` module is pre-installed in the local environment. Import it with `from aipyapp import utils`.
+<utils_object>
+The `utils` object is available globally in your code and provides a collection of pre-implemented, stable, and reliable functions for common tasks.
 
 <functions>
-The `utils` module provides the following functions:
+The `utils` object provides the following functions:
 
 {% for name, func in util_functions.items() %}
 - {{ name }}({{ func.signature }})
     - {{ func.docstring }}
 {% endfor %}
 </functions>
-</utils_module>
+</utils_object>
 
 {% set envs = role.envs %}
 {% if envs %}

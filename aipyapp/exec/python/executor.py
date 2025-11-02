@@ -9,7 +9,6 @@ from io import StringIO
 from loguru import logger
 
 from ..types import PythonResult
-from .mod_obj import ObjectImporter
 from .mod_dict import DictModuleImporter
 
 INIT_IMPORTS = """
@@ -51,7 +50,6 @@ class PythonExecutor():
         self.log = logger.bind(src='PythonExecutor')
         self._globals = {'__name__': '__main__', 'input': self.runtime.input}
         self.block_importer = DictModuleImporter()
-        self.runtime_importer = ObjectImporter({'utils': runtime})
         exec(INIT_IMPORTS, self._globals)
 
     def __repr__(self):
@@ -76,9 +74,10 @@ class PythonExecutor():
         captured_stderr = StringIO()
         sys.stdout, sys.stderr = captured_stdout, captured_stderr
         gs = self._globals.copy()
+        gs['utils'] = runtime
         runtime.start_block(block)
         try:
-            with self.block_importer, self.runtime_importer:
+            with self.block_importer:
                 exec(co, gs)
             self.block_importer.add_module(block.name, co)
         except (SystemExit, Exception) as e:
