@@ -31,7 +31,7 @@ class PythonRuntime(ABC):
         Set the state of the current code block
 
         Args:
-            success: Whether the code block is successful
+            success: Whether the code block is successful. **This parameter is REQUIRED and must be the first argument.**
             **kwargs: Other state values
 
         Example:
