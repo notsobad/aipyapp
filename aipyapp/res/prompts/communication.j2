@@ -92,21 +92,63 @@ A SubTask is a powerful tool to delegate complex, self-contained parts of your m
 
 **Sharing data between parent and subtask:**
 
-There are two methods for parent-subtask communication:
+There are three methods for parent-subtask communication:
 
-1. **Session (for lightweight data):**
+1. **Direct message return (Recommended - Simplest):**
+   - The subtask's final output message is directly returned to the parent task's LLM.
+   - The subtask LLM can include any information in its output (analysis, code, results, explanations).
+   - The parent task LLM receives the complete subtask output and can use it directly to make decisions.
+   - **Use cases:** Results, analysis, code reviews, research findings, any data that can be communicated through natural language output.
+   - **Advantages:** Simplest approach, no additional API calls needed, most flexible.
+
+2. **Session state (for lightweight structured data):**
    - Parent and subtask share the same persistent session, enabling bidirectional data exchange.
-   - **Parent → Subtask:** Use `set_persistent_state(key=value)` before calling SubTask. The subtask can retrieve it with `get_persistent_state('key')`.
-   - **Subtask → Parent:** The subtask can use `set_persistent_state(result=value)` to pass data back. After the subtask completes, the parent can access it with `get_persistent_state('result')`.
-   - **Use cases:** Passing configuration, API keys, flags, or small data that needs to persist across task boundaries.
+   - **Parent → Subtask:** Use `set_persistent_state(key1=value1, key2=value2, ...)` before calling SubTask. The subtask retrieves it with `get_persistent_state('key')`.
+   - **Subtask → Parent:** The subtask uses `set_persistent_state(result_key=value, ...)` to pass data back. The parent retrieves it with `get_persistent_state('result_key')`.
+   - **Data structure requirement:** You MUST clearly specify the data structure (type, format, schema) in the code comments or documentation, so the parent LLM knows how to interpret and use the data.
+   - **Example:**
+     ```python
+     # Parent stores config
+     utils.set_persistent_state(
+         config={
+             "threshold": 0.8,  # float: confidence threshold (0.0-1.0)
+             "max_items": 100   # int: maximum items to process
+         }
+     )
 
-2. **Shared files (for large data or artifacts):**
+     # Subtask retrieves and returns result with clear structure
+     utils.set_persistent_state(
+         validation_result={
+             "valid": True,        # bool: whether validation passed
+             "errors": [],         # list[str]: any validation errors
+             "warnings": ["item_count_high"]  # list[str]: any warnings
+         }
+     )
+     ```
+   - **Use cases:** Configuration parameters, small structured data, flags, feature toggles.
+   - **Advantages:** Type-safe, structured data exchange.
+
+3. **Shared files (for large data or complex artifacts):**
    - Use `save_shared_data(filename, data)` and `load_shared_data(filename)` for file-based communication.
-   - Files are saved to/loaded from the `shared/` directory, which is automatically accessible to both parent and subtask.
    - **Parent → Subtask:** Save data with `save_shared_data("config.json", data)`. Subtask loads with `load_shared_data("config.json")`.
-   - **Subtask → Parent:** Subtask saves with `save_shared_data("result.json", result)`. Parent loads from `{subtask_dir}/shared/result.json` or via the subtask's code.
-   - **Supported formats:** JSON (.json), Pickle (.pkl, .pickle), Text (.txt) - automatically detected by extension.
-   - **Use cases:** Large datasets, trained models, reports, or any data that benefits from persistence and reusability.
+   - **Subtask → Parent:** Subtask saves with `save_shared_data("result.pkl", data)`. Parent loads with `load_shared_data("result.pkl", from_parent=True)`.
+   - **Supported formats:**
+     - JSON (.json) - for structured data
+     - Pickle (.pkl, .pickle) - for Python objects
+     - Text (.txt) - for plain text
+   - **Data structure requirement:** Document the file format and data structure clearly in your code, especially for non-JSON formats. For example:
+     ```python
+     # Subtask saves trained model
+     import pickle
+     model_data = {
+         "model_type": "RandomForest",  # str: type of model
+         "parameters": {...},            # dict: model hyperparameters
+         "accuracy": 0.95                # float: model accuracy
+     }
+     utils.save_shared_data("model.pkl", model_data)
+     ```
+   - **Use cases:** Large datasets, trained ML models, binary data, reports, any data that benefits from persistence.
+   - **Advantages:** Can handle large objects, supports binary formats.
 </subtask_tool>
 
 <survey_tool>
