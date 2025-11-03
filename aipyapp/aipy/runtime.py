@@ -1,6 +1,8 @@
 #! /usr/bin/env python3
 # -*- coding: utf-8 -*-
 import sys
+import json
+import pickle
 from typing import Union, Any, Dict
 from functools import wraps
 import inspect
@@ -36,6 +38,89 @@ class CliPythonRuntime(PythonRuntime):
 
     def register_plugin(self, plugin: TaskPlugin):
         self.function_manager.register_functions(plugin.get_functions())
+
+    def save_shared_data(self, filename: str, data: Any) -> str:
+        """
+        Save data to the shared directory for parent-subtask communication
+
+        Args:
+            filename: Name of the file (e.g., "data.json", "config.pkl")
+            data: Data to save (will be automatically serialized)
+
+        Returns:
+            str: Absolute path to the saved file
+
+        Notes:
+            - JSON files (.json): Use JSON serialization
+            - Pickle files (.pkl, .pickle): Use pickle serialization
+            - Text files (.txt): Save as plain text (str required)
+            - Other extensions: Use pickle by default
+
+        Examples:
+            >>> path = utils.save_shared_data("config.json", {"api_key": "xxx"})
+            >>> path = utils.save_shared_data("model.pkl", trained_model)
+            >>> path = utils.save_shared_data("report.txt", "Analysis complete")
+        """
+        shared_dir = self.task.shared_dir
+        shared_dir.mkdir(exist_ok=True)
+
+        filepath = shared_dir / filename
+        ext = filepath.suffix.lower()
+
+        if ext == ".json":
+            with open(filepath, "w", encoding="utf-8") as f:
+                json.dump(data, f, ensure_ascii=False, indent=2)
+        elif ext == ".txt":
+            with open(filepath, "w", encoding="utf-8") as f:
+                f.write(str(data))
+        else:  # .pkl, .pickle, or default to pickle
+            with open(filepath, "wb") as f:
+                pickle.dump(data, f)
+
+        self.log.info(f"Saved shared data to: {filepath}")
+        return str(filepath.absolute())
+
+    def load_shared_data(self, filename: str) -> Any:
+        """
+        Load data from the shared directory
+
+        Args:
+            filename: Name of the file to load
+
+        Returns:
+            Any: Deserialized data
+
+        Raises:
+            FileNotFoundError: If the file is not found
+
+        Notes:
+            - Automatically detects format based on file extension
+
+        Examples:
+            >>> config = utils.load_shared_data("config.json")
+            >>> model = utils.load_shared_data("model.pkl")
+            >>> result = utils.load_shared_data("result.json")
+        """
+        filepath = self.task.shared_dir / filename
+        if not filepath.exists():
+            raise FileNotFoundError(
+                f"Shared file '{filename}' not found in {self.task.shared_dir}"
+            )
+
+        ext = filepath.suffix.lower()
+
+        if ext == ".json":
+            with open(filepath, "r", encoding="utf-8") as f:
+                data = json.load(f)
+        elif ext == ".txt":
+            with open(filepath, "r", encoding="utf-8") as f:
+                data = f.read()
+        else:  # .pkl, .pickle, or default to pickle
+            with open(filepath, "rb") as f:
+                data = pickle.load(f)
+
+        self.log.info(f"Loaded shared data from: {filepath}")
+        return data
 
     @restore_output
     def install_packages(self, *packages: str) -> bool:

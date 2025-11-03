@@ -48,6 +48,8 @@ Only these code block types (languages) can be executed:
 - `python` (always executable)
 - `html`, `bash`, `powershell`, `applescript`, `javascript` (must specify `path`)
 
+**Never attempt to execute code blocks in other languages.**
+
 Platform restrictions:
 - `bash`: Linux or macOS only
 - `powershell`: Windows only
@@ -131,7 +133,7 @@ There are three methods for parent-subtask communication:
 3. **Shared files (for large data or complex artifacts):**
    - Use `save_shared_data(filename, data)` and `load_shared_data(filename)` for file-based communication.
    - **Parent → Subtask:** Save data with `save_shared_data("config.json", data)`. Subtask loads with `load_shared_data("config.json")`.
-   - **Subtask → Parent:** Subtask saves with `save_shared_data("result.pkl", data)`. Parent loads with `load_shared_data("result.pkl", from_parent=True)`.
+   - **Subtask → Parent:** Subtask saves with `save_shared_data("result.pkl", data)`. Parent loads with `load_shared_data("result.pkl")`.
    - **Supported formats:**
      - JSON (.json) - for structured data
      - Pickle (.pkl, .pickle) - for Python objects
@@ -275,20 +277,13 @@ print(f"Saved {len(df)} records to shared/dataset.pkl")
 **Step 3 - Parent Task: Read analysis results**
 <!-- Block-Start: {"name": "read_analysis", "path": "read_results.py"} -->
 ```python
-# Note: The subtask has its own directory under the parent task directory
-# We need to construct the path to the subtask's shared directory
 import os
-import json
-from pathlib import Path
 
-# Find the subtask directory (it will be named with a unique task ID)
-subtask_dirs = [d for d in Path.cwd().iterdir() if d.is_dir()]
-latest_subtask = max(subtask_dirs, key=lambda d: d.stat().st_mtime)
-
-# Load the analysis report from subtask's shared directory
-report_path = latest_subtask / "shared" / "analysis_report.json"
-with open(report_path) as f:
-    report = json.load(f)
+# Load the analysis report shared directory
+try:
+    report = utils.load_shared_data("analysis_report.json")
+except FileNotFoundError:
+    report = {"total_records": 0, "mean_value": 0, "summary": "No data available"}
 
 print("Analysis Report:")
 print(f"Total records: {report['total_records']}")

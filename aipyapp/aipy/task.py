@@ -117,7 +117,12 @@ class Task(Stoppable):
         self.manager = manager
         self.settings = manager.settings
         self.log = logger.bind(src='task', id=self.task_id)
-        self.cwd = manager.cwd / self.task_id if not parent else parent.cwd / self.task_id
+        if not parent:
+            self.cwd = manager.cwd / self.task_id
+            self.shared_dir = self.cwd / "shared"
+        else:
+            self.cwd = parent.cwd / self.task_id
+            self.shared_dir = parent.shared_dir
         self.gui = manager.settings.gui
         self._saved = False
         self.max_rounds = manager.settings.get('max_rounds', MAX_ROUNDS)
