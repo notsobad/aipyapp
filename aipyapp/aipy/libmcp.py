@@ -6,7 +6,53 @@ from .. import T
 
 # 预编译正则表达式
 CODE_BLOCK_PATTERN = re.compile(r"```(?:json)?\s*([\s\S]*?)\s*```")
-JSON_PATTERN = re.compile(r"(\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\})")
+
+def _find_top_level_json_objects(text: str) -> list[str]:
+    """Extract top-level JSON object substrings by scanning braces while
+    being aware of string literals and escape characters.
+
+    This avoids matching braces that appear inside quoted strings, which
+    commonly happens when JSON contains code (e.g., JavaScript) as strings.
+
+    Args:
+        text: Input text possibly containing JSON objects.
+
+    Returns:
+        A list of substrings, each corresponding to a top-level JSON object.
+    """
+    results: list[str] = []
+    n = len(text)
+    i = 0
+    in_str = False
+    esc = False
+    brace_depth = 0
+    start = -1
+
+    while i < n:
+        ch = text[i]
+        if in_str:
+            if esc:
+                esc = False
+            elif ch == "\\":
+                esc = True
+            elif ch == '"':
+                in_str = False
+        else:
+            if ch == '"':
+                in_str = True
+            elif ch == '{':
+                if brace_depth == 0:
+                    start = i
+                brace_depth += 1
+            elif ch == '}':
+                if brace_depth > 0:
+                    brace_depth -= 1
+                    if brace_depth == 0 and start != -1:
+                        results.append(text[start:i + 1])
+                        start = -1
+        i += 1
+
+    return results
 
 
 def extra_call_tool_blocks(blocks) -> list[dict]:
@@ -27,7 +73,11 @@ def extra_call_tool_blocks(blocks) -> list[dict]:
         # 检查代码块是否是 JSON 格式
         if hasattr(block, 'lang') and block.lang and block.lang.lower() in ['json', '']:
             # 尝试解析代码块内容
-            content = getattr(block, 'code', '') if hasattr(block, 'code') else str(block)
+            content = (
+                getattr(block, 'code', '')
+                if hasattr(block, 'code')
+                else str(block)
+            )
             if content:
                 content = content.strip()
                 try:
@@ -65,8 +115,8 @@ def extract_call_tool_str(text) -> list[dict]:
     # Potential JSON candidates to check
     candidates = code_blocks.copy()
 
-    # 使用预编译的正则模式
-    standalone_jsons = JSON_PATTERN.findall(text)
+    # 使用引号感知的扫描器提取顶层 JSON 对象，避免匹配字符串中的大括号
+    standalone_jsons = _find_top_level_json_objects(text)
     candidates.extend(standalone_jsons)
 
     tools = []
@@ -113,7 +163,10 @@ class MCPConfigReader:
             url = server_config.get("url", "")
             transport = server_config.get("transport", {})
 
-            if url.startswith(T("https://sapi.trustoken.ai")) and transport.get("type") == "streamable_http":
+            if (
+                url.startswith(T("https://sapi.trustoken.ai"))
+                and transport.get("type") == "streamable_http"
+            ):
                 if "headers" not in server_config:
                     server_config["headers"] = {}
 
@@ -136,7 +189,11 @@ class MCPConfigReader:
             print(f"Config file not found: {self.config_path}")
             return {}
         except json.JSONDecodeError as e:
-            print(T("Error decoding MCP config file {}: {}").format(self.config_path, e))
+            print(
+                T("Error decoding MCP config file {}: {}").format(
+                    self.config_path, e
+                )
+            )
             return {}
 
 
@@ -148,7 +205,9 @@ class MCPConfigReader:
             dict: 内部 MCP 服务器配置字典。
         """
         if not self.tt_api_key:
-            logger.warning("No Trustoken API key provided, sys_mcp will not be available.")
+            logger.warning(
+                "No Trustoken API key provided, sys_mcp will not be available."
+            )
             return {}
 
         return {
