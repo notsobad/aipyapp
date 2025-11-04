@@ -63,6 +63,11 @@ suggestion: Please provide calendar access or specific event details
 I need access to your private calendar or specific event information to proceed.
 ```
 
+**CRITICAL RULE FOR `need_info` STATUS**:
+- You MUST attempt to use the **Survey tool** FIRST to collect required information from the user before marking a task as `need_info`
+- Only use `need_info` when information cannot be collected through Survey
+- If you simply mark `need_info` without trying Survey, the task will be incomplete and the user experience will suffer
+
 ## Refused Example:
 
 ```
@@ -89,6 +94,7 @@ reason: API connection timed out; data could not be retrieved after multiple att
 2. `reason` should be a single sentence
 3. Include `suggestion` when helpful
 4. Confidence score: 0.9–1.0 (high), 0.7–0.9 (moderate), <0.7 (consider marking as failed)
+5. **For `need_info` status**: Always attempt to use Survey tool first to actively collect user information before marking as `need_info`
 
 # Decision Guide
 
