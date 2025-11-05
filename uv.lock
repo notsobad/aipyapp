@@ -67,7 +67,7 @@ requires-dist = [
     { name = "openpyxl", specifier = ">=3.1.5" },
     { name = "pandas", specifier = ">=2.2.3" },
     { name = "prompt-toolkit", specifier = ">=3.0.51" },
-    { name = "promptabs", specifier = ">=0.1.0" },
+    { name = "promptabs", specifier = ">=0.2.1" },
     { name = "pygments", specifier = ">=2.19.2" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0.0" },
     { name = "pytest", marker = "extra == 'test'", specifier = ">=8.0.0" },
@@ -1045,14 +1045,15 @@ wheels = [
 
 [[package]]
 name = "promptabs"
-version = "0.1.0"
-source = { registry = "https://pypi.org/simple" }
+version = "0.2.1"
+source = { registry = "https://mirrors.aliyun.com/pypi/simple/" }
 dependencies = [
     { name = "pydantic" },
+    { name = "readchar" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/15/b9/99853089744366c13174374d8e2aee92dd7da1881f0b6035e40fa7840e1e/promptabs-0.1.0.tar.gz", hash = "sha256:aabee01b3de7936b6f0755985e7795703968e95bb6f71ddaf1a64feb97417c89", size = 16715, upload-time = "2025-11-01T18:48:33.353Z" }
+sdist = { url = "https://mirrors.aliyun.com/pypi/packages/53/b0/2d14aff81e58918821a3811d690b01b9456d1b8c9d5571e686e291f1ea9a/promptabs-0.2.1.tar.gz", hash = "sha256:0e727de2eaa05af40da8a2e2839f6141f310d05bc3f13f16fa600bf258211182" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/bc/33/90d08177ca757f4f13ed8bb70405e00415b3389bb0b5533302a46ab7a93d/promptabs-0.1.0-py3-none-any.whl", hash = "sha256:575115e7ff8d617c6de26a4046e6bcb844386f9457a6b7b56df867f015b1f514", size = 14749, upload-time = "2025-11-01T18:48:31.973Z" },
+    { url = "https://mirrors.aliyun.com/pypi/packages/50/c4/ad659c1eed2706317ab0125e58c93e58b13cd9a8e8244bb523730ec6f1cc/promptabs-0.2.1-py3-none-any.whl", hash = "sha256:d90901de684a9fdbf162fe3f3f5d7d7e028ce17bcc21dfab449fd3d41e8cb263" },
 ]
 
 [[package]]
@@ -1389,6 +1390,15 @@ dependencies = [
 sdist = { url = "https://mirrors.aliyun.com/pypi/packages/a8/b8/d16eb579277f3de9e56e5ad25280fab52fc5774117fb70362e8c2e016559/questionary-2.1.0.tar.gz", hash = "sha256:6302cdd645b19667d8f6e6634774e9538bfcd1aad9be287e743d96cacaf95587" }
 wheels = [
     { url = "https://mirrors.aliyun.com/pypi/packages/ad/3f/11dd4cd4f39e05128bfd20138faea57bec56f9ffba6185d276e3107ba5b2/questionary-2.1.0-py3-none-any.whl", hash = "sha256:44174d237b68bc828e4878c763a9ad6790ee61990e0ae72927694ead57bab8ec" },
+]
+
+[[package]]
+name = "readchar"
+version = "4.2.1"
+source = { registry = "https://mirrors.aliyun.com/pypi/simple/" }
+sdist = { url = "https://mirrors.aliyun.com/pypi/packages/dd/f8/8657b8cbb4ebeabfbdf991ac40eca8a1d1bd012011bd44ad1ed10f5cb494/readchar-4.2.1.tar.gz", hash = "sha256:91ce3faf07688de14d800592951e5575e9c7a3213738ed01d394dcc949b79adb" }
+wheels = [
+    { url = "https://mirrors.aliyun.com/pypi/packages/a9/10/e4b1e0e5b6b6745c8098c275b69bc9d73e9542d5c7da4f137542b499ed44/readchar-4.2.1-py3-none-any.whl", hash = "sha256:a769305cd3994bb5fa2764aa4073452dc105a4ec39068ffe6efd3c20c60acc77" },
 ]
 
 [[package]]

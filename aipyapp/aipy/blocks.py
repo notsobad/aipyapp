@@ -4,18 +4,21 @@
 from pathlib import Path
 from collections import OrderedDict
 from typing import Optional, Dict, Any, List
+from types import CodeType
 
 from loguru import logger
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 class CodeBlock(BaseModel):
     """Code block"""
+    model_config = ConfigDict(arbitrary_types_allowed=True)
     name: str = Field(title="Block name", min_length=1, strip_whitespace=True)
     lang: str = Field(title="Block language", min_length=1, strip_whitespace=True)
     code: str = Field(title="Block code", min_length=1)
     path: Optional[str] = Field(title="Block path", default=None)
     version: int = Field(default=1, ge=1, title="Block version")
     deps: Optional[Dict[str, set]] = Field(default_factory=dict, title="Block dependencies")
+    co: CodeType | None = Field(default=None, title="Compiled code object", exclude=True)
 
     def add_dep(self, dep_name: str, dep_value: Any):
         """添加依赖"""

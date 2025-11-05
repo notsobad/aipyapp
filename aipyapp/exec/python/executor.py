@@ -1,15 +1,21 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+from __future__ import annotations
 import sys
 import json
 import traceback
 from io import StringIO
+from typing import TYPE_CHECKING
 
 from loguru import logger
 
+if TYPE_CHECKING:
+    from aipyapp.aipy import CodeBlock
+
 from ..types import PythonResult
 from .mod_dict import DictModuleImporter
+from .code_analyzer import fix_and_compile
 
 INIT_IMPORTS = """
 import os
@@ -58,11 +64,12 @@ class PythonExecutor():
     @property
     def globals(self):
         return self._globals
-    
-    def __call__(self, block) -> PythonResult:
+
+    def __call__(self, block: CodeBlock) -> PythonResult:
         result = PythonResult()
+
         try:
-            co = compile(block.code, block.abs_path or block.name, 'exec')
+            fix_and_compile(block)
         except SyntaxError as e:
             result.errstr = f"Syntax error: {str(e)}"
             result.traceback = traceback.format_exc()
@@ -78,8 +85,8 @@ class PythonExecutor():
         runtime.start_block(block)
         try:
             with self.block_importer:
-                exec(co, gs)
-            self.block_importer.add_module(block.name, co)
+                exec(block.co, gs)
+            self.block_importer.add_module(block.name, block.co)
         except (SystemExit, Exception) as e:
             self.runtime.set_state(success=False, error=str(e))
             self.log.error(f"Error in code block {block.name}: {str(e)}")
