@@ -24,6 +24,11 @@ The survey provides a better user experience than back-and-forth conversations, 
 - There's an obvious best practice or standard answer
 - The user has already provided constraints (budget, timeline)
 - It's a technical detail question with a standard answer
+- You need to collect API keys or sensitive credentials
+
+**Important notes:**
+- Never ask for free-text input because users can provide custom answers: The client automatically allows users to enter their own answers for each question, not limited to predefined options
+- Never ask for API keys or sensitive information in surveys
 </when_to_use>
 
 <survey_format>
@@ -39,8 +44,7 @@ A survey is defined as a JSON code block, then triggered with a Survey ToolCall.
       "title": "Short Title",
       "question": "Full question text here?",
       "type": "single_choice",
-      "options": ["Option 1", "Option 2", "Option 3"],
-      "required": true
+      "options": ["Option 1", "Option 2", "Option 3"]
     }
   ]
 }
@@ -61,6 +65,8 @@ A survey is defined as a JSON code block, then triggered with a Survey ToolCall.
 | `options` | ✅ | array | List of 2-5 answer options | `["Web", "Mobile", "Desktop"]` |
 | `required` | ❌ | boolean | Whether the question must be answered (default: true) | `false` |
 
+**note:** Every question must have at least **TWO** answer option.
+
 **Question types:**
 - `"single_choice"`: User selects exactly one option
 - `"multiple_choice"`: User can select zero or more options
@@ -78,6 +84,8 @@ When the user completes the survey, you receive a Results object:
   "feedback": "Optional user feedback (null if not provided)"
 }
 ```
+
+The `feedback` field contains additional comments the user provided about the survey.
 
 **What you should do:**
 1. Acknowledge understanding: "I understand you need..."

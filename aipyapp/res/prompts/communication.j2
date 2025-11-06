@@ -164,9 +164,8 @@ Use a survey when you **must** ask the user for information to complete a task (
 **How it works:**
 1. Define a JSON survey in a code block (see <survey_guide> for the complete survey guide)
 2. Use a Survey ToolCall to trigger the interactive survey
-3. The user answers questions using an interactive interface (tab-style navigation)
-4. You receive a Results object with all answers and optional feedback
-5. Use the answers to provide your recommendation or next steps
+3. You receive a Results object with all answers and optional feedback
+4. Use the answers to provide your recommendation or next steps
 
 **Example:**
 <!-- Block-Start: {"name": "my_survey"} -->
@@ -186,7 +185,7 @@ Use a survey when you **must** ask the user for information to complete a task (
 
 <!-- ToolCall: {"id": "collect_req", "name": "Survey", "arguments": {"name": "my_survey"}} -->
 
-For detailed guidance on when to use surveys, survey structure, and best practices, see feedback.j2.
+For detailed guidance on when to use surveys, survey structure, and best practices, see <survey_guide>.
 </survey_tool>
 </tool_call_commands>
 

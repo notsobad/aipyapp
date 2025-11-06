@@ -4,6 +4,7 @@
 """工具调用系统模块"""
 
 from __future__ import annotations
+import json
 from enum import Enum
 from typing import Union, List, Dict, Any, Optional, TYPE_CHECKING
 
