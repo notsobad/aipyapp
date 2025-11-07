@@ -302,27 +302,34 @@ class ToolCallProcessor:
             runner = SurveyRunner.from_json_string(block.code)
             results = runner.run()
 
-            return SurveyToolResult(
-                block_name=block_name,
-                answers=results.answers,
-                feedback=results.feedback
-            )
+            if not results:
+                tr = SurveyToolResult(
+                    block_name=block_name,
+                    error=Error.new("User did not complete the survey")
+                )
+            else:
+                tr = SurveyToolResult(
+                    block_name=block_name,
+                    answers=results.answers,
+                    feedback=results.feedback
+                )
 
         except json.JSONDecodeError as e:
             self.log.exception(f"Failed to parse survey JSON: {e}")
-            return SurveyToolResult(
+            tr = SurveyToolResult(
                 block_name=block_name,
                 error=Error.new("Failed to parse survey JSON", details=str(e))
             )
         except ValidationError as e:
             self.log.exception(f"Survey validation error: {e}")
-            return SurveyToolResult(
+            tr = SurveyToolResult(
                 block_name=block_name,
                 error=Error.new("Survey validation error", details=e.errors())
             )
         except Exception as e:
             self.log.exception(f"Survey execution failed: {e}")
-            return SurveyToolResult(
+            tr = SurveyToolResult(
                 block_name=block_name,
                 error=Error.new("Survey execution failed", exception=str(e))
             )
+        return tr

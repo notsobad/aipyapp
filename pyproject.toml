@@ -26,7 +26,7 @@ dependencies = [
   "jinja2>=3.1.6",
   "charset-normalizer>=3.4.2",
   "fastapi>=0.116.1",
-  "promptabs>=0.2.3",
+  "promptabs>=0.3.1",
 ]
 
 [project.optional-dependencies]
@@ -69,6 +69,9 @@ version-file = "aipyapp/__version__.py"
 [[tool.uv.index]]
 url = "https://mirrors.aliyun.com/pypi/simple/"
 default = false
+
+[tool.uv.sources]
+promptabs = { path = "../promptabs/dist/promptabs-0.3.1-py3-none-any.whl" }
 
 [tool.ruff]
 # 启用格式化和 lint 规则
