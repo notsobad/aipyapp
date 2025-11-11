@@ -238,14 +238,119 @@ class CliPythonRuntime(PythonRuntime):
             self.task.emit('function_call_completed', funcname=name, kwargs=kwargs, result=None, success=False, error=str(e), exception=e)
             raise
     
+    def should_stop(self) -> bool:
+        """
+        检查用户是否请求停止当前代码块执行
+
+        Returns:
+            bool: 如果用户请求停止，返回 True；否则返回 False
+
+        用法示例：
+            while True:
+                if utils.should_stop():
+                    print("执行被用户中止")
+                    break
+                do_something()
+        """
+        if hasattr(self.task, 'is_stopped') and callable(self.task.is_stopped):
+            return self.task.is_stopped()
+        if hasattr(self.task, 'stop_event'):
+            return self.task.stop_event.is_set()
+        return False
+
+    def set_operation(self, operation_name: str, total_items: int = None) -> None:
+        """
+        标记开始一个长时间操作（知道总数）
+
+        Args:
+            operation_name: 操作的名称（如 "数据处理", "模型训练"）
+            total_items: 总项数（可选）
+
+        用法示例：
+            utils.set_operation("数据处理", total_items=1000)
+        """
+        self.current_operation = {
+            'name': operation_name,
+            'total_items': total_items,
+            'current_items': 0,
+        }
+        self.task.emit('operation_started',
+                       operation_name=operation_name,
+                       total=total_items)
+
+    def update_operation(self, current: int = None, message: str = "") -> None:
+        """
+        更新操作进度
+
+        Args:
+            current: 当前完成的项数（0-total_items）
+            message: 额外的进度信息
+
+        用法示例：
+            for i in range(1000):
+                if utils.should_stop():
+                    break
+                process_item(i)
+                utils.update_operation(i+1, f"处理中... {i+1}/1000")
+        """
+        if not hasattr(self, 'current_operation'):
+            return
+
+        if current is not None:
+            self.current_operation['current_items'] = current
+
+        total = self.current_operation.get('total_items')
+        percent = None
+        if total and current:
+            percent = int((current / total) * 100)
+
+        self.task.emit('operation_progress',
+                       current=current,
+                       total=total,
+                       percent=percent,
+                       message=message)
+
+    def finish_operation(self, success: bool = True, message: str = "") -> None:
+        """
+        标记操作完成
+
+        Args:
+            success: 操作是否成功完成
+            message: 完成信息
+
+        用法示例：
+            utils.finish_operation(success=True, message="数据处理完成，共处理 1000 条记录")
+        """
+        self.task.emit('operation_finished',
+                       success=success,
+                       message=message)
+        if hasattr(self, 'current_operation'):
+            delattr(self, 'current_operation')
+
+    def report_progress(self, progress: int, message: str = "") -> None:
+        """
+        报告操作进度（不知道总数）
+
+        Args:
+            progress: 进度值（通常 0-100 表示百分比，也可自定义）
+            message: 进度描述信息
+
+        用法示例：
+            for i in range(100):
+                utils.report_progress(i+1, f"完成 {i+1}%")
+        """
+        self.task.emit('progress_report',
+                       progress=progress,
+                       message=message)
+
     def get_builtin_functions(self) -> Dict[str, Dict[str, str]]:
         """
         根据函数签名和docstring，生成函数调用提示
         """
         functions = {}
-        
+
         # 内置运行时函数
-        builtin_names = ['set_state', 'get_block_state', 'set_persistent_state', 'get_persistent_state', 'install_packages', 'get_env', 'show_image', 'get_block_by_name', 'call_function', 'save_shared_data', 'load_shared_data']
+        builtin_names = ['set_state', 'get_block_state', 'set_persistent_state', 'get_persistent_state', 'install_packages', 'get_env', 'show_image', 'get_block_by_name', 'call_function', 'save_shared_data', 'load_shared_data', 'should_stop', 'set_operation', 'update_operation', 'finish_operation', 'report_progress']
         for name in builtin_names:
             func_obj = getattr(self, name)
             docstring = func_obj.__doc__
