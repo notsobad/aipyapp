@@ -60,7 +60,7 @@ class PythonExecutor():
 
     def __repr__(self):
         return "<PythonExecutor>"
-    
+
     @property
     def globals(self):
         return self._globals
@@ -97,11 +97,11 @@ class PythonExecutor():
             sys.stderr = old_stderr
 
         s = captured_stdout.getvalue().strip()
-        if s: 
+        if s:
             result.stdout = s if is_json_serializable(s) else '<filtered: cannot json-serialize>'
         s = captured_stderr.getvalue().strip()
-        if s: 
-            result.stderr = s if is_json_serializable(s) else '<filtered: cannot json-serialize>'        
+        if s:
+            result.stderr = s if is_json_serializable(s) else '<filtered: cannot json-serialize>'
 
         vars = runtime.current_state
         if vars:

@@ -12,6 +12,7 @@ from rich.markdown import Markdown
 from rich.tree import Tree
 from rich.text import Text
 from rich.console import Console
+from rich.progress import Progress, BarColumn, TaskProgressColumn, TextColumn
 
 from aipyapp.display import RichDisplayPlugin
 from live_display import LiveDisplay
@@ -403,3 +404,47 @@ class DisplayClassic(RichDisplayPlugin):
         """Runtime输入事件处理"""
         # 输入事件通常不需要特殊处理，因为input_prompt已经处理了
         pass
+
+    @restore_output
+    def on_operation_started(self, event):
+        """长时间操作开始事件处理"""
+        operation_name = event.typed_event.operation_name
+        total = event.typed_event.total
+
+        title = self._get_title(f"Operation started: {operation_name}")
+        tree = Tree(title)
+        if total:
+            tree.add(f"{T('Total items')}: {total}")
+        self.console.print(tree)
+
+    @restore_output
+    def on_operation_progress(self, event):
+        """操作进度更新事件处理"""
+        message = event.typed_event.message
+        self.console.print(f"  ℹ️  {message}")
+
+    @restore_output
+    def on_operation_finished(self, event):
+        """操作完成事件处理"""
+        success = event.typed_event.success
+        message = event.typed_event.message
+
+        style = "success" if success else "error"
+        title = self._get_title(T("Operation completed"), style=style)
+        tree = Tree(title)
+        if message:
+            tree.add(message)
+        self.console.print(tree)
+
+
+    @restore_output 
+    def on_progress_report(self, event):
+        """简单进度报告事件处理"""
+        progress = event.typed_event.progress
+        message = event.typed_event.message
+
+        # 简单的进度报告（不是进度条）
+        text = f"📊 {T('Progress')}: {progress}"
+        if message:
+            text += f" - {message}"
+        self.console.print(text, style="cyan")
