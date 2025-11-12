@@ -46,7 +46,7 @@ class AzureOpenAIClient(OpenAIBaseClient):
 
 class DoubaoClient(OpenAIBaseClient): 
     BASE_URL = 'https://ark.cn-beijing.volces.com/api/v3'
-    MODEL = 'doubao-seed-1.6-250615'
+    MODEL = 'doubao-seed-1-6-251015'
 
 class MoonShotClient(OpenAIBaseClient): 
     BASE_URL = T('https://api.moonshot.ai/v1')

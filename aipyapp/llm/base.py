@@ -134,14 +134,14 @@ class BaseClient(ABC):
         start = time.time()
         try:
             response = self.get_completion(messages, **kwargs)
+
+            if self._stream:
+                msg = self._parse_stream_response(response, stream_processor)
+            else:
+                msg = self._parse_response(response)
         except Exception as e:
             self.log.exception(f"{self.name} API Call failed", e=e)
             return ErrorMessage(content=str(e))
-
-        if self._stream:
-            msg = self._parse_stream_response(response, stream_processor)
-        else:
-            msg = self._parse_response(response)
 
         msg.usage['time'] = int(time.time() - start)
         if not msg.content:

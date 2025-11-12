@@ -227,7 +227,7 @@ MoonShot:
       output: 2.5
 
 Doubao:
-  doubao-seed-1.6-250615:
+  doubao-seed-1-6-251015:
     description: 全新多模态深度思考模型，同时支持 thinking、non-thinking、auto三种思考模式
     capabilities: [TEXT, IMAGE_INPUT, VIDEO_INPUT, FUNCTION_CALLING, STRUCTURED_OUTPUT, REASONING]
     context_length: 262144
@@ -237,7 +237,7 @@ Doubao:
       cached: 0.16
       output: 24.00
 
-  doubao-seed-1.6-flash-250615:
+  doubao-seed-1-6-flash-250828:
     description: 有极致推理速度的多模态深度思考模型；同时支持文本和视觉理解
     capabilities: [TEXT, IMAGE_INPUT, VIDEO_INPUT, FUNCTION_CALLING, STRUCTURED_OUTPUT, REASONING]
     context_length: 262144
