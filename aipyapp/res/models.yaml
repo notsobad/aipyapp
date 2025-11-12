@@ -201,30 +201,31 @@ MoonShot:
     capabilities: [TEXT, IMAGE_INPUT, FUNCTION_CALLING, STRUCTURED_OUTPUT, REASONING]
     context_length: 131072
     max_output_tokens: 65536
+    currency: CNY
     prices:
-      input: 2.00
-      cached: 0.15
-      output: 5.00
+      input: 10
+      cached: 1
+      output: 30
 
   kimi-k2:
     description: a Mixture-of-Experts (MoE) foundation model with exceptional coding and agent capabilities
     capabilities: [TEXT, FUNCTION_CALLING, STRUCTURED_OUTPUT, REASONING]
-    context_length: 131072
+    context_length: 262144
     max_output_tokens: 65536
     prices:
-      input: 0.6
-      cached: 0.15
-      output: 2.5
+      input: 4
+      cached: 1
+      output: 16
 
   kimi-k2-thinking:
     description: a Mixture-of-Experts (MoE) foundation model with exceptional coding and agent capabilities
     capabilities: [TEXT, FUNCTION_CALLING, STRUCTURED_OUTPUT, REASONING]
-    context_length: 131072
+    context_length: 262144
     max_output_tokens: 65536
     prices:
-      input: 0.6
-      cached: 0.15
-      output: 2.5
+      input: 4
+      cached: 1
+      output: 16
 
 Doubao:
   doubao-seed-1-6-251015:
