@@ -516,15 +516,15 @@ class DisplayModern(RichDisplayPlugin):
         """显示使用统计表格"""
         if not usages:
             return
-            
+
         table = Table(title=T("执行统计"), show_lines=True)
-        
+
         table.add_column(T("回合"), justify="center", style="bold cyan", no_wrap=True)
         table.add_column(T("时间(s)"), justify="right")
         table.add_column(T("输入Token"), justify="right")
         table.add_column(T("输出Token"), justify="right")
         table.add_column(T("总计Token"), justify="right", style="bold magenta")
-        
+
         for i, usage in enumerate(usages, 1):
             table.add_row(
                 str(i),
@@ -533,6 +533,52 @@ class DisplayModern(RichDisplayPlugin):
                 str(usage.get("output_tokens", 0)),
                 str(usage.get("total_tokens", 0)),
             )
-            
+
         self.console.print(table)
-        self.console.print() 
+        self.console.print()
+
+    @restore_output
+    def on_operation_started(self, event):
+        """长时间操作开始事件处理"""
+        operation_name = event.typed_event.operation_name
+        total = event.typed_event.total
+
+        title = Text(f"⚙️ {T('Operation started')}: {operation_name}", style="bold cyan")
+        content_lines = []
+        if total:
+            content_lines.append(Text(f"{T('Total items')}: {total}", style="white"))
+
+        from rich.console import Group
+        content = Group(*content_lines) if content_lines else Text(operation_name, style="white")
+        panel = Panel(content, title=title, border_style="cyan")
+        self.console.print(panel)
+
+    @restore_output
+    def on_operation_progress(self, event):
+        """操作进度更新事件处理"""
+        message = event.typed_event.message
+        self.console.print(f"  ℹ️  {message}", style="dim cyan")
+
+    @restore_output
+    def on_operation_finished(self, event):
+        """操作完成事件处理"""
+        success = event.typed_event.success
+        message = event.typed_event.message
+
+        style = "success" if success else "error"
+        title = Text(f"{'✅' if success else '❌'} {T('Operation completed')}", style=f"bold {style}")
+        content = Text(message if message else T("Operation completed"), style="white")
+        panel = Panel(content, title=title, border_style=style)
+        self.console.print(panel)
+
+    @restore_output
+    def on_progress_report(self, event):
+        """简单进度报告事件处理"""
+        progress = event.typed_event.progress
+        message = event.typed_event.message
+
+        # 现代风格的进度报告
+        text = f"📊 {T('Progress')}: {progress}"
+        if message:
+            text += f" - {message}"
+        self.console.print(text, style="cyan") 
