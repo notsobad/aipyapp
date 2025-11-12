@@ -67,7 +67,7 @@ requires-dist = [
     { name = "openpyxl", specifier = ">=3.1.5" },
     { name = "pandas", specifier = ">=2.2.3" },
     { name = "prompt-toolkit", specifier = ">=3.0.51" },
-    { name = "promptabs", path = "../promptabs/dist/promptabs-0.3.1-py3-none-any.whl" },
+    { name = "promptabs", specifier = ">=0.3.1" },
     { name = "pygments", specifier = ">=2.19.2" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0.0" },
     { name = "pytest", marker = "extra == 'test'", specifier = ">=8.0.0" },
@@ -1412,25 +1412,16 @@ wheels = [
 [[package]]
 name = "promptabs"
 version = "0.3.1"
-source = { path = "../promptabs/dist/promptabs-0.3.1-py3-none-any.whl" }
+source = { registry = "https://mirrors.aliyun.com/pypi/simple/" }
 dependencies = [
     { name = "colorama" },
     { name = "pydantic" },
     { name = "readchar" },
 ]
+sdist = { url = "https://mirrors.aliyun.com/pypi/packages/b1/42/2453ce89a400998d3114e5696a2f2ac618583becc275d486f2f599806e59/promptabs-0.3.1.tar.gz", hash = "sha256:c328bec4ac292f52bb3464598120f24a1aa85ce85bfac278943eab6578704d99" }
 wheels = [
-    { filename = "promptabs-0.3.1-py3-none-any.whl", hash = "sha256:e1fb8c98cfc7cb051f5b0c33777b81ff54eccfcb22f51ce5a99caf4b6650fff6" },
+    { url = "https://mirrors.aliyun.com/pypi/packages/61/f5/b42e30d76dbde1e49371735966ecc70b8d3edad009c14d4a31238b3b4467/promptabs-0.3.1-py3-none-any.whl", hash = "sha256:e1fb8c98cfc7cb051f5b0c33777b81ff54eccfcb22f51ce5a99caf4b6650fff6" },
 ]
-
-[package.metadata]
-requires-dist = [
-    { name = "colorama", specifier = ">=0.4.6" },
-    { name = "pydantic", specifier = ">=2.12.3" },
-    { name = "pytest", marker = "extra == 'dev'", specifier = ">=7.0" },
-    { name = "pytest-cov", marker = "extra == 'dev'", specifier = ">=4.0" },
-    { name = "readchar", specifier = ">=4.0.0" },
-]
-provides-extras = ["dev"]
 
 [[package]]
 name = "pycparser"
