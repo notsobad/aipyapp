@@ -5,6 +5,7 @@ import time
 import threading
 from datetime import timedelta
 from typing import Dict, Optional, Tuple, Any
+import types as pytypes
 
 from loguru import logger
 from mcp.client.session_group import (
@@ -65,6 +66,30 @@ class LazyMCPClient:
     def _qualified(self, server_key: str, tool_name: str) -> str:
         return f"{server_key}:{tool_name}"
 
+    def _build_progress_callback(self, qualified: str):
+        """Create an async progress callback for a specific qualified tool name."""
+        async def _cb(
+            progress: float,
+            total: float | None,
+            message: str | None,
+        ) -> None:
+            if total and total > 0:
+                pct = f"{(progress / total) * 100:.1f}%"
+                detail = f"{progress}/{total}"
+            else:
+                pct = f"{progress * 100:.1f}%"
+                detail = f"{progress:.3f}" if progress <= 1 else f"step={progress}"
+            msg_part = f" - {message}" if message else ""
+            line = f"[MCP Progress] {qualified}: {pct} ({detail}){msg_part}"
+            logger.info(line)
+            try:
+                # 同步打印到终端（stdout），便于实时观察
+                print(line, flush=True)
+            except Exception:
+                # 打印失败不影响主流程
+                pass
+        return _cb
+
     @contextlib.contextmanager
     def _suppress_stdout_stderr(self):
         if not self._suppress_output:
@@ -98,7 +123,7 @@ class LazyMCPClient:
                 return {"error": "Operation timeout", "details": str(e)}
             except Exception as e:
                 logger.error(f"Async run error: {e}")
-                return {"error": "Async execution failed", "details": str(e)}
+                return {"error": "Async execution failed", "details": e}
 
     def _create_server_parameters(self, cfg: dict):
         if "url" in cfg:
@@ -132,6 +157,47 @@ class LazyMCPClient:
 
             self._group = ClientSessionGroup(component_name_hook=name_hook)
             await self._group.__aenter__()
+            # Patch group.call_tool to support progress_callback
+            self._patch_group_for_progress()
+
+    def _patch_group_for_progress(self) -> None:
+        """Monkey patch ClientSessionGroup.call_tool to accept progress_callback.
+
+        If a progress_callback is provided, this wrapper will locate the
+        underlying session and call session.call_tool with the callback.
+        Otherwise, it falls back to the original implementation.
+        """
+        group = self._group
+        if group is None:
+            return
+        if getattr(group, "_aipy_progress_patched", False):
+            return
+
+        orig_call_tool = group.call_tool
+
+        async def call_tool_patched(self_group, name: str, args: dict,
+                                    progress_callback=None,
+                                    read_timeout_seconds: timedelta | None = None):
+            if progress_callback is None and read_timeout_seconds is None:
+                return await orig_call_tool(name, args)
+            # Find session and delegate with progress
+            tool_to_session = getattr(self_group, "_tool_to_session", {})
+            tools = getattr(self_group, "tools", {})
+            session = tool_to_session.get(name)
+            if session is None:
+                # Fallback to original behavior
+                return await orig_call_tool(name, args)
+            session_tool_name = tools[name].name if name in tools else name
+            return await session.call_tool(
+                session_tool_name,
+                args,
+                read_timeout_seconds=read_timeout_seconds,
+                progress_callback=progress_callback,
+            )
+
+        group._orig_call_tool = orig_call_tool  # type: ignore[attr-defined]
+        group.call_tool = pytypes.MethodType(call_tool_patched, group)  # type: ignore[assignment]
+        group._aipy_progress_patched = True  # type: ignore[attr-defined]
 
     async def _connect_if_needed(self, server_key: str):
         if server_key in self._connected:
@@ -293,9 +359,18 @@ class LazyMCPClient:
                     return None, {"error": f"Tool '{qualified}' not found"}
 
                 logger.debug(f"Calling tool '{qualified}' with args: {arguments}")
+                progress_cb = self._build_progress_callback(qualified)
+
+                # 通过已 patch 的 group.call_tool 注入 progress
+                # （使用 getattr 避免签名检查）
+                patched_call = getattr(group, "call_tool")
                 res = await asyncio.wait_for(
-                    group.call_tool(qualified, arguments),
-                    timeout=120.0,  # 2分钟工具调用超时
+                    patched_call(
+                        qualified,
+                        arguments,
+                        progress_cb,
+                    ),
+                    timeout=120.0,
                 )
                 logger.debug(f"Tool '{qualified}' completed successfully")
                 return res, None
