@@ -7,7 +7,7 @@ from typing import Optional, Dict, Any, List
 from types import CodeType
 
 from loguru import logger
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, Field, ConfigDict, field_serializer, field_validator
 
 class CodeBlock(BaseModel):
     """Code block"""
@@ -19,6 +19,23 @@ class CodeBlock(BaseModel):
     version: int = Field(default=1, ge=1, title="Block version")
     deps: Optional[Dict[str, set]] = Field(default_factory=dict, title="Block dependencies")
     co: CodeType | None = Field(default=None, title="Compiled code object", exclude=True)
+
+    @field_serializer('deps')
+    def serialize_deps(self, deps: Optional[Dict[str, set]], _info):
+        """序列化时将set转换为list"""
+        if not deps:
+            return None
+        return {k: list(v) for k, v in deps.items()}
+
+    @field_validator('deps', mode='before')
+    def deserialize_deps(cls, v):
+        """反序列化时将list转换回set"""
+        if not v:
+            return None
+        if isinstance(v, dict):
+            return {k: set(value) if isinstance(value, list) else value
+                    for k, value in v.items()}
+        return v
 
     def add_dep(self, dep_name: str, dep_value: Any):
         """添加依赖"""
