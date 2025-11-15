@@ -51,7 +51,7 @@ class TaskInputError(TaskError):
         self.original_error = original_error
         super().__init__(self.message)
 
-class TastStateError(TaskError):
+class TaskStateError(TaskError):
     """Task 状态异常"""
     def __init__(self, message: str, **kwargs):
         self.message = message
@@ -358,7 +358,9 @@ class Task(Stoppable):
 
         # 只有主任务才重命名目录，子任务保持 task_id 目录名
         if not self.parent:
+            # 切换到父目录，避免目录锁定
             try:
+                os.chdir(self.cwd.parent)
                 newname = safe_rename(self.cwd, self.instruction)
             except Exception:
                 self.log.exception('Failed to rename task directory', path=str(self.cwd))
