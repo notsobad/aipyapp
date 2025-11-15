@@ -20,6 +20,8 @@ class StepsCommand(ParserCommand):
         subparsers.add_parser('list', help=T('List task steps'))
         parser = subparsers.add_parser('clear', help=T('Clear step context'))
         parser.add_argument('index', type=int, nargs='?', default=-1, help=T('Index of the step to clear (default: last step)'))
+        parser = subparsers.add_parser('compact', help=T('Smart compact step rounds'))
+        parser.add_argument('index', type=int, nargs='?', default=-1, help=T('Index of the step to compact (default: last step)'))
         parser = subparsers.add_parser('delete', help=T('Delete task steps'))
         parser.add_argument('index', type=int, help=T('Index of the task step to delete'))
         parser = subparsers.add_parser('show', help=T('Show rounds in a step'))
@@ -69,8 +71,8 @@ class StepsCommand(ParserCommand):
         step_title = step.data.title or step.data.instruction[:50]
         
         try:
-            # 调用SimpleStepCleaner的cleanup_step方法
-            cleaned_count, remaining_messages, tokens_saved, tokens_remaining = task.step_cleaner.cleanup_step(step)
+            # 调用Step的cleanup方法
+            cleaned_count, remaining_messages, tokens_saved, tokens_remaining = step.cleanup()
             
             # 显示清理结果
             ctx.console.print(f"[green]✅ Step {step_index} context cleared[/green]")
@@ -88,7 +90,51 @@ class StepsCommand(ParserCommand):
         except Exception as e:
             ctx.console.print(f"[red]❌ Failed to clear step context: {e}[/red]")
             return False
-    
+
+    def cmd_compact(self, args, ctx):
+        """智能压缩指定Step的Round"""
+        task = ctx.task
+        if not task.steps:
+            ctx.console.print(T("No task steps found"))
+            return False
+
+        # 确定要压缩的step索引
+        if args.index == -1:
+            step_index = len(task.steps) - 1  # 最后一个step
+        else:
+            step_index = args.index
+
+        if step_index < 0 or step_index >= len(task.steps):
+            ctx.console.print(T(f"Invalid step index: {step_index}"))
+            return False
+
+        step = task.steps[step_index]
+        step_title = step.data.title or step.data.instruction[:50]
+
+        try:
+            # 调用Step的compact方法
+            cleaned_count, remaining_messages, tokens_saved, tokens_remaining = step.compact()
+
+            # 显示压缩结果
+            ctx.console.print(f"[green]✅ Step {step_index} context compacted[/green]")
+            ctx.console.print(f"[dim]Step:[/dim] {step_title}")
+            ctx.console.print(f"[dim]🧹 Compacted messages:[/dim] {cleaned_count}")
+            ctx.console.print(f"[dim]📝 Remaining messages:[/dim] {remaining_messages}")
+            ctx.console.print(f"[dim]🔥 Tokens saved:[/dim] {tokens_saved}")
+            ctx.console.print(f"[dim]📊 Tokens remaining:[/dim] {tokens_remaining}")
+
+            if cleaned_count > 0:
+                ctx.console.print(f"[dim]💡 Use 'step show {step_index}' to see which rounds were compacted[/dim]")
+                ctx.console.print(f"[dim]💡 Only failed/error rounds were deleted, preserving important context[/dim]")
+            else:
+                ctx.console.print(f"[dim]💡 No rounds were compacted - all rounds are important or already cleaned[/dim]")
+
+            return True
+
+        except Exception as e:
+            ctx.console.print(f"[red]❌ Failed to compact step context: {e}[/red]")
+            return False
+
     def cmd_delete(self, args, ctx):
         """删除指定Step并清理其上下文"""
         task = ctx.task
@@ -145,8 +191,7 @@ class StepsCommand(ParserCommand):
         
         # 创建Step树
         step_title = step_data.title or step_data.instruction[:50]
-        start_time = datetime.fromtimestamp(step_data.start_time).strftime('%H:%M:%S')
-        
+
         tree = Tree(f"[bold blue]Step {step_index}[/bold blue]: {step_title}")
         
         # 添加Step元信息
@@ -207,7 +252,7 @@ class StepsCommand(ParserCommand):
                         type_color = "yellow"
                 
                 # 创建Round节点
-                round_title = f"{status_icon} [{status_color}]Round {i}[/{status_color}] [{type_color}]{type_icon} {type_text}[/{type_color}]"
+                round_title = f"{status_icon} [{status_color}]Round {i} - {status_text}[/{status_color}] [{type_color}]{type_icon} {type_text}[/{type_color}]"
                 round_node = rounds_branch.add(round_title)
                 
                 # LLM回复内容
@@ -230,7 +275,7 @@ class StepsCommand(ParserCommand):
                         if round._tool_call_failed(tcr):
                             # 显示具体的错误信息
                             error_msg = tcr.result.error
-                            if not error_msg and tcr.tool_name == 'EXEC' and hasattr(tcr.result, 'result') and tcr.result.result:
+                            if not error_msg and tcr.name == 'EXEC' and hasattr(tcr.result, 'result') and tcr.result.result:
                                 # 对于EXEC工具，如果没有工具层错误但执行失败，显示执行错误
                                 exec_result = tcr.result.result
                                 if hasattr(exec_result, 'returncode') and exec_result.returncode != 0:
@@ -241,9 +286,9 @@ class StepsCommand(ParserCommand):
                                     error_msg = exec_result.stderr[:100] + "..." if len(exec_result.stderr) > 100 else exec_result.stderr
                                 else:
                                     error_msg = "Execution failed"
-                            tool_status = f"[red]❌ {tcr.tool_name}[/red]: {error_msg or 'Unknown error'}"
+                            tool_status = f"[red]❌ {tcr.name.value}[/red]: {error_msg or 'Unknown error'}"
                         else:
-                            tool_status = f"[green]✅ {tcr.tool_name}[/green]"
+                            tool_status = f"[green]✅ {tcr.name.value}[/green]"
                         tools_node.add(tool_status)
                 
                 # 系统反馈
@@ -253,6 +298,5 @@ class StepsCommand(ParserCommand):
                         feedback_content += "..."
                     round_node.add(f"[dim]🔄 Feedback:[/dim] {feedback_content}")
         
-        ctx.console.print("\n")
         ctx.console.print(tree)
         return True
