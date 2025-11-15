@@ -31,8 +31,8 @@ The survey provides a better user experience than back-and-forth conversations, 
 - Never ask for API keys or sensitive information in surveys
 </when_to_use>
 
-<survey_format>
-A survey is defined as a JSON code block, then triggered with a Survey ToolCall.
+<how_to_use>
+Define survey in a JSON code block, then trigger with a Survey ToolCall.
 
 **Step 1: Create a survey code block**
 <!-- Block-Start: {"name": "user_survey"} -->
@@ -51,10 +51,7 @@ A survey is defined as a JSON code block, then triggered with a Survey ToolCall.
 ```
 <!-- Block-End: {"name": "user_survey"} -->
 
-**Step 2: Trigger the survey with a ToolCall**
-<!-- ToolCall: {"id": "survey_1", "name": "Survey", "arguments": {"name": "user_survey"}} -->
-
-**JSON Schema:**
+**JSON Schema for `question` object:**
 
 | Field | Required | Type | Description | Example |
 |-------|----------|------|-------------|---------|
@@ -62,15 +59,15 @@ A survey is defined as a JSON code block, then triggered with a Survey ToolCall.
 | `title` | ✅ | string | Short title (<20 chars, shown in tab header) | `"Project Type"` |
 | `question` | ✅ | string | Full question text with context | `"What type of project are you building?"` |
 | `type` | ❌ | string | `"single_choice"` (default) or `"multiple_choice"` | `"multiple_choice"` |
-| `options` | ✅ | array | List of 2-5 answer options | `["Web", "Mobile", "Desktop"]` |
+| `options` | ✅ | array | List of answer options | `["Web", "Mobile", "Desktop"]` |
 | `required` | ❌ | boolean | Whether the question must be answered (default: true) | `false` |
 
-**note:** Every question must have at least **TWO** answer option.
+**NOTE**: For every question, users can provide custom answers beyond the provided options.
 
-**Question types:**
-- `"single_choice"`: User selects exactly one option
-- `"multiple_choice"`: User can select zero or more options
-</survey_format>
+**Step 2: Trigger the survey with a ToolCall**
+<!-- ToolCall: {"id": "survey_1", "name": "Survey", "arguments": {"name": "user_survey"}} -->
+
+</how_to_use>
 
 <results_format>
 When the user completes the survey, you receive a Results object:
@@ -85,7 +82,9 @@ When the user completes the survey, you receive a Results object:
 }
 ```
 
-The `feedback` field contains additional comments the user provided about the survey.
+NOTE:
+- Custom answers provided by the user begin with "[User Input]".
+- The `feedback` field contains additional comments the user provided about the survey.
 
 **What you should do:**
 1. Acknowledge understanding: "I understand you need..."
