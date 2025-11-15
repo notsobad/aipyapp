@@ -174,8 +174,7 @@ class Task(Stoppable):
         self.runner.set_python_runtime(self.runtime)
         self.client = Client(self)
         
-        # Phase 6: Initialize cleaners (depend on context_manager)
-        self.step_cleaner = SimpleStepCleaner(self.context_manager)
+        # Phase 6: (Cleaners are now initialized in Step class)
         
         # Phase 7: Initialize plugins (depend on runtime and event_bus)
         if not parent:
@@ -261,7 +260,7 @@ class Task(Stoppable):
         
         try:
             # 先清理上下文中的相关消息
-            cleaned_count, remaining_messages, tokens_saved, tokens_remaining = self.step_cleaner.delete_step(step_to_delete)  # noqa: E501
+            cleaned_count, remaining_messages, tokens_saved, tokens_remaining = step_to_delete.delete_cleanup()
             
             # 然后从步骤列表中删除
             self.steps.pop(index)
@@ -372,8 +371,6 @@ class Task(Stoppable):
         self.log.info('Task done', path=newname)
         self.emit('task_completed', path=str(newname), task_id=self.task_id, parent_id=self.parent.task_id if self.parent else None)
         #self.context.diagnose.report_code_error(self.runner.history)
-        if self.settings.get('share_result'):
-            self.sync_to_cloud()
 
     def prepare_user_prompt(self, instruction: str, first_run: bool=False) -> ChatMessage:
         """处理多模态内容并验证模型能力"""
@@ -402,7 +399,7 @@ class Task(Stoppable):
             return
         
         self.log.info("Starting step compact...")
-        result = self.step_cleaner.compact_step(self.steps[-1])
+        result = self.steps[-1].compact()
         self.log.info(f"Step compact result: {result}")
         cleaned_count, remaining_messages, tokens_saved, tokens_remaining = result
         self.log.info(f"Step compact completed, cleaned_count: {cleaned_count}")
@@ -492,257 +489,3 @@ class Task(Stoppable):
         # 缓存加载的子任务
         self.subtasks = subtasks
         return subtasks
-
-    def sync_to_cloud(self):
-        """ Sync result
-        """
-        url = T("https://store.aipy.app/api/work")
-
-        trustoken_apikey = self.settings.get('llm', {}).get('Trustoken', {}).get('api_key')
-        if not trustoken_apikey:
-            trustoken_apikey = self.settings.get('llm', {}).get('trustoken', {}).get('api_key')
-        if not trustoken_apikey:
-            return False
-        self.log.info('Uploading result to cloud')
-        try:
-            # Serialize twice to remove the non-compliant JSON type.
-            # First, use the json.dumps() `default` to convert the non-compliant JSON type to str.
-            # However, NaN/Infinity will remain.
-            # Second, use the json.loads() 'parse_constant' to convert NaN/Infinity to str.
-            data = json.loads(
-                json.dumps({
-                    'apikey': trustoken_apikey,
-                    'author': os.getlogin(),
-                    'instruction': self.instruction,
-                    'llm': self.client.name,
-                    'runner': self.runner.history,
-                }, ensure_ascii=False, default=str),
-                parse_constant=str)
-            response = requests.post(url, json=data, verify=True,  timeout=30)
-        except Exception as e:
-            self.emit('exception', msg='sync_to_cloud', exception=e)
-            return False
-
-        url = None
-        status_code = response.status_code
-        if status_code in (200, 201):
-            data = response.json()
-            url = data.get('url', '')
-
-        self.emit('upload_result', status_code=status_code, url=url)
-        return True
-
-
-class SimpleStepCleaner:
-    """Step级别的简化清理器"""
-    
-    def __init__(self, context_manager):
-        self.context_manager = context_manager
-        self.log = logger.bind(src='SimpleStepCleaner')
-        
-    def cleanup_step(self, step) -> tuple[int, int, int, int]:
-        """Step完成后的最大化清理：从上下文删除所有Round消息，但保留执行记录
-        
-        与compact_step的区别：
-        - cleanup_step: 删除所有Round消息（最大化清理）
-        - compact_step: 只删除失败Round消息（智能清理）
-        
-        Returns:
-            (cleaned_count, remaining_messages, tokens_saved, tokens_remaining)
-        """
-        if len(step.data.rounds) < 2:
-            self.log.info("No enough rounds found in step, skipping cleanup")
-            stats = self.context_manager.get_stats()
-            return 0, stats['message_count'], 0, stats['total_tokens']
-            
-        rounds = step.data.rounds
-        self.log.info(f"Step has {len(rounds)} rounds, implementing maximum cleanup")
-        
-        # 获取清理前的统计信息
-        stats_before = self.context_manager.get_stats()
-        messages_before = stats_before['message_count']
-        tokens_before = stats_before['total_tokens']
-        
-        # 收集除最后一个Round外的所有Round消息ID用于删除
-        messages_to_clean = []
-        
-        for i, round in enumerate(rounds[:-1]):
-            # 收集这个Round的所有消息ID
-            round.context_deleted = True
-            if round.llm_response and round.llm_response.message:
-                messages_to_clean.append(round.llm_response.message.id)
-            if round.system_feedback:
-                messages_to_clean.append(round.system_feedback.id)
-                
-            self.log.info(f"Will clean Round {i}: {self._get_round_summary(round)}")
-        
-        self.log.info(f"Will clean {len(messages_to_clean)} messages from {len(rounds)-1} rounds (preserving last round)")
-        
-        # 执行清理
-        if not messages_to_clean:
-            self.log.info("No messages need to be cleaned")
-            return 0, messages_before, 0, tokens_before
-        
-        # 执行清理（只清理上下文消息，不影响rounds记录）
-        self.context_manager.delete_messages_by_ids(messages_to_clean)
-        
-        # 获取清理后的统计信息
-        stats_after = self.context_manager.get_stats()
-        messages_after = stats_after['message_count']
-        tokens_after = stats_after['total_tokens']
-        
-        # 计算清理结果
-        cleaned_count = messages_before - messages_after
-        tokens_saved = tokens_before - tokens_after
-        
-        self.log.info(f"Maximum cleanup completed: {cleaned_count} messages cleaned")
-        self.log.info(f"Execution records preserved: {len(rounds)} rounds kept")
-        self.log.info("Context preserved: initial_instruction + last round")
-        self.log.info(f"Messages: {messages_before} -> {messages_after}")
-        self.log.info(f"Tokens: {tokens_before} -> {tokens_after} (saved: {tokens_saved})")
-        
-        return cleaned_count, messages_after, tokens_saved, tokens_after
-    
-    def compact_step(self, step) -> tuple[int, int, int, int]:
-        """智能压缩Step：只清理上下文消息，保留执行记录
-        
-        基于Round.can_safely_delete()方法智能判断哪些上下文消息可以删除：
-        - 删除可安全删除Round对应的上下文消息
-        - 保留重要Round对应的上下文消息  
-        - 完全保留step.data.rounds（执行历史记录）
-        - Step级别的initial_instruction自动保护
-        
-        Returns:
-            (cleaned_count, remaining_messages, tokens_saved, tokens_remaining)
-        """
-        if len(step.data.rounds) < 2:
-            self.log.info("No enough rounds found in step, skipping compact")
-            stats = self.context_manager.get_stats()
-            return 0, stats['message_count'], 0, stats['total_tokens']
-        
-        rounds = step.data.rounds
-        self.log.info(f"Step has {len(rounds)} rounds, implementing smart compact")
-        
-        # 获取清理前的统计信息
-        stats_before = self.context_manager.get_stats()
-        messages_before = stats_before['message_count']
-        tokens_before = stats_before['total_tokens']
-        
-        # 收集需要删除的消息ID
-        messages_to_clean = []
-        
-        # 分析每个Round，收集可删除Round的消息ID
-        for i, round in enumerate(rounds):
-            if round.can_safely_delete():
-                # 收集这个Round的消息ID用于删除
-                round.context_deleted = True
-                if round.llm_response and round.llm_response.message:
-                    messages_to_clean.append(round.llm_response.message.id)
-                if round.system_feedback:
-                    messages_to_clean.append(round.system_feedback.id)
-                    
-                self.log.info(f"Will clean Round {i}: {self._get_round_summary(round)}")
-            else:
-                self.log.info(f"Preserving Round {i}: {self._get_round_summary(round)}")
-        
-        self.log.info(f"Will clean {len(messages_to_clean)} messages from deletable rounds")
-        
-        # 执行清理
-        if not messages_to_clean:
-            self.log.info("No messages need to be cleaned")
-            return 0, messages_before, 0, tokens_before
-        
-        # 执行清理（只清理上下文消息，不影响rounds）
-        self.context_manager.delete_messages_by_ids(messages_to_clean)
-        
-        # 获取清理后的统计信息
-        stats_after = self.context_manager.get_stats()
-        messages_after = stats_after['message_count']
-        tokens_after = stats_after['total_tokens']
-        
-        # 计算清理结果
-        cleaned_count = messages_before - messages_after
-        tokens_saved = tokens_before - tokens_after
-        
-        self.log.info(f"Compact completed: {cleaned_count} messages cleaned")
-        self.log.info(f"Execution records preserved: {len(rounds)} rounds kept")
-        self.log.info(f"Messages: {messages_before} -> {messages_after}")
-        self.log.info(f"Tokens: {tokens_before} -> {tokens_after} (saved: {tokens_saved})")
-        
-        return cleaned_count, messages_after, tokens_saved, tokens_after
-    
-    def delete_step(self, step) -> tuple[int, int, int, int]:
-        """删除Step时清理所有相关消息：initial_instruction + 所有rounds
-        
-        Returns:
-            (cleaned_count, remaining_messages, tokens_saved, tokens_remaining)
-        """
-        self.log.info(f"Deleting step context: {step.data.instruction[:50]}...")
-        
-        # 获取清理前的统计信息
-        stats_before = self.context_manager.get_stats()
-        messages_before = stats_before['message_count']
-        tokens_before = stats_before['total_tokens']
-        
-        # 收集所有相关消息ID用于删除
-        messages_to_clean = []
-        
-        # 1. 删除initial_instruction
-        if step.data.initial_instruction:
-            messages_to_clean.append(step.data.initial_instruction.id)
-            self.log.info(f"Will delete initial_instruction: {step.data.initial_instruction.id}")
-        
-        # 2. 删除所有rounds的消息
-        for i, round in enumerate(step.data.rounds):
-            self.log.info(f"Processing Round {i}: {self._get_round_summary(round)}")
-            msg_id = round.llm_response.message.id
-            messages_to_clean.append(msg_id)
-            self.log.info(f"✅ Will delete Round {i} LLM response: {msg_id}")
-                
-            # 检查系统反馈
-            if round.system_feedback:
-                feedback_id = round.system_feedback.id
-                messages_to_clean.append(feedback_id)
-                self.log.info(f"✅ Will delete Round {i} system feedback: {feedback_id}")
-            
-            # 标记为删除
-            round.context_deleted = True
-        
-        self.log.info(f"Will delete {len(messages_to_clean)} messages from step deletion")
-        
-        # 执行清理
-        if not messages_to_clean:
-            self.log.info("No messages need to be cleaned")
-            return 0, messages_before, 0, tokens_before
-        
-        # 执行清理
-        self.log.info(f"Executing delete_messages_by_ids with {len(messages_to_clean)} message IDs")
-        deleted_result = self.context_manager.delete_messages_by_ids(messages_to_clean)
-        self.log.info(f"delete_messages_by_ids returned: {deleted_result}")
-        
-        # 获取清理后的统计信息
-        stats_after = self.context_manager.get_stats()
-        messages_after = stats_after['message_count']
-        tokens_after = stats_after['total_tokens']
-        
-        # 计算清理结果
-        cleaned_count = messages_before - messages_after
-        tokens_saved = tokens_before - tokens_after
-        
-        self.log.info(f"Step deletion cleanup completed: {cleaned_count} messages deleted")
-        self.log.info(f"Messages: {messages_before} -> {messages_after}")
-        self.log.info(f"Tokens: {tokens_before} -> {tokens_after} (saved: {tokens_saved})")
-        
-        return cleaned_count, messages_after, tokens_saved, tokens_after
-    
-    def _get_round_summary(self, round) -> str:
-        """获取Round的简要描述用于日志"""
-        if round.llm_response.errors:
-            return "LLM_ERROR"
-        elif not round.toolcall_results:
-            return "TEXT_ONLY"
-        elif all(round._tool_call_failed(tcr) for tcr in round.toolcall_results):
-            return f"TOOL_FAILED: {len(round.toolcall_results)} tools"
-        else:
-            success_count = sum(1 for tcr in round.toolcall_results if not round._tool_call_failed(tcr))
-            return f"SUCCESS: {success_count}/{len(round.toolcall_results)} tools"
