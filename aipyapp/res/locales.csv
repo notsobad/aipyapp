@@ -471,7 +471,7 @@ Note: Click the "**Help**" link in the menu bar to contact the **AIPy** official
 "Completed receiving message","完成接收消息","メッセージの受信が完了しました"
 "Message parse result","消息解析结果","メッセージの解析結果"
 "Execution result","执行结果","実行結果"
-"tool call result {}","工具调用结果 {}","ツールの呼び出し結果 {}"
+"Tool call result {}","工具调用结果 {}","ツールの呼び出し結果 {}"
 "Task mode only","仅在任务模式下可用","タスクモードのみ"
 "Plugin name","插件名称","プラグイン名"
 "Plugin details","插件详情","プラグインの詳細"
@@ -546,3 +546,14 @@ Saved {} tokens,已保存 {} 个令牌,{} トークンを保存しました
 Context optimized for better performance,上下文已优化以提高性能,コンテキストはパフォーマンス向上のために最適化されました
 Context cleanup completed,上下文清理完成,コンテキストのクリーンアップが完了しました
 errors,错误,エラー
+Show subtask tree,显示子任务树,サブタスクツリーを表示
+Subtask tree,子任务树,サブタスクツリー
+Show nested subtasks recursively,递归显示嵌套子任务,ネストされたサブタスクを再帰的に表示
+Subtask ID,子任务 ID,サブタスクID
+Parent Task ID,父任务 ID,親タスクID
+List subtasks in table format,以表格格式列出子任务,表形式でサブタスクを一覧表示
+No subtasks found,未找到子任务,サブタスクが見つかりません
+Subtasks,子任务,サブタスク
+Subtask Details,子任务详情,サブタスクの詳細
+Subtask not found,子任务未找到,サブタスクが見つかりません
+Subtask Information,子任务信息,サブタスク情報
