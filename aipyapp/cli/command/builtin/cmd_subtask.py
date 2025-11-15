@@ -31,7 +31,7 @@ class SubTaskCommand(ParserCommand):
         subtasks = task.get_subtasks(reload=True)
 
         if not subtasks:
-            ctx.console.print(T("No subtasks found."))
+            ctx.console.print(T("No subtasks found"))
             return
 
         # Build table data
