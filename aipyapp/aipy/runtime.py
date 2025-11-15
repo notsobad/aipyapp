@@ -210,7 +210,7 @@ class CliPythonRuntime(PythonRuntime):
         Returns:
             CodeBlock: The code block objector None if not found
         """
-        return self.task.code_blocks.get_block_by_name(block_name)
+        return self.task.blocks.get_block_by_name(block_name)
     
     def call_function(self, name: str, **kwargs) -> Any:
         """
