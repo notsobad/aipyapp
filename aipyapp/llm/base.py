@@ -72,9 +72,9 @@ class ErrorMessage(Message):
 @dataclass
 class RetryConfig:
     max_attempts: int = 3
-    backoff_base: float = 0.5
+    backoff_base: float = 1.0
     backoff_factor: float = 2.0
-    jitter: float = 0.1
+    jitter: float = 1.0
 
     def backoff(self, attempt: int) -> float:
         # Exponential backoff with jitter
@@ -169,43 +169,24 @@ class BaseClient(ABC):
                     msg = self._parse_response(response)
                 break
             except (
-                # Explicit network/timeout exceptions considered retryable
-                TimeoutError,
                 httpx.RemoteProtocolError,
                 httpx.ReadTimeout,
                 httpx.ConnectTimeout,
                 httpx.HTTPStatusError,
                 httpx.ConnectError,
                 openai.APIConnectionError,
-                socket.timeout,
-                socket.gaierror,
-                ConnectionResetError,
-                ConnectionAbortedError,
-                ConnectionRefusedError,
-                BrokenPipeError,
+                openai.APITimeoutError,
             ) as e:
-                # For HTTPStatusError, only retry on 429 or 5xx
-                if isinstance(e, httpx.HTTPStatusError):
-                    status = getattr(
-                        getattr(e, "response", None), "status_code", None
-                    )
-                    retryable_status = (
-                        status == 429
-                        or (isinstance(status, int) and status >= 500)
-                    )
-                else:
-                    retryable_status = True
-
-                if ((not retryable_status) or (attempt >= self._retry.max_attempts)):
+                delay = self._retry.backoff(attempt)
+                self._log_retry(attempt, e, delay)
+                time.sleep(delay)
+                if attempt >= self._retry.max_attempts:
                     self.log.exception(
                         f"{self.name} API call failed after {attempt} attempt(s)",
                         e=e,
                     )
                     return ErrorMessage(content=f"{e} (attempts={attempt})")
 
-                delay = self._retry.backoff(attempt)
-                self._log_retry(attempt, e, delay)
-                time.sleep(delay)
             except Exception as e:
                 self.log.exception(
                     (
