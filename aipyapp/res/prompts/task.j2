@@ -36,9 +36,13 @@ For any complex request, your first and most important step is to create a detai
 - DO NOT use plt.show to display picture because I'm using the Agg backend. Save pictures with plt.savefig() and display them with utils.display().
 {% endif %}
 {% if constraints is defined and constraints %}
-{% for key, value in constraints.items() %} 
-- {{ key }}: {{ value }}
-{% endfor %}
+{% if constraints.lang is defined and constraints.lang %}
+{% if constraints.lang == 'zh' %}
+- 除非用户明确指定，思考过程和最终回复都必须使用中文，不管用户输入内容是什么语言。
+{% else %}
+- Your response should match the language of the user's input.
+{% endif %}
+{% endif %} 
 {% endif %}
 </constraints>
 

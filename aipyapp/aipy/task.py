@@ -12,7 +12,6 @@ from typing import Any, Dict, List, Union, TYPE_CHECKING
 from pathlib import Path
 from importlib.resources import read_text
 
-import requests
 from pydantic import BaseModel, Field, ValidationError, field_serializer, field_validator
 from loguru import logger
 
@@ -372,7 +371,7 @@ class Task(Stoppable):
         self.emit('task_completed', path=str(newname), task_id=self.task_id, parent_id=self.parent.task_id if self.parent else None)
         #self.context.diagnose.report_code_error(self.runner.history)
 
-    def prepare_user_prompt(self, instruction: str, first_run: bool=False) -> ChatMessage:
+    def prepare_user_prompt(self, instruction: str, first_run: bool=False, lang: str | None = None) -> ChatMessage:
         """处理多模态内容并验证模型能力"""
         mmc = MMContent(instruction, base_path=self.cwd.parent)
         try:
@@ -383,7 +382,8 @@ class Task(Stoppable):
         content = message.content
         if isinstance(content, str):
             if first_run:
-                content = self.prompts.get_task_prompt(content, gui=self.gui, parent=self.parent)
+                chat_lang = lang or self.settings.get('lang')
+                content = self.prompts.get_task_prompt(content, gui=self.gui, parent=self.parent, lang=chat_lang)
             else:
                 content = self.prompts.get_chat_prompt(content, self.instruction)
             message.content = content
@@ -411,13 +411,13 @@ class Task(Stoppable):
                     tokens_remaining=tokens_remaining)
         self.log.info(f"Step compact completed: {cleaned_count} messages cleaned")
 
-    def run(self, instruction: str, title: str | None = None) -> Response:
+    def run(self, instruction: str, title: str | None = None, lang: str | None = None) -> Response:
         """
         执行自动处理循环，直到 LLM 不再返回代码消息
         instruction: 用户输入的字符串（可包含@file等多模态标记）
         """
         first_run = not self.steps
-        user_message = self.prepare_user_prompt(instruction, first_run)
+        user_message = self.prepare_user_prompt(instruction, first_run, lang=lang)
         if first_run:
             self.context_manager.add_message(self.get_system_message())
             self.emit('task_started', instruction=instruction, title=title, task_id=self.task_id, parent_id=self.parent.task_id if self.parent else None)
