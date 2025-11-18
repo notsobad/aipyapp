@@ -10,10 +10,11 @@ if "pythonw" in sys.executable.lower():
     sys.stderr = open(os.devnull, "w", encoding='utf-8')
 
 from loguru import logger
-
 logger.remove()
-from .i18n import set_lang, T
+
+from .i18n import set_lang, T, get_lang
 from .aipy import CONFIG_DIR, ConfigManager
+
 logger.add(CONFIG_DIR / "aipyapp.log", format="{time:HH:mm:ss} | {level} | {message} | {extra}", level='INFO')
 
 def parse_args():
@@ -116,7 +117,11 @@ def handle_sync(conf, args):
 def init_settings(conf, args):
     settings = conf.get_config()
     lang = settings.get('lang')
-    if lang: set_lang(lang)
+    if lang: 
+        set_lang(lang)
+        settings.lang = lang
+    else:
+        settings.lang = get_lang()
     
     # 根据子命令设置gui模式
     command = getattr(args, 'command', None)

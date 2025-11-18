@@ -107,7 +107,7 @@ class Prompts:
         all_vars = {**extra_vars, **kwargs}
         return self.get_prompt('default', **all_vars)
 
-    def get_task_prompt(self, instruction: str, gui: bool = False, parent: Task | None = None) -> str:
+    def get_task_prompt(self, instruction: str, gui: bool = False, parent: Task | None = None, lang: str = None) -> str:
         """
         获取任务提示
         :param instruction: 用户输入的字符串
@@ -119,7 +119,7 @@ class Prompts:
         contexts['Today'] = datetime.now().strftime('%Y-%m-%d')
         if not gui:
             contexts['TERM'] = os.environ.get('TERM', 'unknown')
-        constraints = {}
+        constraints = {"lang": lang}
         return self.get_prompt('task', instruction=instruction, contexts=contexts, constraints=constraints, gui=gui, parent=parent)
     
     def get_toolcall_results_prompt(self, results: List[ToolCallResult]) -> str:
