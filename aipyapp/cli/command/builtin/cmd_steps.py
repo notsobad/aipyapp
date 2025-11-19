@@ -210,9 +210,27 @@ class StepsCommand(ParserCommand):
             # 统计信息
             active_rounds = sum(1 for r in step_data.rounds if not r.context_deleted)
             deleted_rounds = len(step_data.rounds) - active_rounds
-            
+
+            # Token 统计汇总
+            total_input_tokens = 0
+            total_output_tokens = 0
+            total_all_tokens = 0
+            rounds_with_tokens = 0
+
+            for round in step_data.rounds:
+                if round.llm_response and hasattr(round.llm_response, 'message') and round.llm_response.message and hasattr(round.llm_response.message, 'usage') and round.llm_response.message.usage:
+                    usage = round.llm_response.message.usage
+                    total_input_tokens += usage.get('input_tokens', 0)
+                    total_output_tokens += usage.get('output_tokens', 0)
+                    total_all_tokens += usage.get('total_tokens', 0)
+                    rounds_with_tokens += 1
+
             rounds_branch = tree.add(f"[bold]🔄 Rounds ({len(step_data.rounds)})[/bold]")
             stats_node = rounds_branch.add(f"[dim]📈 Context: {active_rounds} active, {deleted_rounds} deleted[/dim]")
+
+            # 添加 token 统计信息
+            if rounds_with_tokens > 0:
+                token_stats_node = rounds_branch.add(f"[dim]📊 Tokens: ↑{total_input_tokens} ↓{total_output_tokens} Σ{total_all_tokens} ({rounds_with_tokens} rounds)[/dim]")
             
             # 显示每个Round
             for i, round in enumerate(step_data.rounds):
@@ -251,8 +269,17 @@ class StepsCommand(ParserCommand):
                         type_text = f"TOOLS({total_tools-failed_tools}/{total_tools})"
                         type_color = "yellow"
                 
+                # 获取当前 round 的 token 统计
+                token_info = ""
+                if round.llm_response and hasattr(round.llm_response, 'message') and round.llm_response.message and hasattr(round.llm_response.message, 'usage') and round.llm_response.message.usage:
+                    usage = round.llm_response.message.usage
+                    input_tokens = usage.get('input_tokens', 0)
+                    output_tokens = usage.get('output_tokens', 0)
+                    total_tokens = usage.get('total_tokens', 0)
+                    token_info = f" [dim]📊 ↑{input_tokens} ↓{output_tokens} Σ{total_tokens}[/dim]"
+
                 # 创建Round节点
-                round_title = f"{status_icon} [{status_color}]Round {i} - {status_text}[/{status_color}] [{type_color}]{type_icon} {type_text}[/{type_color}]"
+                round_title = f"{status_icon} [{status_color}]Round {i} - {status_text}[/{status_color}] [{type_color}]{type_icon} {type_text}[/{type_color}]{token_info}"
                 round_node = rounds_branch.add(round_title)
                 
                 # LLM回复内容
