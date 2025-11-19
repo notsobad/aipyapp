@@ -2,15 +2,20 @@
 # -*- coding: utf-8 -*-
 
 import time
+import random
+from dataclasses import dataclass
+import socket
 from enum import Enum
 from collections import Counter
 from abc import ABC, abstractmethod
 from typing import Union, List, Dict, Any, Literal
 
 from loguru import logger
+import httpx
+import openai
 from pydantic import BaseModel, Field
 
-from .. import T
+
 
 class TextItem(BaseModel):
     type: Literal['text'] = 'text'
@@ -63,6 +68,20 @@ class AIMessage(Message):
 class ErrorMessage(Message):
     role: Literal[MessageRole.ERROR] = MessageRole.ERROR
 
+
+@dataclass
+class RetryConfig:
+    max_attempts: int = 3
+    backoff_base: float = 1.0
+    backoff_factor: float = 2.0
+    jitter: float = 1.0
+
+    def backoff(self, attempt: int) -> float:
+        # Exponential backoff with jitter
+        delay = self.backoff_base * (self.backoff_factor ** (attempt - 1))
+        delay += random.uniform(0, self.jitter)
+        return delay
+
 class BaseClient(ABC):
     MODEL = None
     BASE_URL = None
@@ -86,6 +105,8 @@ class BaseClient(ABC):
         params.update(config.get("params", {}))
         self._params = params
         self._temperature = params.get("temperature") or self.TEMPERATURE
+
+        self._retry = RetryConfig()
 
     @property
     def model(self):
@@ -129,22 +150,67 @@ class BaseClient(ABC):
     def _parse_response(self, response) -> AIMessage:
         pass
     
-    def __call__(self, messages: list[Dict[str, Any]], stream_processor=None, **kwargs) -> AIMessage | ErrorMessage:
+    def __call__(
+        self,
+        messages: list[Dict[str, Any]],
+        stream_processor=None,
+        **kwargs,
+    ) -> AIMessage | ErrorMessage:
         messages = self._prepare_messages(messages)
         start = time.time()
-        try:
-            response = self.get_completion(messages, **kwargs)
+        attempt = 0
+        while True:
+            attempt += 1
+            try:
+                response = self.get_completion(messages, **kwargs)
+                if self._stream:
+                    msg = self._parse_stream_response(response, stream_processor)
+                else:
+                    msg = self._parse_response(response)
+                break
+            except (
+                httpx.RemoteProtocolError,
+                httpx.ReadTimeout,
+                httpx.ConnectTimeout,
+                httpx.HTTPStatusError,
+                httpx.ConnectError,
+                openai.APIConnectionError,
+                openai.APITimeoutError,
+            ) as e:
+                delay = self._retry.backoff(attempt)
+                self._log_retry(attempt, e, delay)
+                time.sleep(delay)
+                if attempt >= self._retry.max_attempts:
+                    self.log.exception(
+                        f"{self.name} API call failed after {attempt} attempt(s)",
+                        e=e,
+                    )
+                    return ErrorMessage(content=f"{e} (attempts={attempt})")
 
-            if self._stream:
-                msg = self._parse_stream_response(response, stream_processor)
-            else:
-                msg = self._parse_response(response)
-        except Exception as e:
-            self.log.exception(f"{self.name} API Call failed", e=e)
-            return ErrorMessage(content=str(e))
+            except Exception as e:
+                self.log.exception(
+                    (
+                        f"{self.name} API call encountered non-retryable "
+                        f"error on attempt {attempt}"
+                    ),
+                    e=e,
+                )
+                return ErrorMessage(content=f"{e} (attempts={attempt})")
 
         msg.usage['time'] = int(time.time() - start)
+        msg.usage['retries'] = attempt - 1
         if not msg.content:
             self.log.warning("Got empty LLM response")
         return msg
-    
+
+    def _log_retry(self, attempt: int, e: Exception, delay: float) -> None:
+        """Log retry info to logger and print to terminal."""
+        msg = (
+            f"{self.name} API error attempt {attempt}/{self._retry.max_attempts}, "
+            f"retrying in {delay:.2f}s: {e}"
+        )
+        self.log.warning(msg)
+        try:
+            print(msg, flush=True)
+        except (BrokenPipeError, OSError):
+            pass
