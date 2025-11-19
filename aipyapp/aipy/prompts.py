@@ -13,7 +13,7 @@ import re
 from datetime import datetime
 from typing import List, TYPE_CHECKING, Dict, Optional
 
-from jinja2 import Environment, FileSystemLoader, select_autoescape
+from jinja2 import Environment, FileSystemLoader
 
 from .. import __respath__
 from .toolcalls import ToolCallResult
@@ -81,7 +81,7 @@ def check_commands(commands):
             version_match = re.search(r"\bv?\d+(\.\d+){1,2}\b", output)
             version = version_match.group(0) if version_match else output.strip()
             result[cmd] = version
-        except Exception as e:
+        except Exception:
             pass
 
     return result

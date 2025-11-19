@@ -96,23 +96,23 @@ class DisplayModern(RichDisplayPlugin):
         """LLM 响应完成事件处理"""
         llm = event.typed_event.llm
         msg = event.typed_event.msg
-        
+
         if not msg:
             self.console.print(f"❌ {T('LLM response is empty')}", style="red")
             return
-            
+
         if msg.role == 'error':
             self.console.print(f"❌ {msg.content}", style="red")
             return
-            
+
         # 处理响应内容
         if msg.reason:
             content = f"{msg.reason}\n\n-----\n\n{msg.content}"
         else:
             content = msg.content
-            
+
         # 智能解析和显示内容
-        self._parse_and_display_content(content, llm)
+        self._parse_and_display_content(content, llm, msg)
         
     def on_task_status(self, event):
         """任务状态事件处理"""
@@ -381,31 +381,33 @@ class DisplayModern(RichDisplayPlugin):
             panel = Panel(content, title=title, border_style="red")
             self.console.print(panel)
         
-    def _parse_and_display_content(self, content: str, llm: str = ""):
+    def _parse_and_display_content(self, content: str, llm: str = "", msg=None):
         """智能解析并显示内容"""
         if not content:
             return
-            
+
         # 检测是否包含代码块
         if '```' in content:
-            self._show_content_with_code_blocks(content, llm)
+            self._show_content_with_code_blocks(content, llm, msg)
         else:
-            self._show_text_content(content, llm)
+            self._show_text_content(content, llm, msg)
             
-    def _show_content_with_code_blocks(self, content: str, llm: str = ""):
+    def _show_content_with_code_blocks(self, content: str, llm: str = "", msg=None):
         """显示包含代码块的内容"""
         lines = content.split('\n')
         in_code_block = False
         code_lang = ""
         code_content = []
         text_content = []
-        
+        first_block = True  # Track first block for title display
+
         for line in lines:
             if line.startswith('```'):
                 if in_code_block:
                     # 结束代码块
                     if code_content:
-                        self._show_code_block_content(code_lang, '\n'.join(code_content))
+                        self._show_code_block_content(code_lang, '\n'.join(code_content), llm, msg if first_block else None)
+                        first_block = False
                     in_code_block = False
                     code_content = []
                 else:
@@ -417,23 +419,44 @@ class DisplayModern(RichDisplayPlugin):
             else:
                 # 普通文本行
                 text_content.append(line)
-                
+
         # 显示文本内容
         if text_content:
             text = '\n'.join(text_content).strip()
             if text:
-                self._show_text_content(text, llm)
+                self._show_text_content(text, llm, msg)
                     
-    def _show_text_content(self, content: str, llm: str = ""):
+    def _show_text_content(self, content: str, llm: str = "", msg=None):
         """显示纯文本内容"""
         if not content.strip():
             return
-            
+
         # 使用 Markdown 渲染文本内容
         try:
             markdown = Markdown(content)
             if llm:
-                title = Text(f"🤖 {llm}", style="bold cyan")
+                # Build title with token statistics if available
+                base_title = Text(f"🤖 {llm}", style="bold cyan")
+
+                if msg and hasattr(msg, 'usage') and msg.usage:
+                    input_tokens = msg.usage.get('input_tokens', 0)
+                    output_tokens = msg.usage.get('output_tokens', 0)
+                    total_tokens = msg.usage.get('total_tokens', 0)
+
+                    # Add token stats in Modern style: [gpt-4: ↑123 ↓45 Σ789]
+                    stats_text = Text()
+                    stats_text.append(" [", style="dim white")
+                    stats_text.append(f"{llm}:", style="cyan")
+                    stats_text.append(f" ↑{input_tokens}", style="green")
+                    stats_text.append(f" ↓{output_tokens}", style="yellow")
+                    stats_text.append(f" Σ{total_tokens}", style="magenta")
+                    stats_text.append("]", style="dim white")
+
+                    title = base_title
+                    title.append(stats_text)
+                else:
+                    title = base_title
+
                 panel = Panel(markdown, title=title, border_style="cyan")
             else:
                 panel = Panel(markdown, border_style="white")
@@ -452,13 +475,37 @@ class DisplayModern(RichDisplayPlugin):
             # 兼容其他格式
             self.console.print(f"📝 {T('Code block')}", style="dim white")
             
-    def _show_code_block_content(self, lang: str, code: str, name: str = None):
+    def _show_code_block_content(self, lang: str, code: str, name: str = None, llm: str = None, msg=None):
         """显示代码块内容"""
         if not code.strip():
             return
-            
-        title = f"📝 {name or T('Code')} ({lang})"
-        
+
+        # Build title with LLM name and token stats if available
+        if llm and msg and hasattr(msg, 'usage') and msg.usage:
+            input_tokens = msg.usage.get('input_tokens', 0)
+            output_tokens = msg.usage.get('output_tokens', 0)
+            total_tokens = msg.usage.get('total_tokens', 0)
+
+            # Create title with token stats: 📝 Code (python) [gpt-4: ↑123 ↓45 Σ789]
+            title_parts = []
+            title_parts.append(f"📝 {name or T('Code')} ({lang})")
+
+            stats_text = Text()
+            stats_text.append(" [", style="dim white")
+            stats_text.append(f"{llm}:", style="cyan")
+            stats_text.append(f" ↑{input_tokens}", style="green")
+            stats_text.append(f" ↓{output_tokens}", style="yellow")
+            stats_text.append(f" Σ{total_tokens}", style="magenta")
+            stats_text.append("]", style="dim white")
+
+            title = Text()
+            title.append(" ".join(title_parts), style="bold blue")
+            title.append(stats_text)
+        elif llm:
+            title = f"📝 {name or T('Code')} ({lang}) - {llm}"
+        else:
+            title = f"📝 {name or T('Code')} ({lang})"
+
         # 使用语法高亮显示代码
         syntax = Syntax(code, lang, line_numbers=True, word_wrap=True)
         panel = Panel(syntax, title=title, border_style="blue")

@@ -39,16 +39,16 @@ def parse_args():
     update_parser.add_argument('--beta', action='store_true', help='Include beta versions in update')
 
     # sync 子命令 - 不需要 style/role
-    sync_parser = subparsers.add_parser('sync', help='Sync content from trustoken')
+    subparsers.add_parser('sync', help='Sync content from trustoken')
 
     # python 子命令 - 继承 common_args
-    python_parser = subparsers.add_parser('python', help='Python mode', parents=[common_args])
+    subparsers.add_parser('python', help='Python mode', parents=[common_args])
 
     # ipython 子命令 - 继承 common_args
-    ipython_parser = subparsers.add_parser('ipython', help='IPython mode', parents=[common_args])
+    subparsers.add_parser('ipython', help='IPython mode', parents=[common_args])
 
     # gui 子命令 - 继承 common_args
-    gui_parser = subparsers.add_parser('gui', help='GUI mode', parents=[common_args])
+    subparsers.add_parser('gui', help='GUI mode', parents=[common_args])
 
     # run 子命令 - 继承 common_args，合并原来的 exec 和 run 功能
     run_parser = subparsers.add_parser('run', help='CMD mode - execute instruction or run JSON file', parents=[common_args])
