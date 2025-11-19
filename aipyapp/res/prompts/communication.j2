@@ -153,6 +153,7 @@ There are three methods for parent-subtask communication:
    - **Advantages:** Can handle large objects, supports binary formats.
 </subtask_tool>
 
+{% if features.has('survey') %}
 <survey_tool>
 **Survey Tool: Collecting User Information through Interactive Surveys**:
 - `name`: `Survey`
@@ -187,6 +188,7 @@ Use a survey when you **must** ask the user for information to complete a task (
 
 For detailed guidance on when to use surveys, survey structure, and best practices, see <survey_guide>.
 </survey_tool>
+{% endif %}
 </tool_call_commands>
 
 <good_example>
@@ -295,6 +297,8 @@ print(f"Summary: {report['summary']}")
 
 </output_format>
 
+{% if features.has('task_status') %}
 {% include "task_status_header.j2" %}
+{% endif %}
 
 </communication_rules>

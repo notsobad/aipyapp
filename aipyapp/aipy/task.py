@@ -29,6 +29,7 @@ from .step import Step, StepData
 from .blocks import CodeBlocks
 from .client import Client
 from .response import Response
+from .prompts import Prompts
 
 if TYPE_CHECKING:
     from .taskmgr import TaskManager
@@ -166,7 +167,7 @@ class Task(Stoppable):
         
         # Phase 5: Initialize execution components (depend on task)
         self.mcp = manager.mcp
-        self.prompts = manager.prompts
+        self.prompts = Prompts(features=self.role.get_features())
         self.client_manager = manager.client_manager
         self.runtime = CliPythonRuntime(self)
         self.runner = BlockExecutor()

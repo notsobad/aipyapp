@@ -37,6 +37,7 @@ class Role:
         self.packages: Dict[str, set[str]] = {}
         self.tips: Dict[str, Tip] = {}
         self.plugins: Dict[str, Dict[str, Any]] = {}
+        self.features: Dict[str, bool] = {}
 
     def get_tip(self, name: str) -> Optional[Tip]:
         """获取指定名称的提示信息"""
@@ -53,6 +54,18 @@ class Role:
 
     def add_plugin(self, name: str, data: Dict[str, Any]):
         self.plugins[name] = data
+
+    def set_feature(self, name: str, enabled: bool):
+        """设置功能开关"""
+        self.features[name] = enabled
+
+    def get_feature(self, name: str, default: bool = False) -> bool:
+        """获取功能开关状态"""
+        return self.features.get(name, default)
+
+    def get_features(self) -> Dict[str, bool]:
+        """获取所有功能开关"""
+        return self.features.copy()
 
     def __iter__(self):
         return iter(self.tips.items())
@@ -100,7 +113,13 @@ class Role:
         plugins_data = data.get('plugins', {})
         for plugin_name, plugin_data in plugins_data.items():
             role.add_plugin(plugin_name, plugin_data)
-        
+
+        # 加载功能开关
+        features_data = data.get('features', {})
+        for feature_name, enabled in features_data.items():
+            if isinstance(enabled, bool):
+                role.set_feature(feature_name, enabled)
+
         return role
 
     @classmethod

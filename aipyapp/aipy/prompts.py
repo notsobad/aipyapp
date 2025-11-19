@@ -11,7 +11,7 @@ import shutil
 import subprocess
 import re
 from datetime import datetime
-from typing import List, TYPE_CHECKING
+from typing import List, TYPE_CHECKING, Dict, Optional
 
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
@@ -20,6 +20,37 @@ from .toolcalls import ToolCallResult
 
 if TYPE_CHECKING:
     from .task import Task
+
+class PromptFeatures:
+    """
+    灵活的功能开关管理类，支持任意字符串功能名称
+    """
+    def __init__(self, features: Optional[Dict[str, bool]] = None):
+        self.features = features or {}
+
+    def has(self, feature_name: str) -> bool:
+        """检查功能是否存在且为true"""
+        return self.features.get(feature_name, False)
+
+    def enabled(self, feature_name: str) -> bool:
+        """has的别名"""
+        return self.has(feature_name)
+
+    def get(self, feature_name: str, default: bool = False) -> bool:
+        """获取功能值，支持默认值"""
+        return self.features.get(feature_name, default)
+
+    def set(self, feature_name: str, value: bool):
+        """设置功能值"""
+        self.features[feature_name] = value
+
+    def update(self, features: Dict[str, bool]):
+        """批量更新功能"""
+        self.features.update(features)
+
+    def to_dict(self) -> Dict[str, bool]:
+        """转换为字典"""
+        return self.features.copy()
 
 def check_commands(commands):
     """
@@ -56,7 +87,7 @@ def check_commands(commands):
     return result
 
 class Prompts:
-    def __init__(self, template_dir: str = None):
+    def __init__(self, template_dir: str = None, features: Optional[Dict]= None):
         if not template_dir:
             template_dir = __respath__ / 'prompts'
         self.template_dir = os.path.abspath(template_dir)
@@ -66,9 +97,9 @@ class Prompts:
             loader=FileSystemLoader(self.template_dir),
             #autoescape=select_autoescape(['j2'])
         )
-        self._init_env()  # 调用 _init_env 方法注册全局变量
+        self._init_env(features)  # 调用 _init_env 方法注册全局变量
 
-    def _init_env(self):
+    def _init_env(self, features: Optional[Dict[str, bool]] = None):
         # 可以在这里注册全局变量或 filter
         commands_to_check = {
             "node": ["--version"],
@@ -81,6 +112,9 @@ class Prompts:
         self.env.globals['os'] = osinfo
         self.env.globals['python_version'] = platform.python_version()
         self.env.filters['tojson'] = lambda x: json.dumps(x, ensure_ascii=False, default=str)
+
+        # 注册默认的 features 对象
+        self.env.globals['features'] = PromptFeatures(features or {})
 
     def get_prompt(self, template_name: str, **kwargs) -> str:
         """
@@ -99,13 +133,11 @@ class Prompts:
     def get_default_prompt(self, **kwargs) -> str:
         """
         使用 default.jinja 模板，自动补充部分变量后渲染
+        :param role: 角色对象，用于加载角色特定的功能开关
         :param kwargs: 用户传入的模板变量
         :return: 渲染后的字符串
         """
-        # 自动补充变量
-        extra_vars = {}
-        all_vars = {**extra_vars, **kwargs}
-        return self.get_prompt('default', **all_vars)
+        return self.get_prompt('default', **kwargs)
 
     def get_task_prompt(self, instruction: str, gui: bool = False, parent: Task | None = None, lang: str = None) -> str:
         """
