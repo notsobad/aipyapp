@@ -12,7 +12,6 @@ from rich.markdown import Markdown
 from rich.tree import Tree
 from rich.text import Text
 from rich.console import Console
-from rich.progress import Progress, BarColumn, TaskProgressColumn, TextColumn
 
 from aipyapp.display import RichDisplayPlugin
 from live_display import LiveDisplay
@@ -126,18 +125,39 @@ class DisplayClassic(RichDisplayPlugin):
             title = self._get_title(T("LLM response is empty"), style="error")
             self.console.print(title)
             return
-        
+
         if msg.role == 'error':
             title = self._get_title(T("Failed to receive message"), style="error")
             tree = Tree(title)
             tree.add(msg.content)
             self.console.print(tree)
             return
-        
+
         content = self.convert_front_matter(msg.content)
         if msg.reason:
             content = f"{msg.reason}\n\n-----\n\n{content}"
-        title = self._get_title(f"{T('Completed receiving message')} ({llm})", style="success")
+
+        # Build title with compact token statistics if available
+        title_base = f"{T('Completed receiving message')}"
+        if hasattr(msg, 'usage') and msg.usage:
+            input_tokens = msg.usage.get('input_tokens', 0)
+            output_tokens = msg.usage.get('output_tokens', 0)
+            total_tokens = msg.usage.get('total_tokens', 0)
+            # Create colored token stats: [gpt-4: ↑123 ↓45 Σ789]
+            stats_text = Text()
+            stats_text.append(" [", style="success")
+            stats_text.append(f"{llm}:", style="cyan")
+            stats_text.append(f" ↑{input_tokens}", style="green")
+            stats_text.append(f" ↓{output_tokens}", style="yellow")
+            stats_text.append(f" Σ{total_tokens}", style="magenta")
+            stats_text.append("]", style="success")
+
+            title = Text()
+            title.append(f"● {title_base}", style="success")
+            title.append(stats_text)
+        else:
+            title = self._get_title(f"{title_base} ({llm})", style="success")
+
         tree = Tree(title)
         tree.add(Markdown(content))
         self.console.print(tree)

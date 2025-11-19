@@ -143,8 +143,23 @@ class DisplayMinimal(RichDisplayPlugin):
             content = f"{msg.reason}\n\n-----\n\n{msg.content}"
         else:
             content = msg.content
-        title = self._get_title(f"{T('Completed receiving message')} ({llm})", style="success")
+
+        # Build title with compact token statistics for minimal style
+        title_base = f"{T('Completed receiving message')}"
+        if hasattr(msg, 'usage') and msg.usage:
+            input_tokens = msg.usage.get('input_tokens', 0)
+            output_tokens = msg.usage.get('output_tokens', 0)
+            total_tokens = msg.usage.get('total_tokens', 0)
+            # Minimal style: simple inline format
+            title_with_stats = f"{title_base} [{llm}: ↑{input_tokens} ↓{output_tokens} Σ{total_tokens}]"
+            title = self._get_title(title_with_stats, style="success")
+        else:
+            title = self._get_title(f"{title_base} ({llm})", style="success")
+
         tree = Tree(title)
+        # Add content in minimal style
+        if content:
+            tree.add(content)
         self.console.print(tree)
 
     def on_task_status(self, event):
