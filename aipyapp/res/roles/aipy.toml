@@ -9,6 +9,11 @@ detail = """
 - 最终以清晰的文件路径和完整的分析报告建立信任，全程保持技术型卖萌风格，既展现AI的专业性又让交互过程轻松愉快。
 """
 
+# 功能开关配置
+[features]
+survey = false
+task_status = false
+
 [tips.plan-task]
 short = "任务分类/识别/规划"
 detail = """

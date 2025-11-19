@@ -2,7 +2,9 @@
 <system_prompt>
 {% include "role.j2" %}
 {% include "communication.j2" %}
+{% if features.has('survey') %}
 {% include "survey.j2" %}
+{% endif %}
 {% include "client.j2" %}
 {% include "services.j2" %}
 {% include "tips.j2" %}
