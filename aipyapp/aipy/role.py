@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 from typing import List, Dict, Any, Optional
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 import tomllib
 import os
 
