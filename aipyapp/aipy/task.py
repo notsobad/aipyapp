@@ -8,6 +8,7 @@ import json
 import uuid
 import zlib
 import base64
+import weakref
 from typing import Any, Dict, List, Union, TYPE_CHECKING
 from pathlib import Path
 from importlib.resources import read_text
@@ -25,7 +26,7 @@ from .multimodal import MMContent
 from .context import ContextManager, ContextData
 from .toolcalls import ToolCallProcessor
 from .chat import MessageStorage, ChatMessage
-from .step import Step, StepData
+from .step import Step, StepData, StepType, CompressionConfig, CompressionStrategy
 from .blocks import CodeBlocks
 from .client import Client
 from .response import Response
@@ -112,7 +113,7 @@ class Task(Stoppable):
 
         # Phase 1: Initialize basic attributes (no dependencies)
         self.data = data
-        self.parent = parent
+        self._parent = weakref.ref(parent) if parent else None
         self.task_id = data.id
         self.manager = manager
         self.settings = manager.settings
@@ -129,12 +130,6 @@ class Task(Stoppable):
         self.role = manager.role_manager.current_role
         
         # Phase 2: Initialize data objects (minimal dependencies)
-        if parent:
-            pass
-            #data.context = parent.context.model_copy(deep=True)
-            #data.message_storage = parent.message_storage.model_copy(deep=True)
-            #data.blocks = parent.blocks.model_copy(deep=True)
-
         self.blocks = data.blocks
         self.message_storage = data.message_storage
         self.context = data.context
@@ -197,6 +192,10 @@ class Task(Stoppable):
             self.event_bus.add_listener(plugin)
             plugins[plugin_name] = plugin
         self.plugins = plugins
+
+    @property
+    def parent(self):
+        return self._parent() if self._parent else None
 
     @property
     def instruction(self):
