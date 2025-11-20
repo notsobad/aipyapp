@@ -147,7 +147,7 @@ class Task(Stoppable):
             self.session = data.session
         
         # Phase 3: Initialize managers and processors (depend on Phase 2)
-        self.event_bus = TypedEventBus() if not parent else parent.event_bus
+        self.event_bus = TypedEventBus()
         self.context_manager = ContextManager(
             self.message_storage,
             self.context,
@@ -156,14 +156,11 @@ class Task(Stoppable):
         self.tool_call_processor = ToolCallProcessor() if not parent else parent.tool_call_processor
         
         # Phase 4: Initialize display (depends on event_bus)
-        if not parent:
-            if manager.display_manager:
-                self.display = manager.display_manager.create_display_plugin()
-                self.event_bus.add_listener(self.display)
-            else:
-                self.display = None
+        if manager.display_manager:
+            self.display = manager.display_manager.create_display_plugin()
+            self.event_bus.add_listener(self.display)
         else:
-            self.display = parent.display
+            self.display = None
         
         # Phase 5: Initialize execution components (depend on task)
         self.mcp = manager.mcp
@@ -370,7 +367,6 @@ class Task(Stoppable):
 
         self.log.info('Task done', path=newname)
         self.emit('task_completed', path=str(newname), task_id=self.task_id, parent_id=self.parent.task_id if self.parent else None)
-        #self.context.diagnose.report_code_error(self.runner.history)
 
     def prepare_user_prompt(self, instruction: str, first_run: bool=False, lang: str | None = None) -> ChatMessage:
         """处理多模态内容并验证模型能力"""
