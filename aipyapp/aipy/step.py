@@ -101,6 +101,20 @@ class Step:
         self._data = data
         self._summary = Counter()
         self._cleaner = StepCleaner(task.context_manager)
+
+        # 从现有数据初始化 summary counter
+        self._initialize_summary_from_existing_data()
+
+    def _initialize_summary_from_existing_data(self):
+        """从现有 rounds 中初始化 summary counter"""
+        for round_data in self._data.rounds:
+            if (round_data.llm_response and
+                hasattr(round_data.llm_response, 'message') and
+                round_data.llm_response.message and
+                hasattr(round_data.llm_response.message, 'usage')):
+                usage = round_data.llm_response.message.usage
+                if usage:
+                    self._summary.update(usage)
     
     @property
     def data(self):
@@ -186,7 +200,8 @@ class Step:
         summary['elapsed_time'] = int(self['end_time'] - self['start_time'])
         summary['rounds'] = len(self['rounds'])
         summarys = "{rounds} | {elapsed_time}s | Tokens: {input_tokens}/{output_tokens}/{total_tokens}".format(**summary)
-        return {'summary': summarys}
+        summary['summary'] = summarys
+        return summary
 
     def cleanup(self) -> tuple[int, int, int, int]:
         """清理步骤消息"""
