@@ -16,10 +16,11 @@ class SubTaskCommand(ParserCommand):
     modes = [CommandMode.TASK]
 
     def add_subcommands(self, subparsers):
-        subparsers.add_parser('list', help=T('List subtasks in table format'))
-        parser = subparsers.add_parser('show', help=T('Show detailed information about a specific subtask'))
-        parser.add_argument('tid', help=T('Task ID of the subtask to show'))
-        parser.add_argument('--rounds', action='store_true', help=T('Show detailed step rounds information'))
+        parser = subparsers.add_parser('list', help=T('List subtasks in tree format'))
+        parser.add_argument('--full-response', action='store_true', help=T('Show complete response text instead of preview'))
+        parser_show = subparsers.add_parser('show', help=T('Show detailed information about a specific subtask'))
+        parser_show.add_argument('tid', help=T('Task ID of the subtask to show'))
+        parser_show.add_argument('--rounds', action='store_true', help=T('Show detailed step rounds information'))
 
     def get_arg_values(self, name, subcommand=None, partial=None):
         """为 tid 参数提供补齐值，path 参数由 PathCompleter 处理"""
@@ -28,12 +29,92 @@ class SubTaskCommand(ParserCommand):
             return [(task.task_id, task.instruction[:32]) for task in tasks]
         return None
     
+    def _aggregate_subtask_stats(self, subtask):
+        """聚合子任务的统计信息"""
+        total_rounds = 0
+        total_input_tokens = 0
+        total_output_tokens = 0
+        total_elapsed_time = 0
+
+        for step in subtask.steps:
+            # 直接使用 get_summary()，因为现在应该返回正确的值
+            summary = step.get_summary()
+            total_rounds += summary['rounds']
+            total_input_tokens += summary['input_tokens']
+            total_output_tokens += summary['output_tokens']
+            total_elapsed_time += summary['elapsed_time']
+
+        return {
+            'rounds': total_rounds,
+            'input_tokens': total_input_tokens,
+            'output_tokens': total_output_tokens,
+            'total_tokens': total_input_tokens + total_output_tokens,
+            'elapsed_time': total_elapsed_time
+        }
+
+    def _extract_subtask_data(self, subtask, full_response=False):
+        """提取子任务数据用于树状显示"""
+        # 提取 instruction（完整显示）
+        instruction = subtask.instruction or "No instruction"
+
+        # 提取 response
+        response = ""
+        if subtask.steps:
+            last_step = subtask.steps[-1]
+            response_text = last_step['final_response'].message.content or ""
+
+            if full_response:
+                response = response_text
+            else:
+                # 获取第一行用于预览
+                lines = response_text.split('\n')
+                if len(lines) > 1:
+                    response = lines[0] + "..."
+                else:
+                    response = response_text
+
+        # 聚合统计信息
+        stats = self._aggregate_subtask_stats(subtask)
+
+        return instruction, response, stats
+
+    def _add_subtask_to_tree(self, tree, subtask, full_response=False):
+        """递归添加子任务到树中"""
+        instruction, response, stats = self._extract_subtask_data(subtask, full_response)
+
+        # 创建以 task_id 为根的子树
+        task_node = tree.add(f"📋 [cyan]{subtask.task_id}[/cyan]")
+
+        # 按顺序添加树叶
+        # 1. Instruction（完整显示）
+        task_node.add(f"📝 {instruction}")
+
+        # 2. 统计信息
+        task_node.add(f"🔄 {stats['rounds']} rounds in {len(subtask.steps)} steps")
+
+        # 格式化 token 显示
+        tokens_text = f"📊 Tokens: ↑{stats['input_tokens']} ↓{stats['output_tokens']} Σ{stats['total_tokens']}"
+        if stats['elapsed_time'] > 0:
+            tokens_text += f" ({stats['elapsed_time']}s)"
+        task_node.add(tokens_text)
+
+        # 3. Response 作为最后一个叶子
+        if response:
+            task_node.add(f"💬 {response}")
+        else:
+            task_node.add("💬 [dim]No response available[/dim]")
+
+        # 递归添加子任务的子任务
+        if hasattr(subtask, 'subtasks') and subtask.subtasks:
+            for child_subtask in subtask.subtasks:
+                self._add_subtask_to_tree(task_node, child_subtask, full_response)
+
     def cmd(self, args, ctx):
         """Default command: show list"""
         return self.cmd_list(args, ctx)
 
     def cmd_list(self, args, ctx):
-        """Display subtasks in table format"""
+        """Display subtasks in tree format with Panels"""
         task = ctx.task
         subtasks = task.subtasks
 
@@ -41,45 +122,15 @@ class SubTaskCommand(ParserCommand):
             ctx.console.print(T("No subtasks found"))
             return
 
-        # Build table data
-        rows = []
-        for i, subtask in enumerate(subtasks):
-            # Instruction with 32 character truncation and ellipsis
-            if subtask.instruction:
-                instruction = subtask.instruction[:32] + "..." if len(subtask.instruction) > 32 else subtask.instruction
-            else:
-                instruction = "N/A"
+        # 创建根树
+        root_tree = Tree(f"[bold green]🌳 Subtasks Tree[/bold green]")
 
-            # Status
-            if subtask.steps:
-                if subtask.steps[-1].data.end_time:
-                    status = "✅ COMPLETED"
-                    status_color = "green"
-                else:
-                    status = "⏳ RUNNING"
-                    status_color = "yellow"
-            else:
-                status = "❓ UNKNOWN"
-                status_color = "dim"
+        # 递归添加所有子任务
+        for subtask in subtasks:
+            self._add_subtask_to_tree(root_tree, subtask, getattr(args, 'full_response', False))
 
-            # Time info
-            if subtask.steps:
-                start = datetime.fromtimestamp(subtask.steps[0].data.start_time).strftime('%H:%M:%S')
-                if subtask.steps[-1].data.end_time:
-                    end = datetime.fromtimestamp(subtask.steps[-1].data.end_time).strftime('%H:%M:%S')
-                    duration = subtask.steps[-1].data.end_time - subtask.steps[0].data.start_time
-                    time_info = f"{start}-{end} ({duration:.1f}s)"
-                else:
-                    time_info = f"{start} (running)"
-            else:
-                time_info = "N/A"
-
-            rows.append([subtask.task_id, time_info, instruction])
-
-        table = row2table(rows,
-                         title=T('Subtasks'),
-                         headers=[T('Task ID'), T('Time'), T('Instruction')])
-        ctx.console.print(table)
+        # 显示树状结构（包含 Panel 叶子节点）
+        ctx.console.print(root_tree)
 
     def cmd_show(self, args, ctx):
         """Display detailed information about a specific subtask"""
