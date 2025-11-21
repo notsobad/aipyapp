@@ -10,9 +10,7 @@ from .client_oauth2 import OAuth2Client
 from .models import ModelRegistry
 from .config import create_client_config
 
-class OpenAIClient(OpenAIBaseClient): 
-    MODEL = 'gpt-4o'
-
+class OpenAIBaseClientV2(OpenAIBaseClient): 
     def get_api_params(self, **kwargs):
         params = super().get_api_params(**kwargs)
 
@@ -21,7 +19,10 @@ class OpenAIClient(OpenAIBaseClient):
         if max_tokens is not None:
             params['max_completion_tokens'] = max_tokens
         return params
-    
+
+class OpenAIClient(OpenAIBaseClientV2): 
+    MODEL = 'gpt-4o'
+
 class GeminiClient(OpenAIBaseClient): 
     BASE_URL = 'https://generativelanguage.googleapis.com/v1beta/'
     MODEL = 'gemini-2.5-flash'
@@ -41,7 +42,7 @@ class TrustClient(OpenAIBaseClient):
     def base_url(self):
         return self.config.base_url or T("https://sapi.trustoken.ai/v1")
     
-class AzureOpenAIClient(OpenAIBaseClient):
+class AzureOpenAIClient(OpenAIBaseClientV2):
     MODEL = 'gpt-4o'
 
     @property
