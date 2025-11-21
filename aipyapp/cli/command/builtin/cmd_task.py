@@ -47,6 +47,27 @@ class TaskCommand(ParserCommand):
         task = ctx.tm.load_task(args.path)
         return TaskModeResult(task=task)
 
+    def _replay_task(self, event_bus, task, speed=1.0):
+        if not task.steps:
+            return
+
+        prev_event = None
+        subtask_index = 0
+        for i, event in enumerate(task.events):
+            # 计算等待时间
+            if i > 0:
+                wait_time = (event.timestamp - prev_event.timestamp) / speed
+                if wait_time > 0:
+                    time.sleep(wait_time)
+            
+            event_bus.emit_event(event)
+
+            if event.name == 'tool_call_started' and event.tool_call.name == 'SubTask':
+                event = self._replay_task(event_bus, task.subtasks[subtask_index], speed)
+                subtask_index += 1
+            prev_event = event
+        return event
+
     def cmd_replay(self, args, ctx):
         task = ctx.tm.load_task(args.path)
         if not task.steps:
@@ -56,17 +77,9 @@ class TaskCommand(ParserCommand):
         display = ctx.tm.display_manager.create_display_plugin()
         event_bus = TypedEventBus()
         event_bus.add_listener(display)
+        speed = args.speed if args.speed > 0 else 1.0
         
-        prev_event = None
-        for i, event in enumerate(task.events):
-            # 计算等待时间
-            if i > 0:
-                wait_time = (event.timestamp - prev_event.timestamp) 
-                if wait_time > 0:
-                    time.sleep(wait_time)
-            
-            event_bus.emit_event(event)
-            prev_event = event
+        self._replay_task(event_bus, task, speed)
 
     def cmd(self, args, ctx):
         self.cmd_list(args, ctx)
