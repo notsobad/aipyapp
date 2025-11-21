@@ -177,6 +177,12 @@ class Step:
 
     def get_summary(self):
         summary = dict(self._summary)
+
+        # 防御性保护：确保所有必要的 token 键都存在
+        summary.setdefault('input_tokens', 0)
+        summary.setdefault('output_tokens', 0)
+        summary.setdefault('total_tokens', 0)
+
         summary['elapsed_time'] = int(self['end_time'] - self['start_time'])
         summary['rounds'] = len(self['rounds'])
         summarys = "{rounds} | {elapsed_time}s | Tokens: {input_tokens}/{output_tokens}/{total_tokens}".format(**summary)

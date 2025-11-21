@@ -14,21 +14,28 @@ from .base import BaseClient, MessageRole, AIMessage
 class OpenAIBaseClient(BaseClient):
     """ OpenAI compatible client """
     
-    def get_params(self):
-        params = {'stream_options': {'include_usage': True}}
-        params.update(super().get_params())
+    def get_api_params(self, **kwargs):
+        params = super().get_api_params(**kwargs)
+
+        # OpenAI 特定的流式选项
+        if self.config.stream:
+            params['stream_options'] = {'include_usage': True}
+
+        params.update(self.config.extra_fields)
+        params.update(kwargs)
+
         return params
-    
+
     def usable(self):
-        return super().usable() and self._api_key
-    
+        return super().usable() and self.config.api_key
+
     def _get_client(self):
         return openai.Client(
-            api_key=self._api_key,
-            base_url=self._base_url,
-            timeout=self._timeout,
+            api_key=self.config.api_key,
+            base_url=self.base_url,
+            timeout=self.config.timeout,
             http_client=httpx.Client(
-                verify=self._tls_verify
+                verify=self.config.tls_verify
             )
         )
     
@@ -79,16 +86,12 @@ class OpenAIBaseClient(BaseClient):
         if not self._client:
             self._client = self._get_client()
 
-        extra_headers = kwargs.get('extra_headers')
+        # 获取 API 参数
+        api_params = self.get_api_params(**kwargs)
 
         response = self._client.chat.completions.create(
-            model = self._model,
-            messages = messages,
-            stream=self._stream,
-            max_tokens = self.max_tokens,
-            temperature = self._temperature,
-            extra_headers = extra_headers,
-            **self._params
+            messages=messages,
+            **api_params
         )
         return response
     

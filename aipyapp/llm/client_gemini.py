@@ -12,12 +12,16 @@ from .base import BaseClient, AIMessage
 
 class GeminiClient(BaseClient):
     MODEL = 'gemini-2.5-flash'
-    
+
+    def __init__(self, config):
+        super().__init__(config)
+        self._system_prompt = None
+
     def usable(self):
-        return super().usable() and self._api_key
-    
+        return super().usable() and self.config.api_key
+
     def _get_client(self):
-        return genai.Client(api_key=self._api_key)
+        return genai.Client(api_key=self.config.api_key)
     
     def _prepare_messages(self, messages: list[Dict[str, Any]]) -> list[types.Content]:
         """将OpenAI格式的messages转换为Gemini的contents格式"""
@@ -41,8 +45,13 @@ class GeminiClient(BaseClient):
     
     def _parse_usage(self, response) -> Counter:
         """解析Gemini响应中的使用统计"""
-        usage = Counter()
-        
+        # 初始化默认值，确保总是包含必要的键
+        usage = Counter({
+            'input_tokens': 0,
+            'output_tokens': 0,
+            'total_tokens': 0
+        })
+
         # Gemini响应的usage结构可能不同，需要适配
         if hasattr(response, 'usage_metadata'):
             metadata = response.usage_metadata
@@ -51,7 +60,7 @@ class GeminiClient(BaseClient):
                 'output_tokens': getattr(metadata, 'candidates_token_count', 0),
                 'total_tokens': getattr(metadata, 'total_token_count', 0)
             })
-        
+
         return usage
     
     def _parse_stream_response(self, response, stream_processor) -> AIMessage:
@@ -92,25 +101,45 @@ class GeminiClient(BaseClient):
             usage=self._parse_usage(response)
         )
     
+    def get_api_params(self, **kwargs):
+        # Gemini 使用特殊的 config 对象，在这里处理参数
+        params = {}
+
+        # 基础参数
+        if self.config.temperature is not None:
+            params['temperature'] = self.config.temperature
+        if self.config.max_tokens:
+            params['max_output_tokens'] = self.config.max_tokens
+        if self._system_prompt:
+            params['system_instruction'] = self._system_prompt
+
+        # 默认启用 Google 搜索工具
+        params['tools'] = [types.Tool(google_search=types.GoogleSearch())]
+
+        # 合并自定义参数
+        for key, value in self.config.extra_fields.items():
+            params[key] = value
+
+        return params
+
     def get_completion(self, messages: list[Dict[str, Any]], **kwargs) -> Any:
         """获取Gemini的completion响应"""
         if not self._client:
             self._client = self._get_client()
-        
-        # 准备生成参数
-        generation_config = types.GenerateContentConfig(
-            temperature=self._temperature,
-            max_output_tokens=self.max_tokens,
-            system_instruction=self._system_prompt,
-            tools=[types.Tool(
-                google_search=types.GoogleSearch()
-            )]
-        )
-        
+
+        # 转换消息格式
+        contents = self._prepare_messages(messages)
+
+        # 获取 API 参数
+        api_params = self.get_api_params(**kwargs)
+
+        # 创建 generation config
+        generation_config = types.GenerateContentConfig(**api_params)
+
         try:
             response = self._client.models.generate_content_stream(
-                model=self._model,
-                contents=messages,
+                model=self.model,
+                contents=contents,
                 config=generation_config,
             )
             return response
