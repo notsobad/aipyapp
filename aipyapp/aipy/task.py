@@ -26,7 +26,7 @@ from .multimodal import MMContent
 from .context import ContextManager, ContextData
 from .toolcalls import ToolCallProcessor
 from .chat import MessageStorage, ChatMessage
-from .step import Step, StepData, StepType, CompressionConfig, CompressionStrategy
+from .step import Step, StepData
 from .blocks import CodeBlocks
 from .client import Client
 from .response import Response
@@ -201,6 +201,12 @@ class Task(Stoppable):
     def instruction(self):
         return self.steps[0].data.instruction if self.steps else None
 
+    @property
+    def start_time(self) -> Union[float, None]:
+        if self.steps:
+            return self.steps[0].data.start_time
+        return None
+    
     def use(self, llm: str) -> bool:
         """ for cmd_llm use
         """
@@ -283,7 +289,7 @@ class Task(Stoppable):
         }
 
     @classmethod
-    def from_file(cls, path: Union[str, Path], manager: TaskManager) -> 'Task':
+    def from_file(cls, path: Union[str, Path], manager: TaskManager, parent: Task|None = None) -> 'Task':
         """从文件创建 TaskState 对象"""
         path = Path(path)
         validate_file(path)
@@ -297,8 +303,22 @@ class Task(Stoppable):
                     model_context = None
 
                 task_data = TaskData.model_validate(data, context=model_context)
-                task = cls(manager, task_data)
+                task = cls(manager, task_data, parent=parent)
                 logger.info('Loaded task state from file', path=str(path), task_id=task.task_id)
+
+                subtasks = []
+                subdirs = [p for p in path.parent.iterdir() if p.is_dir()]
+                for subdir in subdirs:
+                    subjson = subdir / "task.json"
+                    if not subjson.exists():
+                        continue
+
+                    subtask = cls.from_file(subjson, manager, parent=task)
+                    logger.info('Loaded subtask from file', path=str(subjson), task_id=subtask.task_id)
+                    subtasks.append(subtask)
+
+                if subtasks:
+                    task.subtasks = sorted(subtasks, key=lambda t: t.start_time or 0)
                 return task
         except json.JSONDecodeError as e:
             raise TaskError(f'Invalid JSON file: {e}') from e
@@ -451,37 +471,3 @@ class Task(Stoppable):
         if cli:
             self.context_manager.add_chat(UserMessage(content=instruction), response.message)
         return response
-
-    def get_subtasks(self, reload: bool = False) -> List['Task']:
-        """获取子任务列表
-
-        Args:
-            reload: 是否强制从磁盘重新加载（用于历史任务）
-
-        Returns:
-            子任务列表
-        """
-        # 如果已有子任务且不需要重新加载，直接返回
-        if not reload and self.subtasks:
-            return self.subtasks
-
-        # 从磁盘加载子任务（用于历史任务或重新加载）
-        subtasks = []
-        if self.cwd.exists():
-            for item in self.cwd.iterdir():
-                if item.is_dir():
-                    task_json = item / "task.json"
-                    if task_json.exists():
-                        try:
-                            # 加载子任务
-                            subtask = Task.from_file(task_json, self.manager)
-                            # 验证：目录名应该等于 task_id（子任务目录不重命名）
-                            if item.name == subtask.task_id:
-                                subtasks.append(subtask)
-                        except Exception as e:
-                            self.log.warning(f"Failed to load subtask from {task_json}: {e}")
-                            continue
-
-        # 缓存加载的子任务
-        self.subtasks = subtasks
-        return subtasks
