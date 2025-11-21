@@ -14,8 +14,7 @@ from loguru import logger
 import httpx
 import openai
 from pydantic import BaseModel, Field
-
-
+from .config import ClientConfig
 
 class TextItem(BaseModel):
     type: Literal['text'] = 'text'
@@ -87,46 +86,50 @@ class BaseClient(ABC):
     BASE_URL = None
     TEMPERATURE = 0.5
 
-    def __init__(self, config):
-        self.name = config['name']
-        self.log = logger.bind(src='llm', name=self.name)
-        self.console = None
+    def __init__(self, config: ClientConfig):
         self.config = config
-        self.kind = config.get("type", "openai")
-        self.max_tokens = config.get("max_tokens")
-        self._model = config.get("model") or self.MODEL
-        self._timeout = config.get("timeout")
-        self._api_key = config.get("api_key")
-        self._base_url = self.get_base_url()
-        self._stream = config.get("stream", True)
-        self._tls_verify = bool(config.get("tls_verify", True))
+        self.log = logger.bind(src='llm', name=config.name)
+        self.console = None
         self._client = None
-        params = self.get_params()
-        params.update(config.get("params", {}))
-        self._params = params
-        self._temperature = params.get("temperature") or self.TEMPERATURE
-
         self._retry = RetryConfig()
 
     @property
-    def model(self):
-        return self._model
-    
+    def name(self) -> str:
+        return self.config.name
+
     @property
-    def base_url(self):
-        return self._base_url
-    
+    def model(self) -> str:
+        return self.config.model or self.MODEL
+
+    @property
+    def base_url(self) -> str:
+        return self.config.base_url or self.BASE_URL
+
+    def get_api_params(self, **kwargs) -> dict:
+        """
+        生成 API 调用参数
+
+        只处理通用参数，子类可以重载此方法来添加特定参数
+        """
+        params = {}
+
+        # 只处理已知的通用参数
+        if self.model:
+            params["model"] = self.model
+        if self.config.max_tokens:
+            params["max_tokens"] = self.config.max_tokens
+        if self.config.temperature is not None:
+            params["temperature"] = self.config.temperature
+        if self.config.stream:
+            params["stream"] = self.config.stream
+
+        return params
+
     def __repr__(self):
-        return f"{self.name}/{self.kind}:{self._model}"
-    
-    def get_params(self):
-        return {}
-    
-    def get_base_url(self):
-        return self.config.get("base_url") or self.BASE_URL
+        return f"{self.name}/{self.config.type}:{self.model}"
     
     def usable(self):
-        return self._model
+        return self.model
     
     def _get_client(self):
         return self._client
@@ -163,7 +166,7 @@ class BaseClient(ABC):
             attempt += 1
             try:
                 response = self.get_completion(messages, **kwargs)
-                if self._stream:
+                if self.config.stream:
                     msg = self._parse_stream_response(response, stream_processor)
                 else:
                     msg = self._parse_response(response)

@@ -13,25 +13,44 @@ class OAuth2Client(OpenAIBaseClient):
     1. First gets token using client_id/client_secret
     2. Then uses the token to make LLM API calls
     """
-    def __init__(self, config: Dict):
+    def __init__(self, config):
         super().__init__(config)
-        self._token_url = config.get("token_url")
-        self._client_id = config.get("client_id")
-        self._client_secret = config.get("client_secret")
         self._access_token: Optional[str] = None
         self._token_expires = 0
 
+    @property
+    def token_url(self):
+        return self.config.get_extra_field('token_url')
+
+    @property
+    def client_id(self):
+        return self.config.get_extra_field('client_id')
+
+    @property
+    def client_secret(self):
+        return self.config.get_extra_field('client_secret')
+
     def usable(self) -> bool:
         return all([
-            self._token_url,
-            self._client_id,
-            self._client_secret,
-            self._base_url
+            self.token_url,
+            self.client_id,
+            self.client_secret,
+            self.base_url
         ])
 
     def _get_client(self):
-        self._api_key = self._get_access_token()
-        return super()._get_client()
+        # 动态设置 API key 为 access token
+        # 注意：这里需要临时修改 config 的 api_key
+        original_api_key = self.config.api_key
+        self.config.api_key = self._get_access_token()
+
+        try:
+            client = super()._get_client()
+        finally:
+            # 恢复原始 api_key
+            self.config.api_key = original_api_key
+
+        return client
 
     def _get_access_token(self) -> str:
         """Get OAuth2 access token using client credentials"""
@@ -42,14 +61,19 @@ class OAuth2Client(OpenAIBaseClient):
             return self._access_token
 
         auth_data = {
-            'client_id': self._client_id,
-            'client_secret': self._client_secret,
+            'client_id': self.client_id,
+            'client_secret': self.client_secret,
             'grant_type': 'client_credentials'
         }
 
-        with httpx.Client(timeout=self._timeout, verify=self._tls_verify) as client:
+        # 获取 scope 参数（如果有）
+        scope = self.config.get_extra_field('scope')
+        if scope:
+            auth_data['scope'] = scope
+
+        with httpx.Client(timeout=self.config.timeout, verify=self.config.tls_verify) as client:
             response = client.post(
-                self._token_url,
+                self.token_url,
                 data=auth_data
             )
             response.raise_for_status()

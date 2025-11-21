@@ -18,15 +18,18 @@ class ClaudeClient(BaseClient):
 
     def _get_client(self):
         import anthropic
-        return anthropic.Anthropic(api_key=self._api_key, timeout=self._timeout)
-    
+        return anthropic.Anthropic(api_key=self.config.api_key, timeout=self.config.timeout)
+
     def usable(self):
-        return super().usable() and self._api_key
+        return super().usable() and self.config.api_key
     
     def _parse_usage(self, response):
         usage = response.usage
-        ret = {'input_tokens': usage.input_tokens, 'output_tokens': usage.output_tokens}
-        ret['total_tokens'] = ret['input_tokens'] + ret['output_tokens']
+        ret = Counter({
+            'input_tokens': usage.input_tokens,
+            'output_tokens': usage.output_tokens,
+            'total_tokens': usage.input_tokens + usage.output_tokens
+        })
         return ret
 
     def _parse_stream_response(self, response, stream_processor):
@@ -57,21 +60,30 @@ class ClaudeClient(BaseClient):
             messages = messages[1:]
         return messages
 
+    def get_api_params(self, **kwargs):
+        params = super().get_api_params(**kwargs)
+
+        # Claude 特定的参数
+        if self._system_prompt:
+            params['system'] = self._system_prompt
+
+        # 处理 extra_headers
+        extra_headers = kwargs.pop('extra_headers', None)
+        if extra_headers:
+            params['extra_headers'] = extra_headers
+
+        return params
+
     def get_completion(self, messages: list[Dict[str, Any]], **kwargs) -> AIMessage:
         if not self._client:
             self._client = self._get_client()
 
-        extra_headers = kwargs.get('extra_headers')
+        # 获取 API 参数
+        api_params = self.get_api_params(**kwargs)
 
         message = self._client.messages.create(
-            model = self._model,
-            messages = messages,
-            stream=self._stream,
-            system=self._system_prompt,
-            max_tokens = self.max_tokens,
-            temperature = self._temperature,
-            extra_headers = extra_headers,
-            **self._params
+            messages=messages,
+            **api_params
         )
         return message
     
