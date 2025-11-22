@@ -33,7 +33,7 @@ class DeepSeekClient(OpenAIBaseClient):
 
 class GrokClient(OpenAIBaseClient): 
     BASE_URL = 'https://api.x.ai/v1/'
-    MODEL = 'grok-3-mini'
+    MODEL = 'grok-4-1-fast-reasoning'
 
 class TrustClient(OpenAIBaseClient):
     MODEL = 'auto'

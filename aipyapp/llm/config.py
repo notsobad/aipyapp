@@ -37,8 +37,8 @@ class ClientConfig(BaseModel):
 
     # 模型配置
     model: Optional[str] = Field(None, description="模型名称")
-    max_tokens: Optional[int] = Field(None, gt=0, description="最大生成 token 数")
-    temperature: Optional[float] = Field(None, ge=0.0, le=2.0, description="采样温度 (0.0-2.0)")
+    max_tokens: Optional[int] = Field(8192, gt=0, description="最大生成 token 数")
+    temperature: Optional[float] = Field(0.1, ge=0.0, le=2.0, description="采样温度 (0.0-2.0)")
 
     # 流式配置
     stream: bool = Field(True, description="是否使用流式响应")

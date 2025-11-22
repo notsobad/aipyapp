@@ -45,9 +45,11 @@ class OpenAIBaseClient(BaseClient):
         except Exception:
             reasoning_tokens = 0
 
-        usage = Counter({'total_tokens': usage.total_tokens,
-                'input_tokens': usage.prompt_tokens,
-                'output_tokens': usage.completion_tokens + reasoning_tokens})
+        usage = Counter({
+            'total_tokens': usage.total_tokens,
+            'input_tokens': usage.prompt_tokens,
+            'output_tokens': usage.completion_tokens - reasoning_tokens,
+        })
         return usage
     
     def _parse_stream_response(self, response, stream_processor) -> AIMessage:
