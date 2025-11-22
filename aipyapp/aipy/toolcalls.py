@@ -225,6 +225,7 @@ class ToolCallProcessor:
                 "deps": original_block.deps.copy() if original_block.deps else {}
             }
         )
+        new_block.co = None  # 重置编译对象
         task.blocks.add_block(new_block, validate=False)
         return EditToolResult(block_name=block_name, new_version=new_block.version)
     
