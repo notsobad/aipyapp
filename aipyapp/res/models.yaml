@@ -97,6 +97,24 @@ Google:
     max_output_tokens: 65536
 
 xAI:
+  grok-4-1-fast-reasoning:
+    description: A frontier multimodal model optimized specifically for high-performance agentic tool calling.
+    capabilities: [TEXT, IMAGE_INPUT, FUNCTION_CALLING, STRUCTURED_OUTPUT, REASONING]
+    context_length: 2000000
+    prices:
+      input: 0.2
+      cached: 0.05
+      output: 0.5
+
+  grok-4-1-fast-non-reasoning:
+    description: A frontier multimodal model optimized specifically for high-performance agentic tool calling.
+    capabilities: [TEXT, IMAGE_INPUT, FUNCTION_CALLING, STRUCTURED_OUTPUT]
+    context_length: 2000000
+    prices:
+      input: 0.2
+      cached: 0.05
+      output: 0.5
+
   grok-4:
     description: offering unparalleled performance in natural language, math and reasoning
     capabilities: [TEXT, IMAGE_INPUT, FUNCTION_CALLING, STRUCTURED_OUTPUT, REASONING]
