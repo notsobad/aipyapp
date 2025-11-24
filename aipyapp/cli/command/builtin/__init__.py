@@ -11,9 +11,11 @@ from .cmd_subtask import SubTaskCommand
 from .cmd_block import BlockCommand
 from .cmd_plugin import PluginCommand
 from .cmd_custom import CustomCommand
+from .cmd_compact import CompactCommand
 
 # 内置命令列表
 BUILTIN_COMMANDS = [
     InfoCommand, LLMCommand, RoleCommand, DisplayCommand, PluginCommand, StepsCommand,
-    SubTaskCommand, BlockCommand, ContextCommand, TaskCommand, MCPCommand, HelpCommand, CustomCommand,
+    SubTaskCommand, CompactCommand,BlockCommand, ContextCommand, TaskCommand, MCPCommand, 
+    HelpCommand, CustomCommand
 ]

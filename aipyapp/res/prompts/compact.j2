@@ -1,0 +1,45 @@
+{# 上下文压缩摘要模板 #}
+<user_prompt version="1">
+<message from="user">
+You are tasked with creating a concise but comprehensive summary of the current conversation context. This summary will replace the original context to conserve tokens while preserving essential information.
+
+Your goal is to create a summary that:
+1. Preserves all key decisions and conclusions made
+2. Maintains important code changes and implementations
+3. Retains critical error messages and their solutions
+4. Captures the main progression of work and outcomes
+5. Eliminates redundant conversations and failed attempts
+6. Is substantially shorter than the original context
+
+Please analyze the current conversation context (which you can see in this conversation) and create a structured summary.
+
+** NEVER create TODO code block for this summary task. **
+
+
+## Summary Guidelines:
+
+### Structure your summary with these sections:
+- **Task Overview**: Brief description of the main objective
+- **Key Decisions**: Important decisions made during the conversation
+- **Implementation Details**: Significant code changes and technical details
+- **Issues Resolved**: Problems encountered and how they were solved
+- **Current State**: Status of work and next steps if applicable
+
+### Focus on preserving:
+- Task objectives and goals
+- The last TODO code block in the conversation
+- Final working code and implementations, including code block names and their purposes
+- Important configuration changes
+- Critical debugging insights
+- Architecture decisions
+- User requirements and specifications
+
+### Omit or condense:
+- Repetitive debugging attempts
+- Failed code experiments (unless they led to important insights)
+- Extended error messages that were later resolved
+- Conversational filler and acknowledgments
+
+Create a summary that would allow someone to understand the essential context and continue the work effectively, using significantly fewer tokens than the original conversation.
+</message>
+</user_prompt>
