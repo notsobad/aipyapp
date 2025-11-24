@@ -7,7 +7,7 @@ LLM Client Configuration Module
 统一的 LLM 客户端配置类，包含通用参数和自定义参数支持。
 """
 
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, List
 from pydantic import BaseModel, Field
 
 
@@ -39,7 +39,8 @@ class ClientConfig(BaseModel):
     model: Optional[str] = Field(None, description="模型名称")
     max_tokens: Optional[int] = Field(8192, gt=0, description="最大生成 token 数")
     temperature: Optional[float] = Field(0.1, ge=0.0, le=2.0, description="采样温度 (0.0-2.0)")
-
+    models: Optional[List[str]] = Field(None, description="支持的模型列表")
+    
     # 流式配置
     stream: bool = Field(True, description="是否使用流式响应")
 
