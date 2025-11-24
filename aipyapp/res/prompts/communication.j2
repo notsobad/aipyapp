@@ -151,6 +151,10 @@ There are three methods for parent-subtask communication:
      ```
    - **Use cases:** Large datasets, trained ML models, binary data, reports, any data that benefits from persistence.
    - **Advantages:** Can handle large objects, supports binary formats.
+
+**Important Notes:**
+- SubTask does NOT inherit the parent task's context or message history. You must provide all necessary context in the `instruction`.
+- Always clearly document data structures when using session state or shared files to ensure correct interpretation.
 </subtask_tool>
 
 {% if features.has('survey') %}
