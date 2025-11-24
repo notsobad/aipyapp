@@ -107,7 +107,7 @@ class TaskData(BaseModel):
         self.steps.append(step)
 
 class Task(Stoppable):
-    def __init__(self, manager: TaskManager, data: TaskData | None = None, parent: Task | None = None):
+    def __init__(self, manager: TaskManager, data: TaskData | None = None, parent: Task | None = None, inherit_context: bool = False):
         super().__init__()
         data = data or TaskData()
 
@@ -131,8 +131,13 @@ class Task(Stoppable):
         
         # Phase 2: Initialize data objects (minimal dependencies)
         self.blocks = data.blocks
+        # 如果指定继承上下文且有父任务，则继承父任务的上下文数据
+        if inherit_context and parent:
+            self.context = parent.context
+        else:
+            self.context = data.context
+
         self.message_storage = data.message_storage
-        self.context = data.context
         self.events = data.events
 
         # session: 子任务共享父任务的 session 引用，根任务使用 TaskData 中的 session
@@ -435,7 +440,9 @@ class Task(Stoppable):
         first_run = not self.steps
         user_message = self.prepare_user_prompt(instruction, first_run, lang=lang)
         if first_run:
-            self.context_manager.add_message(self.get_system_message())
+            # 如果上下文已经有消息，说明继承了上下文，不需要重复添加系统消息
+            if not self.context_manager.messages:
+                self.context_manager.add_message(self.get_system_message())
             self.emit('task_started', instruction=instruction, title=title, task_id=self.task_id, parent_id=self.parent.task_id if self.parent else None)
         else:
             self._auto_compact()
@@ -459,9 +466,13 @@ class Task(Stoppable):
         self.log.info('Step done', rounds=len(step.data.rounds))
         return response
 
-    def run_subtask(self, instruction: str, title: str | None = None, cli=False) -> Response:
+    def run_subtask(self, instruction: str, title: str | None = None, cli=False, inherit_context: bool = False, client_name: str | None = None) -> Response:
         """运行子任务"""
-        subtask = Task(self.manager, parent=self)
+        subtask = Task(self.manager, parent=self, inherit_context=inherit_context)
+
+        # 如果指定了客户端，切换subtask的客户端
+        if client_name:
+            subtask.use(client_name)
 
         # 记录子任务到父任务的 subtasks 列表
         self.subtasks.append(subtask)
@@ -471,3 +482,131 @@ class Task(Stoppable):
         if cli:
             self.context_manager.add_chat(UserMessage(content=instruction), response.message)
         return response
+
+    def compress_context(self, client_name: str | None = None) -> Dict[str, Any]:
+        """
+        压缩任务上下文，使用LLM生成摘要并替换原始上下文
+
+        Args:
+            client_name: 可选的LLM客户端名称，如果为None则使用当前任务客户端
+
+        Returns:
+            Dict包含:
+            - success: bool 是否成功
+            - stats_before: Dict 压缩前统计
+            - stats_after: Dict 压缩后统计
+            - summary_tokens: int 摘要token数
+            - messages_saved: int 节省的消息数
+            - tokens_saved: int 节省的token数
+            - compression_ratio: float 压缩比例
+            - error: str 错误信息(如果失败)
+        """
+        from ..llm import UserMessage, AIMessage, MessageRole
+
+        try:
+            # 1. 获取压缩前统计
+            stats_before = self.context_manager.get_stats()
+
+            # 2. 检查上下文是否足够大，值得压缩
+            if len(self.context_manager.messages) < 4:
+                return {
+                    'success': False,
+                    'error': 'Context too small to compress effectively',
+                    'stats_before': stats_before
+                }
+
+            # 3. 使用prompts.py获取compact模板
+            try:
+                summary_instruction = self.prompts.get_prompt('compact')
+            except Exception as e:
+                self.log.warning(f"Failed to get compact template: {e}")
+                # 使用默认指令作为fallback
+                summary_instruction = (
+                    "Please analyze the conversation context and create a concise summary that preserves all key information, "
+                    "decisions, code changes, and important outcomes. The summary should be substantially shorter while "
+                    "maintaining the essential context needed to continue the work effectively.\n\n"
+                    "Structure your summary with these sections:\n"
+                    "- **Task Overview**: Brief description of the main objective\n"
+                    "- **Key Decisions**: Important decisions made during the conversation\n"
+                    "- **Implementation Details**: Significant code changes and technical details\n"
+                    "- **Issues Resolved**: Problems encountered and how they were solved\n"
+                    "- **Current State**: Status of work and next steps if applicable\n\n"
+                    "Focus on preserving final working code, important configuration changes, critical debugging insights, "
+                    "and architecture decisions. Omit repetitive debugging attempts, failed code experiments, and conversational filler."
+                )
+
+            # 5. 创建继承上下文的subtask进行摘要生成，支持指定客户端
+            response = self.run_subtask(
+                summary_instruction,
+                title="Context Summarization",
+                inherit_context=True,
+                client_name=client_name
+            )
+
+            # 获取生成的摘要内容
+            if not response or not response.message or not response.message.content:
+                return {
+                    'success': False,
+                    'error': 'Failed to generate summary content',
+                    'stats_before': stats_before
+                }
+
+            summary_content = response.message.content.strip()
+
+            # 使用LLM返回的准确usage信息
+            summary_tokens = response.message.usage.get('output_tokens', 0)
+
+            # 8. 构建新的压缩后上下文
+            new_messages = []
+
+            # 保留系统消息
+            system_msgs = [msg for msg in self.context_manager.messages if msg.role == MessageRole.SYSTEM]
+            new_messages.extend(system_msgs)
+
+            # 添加摘要用户消息
+            summary_user_msg = UserMessage(content=(
+                f"CONTEXT SUMMARY:\n{summary_content}\n\n"
+                f"This is a compressed summary of the previous conversation. "
+                f"Please continue the work based on this summarized context."
+            ))
+            new_messages.append(self.message_storage.store(summary_user_msg))
+
+            # 添加AI确认消息
+            summary_ai_msg = AIMessage(content=(
+                "I understand the context summary. I'll continue the work based on this compressed information. "
+                "Feel free to ask me to elaborate on any specific aspect if needed."
+            ))
+            new_messages.append(self.message_storage.store(summary_ai_msg))
+
+            # 9. 重建上下文
+            self.context_manager.rebuild(new_messages)
+
+            # 10. 获取压缩后统计
+            stats_after = self.context_manager.get_stats()
+
+            # 11. 计算节省的资源
+            messages_saved = stats_before['message_count'] - stats_after['message_count']
+            tokens_saved = stats_before['total_tokens'] - stats_after['total_tokens']
+            compression_ratio = (tokens_saved / stats_before['total_tokens']) if stats_before['total_tokens'] > 0 else 0
+
+            self.log.info(f"Context compressed: {stats_before['message_count']}→{stats_after['message_count']} messages, "
+                       f"{stats_before['total_tokens']}→{stats_after['total_tokens']} tokens, "
+                       f"saved {tokens_saved} tokens ({compression_ratio:.1%} reduction)")
+
+            return {
+                'success': True,
+                'stats_before': stats_before,
+                'stats_after': stats_after,
+                'summary_tokens': summary_tokens,
+                'messages_saved': messages_saved,
+                'tokens_saved': tokens_saved,
+                'compression_ratio': compression_ratio
+            }
+
+        except Exception as e:
+            self.log.error(f"Context compression failed: {e}")
+            return {
+                'success': False,
+                'error': str(e),
+                'stats_before': stats_before if 'stats_before' in locals() else None
+            }
