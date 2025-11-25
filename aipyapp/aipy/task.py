@@ -354,13 +354,12 @@ class Task(Stoppable):
             return
         
         try:
-            self.to_file(cwd / "task.json")
-            
             display = self.display
             if display:
                 filename = cwd / "console.html"
                 display.save(filename, clear=False, code_format=CONSOLE_WHITE_HTML)
             
+            self.to_file(cwd / "task.json")
             self._saved = True
             self.log.info('Task auto saved')
         except Exception as e:
