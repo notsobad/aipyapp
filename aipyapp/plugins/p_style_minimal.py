@@ -52,7 +52,22 @@ class DisplayMinimal(RichDisplayPlugin):
         exception = event.typed_event.exception
         title = self._get_title(T("Exception occurred"), msg, style="error")
         tree = Tree(title)
-        tree.add(exception)
+
+        # 提取异常信息，避免直接渲染异常对象
+        exception_type = exception.__class__.__name__
+        exception_msg = str(exception)
+
+        # 添加异常类型
+        tree.add(f"Type: {exception_type}")
+
+        # 添加异常消息
+        if exception_msg:
+            tree.add(f"Message: {exception_msg}")
+
+        # 如果有原始异常，也显示出来
+        if hasattr(exception, 'original_error') and exception.original_error:
+            tree.add(f"Original Error: {type(exception.original_error).__name__}: {exception.original_error}")
+
         self.console.print(tree)
 
     def on_task_started(self, event):
