@@ -55,11 +55,15 @@ You may only access the following user-provided environment variables via `utils
 {% if tool_functions is defined and tool_functions %}
 <tool_functions>
 These functions are provided by the python execution environment. You can call them with `utils.call_function` function.
+The available functions are:
 
 {% for name, func in tool_functions.items() %}
 - {{ name }}({{ func.signature }})
     - {{ func.docstring }}
 {% endfor %}
+
+**IMPORTANT: `utils.call_function` only supports the functions listed above. Do not attempt to call any functions that are not explicitly listed here.**
+
 </tool_functions>
 {% endif %}
 

@@ -275,7 +275,7 @@ class FunctionCallCompletedEvent(BaseEvent):
     result: Optional[Any] = Field(None, title="Result", description="Function return value")
     success: bool = Field(..., title="Success", description="Whether the function call succeeded")
     error: Optional[str] = Field(None, title="Error", description="Error message if call failed")
-    exception: Optional[Exception] = Field(None, title="Exception", description="Exception object if call failed")
+    exception: Optional[Exception] = Field(None, title="Exception", description="Exception object if call failed", exclude=True)
 
 # ==================== Runtime Events ====================
 
@@ -302,7 +302,7 @@ class ExceptionEvent(BaseEvent):
     """Event fired when an exception occurs"""
     name: Literal["exception"] = "exception"
     msg: str = Field(..., title="Message", description="Error context message")
-    exception: Exception = Field(..., title="Exception", description="The exception object")
+    exception: Exception = Field(..., title="Exception", description="The exception object", exclude=True)
 
 class UploadResultEvent(BaseEvent):
     """Event fired when upload operation completes"""
