@@ -67,7 +67,7 @@ class TaskData(BaseModel):
     context: ContextData = Field(default_factory=ContextData)
     message_storage: MessageStorage = Field(default_factory=MessageStorage)
     events: List[BaseEvent.get_subclasses_union()] = Field(default_factory=list)
-    session: Dict[str, Any] = Field(default_factory=dict)
+    session: Dict[str, Any] = Field(default_factory=dict, exclude=True)
 
     @field_serializer('events')
     def serialize_events(self, events: List, _info):

@@ -46,9 +46,11 @@ class OpenAIBaseClient(BaseClient):
             reasoning_tokens = 0
 
         usage = Counter({
-            'total_tokens': usage.total_tokens,
+            'total_tokens': usage.prompt_tokens + usage.completion_tokens,
             'input_tokens': usage.prompt_tokens,
-            'output_tokens': usage.completion_tokens - reasoning_tokens,
+            'output_tokens': usage.completion_tokens,
+            'reasoning_tokens': reasoning_tokens,
+            'missing_tokens': usage.total_tokens - usage.prompt_tokens - usage.completion_tokens
         })
         return usage
     
