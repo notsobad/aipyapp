@@ -154,6 +154,7 @@ There are three methods for parent-subtask communication:
 
 **Important Notes:**
 - SubTask does NOT inherit the parent task's context or message history. You must provide all necessary context in the `instruction`.
+- Unlike `set_persistent_state`/`get_persistent_state`, `set_state`/`get_block_state` are NOT shared between parent and subtask.
 - Always clearly document data structures when using session state or shared files to ensure correct interpretation.
 </subtask_tool>
 
