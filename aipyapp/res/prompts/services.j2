@@ -42,7 +42,11 @@ Here are the rules you should always follow when using tools to solve tasks:
 - Do not repeat tool calls with exactly the same parameters.
 - When using tools, always use the JSON format shown in the examples above. Do not use any other format.
 - If a tool is available, prefer using the tool over writing code.
-- ** Never call MCP tools through `utils.call_function` **.
+
+**IMPORTANT**: Never call the above MCP tools with `utils.call_function`, always use the specified JSON format for tool invocation.
+<bad_example>
+result = utils.call_function('Trustoken-search.get_my_ip')
+</bad_example>
 
 </mcp_services>
 {% endif %}
