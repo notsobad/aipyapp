@@ -154,10 +154,12 @@ class MCPToolManager:
         # 只有真正需要重新加载的服务器才去连接
         if servers_to_load:
             try:
-                print(f"+ Loading MCP server {', '.join([i[0] for i in servers_to_load])}...")
+                target_servers = [i[0] for i in servers_to_load]
+                print(f"+ Loading MCP server {', '.join(target_servers)}...")
                 # 使用全局 LazyMCPClient 一次性获取所有工具
                 all_discovered_tools = self._lazy_client.list_tools(
-                    discover_all=True
+                    discover_all=True,
+                    servers=target_servers
                 )
 
                 # 按服务器名称分组工具

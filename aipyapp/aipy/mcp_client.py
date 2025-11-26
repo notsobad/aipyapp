@@ -4,7 +4,7 @@ import sys
 import time
 import threading
 from datetime import timedelta
-from typing import Dict, Optional, Tuple, Any
+from typing import Dict, Optional, Tuple, Any, List
 import types as pytypes
 
 from loguru import logger
@@ -271,13 +271,24 @@ class LazyMCPClient:
             return sk.strip(), tn.strip()
         return None, tool_name
 
-    def list_tools(self, discover_all: bool = False) -> list:
+    def list_tools(
+        self, discover_all: bool = False, servers: Optional[List[str]] = None
+    ) -> list:
         """
-        返回当前已连接服务器的工具列表；
-        若 discover_all=True，会按需连接所有服务器以枚举工具。
-        为避免常驻，可保持默认 False。
+        返回当前已连接服务器的工具列表。
+
+        Args:
+            discover_all: 是否主动发现未连接服务器的工具。
+                - False (默认): 仅返回当前已连接服务器的工具。
+                - True: 允许连接未连接的服务器以获取工具列表。
+            servers: 指定要发现的服务器名称列表。
+                - None (默认): 如果 discover_all=True，则尝试连接所有配置的服务器。
+                - List[str]: 如果 discover_all=True，仅尝试连接列表中指定的服务器。
+
+        Returns:
+            工具列表
         """
-        result = self._run_async(self._list_tools_async(discover_all))
+        result = self._run_async(self._list_tools_async(discover_all, servers))
         if isinstance(result, dict) and "error" in result:
             logger.error(f"List tools failed: {result}")
             return []
@@ -285,12 +296,17 @@ class LazyMCPClient:
             return result
         return []
 
-    async def _list_tools_async(self, discover_all: bool) -> list:
+    async def _list_tools_async(
+        self, discover_all: bool, servers: Optional[List[str]] = None
+    ) -> list:
         await self._ensure_group()
         await self._reap_idle()
 
         if discover_all:
-            for server_key in self._servers.keys():
+            target_servers = servers if servers is not None else self._servers.keys()
+            for server_key in target_servers:
+                if server_key not in self._servers:
+                    continue
                 if server_key not in self._connected:
                     try:
                         await self._connect_if_needed(server_key)
