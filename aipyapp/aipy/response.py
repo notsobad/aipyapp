@@ -27,7 +27,7 @@ BLOCK_PATTERN = re.compile(
 )
 TOOLCALL_PATTERN = re.compile(r'<!--\s*ToolCall:\s*(\{.*?\})\s*-->')
 
-class ParseErrorType(Enum):
+class ParseErrorType(str, Enum):
     """解析错误类型"""
     JSON_DECODE_ERROR = "json_decode_error"
     INVALID_FORMAT = "invalid_format"
