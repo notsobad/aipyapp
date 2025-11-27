@@ -36,7 +36,7 @@ if TYPE_CHECKING:
     from .taskmgr import TaskManager
 
 MAX_ROUNDS = 16
-TASK_VERSION = 20250818
+TASK_VERSION = 20251127 
 
 CONSOLE_WHITE_HTML = read_text(__respkg__, "console_white.html")
 CONSOLE_CODE_HTML = read_text(__respkg__, "console_code.html")

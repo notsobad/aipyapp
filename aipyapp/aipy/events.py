@@ -234,7 +234,7 @@ class ExecCompletedEvent(BaseEvent):
 
 class EditStartedEvent(BaseEvent):
     """Event fired when code editing starts"""
-    name: Literal["edit_start"] = "edit_start"
+    name: Literal["edit_started"] = "edit_started"
     block_name: str = Field(..., title="Block Name", description="Name of the code block being edited")
     old: str = Field(..., title="Old", description="Old code string")
     new: str = Field(..., title="New", description="New code string")
@@ -309,6 +309,14 @@ class UploadResultEvent(BaseEvent):
     name: Literal["upload_result"] = "upload_result"
     status_code: int = Field(..., title="Status Code", description="HTTP status code of the upload")
     url: Optional[str] = Field(None, title="URL", description="URL of the uploaded content")
+
+class StepDeletedEvent(BaseEvent):
+    """Event fired when a step is deleted"""
+    name: Literal["step_deleted"] = "step_deleted"
+    step_index: int = Field(..., title="Step Index", description="Index of the deleted step")
+    step_info: str = Field(..., title="Step Info", description="Information about the deleted step")
+    cleaned_messages: int = Field(..., title="Cleaned Messages", description="Number of messages cleaned up")
+    tokens_saved: int = Field(..., title="Tokens Saved", description="Number of tokens saved by deletion")
 
 class StepCleanupCompletedEvent(BaseEvent):
     """Event fired when step cleanup completes"""
