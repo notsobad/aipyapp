@@ -285,7 +285,7 @@ class DisplayClassic(RichDisplayPlugin):
         title = self._get_title(T("Start calling function {}"), funcname)
         tree = Tree(title)
         json_kwargs = json.dumps(kwargs, ensure_ascii=False, default=str)
-        tree.add(json_kwargs[:64] + '...' if len(json_kwargs) > 64 else json_kwargs)
+        tree.add(json_kwargs)
         self.console.print(tree)
 
     @restore_output

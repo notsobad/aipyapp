@@ -349,7 +349,7 @@ class DisplayModern(RichDisplayPlugin):
         kwargs = event.typed_event.kwargs
         title = Text(f"🔧 {T('Start calling function {}').format(funcname)}", style="bold blue")
         args_text = json.dumps(kwargs, ensure_ascii=False, default=str) if kwargs else ""
-        content = Text(args_text[:64] + '...' if len(args_text) > 64 else args_text, style="white")
+        content = Text(args_text, style="white")
         panel = Panel(content, title=title, border_style="blue")
         self.console.print(panel)
     
