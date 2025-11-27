@@ -375,11 +375,11 @@ class Task(Stoppable):
             self.log.warning('Task not saved, trying to save')
             self._auto_save()
 
-        # 只有主任务才重命名目录，子任务保持 task_id 目录名
+        # 切换到父目录，准备重命名任务目录。对子任务，切换回父任务目录
+        os.chdir(self.cwd.parent)
         if not self.parent:
             # 切换到父目录，避免目录锁定
             try:
-                os.chdir(self.cwd.parent)
                 newname = safe_rename(self.cwd, self.instruction)
             except Exception:
                 self.log.exception('Failed to rename task directory', path=str(self.cwd))
