@@ -234,7 +234,7 @@ class Task(Stoppable):
 
     def get_system_message(self) -> ChatMessage:
         params = {}
-        if self.mcp:
+        if self.mcp and not self.client.supports_function_calling():
             params['mcp_tools'] = self.mcp.get_tools_prompt()
         params['util_functions'] = self.runtime.get_builtin_functions()
         params['tool_functions'] = self.runtime.get_plugin_functions()
