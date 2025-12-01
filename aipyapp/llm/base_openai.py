@@ -9,6 +9,9 @@ import openai
 
 from .base import BaseClient, MessageRole, AIMessage
 
+from openai.types.chat import ChatCompletionMessageToolCall
+from openai.types.chat.chat_completion_message_tool_call import Function
+
 # https://platform.openai.com/docs/api-reference/chat/create
 # https://api-docs.deepseek.com/api/create-chat-completion
 class OpenAIBaseClient(BaseClient):
@@ -56,6 +59,7 @@ class OpenAIBaseClient(BaseClient):
     
     def _parse_stream_response(self, response, stream_processor) -> AIMessage:
         usage = Counter()
+        tool_calls_chunks = []
         with stream_processor as lm:
             for chunk in response:
                 #print(chunk)
@@ -71,10 +75,46 @@ class OpenAIBaseClient(BaseClient):
                     elif hasattr(delta, 'reasoning_content') and delta.reasoning_content:
                         reason = True
                         content = delta.reasoning_content
+
+                    if delta.tool_calls:
+                        tool_calls_chunks.append(delta.tool_calls)
+
                     if content:
                         lm.process_chunk(content, reason=reason)
 
-        return AIMessage(role=MessageRole.ASSISTANT, content=lm.content, reason=lm.reason, usage=usage)
+        tool_calls = self._reconstruct_tool_calls(tool_calls_chunks)
+        return AIMessage(role=MessageRole.ASSISTANT, content=lm.content, reason=lm.reason, usage=usage, tool_calls=tool_calls)
+
+    def _reconstruct_tool_calls(self, tool_calls_chunks):
+        if not tool_calls_chunks:
+            return None
+
+        tool_calls = {}
+        for chunk in tool_calls_chunks:
+            for tool_call in chunk:
+                index = tool_call.index
+                if index not in tool_calls:
+                    tool_calls[index] = {
+                        'id': tool_call.id,
+                        'type': tool_call.type,
+                        'function': {
+                            'name': tool_call.function.name,
+                            'arguments': tool_call.function.arguments
+                        }
+                    }
+                else:
+                    if tool_call.function.arguments:
+                        tool_calls[index]['function']['arguments'] += tool_call.function.arguments
+
+        result = []
+        for index in sorted(tool_calls.keys()):
+            tc = tool_calls[index]
+            result.append(ChatCompletionMessageToolCall(
+                id=tc['id'],
+                function=Function(name=tc['function']['name'], arguments=tc['function']['arguments']),
+                type=tc['type']
+            ))
+        return result
 
     def _parse_response(self, response) -> AIMessage:
         message = response.choices[0].message
@@ -83,7 +123,8 @@ class OpenAIBaseClient(BaseClient):
             role=message.role,
             content=message.content,
             reason=reason,
-            usage=self._parse_usage(response.usage)
+            usage=self._parse_usage(response.usage),
+            tool_calls=message.tool_calls
         )
 
     def get_completion(self, messages: list[Dict[str, Any]], **kwargs) -> AIMessage:

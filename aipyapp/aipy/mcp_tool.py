@@ -205,6 +205,30 @@ class MCPToolManager:
         self._inited = True
         return all_tools
 
+    def get_openai_tools(self):
+        """获取 OpenAI 格式的工具列表"""
+        tools = self.get_available_tools()
+        if not tools:
+            return []
+
+        openai_tools = []
+        for tool in tools:
+            input_schema = tool.get("inputSchema", {}).copy()
+            if "additionalProperties" in input_schema:
+                del input_schema["additionalProperties"]
+            if "$schema" in input_schema:
+                del input_schema["$schema"]
+
+            openai_tools.append({
+                "type": "function",
+                "function": {
+                    "name": tool.get("id", ""),
+                    "description": tool.get("description", ""),
+                    "parameters": input_schema
+                }
+            })
+        return openai_tools
+
     def get_tools_prompt(self):
         """获取工具列表并转换为 Markdown 格式"""
         tools = self.get_available_tools()  # 获取启用的工具

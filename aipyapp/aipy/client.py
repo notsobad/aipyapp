@@ -123,7 +123,7 @@ class Client:
             return True
         
         #TODO: 不应该硬编码字符串
-        if self.current.kind == 'trust':
+        if self.current.config.type == 'trust':
             return True
         
         model = self.current.model
@@ -143,14 +143,40 @@ class Client:
                 capabilities.add(ModelCapability.TEXT)
         
         return any(capability in model_info.capabilities for capability in capabilities)
-    
+
+    def supports_function_calling(self) -> bool:
+        if self.current.config.type == 'trust':
+            return True
+
+        model = self.current.model
+        if not model:
+            return False
+        model = model.rsplit('/', 1)[-1]
+        model_info = self.manager.get_model_info(model)
+        if not model_info:
+            return False
+
+        return ModelCapability.FUNCTION_CALLING in model_info.capabilities
+
     def __call__(self, user_message: ChatMessage) -> ChatMessage:
         client = self.current
         stream_processor = StreamProcessor(self.task, client.name)
-        
+
         messages = self.context_manager.get_messages()
         messages.append(user_message)
-        msg = client([msg.dict() for msg in messages], stream_processor=stream_processor, extra_headers=self.extra_headers)
+
+        kwargs = {}
+        if self.supports_function_calling() and self.task.mcp:
+            tools = self.task.mcp.get_openai_tools()
+            if tools:
+                kwargs['tools'] = tools
+
+        msg = client(
+            [msg.dict() for msg in messages],
+            stream_processor=stream_processor,
+            extra_headers=self.extra_headers,
+            **kwargs
+        )
         msg = self.storage.store(msg)
         if isinstance(msg.message, AIMessage):
             self.context_manager.add_chat(user_message, msg)

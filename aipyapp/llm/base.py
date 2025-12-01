@@ -63,6 +63,7 @@ class AIMessage(Message):
     role: Literal[MessageRole.ASSISTANT] = MessageRole.ASSISTANT
     reason: str | None = None
     usage: Counter = Field(default_factory=Counter)
+    tool_calls: List[Any] | None = None
     
 class ErrorMessage(Message):
     role: Literal[MessageRole.ERROR] = MessageRole.ERROR
