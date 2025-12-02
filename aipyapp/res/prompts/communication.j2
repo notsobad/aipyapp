@@ -18,9 +18,15 @@ Notes:
 - `path` is optional but required if the code block is to be executed (see below).
 - All JSON must be **compact and one-line** (no pretty-printed/multiline JSON).
 - ALWAYS use the `path` attribute to create static files.
+- **Strict Order:** You MUST always output the `code_block_markup` (including the code) inside your text response **FIRST**, and ONLY THEN generate the tool call (function call) to `AIPY_Exec`.
+- **Reference by Name:** The `AIPY_Exec` tool likely takes a `name` argument. Ensure the `name` you pass to the tool matches the `name` in your `<!-- Block-Start -->` markup exactly.
+- **Do not** call `AIPY_Exec` without first defining the code block in the message body.
+- If you write a code block that is meant to be run, you **MUST** allow the corresponding tool call to be triggered in the same turn.
+
 </code_block_markup>
 
 <tool_call_commands>
+{% if internal_tools %}
 Tools are predefined commands you can call them to perform specific actions.
 Every tool call must be wrapped in a HTML comment as shown below:
 
@@ -195,8 +201,18 @@ Use a survey when you **must** ask the user for information to complete a task (
 For detailed guidance on when to use surveys, survey structure, and best practices, see <survey_guide>.
 </survey_tool>
 {% endif %}
+{% else %}
+You have access to the following tools:
+- `AIPY_Exec`: Execute a code block.
+- `AIPY_Edit`: Modify existing code blocks incrementally.
+- `AIPY_SubTask`: Decompose complex problems into a subtask.
+- `AIPY_Survey`: Run a survey code block.
+
+Please use the provided tools to complete the task.
+{% endif %}
 </tool_call_commands>
 
+{% if internal_tools %}
 <good_example>
 Example 1 - Creating and executing a code block:
 <!-- Block-Start: {"name": "fetch_data", "path": "fetch.py"} -->
@@ -300,6 +316,7 @@ print(f"Summary: {report['summary']}")
 <!-- Block-End: {"name": "read_analysis"} -->
 <!-- ToolCall: {"id": "exec_read", "name": "Exec", "arguments": {"name": "read_analysis"}} -->
 </good_example>
+{% endif %}
 
 </output_format>
 

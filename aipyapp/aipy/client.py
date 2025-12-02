@@ -8,6 +8,7 @@ from loguru import logger
 from .. import __version__
 from ..llm import ModelCapability, AIMessage
 from .chat import ChatMessage
+from .toolcalls import get_internal_tools_openai_format
 
 if TYPE_CHECKING:
     from .task import Task
@@ -93,6 +94,7 @@ class StreamProcessor:
         if lines2:
             self.task.emit('stream', llm=self.name, lines=lines2, reason=reason)
 
+
 class Client:
     def __init__(self, task: 'Task'):
         self.manager = task.client_manager
@@ -166,8 +168,17 @@ class Client:
         messages.append(user_message)
 
         kwargs = {}
-        if self.supports_function_calling() and self.task.mcp:
-            tools = self.task.mcp.get_openai_tools()
+        if self.supports_function_calling():
+            tools = []
+            # Add internal tools
+            tools.extend(get_internal_tools_openai_format())
+
+            # Add MCP tools
+            if self.task.mcp:
+                mcp_tools = self.task.mcp.get_openai_tools()
+                if mcp_tools:
+                    tools.extend(mcp_tools)
+
             if tools:
                 kwargs['tools'] = tools
 

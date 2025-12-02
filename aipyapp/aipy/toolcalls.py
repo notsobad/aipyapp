@@ -334,3 +334,40 @@ class ToolCallProcessor:
                 error=Error.new("Survey execution failed", exception=str(e))
             )
         return tr
+
+def get_internal_tools_openai_format():
+    """Generate OpenAI tool definitions for internal tools."""
+    return [
+        {
+            "type": "function",
+            "function": {
+                "name": "AIPY_Exec",
+                "description": "Execute a code block. You MUST generate the code block content in the response BEFORE calling this tool. Only python, html, bash, powershell, applescript, javascript blocks can be executed.",
+                "parameters": ExecToolArgs.model_json_schema()
+            }
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "AIPY_Edit",
+                "description": "Modify existing code blocks incrementally. The code block must exist before calling this tool.",
+                "parameters": EditToolArgs.model_json_schema()
+            }
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "AIPY_SubTask",
+                "description": "Decompose complex problems into a subtask.",
+                "parameters": SubTaskArgs.model_json_schema()
+            }
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "AIPY_Survey",
+                "description": "Run a survey code block. You MUST generate the survey code block content in the response BEFORE calling this tool.",
+                "parameters": SurveyToolArgs.model_json_schema()
+            }
+        }
+    ]

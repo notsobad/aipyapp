@@ -21,7 +21,7 @@ from dynaconf import Dynaconf
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from aipyapp.aipy import Task, TaskManager, ConfigManager
-from aipyapp.aipy.context_manager import ContextManager, ContextConfig
+from aipyapp.aipy.context import ContextManager, ContextConfig
 from aipyapp.aipy.runtime import CliPythonRuntime
 from aipyapp.exec import BlockExecutor
 
