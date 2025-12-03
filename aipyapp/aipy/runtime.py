@@ -9,7 +9,7 @@ import inspect
 
 from term_image.image import from_file, from_url
 
-from .functions import FunctionManager
+from .functions import FunctionManager, FunctionNotFoundError
 from .. import T, TaskPlugin
 from ..exec import PythonRuntime
 from .blocks import CodeBlock
@@ -230,10 +230,40 @@ class CliPythonRuntime(PythonRuntime):
             None
         """
         self.task.emit('function_call_started', funcname=name, kwargs=kwargs)
+
+        # 1. Try FunctionManager
         try:
             result = self.function_manager.call(name, **kwargs)
             self.task.emit('function_call_completed', funcname=name, kwargs=kwargs, result=result, success=True)
             return result
+        except FunctionNotFoundError:
+            # 2. Try MCP
+            if self.task.mcp:
+                mcp_result = self.task.mcp.call_tool(name, kwargs)
+
+                # Check if tool was found
+                is_error = mcp_result.get('isError', False)
+                content = mcp_result.get('content', [])
+                error_text = content[0].get('text', '') if content and isinstance(content, list) else str(content)
+
+                if is_error and "No tool found with name" in error_text:
+                    # Not found in MCP either
+                    pass
+                elif is_error:
+                    # Found but failed
+                    e = Exception(f"MCP Tool execution failed: {error_text}")
+                    self.task.emit('function_call_completed', funcname=name, kwargs=kwargs, result=None, success=False, error=str(e), exception=e)
+                    raise e
+                else:
+                    # Success
+                    self.task.emit('function_call_completed', funcname=name, kwargs=kwargs, result=mcp_result, success=True)
+                    return mcp_result
+
+            # Not found in either
+            e = FunctionNotFoundError(f"Function '{name}' not found")
+            self.task.emit('function_call_completed', funcname=name, kwargs=kwargs, result=None, success=False, error=str(e), exception=e)
+            raise e
+
         except Exception as e:
             self.task.emit('function_call_completed', funcname=name, kwargs=kwargs, result=None, success=False, error=str(e), exception=e)
             raise
