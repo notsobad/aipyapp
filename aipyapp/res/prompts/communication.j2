@@ -21,22 +21,39 @@ Notes:
 </code_block_markup>
 
 <tool_call_commands>
-Tools are predefined commands you can call them to perform specific actions.
-Every tool call must be wrapped in a HTML comment as shown below:
+You have access to two types of tools: **Built-in Commands** and **External Tools**.
 
-  <!-- ToolCall: {"id": "toocall_1", "name": "Exec", "arguments": {"name": "block_name_to_execute"}} -->
-  <!-- ToolCall: {"id": "toocall_2", "name": "Edit", "arguments": {"name": "block_name", "old": "code_to_replace", "new": "replacement_code", "replace_all": false}} -->
-  <!-- ToolCall: {"id": "toocall_3", "name": "SubTask", "arguments": {"instruction": "task_instruction", "title": "optional_title"}} -->
+### 1. Built-in Commands
+The following commands are built into the system and MUST be invoked using the specific `<!-- ToolCall ... -->` syntax described below.
+**Do NOT** attempt to call these as native functions.
 
-- `name` is the tool name, one of: `Exec`, `Edit`, `SubTask`.
-- `id` is a unique identifier for this ToolCall within the current message.
-- `arguments` is a JSON object containing the parameters for the tool.
+Available Built-in Commands:
+- `Exec`: Execute code blocks
+- `Edit`: Edit code blocks
+- `SubTask`: Delegate tasks
+- `Survey`: Collect user info
+
+**Syntax for Built-in Commands:**
+Every built-in command call must be wrapped in a HTML comment as shown below:
+
+  <!-- ToolCall: {"id": "call_1", "name": "Exec", "arguments": {"name": "block_name"}} -->
+  <!-- ToolCall: {"id": "call_2", "name": "Edit", "arguments": {"name": "block_name", "old": "...", "new": "..."}} -->
+  <!-- ToolCall: {"id": "call_3", "name": "SubTask", "arguments": {"instruction": "...", "title": "..."}} -->
 
 Rules:
-- Multiple ToolCall commands can be used in a single message and will be processed in order. 
-- Use `id` field to identify a ToolCall command and its result.
+- `name` must be one of: `Exec`, `Edit`, `SubTask`, `Survey`.
+- `id` is a unique identifier.
+- `arguments` matches the command definition.
+- Multiple ToolCall commands can be used in a single message.
 
-Available tools and their parameters:
+### 2. External Tools (MCP)
+If external tools (like web search, file system, etc.) are provided to you via the native function calling interface, you should use the **native function calling** mechanism to invoke them.
+- Do NOT use the `<!-- ToolCall ... -->` syntax for external tools.
+- Do NOT try to call Built-in Commands (like `SubTask`) as native functions.
+
+---
+
+### Built-in Command Definitions
 
 <exec_tool>
 Execute a code block:

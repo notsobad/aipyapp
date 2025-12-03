@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 from __future__ import annotations
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, List
 from loguru import logger
 
 from .. import __version__
@@ -158,12 +158,15 @@ class Client:
 
         return ModelCapability.FUNCTION_CALLING in model_info.capabilities
 
-    def __call__(self, user_message: ChatMessage) -> ChatMessage:
+    def __call__(self, user_message: ChatMessage | List[ChatMessage]) -> ChatMessage:
         client = self.current
         stream_processor = StreamProcessor(self.task, client.name)
 
         messages = self.context_manager.get_messages()
-        messages.append(user_message)
+        if isinstance(user_message, list):
+            messages.extend(user_message)
+        else:
+            messages.append(user_message)
 
         kwargs = {}
         if self.supports_function_calling() and self.task.mcp:
@@ -179,5 +182,10 @@ class Client:
         )
         msg = self.storage.store(msg)
         if isinstance(msg.message, AIMessage):
-            self.context_manager.add_chat(user_message, msg)
+            if isinstance(user_message, list):
+                for m in user_message:
+                    self.context_manager.add_message(m)
+                self.context_manager.add_message(msg)
+            else:
+                self.context_manager.add_chat(user_message, msg)
         return msg
