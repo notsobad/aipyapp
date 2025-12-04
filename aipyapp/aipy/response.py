@@ -15,7 +15,7 @@ from pydantic import BaseModel, ValidationError, Field
 
 from .types import Errors
 from .blocks import CodeBlock
-from .toolcalls import ToolCall
+from .toolcalls import ToolCall, ToolName
 from .libmcp import extract_call_tool_str, extra_call_tool_blocks
 from .chat import ChatMessage
 
@@ -114,11 +114,39 @@ class Response(BaseModel):
         # 解析 MCP 调用（如果需要）
         if parse_mcp:
             errors.extend(self._parse_mcp_calls(markdown))
+
+        # Parse native tool calls from AIMessage
+        if hasattr(message.message, 'tool_calls') and message.message.tool_calls:
+             self._parse_native_tool_calls(message.message.tool_calls)
         
         if errors:
             self.errors = errors
         return self
-    
+
+    def _parse_native_tool_calls(self, native_tool_calls: List[Any]):
+        tool_calls = []
+        for tc in native_tool_calls:
+            try:
+                args = json.loads(tc.function.arguments)
+
+                # Construct MCPToolArgs
+                mcp_args = {
+                    "action": "call_tool",
+                    "name": tc.function.name,
+                    "arguments": args
+                }
+
+                tool_call = ToolCall(
+                    name=ToolName.MCP,
+                    arguments=mcp_args,
+                    id=tc.id
+                )
+                tool_calls.append(tool_call)
+            except Exception as e:
+                self.log.error(f"Failed to parse native tool call: {e}")
+
+        self._add_tool_calls(tool_calls)
+
     def _parse_code_blocks(self, markdown: str) -> Errors:
         """解析代码块"""
         errors = Errors()

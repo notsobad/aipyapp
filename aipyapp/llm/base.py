@@ -31,11 +31,12 @@ class MessageRole(str, Enum):
     SYSTEM = "system"
     USER = "user"
     ASSISTANT = "assistant"
+    TOOL = "tool"
     ERROR = "error"
 
 class Message(BaseModel):
     role: MessageRole
-    content: str
+    content: str | None
 
     def dict(self):
         return {'role': self.role.value, 'content': self.content}
@@ -59,14 +60,30 @@ class UserMessage(Message):
 class SystemMessage(Message):
     role: Literal[MessageRole.SYSTEM] = MessageRole.SYSTEM
 
+class ToolMessage(Message):
+    role: Literal[MessageRole.TOOL] = MessageRole.TOOL
+    tool_call_id: str
+
+    def dict(self):
+        return {'role': self.role.value, 'content': self.content, 'tool_call_id': self.tool_call_id}
+
 class AIMessage(Message):
     role: Literal[MessageRole.ASSISTANT] = MessageRole.ASSISTANT
     reason: str | None = None
     usage: Counter = Field(default_factory=Counter)
-    
+    tool_calls: List[Any] | None = None
+
+    def dict(self):
+        d = {'role': self.role.value, 'content': self.content}
+        if self.tool_calls:
+            d['tool_calls'] = [
+                tc.model_dump() if hasattr(tc, 'model_dump') else tc.dict() if hasattr(tc, 'dict') else tc
+                for tc in self.tool_calls
+            ]
+        return d
+
 class ErrorMessage(Message):
     role: Literal[MessageRole.ERROR] = MessageRole.ERROR
-
 
 @dataclass
 class RetryConfig:

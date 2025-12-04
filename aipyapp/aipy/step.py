@@ -9,7 +9,7 @@ from collections import Counter
 from loguru import logger
 from pydantic import BaseModel, Field
 
-from ..llm import ErrorMessage, UserMessage
+from ..llm import ErrorMessage, UserMessage, ToolMessage
 from .chat import ChatMessage
 from .response import Response
 from .toolcalls import ToolCallResult, ToolName
@@ -24,7 +24,7 @@ class Round(BaseModel):
     # 工具调用执行结果
     toolcall_results: List[ToolCallResult] | None = None
     # 系统对执行结果的回应消息(如果有)
-    system_feedback: ChatMessage | None = None
+    system_feedback: ChatMessage | List[ChatMessage] | None = None
     # 上下文清理标记：是否已从上下文中删除
     context_deleted: bool = Field(default=False, description="Whether this round's messages have been deleted from context")
 
@@ -129,7 +129,7 @@ class Step:
     def get(self, name: str, default: Any = None):
         return getattr(self._data, name, default)
     
-    def request(self, user_message: ChatMessage) -> Response:
+    def request(self, user_message: ChatMessage | List[ChatMessage]) -> Response:
         client = self.task.client
         self.task.emit('request_started', llm=client.name)
         msg = client(user_message)
@@ -179,12 +179,32 @@ class Step:
             self._data.add_round(round)
 
             # 生成系统反馈消息
-            system_feedback = round.get_system_feedback(self.task.prompts)
+            system_feedback = None
+
+            # 优先尝试生成 ToolMessage
+            if round.toolcall_results and self.task.client.supports_function_calling():
+                tool_messages = []
+                for res in round.toolcall_results:
+                    if res.id: # ToolCallResult has id
+                        # 确保 result 是字符串
+                        content = res.result.to_json() if hasattr(res.result, 'to_json') else str(res.result)
+                        msg = ToolMessage(tool_call_id=res.id, content=content)
+                        tool_messages.append(message_storage.store(msg))
+                if tool_messages:
+                    system_feedback = tool_messages
+
+            if not system_feedback:
+                system_feedback = round.get_system_feedback(self.task.prompts)
+
             if not system_feedback:
                 break
 
-            round.system_feedback = message_storage.store(system_feedback)
-            user_message = round.system_feedback
+            if isinstance(system_feedback, list):
+                round.system_feedback = system_feedback
+                user_message = system_feedback
+            else:
+                round.system_feedback = message_storage.store(system_feedback)
+                user_message = round.system_feedback
 
         self['end_time'] = time.time()
         return response
@@ -278,7 +298,11 @@ class StepCleaner:
             if round.llm_response and round.llm_response.message:
                 messages_to_clean.append(round.llm_response.message.id)
             if round.system_feedback:
-                messages_to_clean.append(round.system_feedback.id)
+                if isinstance(round.system_feedback, list):
+                    for msg in round.system_feedback:
+                        messages_to_clean.append(msg.id)
+                else:
+                    messages_to_clean.append(round.system_feedback.id)
 
             self.log.info(f"Will clean Round {i}: {self._get_round_summary(round)}")
 
@@ -298,7 +322,11 @@ class StepCleaner:
                 if round.llm_response and round.llm_response.message:
                     messages_to_clean.append(round.llm_response.message.id)
                 if round.system_feedback:
-                    messages_to_clean.append(round.system_feedback.id)
+                    if isinstance(round.system_feedback, list):
+                        for msg in round.system_feedback:
+                            messages_to_clean.append(msg.id)
+                    else:
+                        messages_to_clean.append(round.system_feedback.id)
 
                 self.log.info(f"Will clean Round {i}: {self._get_round_summary(round)}")
             else:
@@ -326,9 +354,14 @@ class StepCleaner:
 
             # 检查系统反馈
             if round.system_feedback:
-                feedback_id = round.system_feedback.id
-                messages_to_clean.append(feedback_id)
-                self.log.info(f"✅ Will delete Round {i} system feedback: {feedback_id}")
+                if isinstance(round.system_feedback, list):
+                    for msg in round.system_feedback:
+                        messages_to_clean.append(msg.id)
+                        self.log.info(f"✅ Will delete Round {i} system feedback: {msg.id}")
+                else:
+                    feedback_id = round.system_feedback.id
+                    messages_to_clean.append(feedback_id)
+                    self.log.info(f"✅ Will delete Round {i} system feedback: {feedback_id}")
 
             # 标记为删除
             round.context_deleted = True
@@ -430,4 +463,3 @@ class StepCleaner:
         else:
             success_count = sum(1 for tcr in round.toolcall_results if not round._tool_call_failed(tcr))
             return f"SUCCESS: {success_count}/{len(round.toolcall_results)} tools"
-    
