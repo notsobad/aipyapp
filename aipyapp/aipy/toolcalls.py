@@ -37,10 +37,28 @@ class ToolResult(BaseModel):
 
 class ExecToolArgs(BaseModel):
     """Exec tool arguments"""
-    name: Optional[str] = Field(None, title="Code block name", min_length=1, strip_whitespace=True)
-    code: Optional[str] = Field(None, title="Code content to execute. Required for new blocks.")
-    lang: Optional[str] = Field(None, title="Programming language (python, bash, etc.). Required for new blocks.")
-    path: Optional[str] = Field(None, title="File path to save the code. Optional.")
+    name: Optional[str] = Field(
+        None,
+        title="Code block name",
+        description="Code block name to execute",
+        min_length=1,
+        strip_whitespace=True
+    )
+    code: Optional[str] = Field(
+        None,
+        title="Code content",
+        description="Code content to execute. Required for new blocks."
+    )
+    lang: Optional[str] = Field(
+        None,
+        title="Programming language",
+        description="Programming language (python, bash, etc.). Required for new blocks."
+    )
+    path: Optional[str] = Field(
+        None,
+        title="File path",
+        description="File path to save the code. Optional."
+    )
 
 class ExecToolResult(ToolResult):
     """Exec tool result"""
@@ -49,10 +67,26 @@ class ExecToolResult(ToolResult):
 
 class EditToolArgs(BaseModel):
     """Edit tool arguments"""
-    name: str = Field(title="Code block name to edit", min_length=1, strip_whitespace=True)
-    old: str = Field(title="Code to replace", min_length=1)
-    new: str = Field(title="Replacement code")
-    replace_all: Optional[bool] = Field(False, title="Replace all occurrences")
+    name: str = Field(
+        title="Code block name",
+        description="Code block name to edit",
+        min_length=1,
+        strip_whitespace=True
+    )
+    old: str = Field(
+        title="Code to replace",
+        description="Exact string to find and replace (must match exactly including whitespace)",
+        min_length=1
+    )
+    new: str = Field(
+        title="Replacement code",
+        description="Replacement string (can be empty for deletion)"
+    )
+    replace_all: Optional[bool] = Field(
+        False,
+        title="Replace all occurrences",
+        description="Replace all occurrences. false: Replace only the first occurrence (safer). true: Replace all occurrences."
+    )
 
 class EditToolResult(ToolResult):
     """Edit tool result"""
@@ -74,8 +108,17 @@ class MCPToolResult(ToolResult):
 
 class SubTaskArgs(BaseModel):
     """SubTask tool arguments"""
-    instruction: str = Field(title="SubTask instruction", min_length=1, strip_whitespace=True)
-    title: Optional[str] = Field(default=None, title="SubTask title")
+    instruction: str = Field(
+        title="SubTask instruction",
+        description="Detailed instruction for the subtask",
+        min_length=1,
+        strip_whitespace=True
+    )
+    title: Optional[str] = Field(
+        default=None,
+        title="SubTask title",
+        description="Title of the subtask"
+    )
 
 class SubTaskResult(ToolResult):
     """SubTask tool result"""
@@ -83,7 +126,12 @@ class SubTaskResult(ToolResult):
 
 class SurveyToolArgs(BaseModel):
     """Survey tool arguments"""
-    name: str = Field(title="Survey code block name", min_length=1, strip_whitespace=True)
+    name: str = Field(
+        title="Survey code block name",
+        description="Name of the survey code block to execute",
+        min_length=1,
+        strip_whitespace=True
+    )
 
 class SurveyToolResult(ToolResult):
     """Survey tool result"""
@@ -388,7 +436,12 @@ def get_internal_tools_openai_format():
             "type": "function",
             "function": {
                 "name": "AIPY_Exec",
-                "description": "Execute a code block. You MUST generate the code block content in the response BEFORE calling this tool. Only python, html, bash, powershell, applescript, javascript blocks can be executed.",
+                "description": (
+                    "Execute a code block. Provide the code content directly in the "
+                    "'code' argument. Only python, html, bash, powershell, "
+                    "applescript, javascript blocks can be executed. Python is always "
+                    "executable. Other languages require a 'path' attribute."
+                ),
                 "parameters": ExecToolArgs.model_json_schema()
             }
         },
@@ -396,7 +449,12 @@ def get_internal_tools_openai_format():
             "type": "function",
             "function": {
                 "name": "AIPY_Edit",
-                "description": "Modify existing code blocks incrementally. The code block must exist before calling this tool.",
+                "description": (
+                    "Modify existing code blocks incrementally. The code block must "
+                    "exist before calling this tool. Use this to fix errors or make "
+                    "small changes without rewriting the entire block. Provide the "
+                    "exact 'old' string to replace and the 'new' string."
+                ),
                 "parameters": EditToolArgs.model_json_schema()
             }
         },
@@ -404,7 +462,11 @@ def get_internal_tools_openai_format():
             "type": "function",
             "function": {
                 "name": "AIPY_SubTask",
-                "description": "Decompose complex problems into a subtask.",
+                "description": (
+                    "Delegate a complex sub-problem to a subtask agent. "
+                    "Use this when a task is too complex to handle in a single step or "
+                    "requires a specialized agent context."
+                ),
                 "parameters": SubTaskArgs.model_json_schema()
             }
         },
@@ -412,7 +474,11 @@ def get_internal_tools_openai_format():
             "type": "function",
             "function": {
                 "name": "AIPY_Survey",
-                "description": "Run a survey code block. You MUST generate the survey code block content in the response BEFORE calling this tool.",
+                "description": (
+                    "Collect information from the user via a survey form. "
+                    "You MUST generate the survey code block (JSON format) in the "
+                    "response BEFORE calling this tool."
+                ),
                 "parameters": SurveyToolArgs.model_json_schema()
             }
         }
