@@ -117,13 +117,15 @@ class Task(Stoppable):
         self.task_id = data.id
         self.manager = manager
         self.settings = manager.settings
-        self.log = logger.bind(src='task', id=self.task_id)
+        
         if not parent:
             self.cwd = manager.cwd / self.task_id
             self.shared_dir = self.cwd / "shared"
         else:
             self.cwd = parent.cwd / self.task_id
             self.shared_dir = parent.shared_dir
+        self.log = self.create_logger()
+
         self.gui = manager.settings.gui
         self._saved = False
         self.max_rounds = manager.settings.get('max_rounds', MAX_ROUNDS)
@@ -151,9 +153,10 @@ class Task(Stoppable):
         self.context_manager = ContextManager(
             self.message_storage,
             self.context,
-            manager.settings.get('context_manager')
+            manager.settings.get('context_manager'),
+            task_id=self.task_id
         )
-        self.tool_call_processor = ToolCallProcessor() if not parent else parent.tool_call_processor
+        self.tool_call_processor = ToolCallProcessor(self) if not parent else parent.tool_call_processor
         
         # Phase 4: Initialize display (depends on event_bus)
         if manager.display_manager:
@@ -167,7 +170,7 @@ class Task(Stoppable):
         self.prompts = Prompts(features=self.role.get_features())
         self.client_manager = manager.client_manager
         self.runtime = CliPythonRuntime(self)
-        self.runner = BlockExecutor()
+        self.runner = BlockExecutor(task_id=self.task_id)
         self.runner.set_python_runtime(self.runtime)
         self.client = Client(self)
         
@@ -211,6 +214,29 @@ class Task(Stoppable):
         if self.steps:
             return self.steps[0].data.start_time
         return None
+    
+    def create_logger(self):
+        task_logger = logger.bind(src='task', task_id=self.task_id)
+        task_logger.remove()
+        task_logger.add(
+            self.cwd / "task.log", 
+            level="INFO",
+            encoding="utf-8",
+            format="{time:YYYY-MM-DD HH:mm:ss} | {level} | {message} | {extra}",
+            filter=lambda record: record["extra"].get("task_id") == self.task_id
+        )
+        return task_logger
+    
+    def get_logger(self, component: str):
+        """为子组件提供绑定了 task_id 的 logger
+        
+        Args:
+            component: 组件名称，如 'Client', 'Runtime' 等
+            
+        Returns:
+            绑定了 task_id 的 logger 实例
+        """
+        return logger.bind(src=component, task_id=self.task_id)
     
     def use(self, llm: str) -> bool:
         """ for cmd_llm use
