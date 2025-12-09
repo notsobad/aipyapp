@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 import json
+import uuid
 from enum import Enum
 from typing import Union, List, Dict, Any, Optional, TYPE_CHECKING
 
@@ -13,6 +14,7 @@ from pydantic import BaseModel, model_validator, Field, ValidationError
 from promptabs import SurveyRunner
 
 from .types import Error
+from .blocks import CodeBlock
 from ..exec import ExecResult, ProcessResult, PythonResult
 
 if TYPE_CHECKING:
@@ -35,7 +37,28 @@ class ToolResult(BaseModel):
 
 class ExecToolArgs(BaseModel):
     """Exec tool arguments"""
-    name: str = Field(title="Code block name to execute", min_length=1, strip_whitespace=True)
+    name: Optional[str] = Field(
+        None,
+        title="Code block name",
+        description="Code block name to execute",
+        min_length=1,
+        strip_whitespace=True
+    )
+    code: Optional[str] = Field(
+        None,
+        title="Code content",
+        description="Code content to execute. Required for new blocks."
+    )
+    lang: Optional[str] = Field(
+        None,
+        title="Programming language",
+        description="Programming language (python, bash, etc.). Required for new blocks."
+    )
+    path: Optional[str] = Field(
+        None,
+        title="File path",
+        description="File path to save the code. Optional."
+    )
 
 class ExecToolResult(ToolResult):
     """Exec tool result"""
@@ -44,10 +67,26 @@ class ExecToolResult(ToolResult):
 
 class EditToolArgs(BaseModel):
     """Edit tool arguments"""
-    name: str = Field(title="Code block name to edit", min_length=1, strip_whitespace=True)
-    old: str = Field(title="Code to replace", min_length=1)
-    new: str = Field(title="Replacement code")
-    replace_all: Optional[bool] = Field(False, title="Replace all occurrences")
+    name: str = Field(
+        title="Code block name",
+        description="Code block name to edit",
+        min_length=1,
+        strip_whitespace=True
+    )
+    old: str = Field(
+        title="Code to replace",
+        description="Exact string to find and replace (must match exactly including whitespace)",
+        min_length=1
+    )
+    new: str = Field(
+        title="Replacement code",
+        description="Replacement string (can be empty for deletion)"
+    )
+    replace_all: Optional[bool] = Field(
+        False,
+        title="Replace all occurrences",
+        description="Replace all occurrences. false: Replace only the first occurrence (safer). true: Replace all occurrences."
+    )
 
 class EditToolResult(ToolResult):
     """Edit tool result"""
@@ -69,8 +108,17 @@ class MCPToolResult(ToolResult):
 
 class SubTaskArgs(BaseModel):
     """SubTask tool arguments"""
-    instruction: str = Field(title="SubTask instruction", min_length=1, strip_whitespace=True)
-    title: Optional[str] = Field(default=None, title="SubTask title")
+    instruction: str = Field(
+        title="SubTask instruction",
+        description="Detailed instruction for the subtask",
+        min_length=1,
+        strip_whitespace=True
+    )
+    title: Optional[str] = Field(
+        default=None,
+        title="SubTask title",
+        description="Title of the subtask"
+    )
 
 class SubTaskResult(ToolResult):
     """SubTask tool result"""
@@ -78,7 +126,12 @@ class SubTaskResult(ToolResult):
 
 class SurveyToolArgs(BaseModel):
     """Survey tool arguments"""
-    name: str = Field(title="Survey code block name", min_length=1, strip_whitespace=True)
+    name: str = Field(
+        title="Survey code block name",
+        description="Name of the survey code block to execute",
+        min_length=1,
+        strip_whitespace=True
+    )
 
 class SurveyToolResult(ToolResult):
     """Survey tool result"""
@@ -195,6 +248,9 @@ class ToolCallProcessor:
     def _call_edit(self, task: 'Task', tool_call: ToolCall) -> EditToolResult:
         """执行 Edit 工具"""
         args = tool_call.arguments
+        if not isinstance(args, EditToolArgs):
+            return EditToolResult(block_name="unknown", error=Error.new("Invalid arguments for Edit tool"))
+
         block_name = args.name
 
         original_block = task.blocks.get(block_name)
@@ -232,15 +288,46 @@ class ToolCallProcessor:
     def _call_exec(self, task: 'Task', tool_call: ToolCall) -> ExecToolResult:
         """执行 Exec 工具"""
         args = tool_call.arguments
-        block_name = args.name
-        
-        # 获取代码块
-        block = task.blocks.get(block_name)
-        if not block:
+        if not isinstance(args, ExecToolArgs):
             return ExecToolResult(
-                block_name=block_name,
-                error=Error.new("Code block not found")
+                block_name=getattr(args, 'name', 'unknown'),
+                error=Error.new("Invalid arguments for Exec tool")
             )
+
+        block_name = args.name
+
+        # 如果提供了代码，则创建或更新代码块
+        if args.code:
+            # 如果没有提供名称，生成一个临时名称
+            final_name = block_name or f"exec_{uuid.uuid4().hex[:8]}"
+
+            # 确定语言
+            lang = args.lang or "python"
+
+            new_block = CodeBlock(
+                name=final_name,
+                code=args.code,
+                lang=lang,
+                path=args.path
+            )
+            task.blocks.add_block(new_block, validate=False)
+            block = new_block
+            block_name = final_name
+        else:
+            # 如果没有提供代码，必须提供名称
+            if not block_name:
+                return ExecToolResult(
+                    block_name="unknown",
+                    error=Error.new("Block name is required when no code is provided.")
+                )
+
+            # 获取已有代码块
+            block = task.blocks.get(block_name)
+            if not block:
+                return ExecToolResult(
+                    block_name=block_name,
+                    error=Error.new("Code block not found. Please provide 'code' argument for new blocks.")
+                )
         
         # 执行代码块
         try:
@@ -270,27 +357,34 @@ class ToolCallProcessor:
     def _call_subtask(self, task: 'Task', tool_call: ToolCall) -> SubTaskResult:
         """执行 SubTask 工具"""
         args = tool_call.arguments
+        if not isinstance(args, SubTaskArgs):
+            return SubTaskResult(error=Error.new("Invalid arguments for SubTask tool"))
 
         try:
             # 创建子任务
             response = task.run_subtask(args.instruction, args.title)
-            return SubTaskResult(
-                result=response.message.content
-            )
+            content = response.message.content
+            if isinstance(content, list):
+                # 简单处理多模态内容，只提取文本
+                content = "\n".join([item.text for item in content if hasattr(item, 'text')])
 
-        except Exception as e:
-            self.log.exception("SubTask execution failed")
             return SubTaskResult(
-                result=f"SubTask execution failed: {str(e)}",
-                error=Error.new("SubTask execution failed", exception=str(e))
+                result=str(content) if content is not None else None
+            )
+        except Exception as e:
+            self.log.exception(f"SubTask failed with exception: {e}")
+            return SubTaskResult(
+                error=Error.new("SubTask failed with exception", exception=str(e))
             )
 
     def _call_survey(self, task: 'Task', tool_call: ToolCall) -> SurveyToolResult:
         """执行 Survey 工具"""
         args = tool_call.arguments
+        if not isinstance(args, SurveyToolArgs):
+            return SurveyToolResult(block_name="unknown", error=Error.new("Invalid arguments for Survey tool"))
+
         block_name = args.name
 
-        # 获取 survey 代码块
         block = task.blocks.get(block_name)
         if not block:
             return SurveyToolResult(
@@ -334,3 +428,58 @@ class ToolCallProcessor:
                 error=Error.new("Survey execution failed", exception=str(e))
             )
         return tr
+
+def get_internal_tools_openai_format():
+    """Generate OpenAI tool definitions for internal tools."""
+    return [
+        {
+            "type": "function",
+            "function": {
+                "name": "AIPY_Exec",
+                "description": (
+                    "Execute a code block. Provide the code content directly in the "
+                    "'code' argument. Only python, html, bash, powershell, "
+                    "applescript, javascript blocks can be executed. Python is always "
+                    "executable. Other languages require a 'path' attribute."
+                ),
+                "parameters": ExecToolArgs.model_json_schema()
+            }
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "AIPY_Edit",
+                "description": (
+                    "Modify existing code blocks incrementally. The code block must "
+                    "exist before calling this tool. Use this to fix errors or make "
+                    "small changes without rewriting the entire block. Provide the "
+                    "exact 'old' string to replace and the 'new' string."
+                ),
+                "parameters": EditToolArgs.model_json_schema()
+            }
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "AIPY_SubTask",
+                "description": (
+                    "Delegate a complex sub-problem to a subtask agent. "
+                    "Use this when a task is too complex to handle in a single step or "
+                    "requires a specialized agent context."
+                ),
+                "parameters": SubTaskArgs.model_json_schema()
+            }
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "AIPY_Survey",
+                "description": (
+                    "Collect information from the user via a survey form. "
+                    "You MUST generate the survey code block (JSON format) in the "
+                    "response BEFORE calling this tool."
+                ),
+                "parameters": SurveyToolArgs.model_json_schema()
+            }
+        }
+    ]

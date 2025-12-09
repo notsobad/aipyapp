@@ -43,7 +43,6 @@ try:
 except ImportError:
     BlockExecutor = None
 
-
 @pytest.fixture(scope="session")
 def test_data_dir() -> Path:
     """提供测试数据目录路径"""
