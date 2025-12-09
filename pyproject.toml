@@ -86,3 +86,9 @@ skip-magic-trailing-comma = true
 [tool.ruff.lint]
 # 启用 isort 规则
 extend-select = []
+
+[dependency-groups]
+dev = [
+    "hatch-vcs>=0.5.0",
+    "hatchling>=1.28.0",
+]
