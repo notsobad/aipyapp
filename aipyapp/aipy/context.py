@@ -333,7 +333,8 @@ class ContextManager:
     """上下文管理器"""
     
     def __init__(self, message_store: MessageStorage, data: ContextData, 
-                 config: Union[dict, ContextConfig, None] = None):
+                 config: Union[dict, ContextConfig, None] = None,
+                 task_id: str = None):
         if isinstance(config, dict):
             self.config = ContextConfig(**config)
         elif isinstance(config, ContextConfig):
@@ -343,7 +344,10 @@ class ContextManager:
         
         self.message_store = message_store
         self.compressor = MessageCompressor(message_store, self.config)
-        self.log = logger.bind(src='context_manager')
+        if task_id:
+            self.log = logger.bind(src='context_manager', task_id=task_id)
+        else:
+            self.log = logger.bind(src='context_manager')
         
         self.data = data
         self._last_compression_time = 0

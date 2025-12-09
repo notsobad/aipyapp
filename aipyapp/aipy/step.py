@@ -97,7 +97,7 @@ class StepData(BaseModel):
 class Step:
     def __init__(self, task: Task, data: StepData):
         self.task = task
-        self.log = logger.bind(src='Step')
+        self.log = task.get_logger('Step')
         self._data = data
         self._summary = Counter()
         self._cleaner = StepCleaner(task.context_manager)
@@ -153,7 +153,7 @@ class Step:
             self.task.blocks.add_blocks(response.code_blocks)
         
         if response.tool_calls:
-            toolcall_results = self.task.tool_call_processor.process(self.task, response.tool_calls)
+            toolcall_results = self.task.tool_call_processor.process(response.tool_calls)
         else:
             toolcall_results = None
         return toolcall_results

@@ -105,7 +105,7 @@ class Client:
         # 接收外部传入的上下文管理器
         self.context_manager = task.context_manager
         self.storage = task.message_storage
-        self.log = logger.bind(src='Client', name=self.current.name)
+        self.log = task.get_logger('Client')
 
     @property
     def name(self):
