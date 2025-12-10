@@ -115,7 +115,7 @@ class Client:
         client = self.manager.get_client(name)
         if client and client.usable():
             self.current = client
-            self.log = logger.bind(src='client', name=self.current.name)
+            self.log = self.task.get_logger('client', name=self.current.name)
             return True
         return False
     

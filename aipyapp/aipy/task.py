@@ -227,7 +227,7 @@ class Task(Stoppable):
         )
         return task_logger
     
-    def get_logger(self, component: str):
+    def get_logger(self, component: str, **kwargs):
         """为子组件提供绑定了 task_id 的 logger
         
         Args:
@@ -236,7 +236,7 @@ class Task(Stoppable):
         Returns:
             绑定了 task_id 的 logger 实例
         """
-        return logger.bind(src=component, task_id=self.task_id)
+        return logger.bind(src=component, task_id=self.task_id, **kwargs)
     
     def use(self, llm: str) -> bool:
         """ for cmd_llm use

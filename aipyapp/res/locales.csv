@@ -462,7 +462,6 @@ Note: Click the "**Help**" link in the menu bar to contact the **AIPy** official
 "Task Steps","任务步骤","タスクステップ"
 "Index","索引","インデックス"
 "Instruction","指令","指令"
-"Round","轮数","ラウンド"
 "Ended","结束时间","終了時間"
 "Load a recent task by task id","加载最近任务","最近のタスクを読み込む"
 "Load task from task.json file","从 task.json 文件加载任务","task.jsonファイルからタスクを読み込む"
@@ -515,46 +514,53 @@ Note: Click the "**Help**" link in the menu bar to contact the **AIPy** official
 "After","清理后","実行後"
 "Cleared","已清理","クリア済み"
 "No messages to clear","没有可清理的消息","クリアするメッセージがありません"
-Start calling tool {},开始调用工具 {},ツール {} の呼び出しを開始します
-Exec,执行,実行
-Tool Calls,工具调用,ツール呼び出し
-Blocks,代码块,ブロック
-SubTask,子任务,サブタスク
-Path,路径,パス
-Task completed,任务已完成,タスクが完了しました
-SubTask completed,子任务已完成,サブタスクが完了しました
-Exception occurred,发生异常,例外が発生しました
-Custom command name,自定义命令名称,カスタムコマンド名
-Show custom command details,显示自定义命令详情,カスタムコマンドの詳細を表示
-Reload custom commands from disk,从磁盘重新加载自定义命令,ディスクからカスタムコマンドを再読み込み
-List all custom commands,列出所有自定义命令,すべてのカスタムコマンドを一覧表示
-MCP server operations,MCP 服务器操作,MCP サーバー操作
-Replay speed multiplier,回放速度倍数,再生速度倍率
-Name of the code block,代码块名称,コードブロックの名前
-Run code block,运行代码块,コードブロックを実行
-Index of the step to show (default: last step),要显示的步骤索引（默认：最后一步）,表示するステップのインデックス（デフォルト：最後のステップ）
-Show rounds in a step,显示步骤中的回合,ステップ内のラウンドを表示
-Delete task steps,删除任务步骤,タスクステップを削除
-Index of the step to clear (default: last step),要清除的步骤索引（默认：最后一步）,クリアするステップのインデックス（デフォルト：最後のステップ）
-Clear step context,清除步骤上下文,ステップコンテキストをクリア
-Provider name,提供者名称,プロバイダー名
-Manage custom commands,管理自定义命令,カスタムコマンドを管理
-Cleaned {} messages,已清理 {} 条消息,{} 件のメッセージをクリーンしました
-{} messages remaining,剩余 {} 条消息,残り {} 件のメッセージ
-Saved {} tokens,已保存 {} 个令牌,{} トークンを保存しました
-{} tokens remaining,剩余 {} 个令牌,残り {} トークン
-Context optimized for better performance,上下文已优化以提高性能,コンテキストはパフォーマンス向上のために最適化されました
-Context cleanup completed,上下文清理完成,コンテキストのクリーンアップが完了しました
-errors,错误,エラー
-Show subtask tree,显示子任务树,サブタスクツリーを表示
-Subtask tree,子任务树,サブタスクツリー
-Show nested subtasks recursively,递归显示嵌套子任务,ネストされたサブタスクを再帰的に表示
-Subtask ID,子任务 ID,サブタスクID
-Parent Task ID,父任务 ID,親タスクID
-List subtasks in table format,以表格格式列出子任务,表形式でサブタスクを一覧表示
-No subtasks found,未找到子任务,サブタスクが見つかりません
-Subtasks,子任务,サブタスク
-Subtask Details,子任务详情,サブタスクの詳細
-Subtask not found,子任务未找到,サブタスクが見つかりません
-Subtask Information,子任务信息,サブタスク情報
-View and manage subtasks,查看和管理子任务,サブタスクの表示と管理
+"Start calling tool {}","开始调用工具 {}","ツール {} の呼び出しを開始します"
+"Exec","执行","実行"
+"Tool Calls","工具调用","ツール呼び出し"
+"Blocks","代码块","ブロック"
+"SubTask","子任务","サブタスク"
+"Path","路径","パス"
+"Task completed","任务已完成","タスクが完了しました"
+"SubTask completed","子任务已完成","サブタスクが完了しました"
+"Exception occurred","发生异常","例外が発生しました"
+"Custom command name","自定义命令名称","カスタムコマンド名"
+"Show custom command details","显示自定义命令详情","カスタムコマンドの詳細を表示"
+"Reload custom commands from disk","从磁盘重新加载自定义命令","ディスクからカスタムコマンドを再読み込み"
+"List all custom commands","列出所有自定义命令","すべてのカスタムコマンドを一覧表示"
+"MCP server operations","MCP 服务器操作","MCP サーバー操作"
+"Replay speed multiplier","回放速度倍数","再生速度倍率"
+"Name of the code block","代码块名称","コードブロックの名前"
+"Run code block","运行代码块","コードブロックを実行"
+"Index of the step to show (default: last step)","要显示的步骤索引（默认：最后一步）","表示するステップのインデックス（デフォルト：最後のステップ）"
+"Show rounds in a step","显示步骤中的回合","ステップ内のラウンドを表示"
+"Delete task steps","删除任务步骤","タスクステップを削除"
+"Index of the step to clear (default: last step)","要清除的步骤索引（默认：最后一步）","クリアするステップのインデックス（デフォルト：最後のステップ）"
+"Clear step context","清除步骤上下文","ステップコンテキストをクリア"
+"Provider name","提供者名称","プロバイダー名"
+"Manage custom commands","管理自定义命令","カスタムコマンドを管理"
+"Cleaned {} messages","已清理 {} 条消息","{} 件のメッセージをクリーンしました"
+"{} messages remaining","剩余 {} 条消息","残り {} 件のメッセージ"
+"Saved {} tokens","已保存 {} 个令牌","{} トークンを保存しました"
+"{} tokens remaining","剩余 {} 个令牌","残り {} トークン"
+"Context optimized for better performance","上下文已优化以提高性能","コンテキストはパフォーマンス向上のために最適化されました"
+"Context cleanup completed","上下文清理完成","コンテキストのクリーンアップが完了しました"
+"errors","错误","エラー"
+"Show subtask tree","显示子任务树","サブタスクツリーを表示"
+"Subtask tree","子任务树","サブタスクツリー"
+"Show nested subtasks recursively","递归显示嵌套子任务","ネストされたサブタスクを再帰的に表示"
+"Subtask ID","子任务 ID","サブタスクID"
+"Parent Task ID","父任务 ID","親タスクID"
+"List subtasks in table format","以表格格式列出子任务","表形式でサブタスクを一覧表示"
+"No subtasks found","未找到子任务","サブタスクが見つかりません"
+"Subtasks","子任务","サブタスク"
+"Subtask Details","子任务详情","サブタスクの詳細"
+"Subtask not found","子任务未找到","サブタスクが見つかりません"
+"Subtask Information","子任務情報","サブタスク情報"
+"View and manage subtasks","查看和管理子任务","サブタスクの表示と管理"
+"Smart compact step rounds","智能压缩步骤轮次","ステップラウンドをスマートに圧縮"
+"Index of the step to compact (default: last step)","要压缩的步骤索引（默认：最后一步）","圧縮するステップのインデックス（デフォルト：最後のステップ）"
+"List subtasks in tree format","以树形格式列出子任务","ツリー形式でサブタスクを一覧表示"
+"Show complete response text instead of preview","显示完整响应文本而不是预览","プレビューの代わりに完全な応答テキストを表示"
+"Show detailed information about a specific subtask","显示特定子任务的详细信息","特定のサブタスクの詳細情報を表示"
+"Task ID of the subtask to show","要显示的子任务的任务ID","表示するサブタスクのタスクID"
+"Show detailed step rounds information","显示详细的步骤轮次信息","ステップラウンドの詳細情報を表示"
