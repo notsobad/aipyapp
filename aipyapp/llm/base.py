@@ -122,6 +122,10 @@ class BaseClient(ABC):
     def base_url(self) -> str:
         return self.config.base_url or self.BASE_URL
 
+    @property
+    def max_tokens(self) -> int | None:
+        return self.config.max_tokens
+    
     def get_api_params(self, **kwargs) -> dict:
         """
         生成 API 调用参数

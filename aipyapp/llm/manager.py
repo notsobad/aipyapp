@@ -20,11 +20,14 @@ class OpenAIBaseClientV2(OpenAIBaseClient):
             params['max_completion_tokens'] = max_tokens
         return params
 
-class OpenAIClient(OpenAIBaseClientV2): 
+class OpenAIClient(OpenAIBaseClient): 
+    MODEL = 'gpt-4o'
+
+class OpenAIClientV2(OpenAIBaseClientV2): 
     MODEL = 'gpt-4o'
 
 class GeminiClient(OpenAIBaseClient): 
-    BASE_URL = 'https://generativelanguage.googleapis.com/v1beta/'
+    BASE_URL = 'https://generativelanguage.googleapis.com/v1beta/openai/'
     MODEL = 'gemini-2.5-flash'
 
 class DeepSeekClient(OpenAIBaseClient): 
@@ -79,6 +82,7 @@ class ZClient(OpenAIBaseClient):
 
 CLIENTS = {
     "openai": OpenAIClient,
+    "openaiv2": OpenAIClientV2,
     "ollama": OllamaClient,
     "claude": ClaudeClient,
     "gemini": GeminiClient,
