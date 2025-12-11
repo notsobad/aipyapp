@@ -88,9 +88,22 @@ class PythonExecutor():
                 exec(block.co, gs)
             self.block_importer.add_module(block.name, block.co)
         except (SystemExit, Exception) as e:
-            self.runtime.set_state(success=False, error=str(e))
+            # 如果是 SystemExit 且已经设置了错误状态，则保留原有错误信息
+            if isinstance(e, SystemExit) and \
+               runtime.current_state.get('success') is False and \
+               runtime.current_state.get('error'):
+                pass
+            else:
+                self.runtime.set_state(success=False, error=str(e))
+
             self.log.error(f"Error in code block {block.name}: {str(e)}")
-            result.errstr = str(e)
+
+            # 如果已经有错误信息，优先使用
+            if runtime.current_state.get('error'):
+                result.errstr = runtime.current_state.get('error')
+            else:
+                result.errstr = str(e)
+
             result.traceback = traceback.format_exc()
         finally:
             sys.stdout = old_stdout

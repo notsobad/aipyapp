@@ -117,17 +117,41 @@ class Response(BaseModel):
 
         # Parse native tool calls from AIMessage
         if hasattr(message.message, 'tool_calls') and message.message.tool_calls:
-             self._parse_native_tool_calls(message.message.tool_calls)
-        
+            errors.extend(self._parse_native_tool_calls(message.message.tool_calls))
+
+        # Check for silent failure: finish_reason is 'tool_calls' but no tool calls parsed
+        if hasattr(message.message, 'finish_reason') and message.message.finish_reason == 'tool_calls':
+            if not self.tool_calls and not errors:
+                errors.add(
+                    "Model finished with 'tool_calls' but no tool calls were found",
+                    error_type=ParseErrorType.INVALID_FORMAT
+                )
+
         if errors:
             self.errors = errors
         return self
 
-    def _parse_native_tool_calls(self, native_tool_calls: List[Any]):
+    def _parse_native_tool_calls(self, native_tool_calls: List[Any]) -> Errors:
+        errors = Errors()
         tool_calls = []
         for tc in native_tool_calls:
             try:
-                args = json.loads(tc.function.arguments)
+                json_str = tc.function.arguments
+
+                # 尝试修复 JSON 字符串：丢弃最后一个 '}' 之后的内容
+                last_brace_idx = json_str.rfind('}')
+                if last_brace_idx != -1 and last_brace_idx < len(json_str) - 1:
+                    extra = json_str[last_brace_idx+1:]
+                    if extra.strip():
+                        msg = (
+                            "Truncating extra characters after JSON arguments: "
+                            f"{extra!r}"
+                        )
+                        self.log.warning(msg)
+                        print(f"Warning: {msg}")
+                        json_str = json_str[:last_brace_idx+1]
+
+                args = json.loads(json_str)
                 name = tc.function.name
 
                 if name == "Exec" or name == "AIPY_Exec":
@@ -168,10 +192,23 @@ class Response(BaseModel):
                     )
 
                 tool_calls.append(tool_call)
+            except json.JSONDecodeError as e:
+                errors.add(
+                    "Invalid JSON in ToolCall",
+                    json_str=tc.function.arguments,
+                    exception=str(e),
+                    error_type=ParseErrorType.JSON_DECODE_ERROR,
+                )
             except Exception as e:
                 self.log.error(f"Failed to parse native tool call: {e}")
+                errors.add(
+                    "Failed to parse native tool call",
+                    exception=str(e),
+                    error_type=ParseErrorType.INVALID_FORMAT
+                )
 
         self._add_tool_calls(tool_calls)
+        return errors
 
     def _parse_code_blocks(self, markdown: str) -> Errors:
         """解析代码块"""

@@ -342,8 +342,8 @@ class DisplayClassic(RichDisplayPlugin):
         tool_call = event.typed_event.tool_call
         title = self._get_title(T("Start calling tool {}"), tool_call.name.value)
         tree = Tree(title)
-        args = tool_call.arguments.model_dump_json()
-        tree.add(args[:64] + '...' if len(args) > 64 else args)
+        args_tree = self._format_tool_args(tool_call.arguments)
+        tree.add(args_tree)
         self.console.print(tree)
 
     def on_tool_call_completed(self, event):

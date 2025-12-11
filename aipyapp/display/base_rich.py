@@ -10,12 +10,34 @@
 
 from .base import DisplayPlugin
 from .. import T
+from rich.tree import Tree
+from rich.markup import escape
 
 class RichDisplayPlugin(DisplayPlugin):
     def save(self, path: str, clear: bool = False, code_format: str = None):
         """保存输出"""
         if self.console.record:
             self.console.save_html(path, clear=clear, code_format=code_format)
+
+    def _format_tool_args(self, args_model, max_len: int = 128) -> Tree:
+        """Format tool arguments for display"""
+
+        args_dict = args_model.model_dump(exclude_none=True)
+        tree = Tree(T("Arguments"))
+
+        if not args_dict:
+            tree.add(T("None"))
+            return tree
+
+        for key, value in args_dict.items():
+            val_str = str(value)
+            if len(val_str) > max_len:
+                val_str = val_str[:max_len] + "..."
+
+            # Escape markup and handle newlines
+            val_str = escape(val_str).replace('\n', '\\n')
+            tree.add(f"[bold cyan]{key}[/bold cyan]: {val_str}")
+        return tree
 
     # 新增：输入输出相关方法
     def print(self, message: str, style: str = None):

@@ -28,6 +28,16 @@ class ToolName(str, Enum):
     SUBTASK = "SubTask"
     SURVEY = "Survey"
 
+class ExecLang(str, Enum):
+    """Executable languages"""
+    PYTHON = "python"
+    HTML = "html"
+    BASH = "bash"
+    POWERSHELL = "powershell"
+    APPLESCRIPT = "applescript"
+    JAVASCRIPT = "javascript"
+    MARKDOWN = "markdown"
+
 class ToolResult(BaseModel):
     """Tool result"""
     error: Error | None = Field(title="Tool error", default=None)
@@ -36,7 +46,10 @@ class ToolResult(BaseModel):
         return self.model_dump_json(exclude_none=True, exclude_unset=True)
 
 class ExecToolArgs(BaseModel):
-    """Exec tool arguments"""
+    """
+    Execute a code block. Provide the code content directly in the 'code' argument.
+    Python is always executable. Other languages require a 'path' attribute.
+    """
     name: Optional[str] = Field(
         None,
         title="Code block name",
@@ -49,10 +62,10 @@ class ExecToolArgs(BaseModel):
         title="Code content",
         description="Code content to execute. Required for new blocks."
     )
-    lang: Optional[str] = Field(
-        None,
+    lang: Optional[ExecLang] = Field(
+        ExecLang.PYTHON,
         title="Programming language",
-        description="Programming language (python, bash, etc.). Required for new blocks."
+        description="Programming language (python, bash, markdown, etc.). Defaults to python. If not python, must be specified."
     )
     path: Optional[str] = Field(
         None,
@@ -66,7 +79,11 @@ class ExecToolResult(ToolResult):
     result: ExecResult | ProcessResult | PythonResult | None = Field(title="Execution result", default=None)
 
 class EditToolArgs(BaseModel):
-    """Edit tool arguments"""
+    """
+    Modify existing code blocks incrementally. The code block must exist before calling this tool.
+    Use this to fix errors or make small changes without rewriting the entire block.
+    Provide the exact 'old' string to replace and the 'new' string.
+    """
     name: str = Field(
         title="Code block name",
         description="Code block name to edit",
@@ -107,7 +124,10 @@ class MCPToolResult(ToolResult):
     result: Dict[str, Any] = Field(default_factory=dict)
 
 class SubTaskArgs(BaseModel):
-    """SubTask tool arguments"""
+    """
+    Delegate a complex sub-problem to a subtask agent.
+    Use this when a task is too complex to handle in a single step or requires a specialized agent context.
+    """
     instruction: str = Field(
         title="SubTask instruction",
         description="Detailed instruction for the subtask",
@@ -125,7 +145,10 @@ class SubTaskResult(ToolResult):
     result: Optional[str] = Field(default=None, title="SubTask result content")
 
 class SurveyToolArgs(BaseModel):
-    """Survey tool arguments"""
+    """
+    Collect information from the user via a survey form.
+    You MUST generate the survey code block (JSON format) in the response BEFORE calling this tool.
+    """
     name: str = Field(
         title="Survey code block name",
         description="Name of the survey code block to execute",
@@ -151,6 +174,11 @@ class ToolCall(BaseModel):
         if isinstance(values, dict):
             if "name" not in values and "action" in values:
                 values["name"] = values.pop("action")
+
+            # Strip AIPY_ prefix if present
+            if "name" in values and isinstance(values["name"], str):
+                if values["name"].startswith("AIPY_"):
+                    values["name"] = values["name"][5:]
         return values
        
     def __str__(self):
@@ -163,7 +191,7 @@ class ToolCallResult(BaseModel):
     """Tool call result"""
     id: str = Field(title='Unique ID for this ToolCall')
     name: ToolName
-    result: Union[ExecToolResult, EditToolResult, MCPToolResult, SubTaskResult, SurveyToolResult] = Field(title="Tool result")
+    result: Union[ExecToolResult, EditToolResult, MCPToolResult, SubTaskResult, SurveyToolResult, ToolResult] = Field(title="Tool result")
 
 class ToolCallProcessor:
     """工具调用处理器 - 高级接口"""
@@ -171,6 +199,7 @@ class ToolCallProcessor:
     def __init__(self, task: 'Task'):
         self.task = task
         self.log = task.get_logger('ToolCallProcessor')
+        self.processed_ids = set()
     
     def process(self, tool_calls: List[ToolCall]) -> List[ToolCallResult]:
         """
@@ -184,13 +213,30 @@ class ToolCallProcessor:
         """
         results = []
         failed_blocks = set()  # 记录编辑失败的代码块
-        
+
         for tool_call in tool_calls:
+            # Check for duplicate tool call ID
+            if tool_call.id in self.processed_ids:
+                self.log.warning(f"Duplicate tool call ID detected: {tool_call.id}")
+                results.append(ToolCallResult(
+                    id=tool_call.id,
+                    name=tool_call.name,
+                    result=ToolResult(
+                        error=Error.new(
+                            f"Tool call {tool_call.id} has already been executed. "
+                            "Please do not reuse tool call IDs."
+                        )
+                    )
+                ))
+                continue
+
+            self.processed_ids.add(tool_call.id)
+
             name = tool_call.name
             if name == ToolName.EXEC:
                 # 如果这个代码块之前编辑失败，跳过执行
-                block_name = tool_call.arguments.name
-                if block_name in failed_blocks:
+                block_name = getattr(tool_call.arguments, 'name', None)
+                if block_name and block_name in failed_blocks:
                     error = Error.new(
                         'Execution skipped: previous edit of the block failed',
                         block_name=block_name
@@ -210,7 +256,9 @@ class ToolCallProcessor:
             results.append(result)
             
             if name == ToolName.EDIT and result.result.error:
-                failed_blocks.add(tool_call.arguments.name)
+                block_name = getattr(tool_call.arguments, 'name', None)
+                if block_name:
+                    failed_blocks.add(block_name)
         
         return results
 
@@ -236,7 +284,7 @@ class ToolCallProcessor:
         elif tool_call.name == ToolName.SURVEY:
             result = self._call_survey(task, tool_call)
         else:
-            result = ToolResult(error=Error('Unknown tool'))
+            result = ToolResult(error=Error.new('Unknown tool'))
 
         toolcall_result = ToolCallResult(
             id=tool_call.id,
@@ -250,13 +298,19 @@ class ToolCallProcessor:
         """执行 Edit 工具"""
         args = tool_call.arguments
         if not isinstance(args, EditToolArgs):
-            return EditToolResult(block_name="unknown", error=Error.new("Invalid arguments for Edit tool"))
+            return EditToolResult(
+                block_name="unknown",
+                error=Error.new("Invalid arguments for Edit tool")
+            )
 
         block_name = args.name
 
         original_block = task.blocks.get(block_name)
         if not original_block:
-            return EditToolResult(block_name=block_name, error=Error.new("Code block not found"))
+            return EditToolResult(
+                block_name=block_name,
+                error=Error.new("Code block not found")
+            )
         
         old_str = args.old
         new_str = args.new
@@ -264,15 +318,26 @@ class ToolCallProcessor:
 
         # 检查是否找到匹配的字符串
         if old_str not in original_block.code:
-            return EditToolResult(block_name=block_name, error=Error.new(f"No match found for {old_str[:50]}..."))
+            return EditToolResult(
+                block_name=block_name,
+                error=Error.new(f"No match found for {old_str[:50]}...")
+            )
         
         # 检查匹配次数
         match_count = original_block.code.count(old_str)
         if match_count > 1 and not replace_all:
-            return EditToolResult(block_name=block_name, error=Error.new(f"Multiple matches found for {old_str[:50]}...", suggestion="set replace_all: true or provide more specific context"))
+            return EditToolResult(
+                block_name=block_name,
+                error=Error.new(
+                    f"Multiple matches found for {old_str[:50]}...", 
+                    suggestion="set replace_all: true or provide more specific context"
+                )
+            )
         
         # 执行替换生成新代码
-        new_code = original_block.code.replace(old_str, new_str, -1 if replace_all else 1)
+        new_code = original_block.code.replace(
+            old_str, new_str, -1 if replace_all else 1
+        )
         
         # 创建新的代码块（版本号+1）
         new_block = original_block.model_copy(
@@ -303,7 +368,7 @@ class ToolCallProcessor:
             final_name = block_name or f"exec_{uuid.uuid4().hex[:8]}"
 
             # 确定语言
-            lang = args.lang or "python"
+            lang = args.lang.value if args.lang else "python"
 
             new_block = CodeBlock(
                 name=final_name,
@@ -327,7 +392,9 @@ class ToolCallProcessor:
             if not block:
                 return ExecToolResult(
                     block_name=block_name,
-                    error=Error.new("Code block not found. Please provide 'code' argument for new blocks.")
+                    error=Error.new(
+                        "Code block not found. Please provide 'code' argument."
+                    )
                 )
         
         # 执行代码块
@@ -367,7 +434,12 @@ class ToolCallProcessor:
             content = response.message.content
             if isinstance(content, list):
                 # 简单处理多模态内容，只提取文本
-                content = "\n".join([item.text for item in content if hasattr(item, 'text')])
+                text_parts = []
+                for item in content:
+                    text = getattr(item, 'text', None)
+                    if text:
+                        text_parts.append(text)
+                content = "\n".join(text_parts)
 
             return SubTaskResult(
                 result=str(content) if content is not None else None
@@ -382,7 +454,10 @@ class ToolCallProcessor:
         """执行 Survey 工具"""
         args = tool_call.arguments
         if not isinstance(args, SurveyToolArgs):
-            return SurveyToolResult(block_name="unknown", error=Error.new("Invalid arguments for Survey tool"))
+            return SurveyToolResult(
+                block_name="unknown",
+                error=Error.new("Invalid arguments for Survey tool")
+            )
 
         block_name = args.name
 
@@ -432,55 +507,26 @@ class ToolCallProcessor:
 
 def get_internal_tools_openai_format():
     """Generate OpenAI tool definitions for internal tools."""
-    return [
-        {
-            "type": "function",
-            "function": {
-                "name": "AIPY_Exec",
-                "description": (
-                    "Execute a code block. Provide the code content directly in the "
-                    "'code' argument. Only python, html, bash, powershell, "
-                    "applescript, javascript blocks can be executed. Python is always "
-                    "executable. Other languages require a 'path' attribute."
-                ),
-                "parameters": ExecToolArgs.model_json_schema()
-            }
-        },
-        {
-            "type": "function",
-            "function": {
-                "name": "AIPY_Edit",
-                "description": (
-                    "Modify existing code blocks incrementally. The code block must "
-                    "exist before calling this tool. Use this to fix errors or make "
-                    "small changes without rewriting the entire block. Provide the "
-                    "exact 'old' string to replace and the 'new' string."
-                ),
-                "parameters": EditToolArgs.model_json_schema()
-            }
-        },
-        {
-            "type": "function",
-            "function": {
-                "name": "AIPY_SubTask",
-                "description": (
-                    "Delegate a complex sub-problem to a subtask agent. "
-                    "Use this when a task is too complex to handle in a single step or "
-                    "requires a specialized agent context."
-                ),
-                "parameters": SubTaskArgs.model_json_schema()
-            }
-        },
-        {
-            "type": "function",
-            "function": {
-                "name": "AIPY_Survey",
-                "description": (
-                    "Collect information from the user via a survey form. "
-                    "You MUST generate the survey code block (JSON format) in the "
-                    "response BEFORE calling this tool."
-                ),
-                "parameters": SurveyToolArgs.model_json_schema()
-            }
-        }
+    tools_map = [
+        ("AIPY_Exec", ExecToolArgs),
+        ("AIPY_Edit", EditToolArgs),
+        ("AIPY_SubTask", SubTaskArgs),
+        ("AIPY_Survey", SurveyToolArgs),
     ]
+
+    tools = []
+    for name, args_cls in tools_map:
+        schema = args_cls.model_json_schema()
+        schema.pop("title", None)
+        schema.pop("description", None)
+
+        tools.append({
+            "type": "function",
+            "function": {
+                "name": name,
+                "description": (args_cls.__doc__ or "").strip(),
+                "parameters": schema
+            }
+        })
+
+    return tools

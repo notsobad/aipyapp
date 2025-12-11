@@ -60,6 +60,7 @@ class OpenAIBaseClient(BaseClient):
     def _parse_stream_response(self, response, stream_processor) -> AIMessage:
         usage = Counter()
         tool_calls_chunks = []
+        finish_reason = None
         with stream_processor as lm:
             for chunk in response:
                 #print(chunk)
@@ -69,6 +70,9 @@ class OpenAIBaseClient(BaseClient):
                 if chunk.choices:
                     content = None
                     delta = chunk.choices[0].delta
+                    if chunk.choices[0].finish_reason:
+                        finish_reason = chunk.choices[0].finish_reason
+
                     if delta.content:
                         reason = False
                         content = delta.content
@@ -83,7 +87,7 @@ class OpenAIBaseClient(BaseClient):
                         lm.process_chunk(content, reason=reason)
 
         tool_calls = self._reconstruct_tool_calls(tool_calls_chunks)
-        return AIMessage(role=MessageRole.ASSISTANT, content=lm.content, reason=lm.reason, usage=usage, tool_calls=tool_calls)
+        return AIMessage(role=MessageRole.ASSISTANT, content=lm.content, reason=lm.reason, finish_reason=finish_reason, usage=usage, tool_calls=tool_calls)
 
     def _reconstruct_tool_calls(self, tool_calls_chunks):
         if not tool_calls_chunks:
@@ -119,10 +123,12 @@ class OpenAIBaseClient(BaseClient):
     def _parse_response(self, response) -> AIMessage:
         message = response.choices[0].message
         reason = getattr(message, "reasoning_content", None)
+        finish_reason = response.choices[0].finish_reason
         return AIMessage(
             role=message.role,
             content=message.content,
             reason=reason,
+            finish_reason=finish_reason,
             usage=self._parse_usage(response.usage),
             tool_calls=message.tool_calls
         )
