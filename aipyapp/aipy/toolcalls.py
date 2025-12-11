@@ -22,11 +22,11 @@ if TYPE_CHECKING:
 
 class ToolName(str, Enum):
     """Tool name"""
-    EDIT = "Edit"
-    EXEC = "Exec"
+    EDIT = "AIPY_Edit"
+    EXEC = "AIPY_Exec"
     MCP = "MCP"
-    SUBTASK = "SubTask"
-    SURVEY = "Survey"
+    SUBTASK = "AIPY_SubTask"
+    SURVEY = "AIPY_Survey"
 
 class ExecLang(str, Enum):
     """Executable languages"""
@@ -174,11 +174,6 @@ class ToolCall(BaseModel):
         if isinstance(values, dict):
             if "name" not in values and "action" in values:
                 values["name"] = values.pop("action")
-
-            # Strip AIPY_ prefix if present
-            if "name" in values and isinstance(values["name"], str):
-                if values["name"].startswith("AIPY_"):
-                    values["name"] = values["name"][5:]
         return values
        
     def __str__(self):
@@ -508,14 +503,14 @@ class ToolCallProcessor:
 def get_internal_tools_openai_format(features: PromptFeatures) -> List[Dict[str, Any]]:
     """Generate OpenAI tool definitions for internal tools."""
     tools_map = [
-        ("AIPY_Exec", ExecToolArgs),
-        ("AIPY_Edit", EditToolArgs)
+        (ToolName.EXEC, ExecToolArgs),
+        (ToolName.EDIT, EditToolArgs)
     ]
     if features.has('survey'):
-        tools_map.append(("AIPY_Survey", SurveyToolArgs))
+        tools_map.append((ToolName.SURVEY, SurveyToolArgs))
 
     if features.has('subtask'):
-        tools_map.append(("AIPY_SubTask", SubTaskArgs))
+        tools_map.append((ToolName.SUBTASK, SubTaskArgs))
         
     tools = []
     for name, args_cls in tools_map:
@@ -526,7 +521,7 @@ def get_internal_tools_openai_format(features: PromptFeatures) -> List[Dict[str,
         tools.append({
             "type": "function",
             "function": {
-                "name": name,
+                "name": name.value,
                 "description": (args_cls.__doc__ or "").strip(),
                 "parameters": schema
             }

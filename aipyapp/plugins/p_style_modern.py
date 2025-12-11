@@ -152,7 +152,7 @@ class DisplayModern(RichDisplayPlugin):
         
         if response.tool_calls:
             tool_count = len(response.tool_calls)
-            subtask_count = sum(1 for tool_call in response.tool_calls if tool_call.name.value == 'SubTask')
+            subtask_count = sum(1 for tool_call in response.tool_calls if tool_call.name == tool_call.name.SUBTASK)
             if subtask_count > 0:
                 self.console.print(f"🔧 {T('Found {} tool calls ({} SubTasks)').format(tool_count, subtask_count)}", style="dim blue")
             else:

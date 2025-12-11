@@ -214,11 +214,12 @@ class DisplayClassic(RichDisplayPlugin):
         if response.tool_calls:
             sub_tree = tree.add(T('Tool Calls'))
             for tool_call in response.tool_calls:
-                if tool_call.name == 'Exec':
+                tool_name = tool_call.name
+                if tool_name == tool_name.EXEC:
                     sub_tree.add(f"{T('Exec')}: {tool_call.arguments.name}")
-                elif tool_call.name == 'Edit':
+                elif tool_name == tool_name.EDIT:
                     sub_tree.add(f"{T('Edit')}: {tool_call.arguments.name}")
-                elif tool_call.name == 'SubTask':
+                elif tool_name == tool_name.SUBTASK:
                     sub_tree.add(f"{T('SubTask')}: {tool_call.arguments.instruction[:50]}...")
                 else:
                     sub_tree.add(f"{tool_call.name.value}: {tool_call.arguments}")

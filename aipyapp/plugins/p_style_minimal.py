@@ -211,9 +211,9 @@ class DisplayMinimal(RichDisplayPlugin):
         
         if response.tool_calls:
             tool_calls = response.tool_calls
-            exec_count = sum(1 for tool_call in tool_calls if tool_call.name.value == 'Exec')
-            edit_count = sum(1 for tool_call in tool_calls if tool_call.name.value == 'Edit')
-            subtask_count = sum(1 for tool_call in tool_calls if tool_call.name.value == 'SubTask')
+            exec_count = sum(1 for tool_call in tool_calls if tool_call.name == tool_call.name.EXEC)
+            edit_count = sum(1 for tool_call in tool_calls if tool_call.name == tool_call.name.EDIT)
+            subtask_count = sum(1 for tool_call in tool_calls if tool_call.name == tool_call.name.SUBTASK)
 
             if exec_count > 0:
                 tree.add(f"{T('Execution')}: {exec_count}")

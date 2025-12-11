@@ -564,3 +564,7 @@ Note: Click the "**Help**" link in the menu bar to contact the **AIPy** official
 "Show detailed information about a specific subtask","显示特定子任务的详细信息","特定のサブタスクの詳細情報を表示"
 "Task ID of the subtask to show","要显示的子任务的任务ID","表示するサブタスクのタスクID"
 "Show detailed step rounds information","显示详细的步骤轮次信息","ステップラウンドの詳細情報を表示"
+"LLM client to use for summarization (default: current task client)","用于摘要的LLM客户端（默认：当前任务客户端）","要約に使用するLLMクライアント（デフォルト：現在のタスククライアント）"
+"Force compression even if context is small","即使上下文较小也强制压缩","コンテキストが小さくても強制圧縮"
+"Available subcommands","可用子命令","利用可能なサブコマンド"
+"Show current context statistics","显示当前上下文统计","現在のコンテキスト統計を表示"

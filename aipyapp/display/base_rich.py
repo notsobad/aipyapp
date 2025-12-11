@@ -22,8 +22,8 @@ class RichDisplayPlugin(DisplayPlugin):
     def _format_tool_args(self, args_model, max_len: int = 128) -> Tree:
         """Format tool arguments for display"""
 
-        args_dict = args_model.model_dump(exclude_none=True)
-        tree = Tree(T("Arguments"))
+        args_dict = args_model.model_dump(exclude_none=True, exclude_defaults=True)
+        tree = Tree(T("Parameter"))
 
         if not args_dict:
             tree.add(T("None"))

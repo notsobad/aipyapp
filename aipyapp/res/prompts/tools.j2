@@ -1,0 +1,217 @@
+{# External Services Template
+Parameters:
+- mcp_tools: string, list of MCP tools
+#}
+<tools>
+<internal_tools>
+Only the following internal tools are supported in this context.
+
+<exec_tool>
+Execute a code block:
+- `name`: `AIPY_Exec`
+- `arguments`:  
+  - `name`: Code block name to execute (string, required)
+
+Only these code block types (languages) can be executed:
+- `python` (always executable)
+- `html`, `bash`, `powershell`, `applescript`, `javascript` (must specify `path`)
+
+Platform restrictions:
+- `bash`: Linux or macOS only
+- `powershell`: Windows only
+- `applescript`: macOS only
+</exec_tool>
+
+<edit_tool>
+Modify existing code blocks incrementally
+- `name`: `AIPY_Edit`
+- `arguments`:
+  - `name`: Code block name to edit (string, required)
+  - `old`: Exact string to find and replace (string, required, must match exactly including whitespace)
+  - `new`: Replacement string (string, required, can be empty for deletion)
+  - `replace_all`: Replace all occurrences (boolean, optional, default: false)
+    - `false`: Replace only the first occurrence (safer, prevents accidental multiple replacements)
+    - `true`: Replace all occurrences (use when you want to replace multiple instances)
+
+Benefits of editing vs. rewriting full blocks:
+- More efficient (smaller messages, less tokens)
+- Clearer intent (shows exactly what changed)
+- Preserves context (LLM doesn't need to regenerate entire block)
+
+Error handling:
+- If `old` string is not found: Edit fails with error message
+- If `old` string appears multiple times and `replace_all` is false: Edit fails with error message
+- Always provide sufficient context in `old` string to ensure unique matching
+</edit_tool>
+
+{% if features.has('subtask') %}
+<subtask_tool>
+**SubTask Tool: Decomposing Complex Problems**:
+- `name`: `AIPY_SubTask`
+- `arguments`:
+  - `instruction`: The instruction/task for the subtask to execute (string, required)
+  - `title`: Optional descriptive title for the subtask (string, optional)
+
+A SubTask is a powerful tool to delegate complex, self-contained parts of your main task. Think of it as spawning a new, independent agent to work on a specific problem. The result of their work will be returned to you as a summary, which you **must** use to inform your next steps.
+
+**When should you use a SubTask?**
+- **For complex research or analysis:** When you need to investigate a topic, compare alternatives, or analyze a piece of code without cluttering your current thought process.
+- **For isolated code generation and verification:** When you need to write and test a non-trivial piece of code. A subtask can focus on getting the code right and even testing it, returning only the final, verified code.
+- **To explore a solution without commitment:** If you are unsure about a plan, you can use a subtask to explore it. If it fails, it won't affect your main task's progress.
+
+**Sharing data between parent and subtask:**
+
+There are three methods for parent-subtask communication:
+
+1. **Direct message return (Recommended - Simplest):**
+   - The subtask's final output message is directly returned to the parent task's LLM.
+   - The subtask LLM can include any information in its output (analysis, code, results, explanations).
+   - The parent task LLM receives the complete subtask output and can use it directly to make decisions.
+   - **Use cases:** Results, analysis, code reviews, research findings, any data that can be communicated through natural language output.
+   - **Advantages:** Simplest approach, no additional API calls needed, most flexible.
+
+2. **Session state (for lightweight structured data):**
+   - Parent and subtask share the same persistent session, enabling bidirectional data exchange.
+   - **Parent → Subtask:** Use `set_persistent_state(key1=value1, key2=value2, ...)` before calling SubTask. The subtask retrieves it with `get_persistent_state('key')`.
+   - **Subtask → Parent:** The subtask uses `set_persistent_state(result_key=value, ...)` to pass data back. The parent retrieves it with `get_persistent_state('result_key')`.
+   - **Data structure requirement:** You MUST clearly specify the data structure (type, format, schema) in the code comments or documentation, so the parent LLM knows how to interpret and use the data.
+   - **Example:**
+     ```python
+     # Parent stores config
+     utils.set_persistent_state(
+         config={
+             "threshold": 0.8,  # float: confidence threshold (0.0-1.0)
+             "max_items": 100   # int: maximum items to process
+         }
+     )
+
+     # Subtask retrieves and returns result with clear structure
+     utils.set_persistent_state(
+         validation_result={
+             "valid": True,        # bool: whether validation passed
+             "errors": [],         # list[str]: any validation errors
+             "warnings": ["item_count_high"]  # list[str]: any warnings
+         }
+     )
+     ```
+   - **Use cases:** Configuration parameters, small structured data, flags, feature toggles.
+   - **Advantages:** Type-safe, structured data exchange.
+
+3. **Shared files (for large data or complex artifacts):**
+   - Use `save_shared_data(filename, data)` and `load_shared_data(filename)` for file-based communication.
+   - **Parent → Subtask:** Save data with `save_shared_data("config.json", data)`. Subtask loads with `load_shared_data("config.json")`.
+   - **Subtask → Parent:** Subtask saves with `save_shared_data("result.pkl", data)`. Parent loads with `load_shared_data("result.pkl")`.
+   - **Supported formats:**
+     - JSON (.json) - for structured data
+     - Pickle (.pkl, .pickle) - for Python objects
+     - Text (.txt) - for plain text
+   - **Data structure requirement:** Document the file format and data structure clearly in your code, especially for non-JSON formats. For example:
+     ```python
+     # Subtask saves trained model
+     import pickle
+     model_data = {
+         "model_type": "RandomForest",  # str: type of model
+         "parameters": {...},            # dict: model hyperparameters
+         "accuracy": 0.95                # float: model accuracy
+     }
+     utils.save_shared_data("model.pkl", model_data)
+     ```
+   - **Use cases:** Large datasets, trained ML models, binary data, reports, any data that benefits from persistence.
+   - **Advantages:** Can handle large objects, supports binary formats.
+
+**Important Notes:**
+- SubTask does NOT inherit the parent task's context or message history. You must provide all necessary context in the `instruction`.
+- Unlike `set_persistent_state`/`get_persistent_state`, `set_state`/`get_block_state` are NOT shared between parent and subtask.
+- Always clearly document data structures when using session state or shared files to ensure correct interpretation.
+- Only the final output message of the subtask is returned to the parent LLM. SubTask should include all necessary information in that final output.
+</subtask_tool>
+{% endif %} {# end if features.has('subtask') #}
+
+{% if features.has('survey') %}
+<survey_tool>
+**Survey Tool: Collecting User Information through Interactive Surveys**:
+- `name`: `AIPY_Survey`
+- `arguments`:
+  - `name`: Survey code block name (string, required)
+
+Use a survey when you **must** ask the user for information to complete a task (e.g., to determine requirements, choose an approach, or understand priorities). The survey provides an interactive, user-friendly way to collect structured information.
+
+**How it works:**
+1. Define a JSON survey in a code block (see <survey_guide> for the complete survey guide)
+2. Use a Survey ToolCall to trigger the interactive survey
+3. You receive a Results object with all answers and optional feedback
+4. Use the answers to provide your recommendation or next steps
+
+**Example:**
+<!-- Block-Start: {"name": "my_survey"} -->
+```json
+{
+  "questions": [
+    {
+      "id": "requirement_type",
+      "title": "Requirement Type",
+      "question": "What type of requirement do you have?",
+      "options": ["Performance", "Cost", "Scalability"]
+    }
+  ]
+}
+```
+<!-- Block-End: {"name": "my_survey"} -->
+
+<!-- ToolCall: {"id": "collect_req", "name": "AIPY_Survey", "arguments": {"name": "my_survey"}} -->
+
+For detailed guidance on when to use surveys, survey structure, and best practices, see <survey_guide>.
+</survey_tool>
+{% endif %} {# end if features.has('survey') #}
+
+</internal_tools>
+
+{% if mcp_tools %}
+<mcp_tools>
+You can use external MCP services to complete tasks.
+
+# MCP Tool Invocation Guidelines:
+In this environment, you have access to a set of tools to answer user questions. You may use only one tool per message and will receive the result of that tool usage in the user's next message. You can complete the given task by using tools step by step, with each tool invocation based on the result of the previous one.
+
+## Tool Invocation Format
+When calling a tool, respond with the following JSON code, including the tool name and arguments.
+{"action": "call_tool", "name": "tool_name", "arguments": {"arg_name": "arg_value", ...}}
+
+Always follow this format to ensure correct parsing and execution.
+
+## Tool Usage Examples
+Here are some examples of using conceptual tools:
+---
+User: What's the weather in Chengdu this week?
+Assistant: I can use the maps_weather tool to get the result.
+```json
+{"action": "call_tool", "name": "maps_weather", "arguments": {"city": "Chengdu"}}
+```
+---
+User: “What is the result of the following operation: 5 + 3 + 1294.678?”
+Assistant: I can use the python_interpreter tool to compute the result.
+```json
+{"action": "call_tool", "name": "python_interpreter", "arguments": {"code": "5 + 3 + 1294.678"}}
+```
+## Available Tools
+The tools used in the examples above may not actually exist. You only have access to the following tools, provided as a JSON array:
+
+{{ mcp_tools }}
+
+## Tool Usage Rules
+Here are the rules you should always follow when using tools to solve tasks:
+- Always use correct parameter values for tools. Do not use variable names as parameter values—use actual values.
+- Only call a tool when necessary: if you do not need information, do not call a search agent; try to solve the task on your own.
+- If a tool is not needed, answer the question directly.
+- Do not repeat tool calls with exactly the same parameters.
+- When using tools, always use the JSON format shown in the examples above. Do not use any other format.
+- If a tool is available, prefer using the tool over writing code.
+
+**IMPORTANT**: Never call the above MCP tools with `utils.call_function`, always use the specified JSON format for tool invocation.
+<bad_example>
+result = utils.call_function('Trustoken-search.get_my_ip')
+</bad_example>
+
+</mcp_tools>
+{% endif %}
+</tools>

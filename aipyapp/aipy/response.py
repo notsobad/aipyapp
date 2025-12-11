@@ -154,44 +154,24 @@ class Response(BaseModel):
                 args = json.loads(json_str)
                 name = tc.function.name
 
-                if name == "Exec" or name == "AIPY_Exec":
-                    tool_call = ToolCall(
-                        name=ToolName.EXEC,
-                        arguments=args,
-                        id=tc.id
-                    )
-                elif name == "Edit" or name == "AIPY_Edit":
-                    tool_call = ToolCall(
-                        name=ToolName.EDIT,
-                        arguments=args,
-                        id=tc.id
-                    )
-                elif name == "SubTask" or name == "AIPY_SubTask":
-                    tool_call = ToolCall(
-                        name=ToolName.SUBTASK,
-                        arguments=args,
-                        id=tc.id
-                    )
-                elif name == "Survey" or name == "AIPY_Survey":
-                    tool_call = ToolCall(
-                        name=ToolName.SURVEY,
-                        arguments=args,
-                        id=tc.id
-                    )
-                else:
-                    # Assume it's an MCP tool
-                    mcp_args = {
+                try:
+                    tool_name = ToolName(name)
+                    arguments = args
+                except ValueError:
+                    tool_name = ToolName.MCP  # Default to MCP if not recognized
+                    arguments = {
                         "action": "call_tool",
                         "name": name,
                         "arguments": args
                     }
-                    tool_call = ToolCall(
-                        name=ToolName.MCP,
-                        arguments=mcp_args,
-                        id=tc.id
-                    )
 
+                tool_call = ToolCall(
+                    name=tool_name,
+                    arguments=arguments,
+                    id=tc.id
+                )
                 tool_calls.append(tool_call)
+
             except json.JSONDecodeError as e:
                 errors.add(
                     "Invalid JSON in ToolCall",

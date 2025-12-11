@@ -157,7 +157,7 @@ class Task(Stoppable):
             manager.settings.get('context_manager'),
             task_id=self.task_id
         )
-        self.tool_call_processor = ToolCallProcessor(self) if not parent else parent.tool_call_processor
+        self.tool_call_processor = ToolCallProcessor(self)
         
         # Phase 4: Initialize display (depends on event_bus)
         if manager.display_manager:
