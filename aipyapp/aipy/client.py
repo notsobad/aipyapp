@@ -147,16 +147,29 @@ class Client:
         return any(capability in model_info.capabilities for capability in capabilities)
 
     def supports_function_calling(self) -> bool:
-        if self.current.config.type == 'trust':
-            return True
+        if not self.current:
+            return False
+
+        # Blacklist for models known not to support function calling
+        unsupported_models = {
+            'deepseek-v3.2-speciale',
+        }
 
         model = self.current.model
         if not model:
             return False
-        model = model.rsplit('/', 1)[-1]
-        model_info = self.manager.get_model_info(model)
-        if not model_info:
+
+        model_name = model.lower().rsplit('/', 1)[-1]
+        if model_name in unsupported_models:
             return False
+
+        if self.current.config.type == 'trust':
+            return True
+
+        model_info = self.manager.get_model_info(model_name)
+        #if not model_info:
+        #    # Default to True if model info is missing, assuming most models support it
+        #    return True
 
         return ModelCapability.FUNCTION_CALLING in model_info.capabilities
 
