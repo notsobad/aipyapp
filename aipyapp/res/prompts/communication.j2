@@ -1,9 +1,11 @@
 {# 通信规则模版 #}
-<communication_rules>
-<output_format>
-The output must be in structured Markdown format and adhere to the following rules:
+<output_rules>
+The output must be in structured Markdown format and adhere to the following rules.
 
-{% if internal_tools %}
+{% if features.has('task_status') %}
+{% include "task_status_header.j2" %}
+{% endif %}
+
 <code_block_markup>
 1. Code blocks must be enclosed within a pair of HTML comment markers, formatted as follows:
    - Start: `<!-- Block-Start: {"name": "code block name", "path": "optional file path for the code block"} -->`
@@ -23,43 +25,23 @@ Notes:
 - **Reference by Name:** The `AIPY_Exec` tool likely takes a `name` argument. Ensure the `name` you pass to the tool matches the `name` in your `<!-- Block-Start -->` markup exactly.
 - **Do not** call `AIPY_Exec` without first defining the code block in the message body.
 - If you write a code block that is meant to be run, you **MUST** allow the corresponding tool call to be triggered in the same turn.
-
 </code_block_markup>
 
+{% if features.has('aipy_call') %}
 <tool_call_commands>
-You have access to two types of tools: **Built-in Commands** and **External Tools**.
-
-### 1. Built-in Commands
-The following commands are built into the system and MUST be invoked using the specific `<!-- ToolCall ... -->` syntax described below.
-**Do NOT** attempt to call these as native functions.
-
-Available Built-in Commands:
-- `Exec`: Execute code blocks
-- `Edit`: Edit code blocks
-- `SubTask`: Delegate tasks
-- `Survey`: Collect user info
-
-**Syntax for Built-in Commands:**
-Every built-in command call must be wrapped in a HTML comment as shown below:
+Tool call command must be wrapped in a HTML comment as shown below:
 
   <!-- ToolCall: {"id": "call_1", "name": "Exec", "arguments": {"name": "block_name"}} -->
   <!-- ToolCall: {"id": "call_2", "name": "Edit", "arguments": {"name": "block_name", "old": "...", "new": "..."}} -->
-  <!-- ToolCall: {"id": "call_3", "name": "SubTask", "arguments": {"instruction": "...", "title": "..."}} -->
 
 Rules:
-- `name` must be one of: `Exec`, `Edit`, `SubTask`, `Survey`.
+- `name` is the tool name.
 - `id` is a unique identifier.
 - `arguments` matches the command definition.
-- Multiple ToolCall commands can be used in a single message.
+- Multiple ToolCall commands can be used in a single output message.
 
-### 2. External Tools (MCP)
-If external tools (like web search, file system, etc.) are provided to you via the native function calling interface, you should use the **native function calling** mechanism to invoke them.
-- Do NOT use the `<!-- ToolCall ... -->` syntax for external tools.
-- Do NOT try to call Built-in Commands (like `SubTask`) as native functions.
-
----
-
-### Built-in Command Definitions
+<supported_tools>
+Only the following internal tools are supported in this context:
 
 <exec_tool>
 Execute a code block:
@@ -101,6 +83,7 @@ Error handling:
 - Always provide sufficient context in `old` string to ensure unique matching
 </edit_tool>
 
+{% if features.has('subtask') %}
 <subtask_tool>
 **SubTask Tool: Decomposing Complex Problems**:
 - `name`: `SubTask`
@@ -181,6 +164,7 @@ There are three methods for parent-subtask communication:
 - Always clearly document data structures when using session state or shared files to ensure correct interpretation.
 - Only the final output message of the subtask is returned to the parent LLM. SubTask should include all necessary information in that final output.
 </subtask_tool>
+{% endif %} {# end if features.has('subtask') #}
 
 {% if features.has('survey') %}
 <survey_tool>
@@ -217,12 +201,11 @@ Use a survey when you **must** ask the user for information to complete a task (
 
 For detailed guidance on when to use surveys, survey structure, and best practices, see <survey_guide>.
 </survey_tool>
-{% endif %}
+{% endif %} {# end if features.has('survey') #}
 
+</supported_tools>
 </tool_call_commands>
-{% endif %}
 
-{% if internal_tools %}
 <good_example>
 Example 1 - Creating and executing a code block:
 <!-- Block-Start: {"name": "fetch_data", "path": "fetch.py"} -->
@@ -326,12 +309,6 @@ print(f"Summary: {report['summary']}")
 <!-- Block-End: {"name": "read_analysis"} -->
 <!-- ToolCall: {"id": "exec_read", "name": "Exec", "arguments": {"name": "read_analysis"}} -->
 </good_example>
-{% endif %}
+{% endif %} {# end if features.has('aipy_call') #}
 
-</output_format>
-
-{% if features.has('task_status') %}
-{% include "task_status_header.j2" %}
-{% endif %}
-
-</communication_rules>
+</output_rules>

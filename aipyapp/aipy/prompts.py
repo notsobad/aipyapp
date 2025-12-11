@@ -42,6 +42,14 @@ class PromptFeatures:
         """设置功能值"""
         self.features[feature_name] = value
 
+    def enable(self, feature_name: str):
+        """设置功能值"""
+        self.features[feature_name] = True
+
+    def disable(self, feature_name: str):
+        """设置功能值为False"""
+        self.features[feature_name] = False
+
     def update(self, features: Dict[str, bool]):
         """批量更新功能"""
         self.features.update(features)
@@ -92,6 +100,14 @@ class Prompts:
 
         # 注册实例特定的全局变量
         self._init_instance_globals()
+
+    def enable_feature(self, feature_name: str):
+        """启用指定功能"""
+        self.features.enable(feature_name)
+        
+    def disable_feature(self, feature_name: str):
+        """禁用指定功能"""
+        self.features.disable(feature_name)
 
     def _get_cached_env(self) -> Environment:
         """获取或创建缓存的环境"""

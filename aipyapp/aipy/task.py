@@ -263,7 +263,6 @@ class Task(Stoppable):
         if not self.client.supports_function_calling():
             if self.mcp:
                 params['mcp_tools'] = self.mcp.get_tools_prompt()
-            params['internal_tools'] = True
 
         params['util_functions'] = self.runtime.get_builtin_functions()
         params['tool_functions'] = self.runtime.get_plugin_functions()
