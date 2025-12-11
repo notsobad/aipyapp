@@ -7,7 +7,7 @@ from loguru import logger
 
 from .python import PythonRuntime, PythonExecutor
 from .html import HtmlExecutor
-from .prun import BashExecutor, PowerShellExecutor, AppleScriptExecutor, NodeExecutor
+from .prun import BashExecutor, PowerShellExecutor, AppleScriptExecutor, NodeExecutor, MarkdownExecutor
 from .types import ExecResult
 
 EXECUTORS = {executor.name: executor for executor in [
@@ -16,7 +16,8 @@ EXECUTORS = {executor.name: executor for executor in [
     BashExecutor,
     PowerShellExecutor,
     AppleScriptExecutor,
-    NodeExecutor
+    NodeExecutor,
+    MarkdownExecutor
 ]}
 
 class BlockExecutor:

@@ -36,6 +36,7 @@ class ExecLang(str, Enum):
     POWERSHELL = "powershell"
     APPLESCRIPT = "applescript"
     JAVASCRIPT = "javascript"
+    MARKDOWN = "markdown"
 
 class ToolResult(BaseModel):
     """Tool result"""
@@ -62,9 +63,9 @@ class ExecToolArgs(BaseModel):
         description="Code content to execute. Required for new blocks."
     )
     lang: Optional[ExecLang] = Field(
-        None,
+        ExecLang.PYTHON,
         title="Programming language",
-        description="Programming language (python, bash, etc.). Required for new blocks."
+        description="Programming language (python, bash, markdown, etc.). Defaults to python. If not python, must be specified."
     )
     path: Optional[str] = Field(
         None,

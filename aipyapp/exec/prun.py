@@ -79,3 +79,10 @@ class AppleScriptExecutor(SubprocessExecutor):
 class NodeExecutor(SubprocessExecutor):
     name = 'javascript'
     command = ['node']
+
+class MarkdownExecutor(SubprocessExecutor):
+    name = 'markdown'
+
+    def __call__(self, block) -> ProcessResult:
+        """Markdown 不执行，只返回成功"""
+        return ProcessResult(returncode=0, stdout="Markdown file created/updated successfully")
