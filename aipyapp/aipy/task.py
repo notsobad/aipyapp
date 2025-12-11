@@ -36,8 +36,9 @@ from .features import PromptFeatures
 if TYPE_CHECKING:
     from .taskmgr import TaskManager
 
+MAX_DEPTH = 3
 MAX_ROUNDS = 16
-TASK_VERSION = 20251127 
+TASK_VERSION = 20251212
 
 CONSOLE_WHITE_HTML = read_text(__respkg__, "console_white.html")
 CONSOLE_CODE_HTML = read_text(__respkg__, "console_code.html")
@@ -63,6 +64,7 @@ class TaskStateError(TaskError):
 class TaskData(BaseModel):
     id: str = Field(default_factory=lambda: uuid.uuid4().hex)
     version: int = Field(default=TASK_VERSION, frozen=True)
+    depth: int = Field(default=0)
     steps: List[StepData] = Field(default_factory=list)
     blocks: CodeBlocks = Field(default_factory=CodeBlocks)
     context: ContextData = Field(default_factory=ContextData)
@@ -110,7 +112,9 @@ class TaskData(BaseModel):
 class Task(Stoppable):
     def __init__(self, manager: TaskManager, data: TaskData | None = None, parent: Task | None = None, inherit_context: bool = False):
         super().__init__()
-        data = data or TaskData()
+        if not data:
+            data = TaskData()
+            data.depth = 1 if not parent else parent.depth + 1
 
         # Phase 1: Initialize basic attributes (no dependencies)
         self.data = data
@@ -169,6 +173,10 @@ class Task(Stoppable):
         # Phase 5: Initialize execution components (depend on task)
         self.mcp = manager.mcp
         self.features = PromptFeatures(self.role.get_features())
+        if self.depth >= MAX_DEPTH:
+            self.log.warning(f"Task depth {self.depth} exceeds maximum of {MAX_DEPTH}")
+            self.features.disable_feature('subtasks')
+
         self.prompts = Prompts(features=self.features)
         self.client_manager = manager.client_manager
         self.runtime = CliPythonRuntime(self)
@@ -207,6 +215,10 @@ class Task(Stoppable):
     def parent(self):
         return self._parent() if self._parent else None
 
+    @property
+    def depth(self) -> int:
+        return self.data.depth
+    
     @property
     def instruction(self):
         return self.steps[0].data.instruction if self.steps else None

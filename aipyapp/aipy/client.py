@@ -166,9 +166,9 @@ class Client:
             return True
 
         model_info = self.manager.get_model_info(model_name)
-        #if not model_info:
-        #    # Default to True if model info is missing, assuming most models support it
-        #    return True
+        if not model_info:
+            # Default to True if model info is missing, assuming most models support it
+            return True
 
         return ModelCapability.FUNCTION_CALLING in model_info.capabilities
 
