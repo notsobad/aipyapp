@@ -21,10 +21,11 @@ EXECUTORS = {executor.name: executor for executor in [
 ]}
 
 class BlockExecutor:
-    def __init__(self):
+    def __init__(self, task_id: str):
+        self.task_id = task_id
         self.executors = {}
         self.runtimes = {}
-        self.log = logger.bind(src='block_executor')
+        self.log = logger.bind(src='block_executor', task_id=task_id)
 
     def _set_runtime(self, lang, runtime):
         if lang not in self.runtimes:

@@ -196,11 +196,12 @@ class ToolCallResult(BaseModel):
 class ToolCallProcessor:
     """工具调用处理器 - 高级接口"""
     
-    def __init__(self):
-        self.log = logger.bind(src='ToolCallProcessor')
+    def __init__(self, task: 'Task'):
+        self.task = task
+        self.log = task.get_logger('ToolCallProcessor')
         self.processed_ids = set()
     
-    def process(self, task: 'Task', tool_calls: List[ToolCall]) -> List[ToolCallResult]:
+    def process(self, tool_calls: List[ToolCall]) -> List[ToolCallResult]:
         """
         处理工具调用列表
         
@@ -251,7 +252,7 @@ class ToolCallProcessor:
                     continue
             
             # 执行工具调用
-            result = self.call_tool(task, tool_call)
+            result = self.call_tool(self.task, tool_call)
             results.append(result)
             
             if name == ToolName.EDIT and result.result.error:
