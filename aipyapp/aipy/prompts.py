@@ -15,48 +15,10 @@ from jinja2 import Environment, FileSystemLoader
 
 from .. import __respath__
 from .toolcalls import ToolCallResult
+from .features import PromptFeatures
 
 if TYPE_CHECKING:
     from .task import Task
-
-class PromptFeatures:
-    """
-    灵活的功能开关管理类，支持任意字符串功能名称
-    """
-    def __init__(self, features: Optional[Dict[str, bool]] = None):
-        self.features = features or {}
-
-    def has(self, feature_name: str) -> bool:
-        """检查功能是否存在且为true"""
-        return self.features.get(feature_name, False)
-
-    def enabled(self, feature_name: str) -> bool:
-        """has的别名"""
-        return self.has(feature_name)
-
-    def get(self, feature_name: str, default: bool = False) -> bool:
-        """获取功能值，支持默认值"""
-        return self.features.get(feature_name, default)
-
-    def set(self, feature_name: str, value: bool):
-        """设置功能值"""
-        self.features[feature_name] = value
-
-    def enable(self, feature_name: str):
-        """设置功能值"""
-        self.features[feature_name] = True
-
-    def disable(self, feature_name: str):
-        """设置功能值为False"""
-        self.features[feature_name] = False
-
-    def update(self, features: Dict[str, bool]):
-        """批量更新功能"""
-        self.features.update(features)
-
-    def to_dict(self) -> Dict[str, bool]:
-        """转换为字典"""
-        return self.features.copy()
 
 # 类级别缓存，避免重复的命令查找
 _command_cache: Dict[str, Optional[str]] = {}
@@ -87,7 +49,7 @@ class Prompts:
     _env_cache: Dict[str, Environment] = {}
     _cache_lock = RLock()
 
-    def __init__(self, template_dir: str = None, features: Optional[Dict[str, bool]] = None):
+    def __init__(self, template_dir: str = None, features: Optional[PromptFeatures] = None):
         if not template_dir:
             template_dir = __respath__ / 'prompts'
         self.template_dir = os.path.abspath(template_dir)
@@ -96,15 +58,19 @@ class Prompts:
         self.env = self._get_cached_env()
 
         # 为每个实例创建独立的 features（避免不同实例间的状态污染）
-        self.features = PromptFeatures(features or {})
+        self.features = features or PromptFeatures()
 
         # 注册实例特定的全局变量
         self._init_instance_globals()
 
+    def has_feature(self, feature_name: str) -> bool:
+        """检查是否启用指定功能"""
+        return self.features.has(feature_name)
+    
     def enable_feature(self, feature_name: str):
         """启用指定功能"""
         self.features.enable(feature_name)
-        
+
     def disable_feature(self, feature_name: str):
         """禁用指定功能"""
         self.features.disable(feature_name)
@@ -228,4 +194,3 @@ class Prompts:
         :return: 渲染后的字符串
         """
         return self.get_prompt('parse_error', errors=errors)
-    

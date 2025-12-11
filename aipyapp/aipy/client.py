@@ -3,7 +3,6 @@
 
 from __future__ import annotations
 from typing import TYPE_CHECKING, List
-from loguru import logger
 
 from .. import __version__
 from ..llm import ModelCapability, AIMessage
@@ -187,7 +186,7 @@ class Client:
         if self.supports_function_calling():
             tools = []
             # Add internal tools
-            tools.extend(get_internal_tools_openai_format())
+            tools.extend(get_internal_tools_openai_format(self.task.features))
 
             # Add MCP tools
             if self.task.mcp:

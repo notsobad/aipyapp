@@ -9,12 +9,12 @@ import uuid
 from enum import Enum
 from typing import Union, List, Dict, Any, Optional, TYPE_CHECKING
 
-from loguru import logger
 from pydantic import BaseModel, model_validator, Field, ValidationError
 from promptabs import SurveyRunner
 
 from .types import Error
 from .blocks import CodeBlock
+from .features import PromptFeatures
 from ..exec import ExecResult, ProcessResult, PythonResult
 
 if TYPE_CHECKING:
@@ -505,15 +505,18 @@ class ToolCallProcessor:
             )
         return tr
 
-def get_internal_tools_openai_format():
+def get_internal_tools_openai_format(features: PromptFeatures) -> List[Dict[str, Any]]:
     """Generate OpenAI tool definitions for internal tools."""
     tools_map = [
         ("AIPY_Exec", ExecToolArgs),
-        ("AIPY_Edit", EditToolArgs),
-        ("AIPY_SubTask", SubTaskArgs),
-        ("AIPY_Survey", SurveyToolArgs),
+        ("AIPY_Edit", EditToolArgs)
     ]
+    if features.has('survey'):
+        tools_map.append(("AIPY_Survey", SurveyToolArgs))
 
+    if features.has('subtask'):
+        tools_map.append(("AIPY_SubTask", SubTaskArgs))
+        
     tools = []
     for name, args_cls in tools_map:
         schema = args_cls.model_json_schema()
