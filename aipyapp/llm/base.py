@@ -70,11 +70,14 @@ class ToolMessage(Message):
 class AIMessage(Message):
     role: Literal[MessageRole.ASSISTANT] = MessageRole.ASSISTANT
     reason: str | None = None
+    finish_reason: str | None = None
     usage: Counter = Field(default_factory=Counter)
     tool_calls: List[Any] | None = None
 
     def dict(self):
         d = {'role': self.role.value, 'content': self.content}
+        if self.finish_reason:
+            d['finish_reason'] = self.finish_reason
         if self.tool_calls:
             d['tool_calls'] = [
                 tc.model_dump() if hasattr(tc, 'model_dump') else tc.dict() if hasattr(tc, 'dict') else tc

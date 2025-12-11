@@ -198,6 +198,7 @@ class ToolCallProcessor:
     
     def __init__(self):
         self.log = logger.bind(src='ToolCallProcessor')
+        self.processed_ids = set()
     
     def process(self, task: 'Task', tool_calls: List[ToolCall]) -> List[ToolCallResult]:
         """
@@ -211,8 +212,25 @@ class ToolCallProcessor:
         """
         results = []
         failed_blocks = set()  # 记录编辑失败的代码块
-        
+
         for tool_call in tool_calls:
+            # Check for duplicate tool call ID
+            if tool_call.id in self.processed_ids:
+                self.log.warning(f"Duplicate tool call ID detected: {tool_call.id}")
+                results.append(ToolCallResult(
+                    id=tool_call.id,
+                    name=tool_call.name,
+                    result=ToolResult(
+                        error=Error.new(
+                            f"Tool call {tool_call.id} has already been executed. "
+                            "Please do not reuse tool call IDs."
+                        )
+                    )
+                ))
+                continue
+
+            self.processed_ids.add(tool_call.id)
+
             name = tool_call.name
             if name == ToolName.EXEC:
                 # 如果这个代码块之前编辑失败，跳过执行
@@ -279,13 +297,19 @@ class ToolCallProcessor:
         """执行 Edit 工具"""
         args = tool_call.arguments
         if not isinstance(args, EditToolArgs):
-            return EditToolResult(block_name="unknown", error=Error.new("Invalid arguments for Edit tool"))
+            return EditToolResult(
+                block_name="unknown",
+                error=Error.new("Invalid arguments for Edit tool")
+            )
 
         block_name = args.name
 
         original_block = task.blocks.get(block_name)
         if not original_block:
-            return EditToolResult(block_name=block_name, error=Error.new("Code block not found"))
+            return EditToolResult(
+                block_name=block_name,
+                error=Error.new("Code block not found")
+            )
         
         old_str = args.old
         new_str = args.new
@@ -293,15 +317,26 @@ class ToolCallProcessor:
 
         # 检查是否找到匹配的字符串
         if old_str not in original_block.code:
-            return EditToolResult(block_name=block_name, error=Error.new(f"No match found for {old_str[:50]}..."))
+            return EditToolResult(
+                block_name=block_name,
+                error=Error.new(f"No match found for {old_str[:50]}...")
+            )
         
         # 检查匹配次数
         match_count = original_block.code.count(old_str)
         if match_count > 1 and not replace_all:
-            return EditToolResult(block_name=block_name, error=Error.new(f"Multiple matches found for {old_str[:50]}...", suggestion="set replace_all: true or provide more specific context"))
+            return EditToolResult(
+                block_name=block_name,
+                error=Error.new(
+                    f"Multiple matches found for {old_str[:50]}...", 
+                    suggestion="set replace_all: true or provide more specific context"
+                )
+            )
         
         # 执行替换生成新代码
-        new_code = original_block.code.replace(old_str, new_str, -1 if replace_all else 1)
+        new_code = original_block.code.replace(
+            old_str, new_str, -1 if replace_all else 1
+        )
         
         # 创建新的代码块（版本号+1）
         new_block = original_block.model_copy(
