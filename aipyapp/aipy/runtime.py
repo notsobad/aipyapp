@@ -31,11 +31,14 @@ class CliPythonRuntime(PythonRuntime):
         super().__init__(envs=task.role.envs, session=task.session)
         self.task = task
         self.gui = task.gui
-        self.display = task.display
         self._auto_install = task.settings.get('auto_install')
         self._auto_getenv = task.settings.get('auto_getenv')
         self.function_manager = FunctionManager()
 
+    @property
+    def display(self):
+        return self.task.display
+    
     def register_plugin(self, plugin: TaskPlugin):
         self.function_manager.register_functions(plugin.get_functions())
 

@@ -15,7 +15,12 @@ logger.remove()
 from .i18n import set_lang, T, get_lang
 from .aipy import CONFIG_DIR, ConfigManager
 
-logger.add(CONFIG_DIR / "aipyapp.log", format="{time:HH:mm:ss} | {level} | {message} | {extra}", level='INFO')
+logger.add(
+    CONFIG_DIR / "aipyapp.log", 
+    format="{time:HH:mm:ss!UTC} | {level} | {message} | {extra}", 
+    level='INFO',
+    filter=lambda record: 'task_id' not in record["extra"]
+)
 
 def parse_args():
     import argparse

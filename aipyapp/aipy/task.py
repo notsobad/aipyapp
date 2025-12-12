@@ -11,6 +11,7 @@ import base64
 import weakref
 from typing import Any, Dict, List, Union, TYPE_CHECKING
 from pathlib import Path
+from functools import wraps
 from importlib.resources import read_text
 
 from pydantic import BaseModel, Field, ValidationError, field_serializer, field_validator
@@ -42,6 +43,13 @@ TASK_VERSION = 20251212
 
 CONSOLE_WHITE_HTML = read_text(__respkg__, "console_white.html")
 CONSOLE_CODE_HTML = read_text(__respkg__, "console_code.html")
+
+def with_task_context(func):
+    @wraps(func)
+    def wrapper(self, *args, **kwargs):
+        with logger.contextualize(task_id=self.task_id):
+            return func(self, *args, **kwargs)
+    return wrapper
 
 class TaskError(Exception):
     """Task 异常"""
@@ -154,7 +162,7 @@ class Task(Stoppable):
             self.session = data.session
         
         # Phase 3: Initialize managers and processors (depend on Phase 2)
-        self.event_bus = TypedEventBus()
+        
         self.context_manager = ContextManager(
             self.message_storage,
             self.context,
@@ -162,13 +170,6 @@ class Task(Stoppable):
             task_id=self.task_id
         )
         self.tool_call_processor = ToolCallProcessor(self)
-        
-        # Phase 4: Initialize display (depends on event_bus)
-        if manager.display_manager:
-            self.display = manager.display_manager.create_display_plugin()
-            self.event_bus.add_listener(self.display)
-        else:
-            self.display = None
         
         # Phase 5: Initialize execution components (depend on task)
         self.mcp = manager.mcp
@@ -195,18 +196,29 @@ class Task(Stoppable):
         # Subtasks list (runtime only, not serialized)
         self.subtasks: List['Task'] = []
     
+    @with_task_context
     def _initialize_plugins(self, manager: TaskManager):
         """Separate method to initialize plugins, improving clarity and testability"""
+        event_bus = TypedEventBus()
         plugins: dict[str, TaskPlugin] = {}
+
+        # Phase 4: Initialize display (depends on event_bus)
+        if manager.display_manager:
+            self.display = manager.display_manager.create_display_plugin()
+            event_bus.add_listener(self.display)
+        else:
+            self.display = None
+
         for plugin_name, plugin_data in self.role.plugins.items():
             plugin = manager.plugin_manager.create_task_plugin(plugin_name, plugin_data)
             if not plugin:
                 self.log.warning(f"Create task plugin {plugin_name} failed")
                 continue
             self.runtime.register_plugin(plugin)
-            self.event_bus.add_listener(plugin)
+            event_bus.add_listener(plugin)
             plugins[plugin_name] = plugin
         self.plugins = plugins
+        self.event_bus = event_bus
 
     @property
     def parent(self):
@@ -228,12 +240,10 @@ class Task(Stoppable):
     
     def create_logger(self):
         task_logger = logger.bind(src='task', task_id=self.task_id)
-        task_logger.remove()
         task_logger.add(
             self.cwd / "task.log", 
             level="INFO",
-            encoding="utf-8",
-            format="{time:YYYY-MM-DD HH:mm:ss} | {level} | {message} | {extra}",
+            format="{time:YYYY-MM-DD HH:mm:ss!UTC} | {level} | {message} | {extra}",
             filter=lambda record: record["extra"].get("task_id") == self.task_id
         )
         return task_logger
@@ -470,6 +480,7 @@ class Task(Stoppable):
                     tokens_remaining=tokens_remaining)
         self.log.info(f"Step compact completed: {cleaned_count} messages cleaned")
 
+    @with_task_context
     def run(self, instruction: str, title: str | None = None, lang: str | None = None) -> Response:
         """
         执行自动处理循环，直到 LLM 不再返回代码消息
