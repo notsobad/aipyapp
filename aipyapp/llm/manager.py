@@ -80,6 +80,10 @@ class ZClient(OpenAIBaseClient):
     BASE_URL = 'https://api.z.ai/api/paas/v4'
     MODEL = 'glm-4.5-flash'
 
+class MistralClient(OpenAIBaseClient):
+    BASE_URL = 'https://api.mistral.ai/v1'
+    MODEL = 'devstral-2512'
+
 CLIENTS = {
     "openai": OpenAIClient,
     "openaiv2": OpenAIClientV2,
@@ -94,7 +98,8 @@ CLIENTS = {
     'doubao': DoubaoClient,
     'kimi': MoonShotClient,
     'bigmodel': BigModelClient,
-    'z': ZClient
+    'z': ZClient,
+    'mistral': MistralClient,
 }
 
 class ClientManager(object):
