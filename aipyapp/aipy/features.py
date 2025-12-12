@@ -7,7 +7,9 @@ class PromptFeatures:
     灵活的功能开关管理类，支持任意字符串功能名称
     """
     def __init__(self, features: Optional[Dict[str, bool]] = None):
-        self.features = features or {}
+        self.features = {}
+        if features:
+            self.features.update(features)
 
     def has(self, feature_name: str) -> bool:
         """检查功能是否存在且为true"""

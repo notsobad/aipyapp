@@ -172,11 +172,11 @@ class Step:
             # 创建新的Round，包含LLM回复
             round = Round(llm_response=response)
 
-            # 处理工具调用
-            round.toolcall_results = self.process(response)
-
             # 始终将round添加到rounds列表中
             self._data.add_round(round)
+
+            # 处理工具调用
+            round.toolcall_results = self.process(response)
 
             # 生成系统反馈消息
             system_feedback = None

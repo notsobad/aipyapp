@@ -9,7 +9,6 @@ import json
 import shutil
 from datetime import datetime
 from typing import List, TYPE_CHECKING, Dict, Optional
-from threading import RLock
 
 from jinja2 import Environment, FileSystemLoader
 
@@ -45,17 +44,19 @@ def check_commands(commands) -> Dict[str, Optional[str]]:
     return result
 
 class Prompts:
-    # 类级别缓存
-    _env_cache: Dict[str, Environment] = {}
-    _cache_lock = RLock()
 
     def __init__(self, template_dir: str = None, features: Optional[PromptFeatures] = None):
         if not template_dir:
             template_dir = __respath__ / 'prompts'
         self.template_dir = os.path.abspath(template_dir)
 
-        # 使用类级别缓存的环境
-        self.env = self._get_cached_env()
+        self.env = Environment(
+                    trim_blocks=True,
+                    lstrip_blocks=True,
+                    loader=FileSystemLoader(self.template_dir),
+                    auto_reload=True,  # 自动检测模板文件变化并清理缓存
+                    #autoescape=select_autoescape(['j2'])
+                )
 
         # 为每个实例创建独立的 features（避免不同实例间的状态污染）
         self.features = features or PromptFeatures()
@@ -74,19 +75,6 @@ class Prompts:
     def disable_feature(self, feature_name: str):
         """禁用指定功能"""
         self.features.disable(feature_name)
-
-    def _get_cached_env(self) -> Environment:
-        """获取或创建缓存的环境"""
-        with self._cache_lock:
-            if self.template_dir not in self._env_cache:
-                self._env_cache[self.template_dir] = Environment(
-                    trim_blocks=True,
-                    lstrip_blocks=True,
-                    loader=FileSystemLoader(self.template_dir),
-                    auto_reload=True,  # 自动检测模板文件变化并清理缓存
-                    #autoescape=select_autoescape(['j2'])
-                )
-            return self._env_cache[self.template_dir]
 
     def _init_instance_globals(self) -> None:
         """注册实例特定的全局变量"""

@@ -169,11 +169,15 @@ class InteractiveConsole():
         else:
             self.console.print(f"[AI] {T('Resuming task')}: {task.task_id}", style="dim color(240)")
             
+        ctrl_c = False
         while True:
             try:
                 user_input = self._input_with_multiline(">>> ", task_mode=True).strip()
                 if len(user_input) < 2: continue
-            except (EOFError, KeyboardInterrupt):
+            except EOFError:
+                break
+            except KeyboardInterrupt:
+                ctrl_c = True
                 break
 
             if user_input in ('/done', 'done'):
@@ -189,7 +193,7 @@ class InteractiveConsole():
                 self.console.print(f"[red]{e}[/red]")
 
         try:
-            task.done()
+            task.done(ctrl_c)
         except Exception as e:
             self.console.print_exception()
         self.console.print(f"[{T('Exit AI mode')}]", style="dim")

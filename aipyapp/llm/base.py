@@ -76,8 +76,8 @@ class AIMessage(Message):
 
     def dict(self):
         d = {'role': self.role.value, 'content': self.content}
-        if self.finish_reason:
-            d['finish_reason'] = self.finish_reason
+        #if self.finish_reason:
+        #    d['finish_reason'] = self.finish_reason # 这会导致Mistral报错
         if self.tool_calls:
             d['tool_calls'] = [
                 tc.model_dump() if hasattr(tc, 'model_dump') else tc.dict() if hasattr(tc, 'dict') else tc

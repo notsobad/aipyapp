@@ -176,7 +176,7 @@ class Task(Stoppable):
         self.features = PromptFeatures(self.role.get_features())
         if self.depth >= MAX_DEPTH:
             self.log.warning(f"Task depth {self.depth} exceeds maximum of {MAX_DEPTH}")
-            self.features.disable('subtasks')
+            self.features.disable('subtask')
 
         self.prompts = Prompts(features=self.features)
         self.client_manager = manager.client_manager
@@ -415,10 +415,14 @@ class Task(Stoppable):
             self.log.exception('Error saving task')
             self.emit('exception', msg='save_task', exception=e)
 
-    def done(self):
+    def done(self, interrupted: bool = False):
         if not self.steps or not self.cwd.exists():
             self.log.warning('Task not started, skipping save')
             return
+
+        if interrupted:
+            for subtask in self.subtasks:
+                subtask.done(interrupted=True)
 
         if not self._saved:
             self.log.warning('Task not saved, trying to save')
