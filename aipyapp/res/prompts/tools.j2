@@ -4,13 +4,17 @@ Parameters:
 #}
 <tools>
 <internal_tools>
-Only the following internal tools are supported in this context.
+Only the following internal tools are supported in this context. Use `OpenAI Function Calling` to invoke them.
 
 <exec_tool>
+{% if features.has('aipy_call') %}
 Execute a code block:
 - `name`: `AIPY_Exec`
 - `arguments`:  
   - `name`: Code block name to execute (string, required)
+{% else %}
+Execute a code block or string of code.
+{% endif %}
 
 Only these code block types (languages) can be executed:
 - `python` (always executable)
@@ -23,7 +27,8 @@ Platform restrictions:
 </exec_tool>
 
 <edit_tool>
-Modify existing code blocks incrementally
+Modify existing code blocks incrementally.
+{% if features.has('aipy_call') %}
 - `name`: `AIPY_Edit`
 - `arguments`:
   - `name`: Code block name to edit (string, required)
@@ -32,6 +37,7 @@ Modify existing code blocks incrementally
   - `replace_all`: Replace all occurrences (boolean, optional, default: false)
     - `false`: Replace only the first occurrence (safer, prevents accidental multiple replacements)
     - `true`: Replace all occurrences (use when you want to replace multiple instances)
+{% endif %}
 
 Benefits of editing vs. rewriting full blocks:
 - More efficient (smaller messages, less tokens)
@@ -46,13 +52,15 @@ Error handling:
 
 {% if features.has('subtask') %}
 <subtask_tool>
-**SubTask Tool: Decomposing Complex Problems**:
+A SubTask is a powerful tool to delegate complex, self-contained parts of your main task. Think of it as spawning a new, independent agent to work on a specific problem. 
+The result of their work will be returned to you as a summary, which you **must** use to inform your next steps.
+
+{% if features.has('aipy_call') %}
 - `name`: `AIPY_SubTask`
 - `arguments`:
   - `instruction`: The instruction/task for the subtask to execute (string, required)
   - `title`: Optional descriptive title for the subtask (string, optional)
-
-A SubTask is a powerful tool to delegate complex, self-contained parts of your main task. Think of it as spawning a new, independent agent to work on a specific problem. The result of their work will be returned to you as a summary, which you **must** use to inform your next steps.
+{% endif %}
 
 **When should you use a SubTask?**
 - **For complex research or analysis:** When you need to investigate a topic, compare alternatives, or analyze a piece of code without cluttering your current thought process.
@@ -129,36 +137,20 @@ There are three methods for parent-subtask communication:
 
 {% if features.has('survey') %}
 <survey_tool>
-**Survey Tool: Collecting User Information through Interactive Surveys**:
+Use a survey when you **must** ask the user for information to complete a task (e.g., to determine requirements, choose an approach, or understand priorities). 
+The survey provides an interactive, user-friendly way to collect structured information.
+
+{% if features.has('aipy_call') %}
 - `name`: `AIPY_Survey`
 - `arguments`:
   - `name`: Survey code block name (string, required)
-
-Use a survey when you **must** ask the user for information to complete a task (e.g., to determine requirements, choose an approach, or understand priorities). The survey provides an interactive, user-friendly way to collect structured information.
+{% endif %}
 
 **How it works:**
 1. Define a JSON survey in a code block (see <survey_guide> for the complete survey guide)
-2. Use a Survey ToolCall to trigger the interactive survey
+2. Call this tool to trigger the interactive survey
 3. You receive a Results object with all answers and optional feedback
 4. Use the answers to provide your recommendation or next steps
-
-**Example:**
-<!-- Block-Start: {"name": "my_survey"} -->
-```json
-{
-  "questions": [
-    {
-      "id": "requirement_type",
-      "title": "Requirement Type",
-      "question": "What type of requirement do you have?",
-      "options": ["Performance", "Cost", "Scalability"]
-    }
-  ]
-}
-```
-<!-- Block-End: {"name": "my_survey"} -->
-
-<!-- ToolCall: {"id": "collect_req", "name": "AIPY_Survey", "arguments": {"name": "my_survey"}} -->
 
 For detailed guidance on when to use surveys, survey structure, and best practices, see <survey_guide>.
 </survey_tool>
