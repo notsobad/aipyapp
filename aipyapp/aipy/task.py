@@ -471,11 +471,12 @@ class Task(Stoppable):
         if not auto_compact_enabled:
             return
         
-        self.log.info("Starting step compact...")
         result = self.steps[-1].compact()
         self.log.info(f"Step compact result: {result}")
         cleaned_count, remaining_messages, tokens_saved, tokens_remaining = result
-        self.log.info(f"Step compact completed, cleaned_count: {cleaned_count}")
+        
+        if cleaned_count == 0:
+            return
         
         self.emit('step_cleanup_completed', 
                     cleaned_messages=cleaned_count,
