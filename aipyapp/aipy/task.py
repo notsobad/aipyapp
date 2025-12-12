@@ -175,7 +175,7 @@ class Task(Stoppable):
         self.features = PromptFeatures(self.role.get_features())
         if self.depth >= MAX_DEPTH:
             self.log.warning(f"Task depth {self.depth} exceeds maximum of {MAX_DEPTH}")
-            self.features.disable_feature('subtasks')
+            self.features.disable('subtasks')
 
         self.prompts = Prompts(features=self.features)
         self.client_manager = manager.client_manager
@@ -187,10 +187,7 @@ class Task(Stoppable):
         # Phase 6: (Cleaners are now initialized in Step class)
         
         # Phase 7: Initialize plugins (depend on runtime and event_bus)
-        if not parent:
-            self._initialize_plugins(manager)
-        else:
-            self.plugins = parent.plugins
+        self._initialize_plugins(manager)
         
         # Phase 8: Initialize steps last (depend on almost everything)
         self.steps: List[Step] = [Step(self, step_data) for step_data in data.steps]

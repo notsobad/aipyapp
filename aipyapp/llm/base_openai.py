@@ -100,7 +100,7 @@ class OpenAIBaseClient(BaseClient):
                 if index not in tool_calls:
                     tool_calls[index] = {
                         'id': tool_call.id,
-                        'type': tool_call.type,
+                        'type': tool_call.type or 'function',
                         'function': {
                             'name': tool_call.function.name,
                             'arguments': tool_call.function.arguments

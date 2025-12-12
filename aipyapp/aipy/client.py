@@ -198,7 +198,7 @@ class Client:
                 kwargs['tools'] = tools
 
         msg = client(
-            [msg.dict() for msg in messages],
+            [m.dict() for m in messages],
             stream_processor=stream_processor,
             extra_headers=self.extra_headers,
             **kwargs
