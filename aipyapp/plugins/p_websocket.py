@@ -174,7 +174,7 @@ class WebSocketPlugin(TaskPlugin):
     Configuration example in role.toml:
     [plugins.websocket]
     enabled = true
-    config = { url = "ws://localhost:8080/ws", client_id = "aipy-client1" }
+    config = { url = "ws://localhost:3000/chat", client_id = "aipy-client1" }
     """
     name = "websocket"
     version = "1.0.0"
@@ -185,12 +185,14 @@ class WebSocketPlugin(TaskPlugin):
             self.logger.warning("WebSocket plugin disabled: websocket-client not installed")
             return
 
-        url = self.config.get('url', 'ws://localhost:8080/ws')
+        url = self.config.get('url', 'ws://localhost:3000/chat')
         client_id = self.config.get('client_id', f'aipy-{int(time.time())}')
         
         self.manager = WebSocketManager()
         self.manager.configure(url, client_id)
         self.manager.start()
+        
+        self._stream_buffer = []  # Buffer for streaming content
         
         self.logger.info("WebSocket plugin initialized")
 
@@ -231,7 +233,11 @@ class WebSocketPlugin(TaskPlugin):
         
         # 尝试提取文本内容
         text_content = ""
-        if response and hasattr(response, 'message') and response.message:
+        # 优先使用流式缓冲区的完整内容
+        if hasattr(self, '_stream_buffer') and self._stream_buffer:
+            text_content = "".join(self._stream_buffer)
+            self._stream_buffer = [] # 清空缓冲区
+        elif response and hasattr(response, 'message') and response.message:
             text_content = getattr(response.message, 'content', '')
         elif response:
             text_content = str(response)
@@ -249,9 +255,20 @@ class WebSocketPlugin(TaskPlugin):
         if text_content:
              self.manager.send(text_content)
 
+    def on_stream_started(self, event):
+        """Stream started event"""
+        self._stream_buffer = []
+
     def on_stream(self, event):
         """Streaming content event"""
-        # User requested to disable streaming and send full text only
+        if event.lines:
+            content = "\n".join(event.lines) + "\n"
+            if not hasattr(self, '_stream_buffer'):
+                self._stream_buffer = []
+            self._stream_buffer.append(content)
+
+    def on_stream_completed(self, event):
+        """Stream completed event"""
         pass
 
     def on_runtime_message(self, event):
