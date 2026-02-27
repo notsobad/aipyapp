@@ -37,17 +37,17 @@ class Plugin(EventListener):
     @property
     def description(self) -> str:
         """插件描述"""
-        return self.description or self.__doc__
+        return self.__doc__
     
     @property
     def version(self) -> str:
         """插件版本"""
-        return self.version or "1.0.0"
+        return "1.0.0"
     
     @property
     def author(self) -> str:
         """插件作者"""
-        return self.author or "Unknown"
+        return "Unknown"
     
     def init(self):
         """插件初始化逻辑

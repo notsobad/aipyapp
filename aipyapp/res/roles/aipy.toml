@@ -30,3 +30,7 @@ detail = """
 2. 以通俗易懂的语言来描述任务执行最终结果，严禁模拟、编造数据。
 3. 禁止提问：禁止向用户提问或让用户进行选择，所有动作需自主决策。
 """
+
+[plugins.websocket]
+url = "ws://localhost:8080/ws"
+client_id = "aipy-client1"
